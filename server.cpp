@@ -17,6 +17,11 @@ extern "C" {
 #include <cerrno>
 #include <algorithm> 		// std::max
 #include <cstdlib> 		// exit()
+#include <fstream> 		// std::ifstream
+#include <string> 		// std::string
+#include <map> 			// std::map
+#include <iostream> 		// cout
+#include <ostream> 		// <<
 
 #define SOCKET_ERR(err,s) if(err<0) {perror(s);exit(1);}
 
@@ -27,8 +32,14 @@ extern "C" {
 #define CRLFILE "crl.pem"
 #define DH_BITS 1024
 
+using std::string;
+using std::ifstream;
+using std::map;
+using std::cout;
+
 /* These are global */
 gnutls_certificate_credentials_t x509_cred;
+map<string,string> table;
 
 static gnutls_dh_params_t dh_params;
 
@@ -98,14 +109,19 @@ void udpreply(int &sd){
 
 }
 
-void tcpreply(int sd, struct sockaddr_in6 sa_cli, gnutls_session_t session){
+void tcpreply(int sd, struct sockaddr_in6 *sa_cli, gnutls_session_t session){
+
   int ret;
   unsigned int status;
   char buffer[512];
+  int exit_status = 0;
+  char dn[128];
 
-  printf ("- connection from %s, port %d\n",
-	  inet_ntop (AF_INET6, &sa_cli.sin6_addr, buffer,
-		     sizeof (buffer)), ntohs (sa_cli.sin6_port));
+#define DIE(s){ exit_status = s; goto tcpreply_die; }
+
+  printf ("- TCP connection from %s, port %d\n",
+	  inet_ntop (AF_INET6, &(sa_cli->sin6_addr), buffer,
+		     sizeof (buffer)), ntohs (sa_cli->sin6_port));
 
   
   gnutls_transport_set_ptr (session, reinterpret_cast<gnutls_transport_ptr_t> (sd));
@@ -118,47 +134,29 @@ void tcpreply(int sd, struct sockaddr_in6 sa_cli, gnutls_session_t session){
       gnutls_deinit (session);
       fprintf (stderr, "*** Handshake has failed (%s)\n\n",
 	       gnutls_strerror (ret));
-      exit(1);
+      DIE(1);
     }
   printf ("- Handshake was completed\n");
 
   //time to validate
 
-    ret = gnutls_certificate_verify_peers2 (session, &status);
-
-  if (ret < 0)
-    {
-      printf ("Verify failed\n");
-      exit(1);
-    }
-
-  if (status & GNUTLS_CERT_INVALID)
-    printf ("The certificate is not trusted.\n");
-
-  if (status & GNUTLS_CERT_SIGNER_NOT_FOUND)
-    printf ("The certificate hasn't got a known issuer.\n");
-
-  if (status & GNUTLS_CERT_REVOKED)
-    printf ("The certificate has been revoked.\n");
-
   if (gnutls_certificate_type_get (session) != GNUTLS_CRT_X509){
     printf("Recived certificate not X.509\n");
-    exit(1);
+    DIE(1);
   }
   {
     const gnutls_datum_t *cert_list;
     unsigned int cert_list_size = 0;
     gnutls_x509_crt_t cert;
     size_t size;
-    char dn[128];
     
     cert_list = gnutls_certificate_get_peers (session, &cert_list_size);
     
     printf ("Peer provided %d certificates.\n", cert_list_size);
     
     if (cert_list_size == 0){
-      printf("No certificates recived\n"); //should never happen because verify_peers2 should fail if so
-      exit(1);
+      printf("No certificates recived\n");
+      DIE(1);
     }
     
     gnutls_x509_crt_init (&cert);
@@ -171,24 +169,86 @@ void tcpreply(int sd, struct sockaddr_in6 sa_cli, gnutls_session_t session){
     
     printf ("DN: %s\n", dn);
   }
-  
-  ret = gnutls_record_recv (session, buffer, sizeof(buffer));
 
-  if (ret > 0)
-    {
-      write(1, buffer, ret);
-    }
-  else {
-    fprintf (stderr, "\n*** Received corrupted "
-	     "data(%d). Closing the connection.\n\n", ret);
+  ret = gnutls_certificate_verify_peers2 (session, &status);
+
+  if (ret < 0){
+      printf ("Verify failed\n");
+      DIE(1);
   }
   
+  if (status & (GNUTLS_CERT_INVALID | GNUTLS_CERT_SIGNER_NOT_FOUND | GNUTLS_CERT_REVOKED)) {
+    if (status & GNUTLS_CERT_INVALID) {
+      printf ("The certificate is not trusted.\n");
+    }
+    
+    if (status & GNUTLS_CERT_SIGNER_NOT_FOUND){
+      printf ("The certificate hasn't got a known issuer.\n");
+    }
+    
+    if (status & GNUTLS_CERT_REVOKED){
+      printf ("The certificate has been revoked.\n");
+    }
+    DIE(1);
+  }  
+
+  if (table.find(dn) != table.end()){
+    gnutls_record_send (session, table[dn].c_str(), table[dn].size());
+    printf("Password sent to client\n");
+  }
+  else {
+    printf("dn not in list of allowed clients\n");
+  }
+
+  
+ tcpreply_die:
   gnutls_bye (session, GNUTLS_SHUT_WR);
   close(sd);
   gnutls_deinit (session);
   gnutls_certificate_free_credentials (x509_cred);
   gnutls_global_deinit ();
+  exit(exit_status);
 }
+
+
+void badconfigparser(string file){
+
+  string dn;
+  string pw;
+  string pwfile;
+  ifstream infile (file.c_str());
+
+  while(infile){
+    getline(infile, dn, '\n');
+    if(not infile){
+      break;
+    }
+    getline(infile, pw, '\n');
+    if(not infile){
+      break;
+    }
+    getline(infile, pwfile, '\n');
+    if(not infile){
+      break;
+    }
+    if(pw.empty()){
+      ifstream pwf(pwfile.c_str());
+      std::string tmp;
+
+      while(true){
+	getline(pwf,tmp);
+	if (not pwf){
+	  break;
+	}
+	pw = pw + tmp + '\n';
+      }
+      
+    }
+    table[dn]=pw;
+  }
+  infile.close();
+}
+      
 
 
 int main (){
@@ -203,9 +263,11 @@ int main (){
 
   fd_set rfds_orig;
 
+  badconfigparser(string("clients.conf"));
+
   session = initialize_tls_session ();
 
-  //UDP socket creation
+  //UDP IPv6 socket creation
   udp_listen_sd = socket (PF_INET6, SOCK_DGRAM, 0);
   SOCKET_ERR (udp_listen_sd, "socket");
 
@@ -214,7 +276,7 @@ int main (){
   sa_serv.sin6_addr = in6addr_any; //XXX only listen to link local?
   sa_serv.sin6_port = htons (PORT);	/* Server Port number */
 
-  ret = setsockopt (udp_listen_sd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof (int));
+  ret = setsockopt (udp_listen_sd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof (optval));
   SOCKET_ERR(ret,"setsockopt reuseaddr");
 
   ret = setsockopt(udp_listen_sd, SOL_SOCKET, SO_BINDTODEVICE, "eth0", 5);
@@ -233,7 +295,7 @@ int main (){
   //UDP socket creation done
 
 
-  //TCP socket creation
+  //TCP IPv6 socket creation
 
   tcp_listen_sd = socket(PF_INET6, SOCK_STREAM, 0);
   SOCKET_ERR(tcp_listen_sd,"socket");
@@ -241,7 +303,7 @@ int main (){
   setsockopt(tcp_listen_sd, SOL_SOCKET, SO_BINDTODEVICE, "eth0", 5);
   SOCKET_ERR(ret,"setsockopt bindtodevice");
   
-  ret = setsockopt (tcp_listen_sd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof (int));
+  ret = setsockopt (tcp_listen_sd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof (optval));
   SOCKET_ERR(ret,"setsockopt reuseaddr");
 
   err = bind (tcp_listen_sd, reinterpret_cast<const sockaddr *> (& sa_serv),
@@ -251,7 +313,7 @@ int main (){
   err = listen (tcp_listen_sd, 1024);
   SOCKET_ERR (err, "listen");
 
-  //TCP sockets creation done
+  //TCP IPv6 sockets creation done
 
   FD_ZERO(&rfds_orig);
   FD_SET(udp_listen_sd, &rfds_orig);
@@ -270,16 +332,14 @@ int main (){
     }
 
     if (FD_ISSET(tcp_listen_sd, &rfds)){
-
       client_len = sizeof(sa_cli);
-
       int sd = accept (tcp_listen_sd,
 	       reinterpret_cast<struct sockaddr *> (& sa_cli),
 	       &client_len);
       SOCKET_ERR(sd,"accept"); //xxx not dieing when just connection abort      
       switch(fork()){
 	case 0:
-	  tcpreply(sd, sa_cli, session);
+	  tcpreply(sd, &sa_cli, session);
 	  return 0;
 	  break;
       case -1:
@@ -293,7 +353,7 @@ int main (){
       }
     }
   }
-
+  
   close(tcp_listen_sd);
   close(udp_listen_sd);
   return 0;
