@@ -44,7 +44,7 @@ initgnutls(){
 
 int main (){
   int sd, ret;
-  char buffer[512];
+  char buffer[4096];
   struct sockaddr_in6 to;
   struct sockaddr_in6 from;
   gnutls_session_t session;
@@ -98,9 +98,6 @@ int main (){
     }
   }
 
-  write(1,buffer,ret);
-  write(1,"\n",1);
-
   //shutdown procedure
   close(sd);
 
@@ -131,10 +128,11 @@ int main (){
       gnutls_perror (ret);
       return 1;
     }
-  printf ("- Handshake was completed\n");
 
-  //message to be seent
-  gnutls_record_send (session, "The secret message is \"squeamish ossifrage\"\n", 44);
+  //retrive password
+  ret = gnutls_record_recv (session, buffer, sizeof(buffer));
+
+  write(1,buffer,ret);
 
   //shutdown procedure
   gnutls_bye (session, GNUTLS_SHUT_RDWR);

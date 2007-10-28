@@ -1,4 +1,4 @@
-CXXFLAGS=-Wall -g
+CXXFLAGS=-Wall -W -g
 LDFLAGS=-lgnutls
 
 all: client server
