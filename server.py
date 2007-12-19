@@ -10,6 +10,7 @@ import gnutls.crypto
 import gnutls.connection
 import gnutls.errors
 import ConfigParser
+import sys
 
 class Client(object):
     def __init__(self, name=None, dn=None, password=None,
@@ -26,7 +27,7 @@ class Client(object):
             # raise RuntimeError XXX
             self.password = "gazonk"
         self.fqdn = fqdn
-        # self.created = ...
+        self.created = datetime.datetime.now()
         self.last_seen = None
         if timeout is None:
             timeout = self.server.options.timeout
@@ -34,6 +35,7 @@ class Client(object):
         if interval == -1:
             interval = self.server.options.interval
         self.interval = interval
+        self.next_check = datetime.datetime.now()
 
 def server_bind(self):
     if self.options.interface:
@@ -120,6 +122,39 @@ in6addr_any = "::"
 
 cred = None
 
+def string_to_delta(interval):
+    """Parse a string and return a datetime.timedelta
+
+    >>> string_to_delta('7d')
+    datetime.timedelta(7)
+    >>> string_to_delta('60s')
+    datetime.timedelta(0, 60)
+    >>> string_to_delta('60m')
+    datetime.timedelta(0, 3600)
+    >>> string_to_delta('24h')
+    datetime.timedelta(1)
+    >>> string_to_delta(u'1w')
+    datetime.timedelta(7)
+    """
+    try:
+        suffix=unicode(interval[-1])
+        value=int(interval[:-1])
+        if suffix == u"d":
+            delta = datetime.timedelta(value)
+        elif suffix == u"s":
+            delta = datetime.timedelta(0, value)
+        elif suffix == u"m":
+            delta = datetime.timedelta(0, 0, 0, 0, value)
+        elif suffix == u"h":
+            delta = datetime.timedelta(0, 0, 0, 0, 0, value)
+        elif suffix == u"w":
+            delta = datetime.timedelta(0, 0, 0, 0, 0, 0, value)
+        else:
+            raise ValueError
+    except (ValueError, IndexError):
+        raise ValueError
+    return delta
+
 def main():
     parser = OptionParser()
     parser.add_option("-i", "--interface", type="string",
@@ -144,27 +179,28 @@ def main():
     parser.add_option("-t", "--timeout", type="string", # Parsed later
                       default="15m",
                       help="Amount of downtime allowed for clients")
+    parser.add_option("--interval", type="string", # Parsed later
+                      default="5m",
+                      help="How often to check that a client is up")
+    parser.add_option("--check", action="store_true", default=False,
+                      help="Run self-test")
     (options, args) = parser.parse_args()
+
+    if options.check:
+        import doctest
+        doctest.testmod()
+        sys.exit()
     
-    # Parse the time argument
+    # Parse the time arguments
     try:
-        suffix=options.timeout[-1]
-        value=int(options.timeout[:-1])
-        if suffix == "d":
-            options.timeout = datetime.timedelta(value)
-        elif suffix == "s":
-            options.timeout = datetime.timedelta(0, value)
-        elif suffix == "m":
-            options.timeout = datetime.timedelta(0, 0, 0, 0, value)
-        elif suffix == "h":
-            options.timeout = datetime.timedelta(0, 0, 0, 0, 0, value)
-        elif suffix == "w":
-            options.timeout = datetime.timedelta(0, 0, 0, 0, 0, 0,
-                                                 value)
-        else:
-            raise ValueError
-    except (ValueError, IndexError):
+        options.timeout = string_to_delta(options.timeout)
+    except ValueError:
         parser.error("option --timeout: Unparseable time")
+    
+    try:
+        options.interval = string_to_delta(options.interval)
+    except ValueError:
+        parser.error("option --interval: Unparseable time")
     
     cert = gnutls.crypto.X509Certificate(open(options.cert).read())
     key = gnutls.crypto.X509PrivateKey(open(options.key).read())
