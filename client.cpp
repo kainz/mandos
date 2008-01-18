@@ -21,9 +21,13 @@ extern "C" {
 
 #define SOCKET_ERR(err,s) if(err<0) {perror(s); status = 1; goto quit;}
 #define PORT 49001
-#define CERTFILE "/conf/conf.d/cryptkeyreq/client-cert.pem"
-#define KEYFILE "/conf/conf.d/cryptkeyreq/client-key.pem"
-#define CAFILE "/conf/conf.d/cryptkeyreq/ca.pem"
+
+#ifndef CERT_ROOT
+#define CERT_ROOT "/conf/conf.d/cryptkeyreq/"
+#endif
+#define CERTFILE CERT_ROOT "client-cert.pem"
+#define KEYFILE CERT_ROOT "client-key.pem"
+#define CAFILE CERT_ROOT "ca.pem"
 
 gnutls_certificate_credentials_t x509_cred;
 
