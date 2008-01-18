@@ -12,10 +12,11 @@ import gnutls.errors
 import ConfigParser
 import sys
 
+
 class Client(object):
-    def __init__(self, name=None, dn=None, password=None,
-                 passfile=None, fqdn=None, timeout=None,
-                 interval=-1):
+    def __init__(self, name=None, options=None, dn=None,
+                 password=None, passfile=None, fqdn=None,
+                 timeout=None, interval=-1):
         self.name = name
         self.dn = dn
         if password:
@@ -30,42 +31,49 @@ class Client(object):
         self.created = datetime.datetime.now()
         self.last_seen = None
         if timeout is None:
-            timeout = self.server.options.timeout
+            timeout = options.timeout
         self.timeout = timeout
         if interval == -1:
-            interval = self.server.options.interval
+            interval = options.interval
         self.interval = interval
         self.next_check = datetime.datetime.now()
 
-def server_bind(self):
-    if self.options.interface:
-        if not hasattr(socket, "SO_BINDTODEVICE"):
-            # From /usr/include/asm-i486/socket.h
-            socket.SO_BINDTODEVICE = 25
-        try:
-            self.socket.setsockopt(socket.SOL_SOCKET,
-                                   socket.SO_BINDTODEVICE,
-                                   self.options.interface)
-        except socket.error, error:
-            if error[0] == errno.EPERM:
-                print "Warning: Denied permission to bind to interface", \
-                      self.options.interface
-            else:
-                raise error
-    return super(type(self), self).server_bind()
 
-
-def init_with_options(self, *args, **kwargs):
-    if "options" in kwargs:
-        self.options = kwargs["options"]
-        del kwargs["options"]
-    if "clients" in kwargs:
-        self.clients = kwargs["clients"]
-        del kwargs["clients"]
-    if "credentials" in kwargs:
-        self.credentials = kwargs["credentials"]
-        del kwargs["credentials"]
-    return super(type(self), self).__init__(*args, **kwargs)
+class server_metaclass(type):
+    "Common behavior for the UDP and TCP server classes"
+    def __new__(cls, name, bases, attrs):
+        attrs["address_family"] = socket.AF_INET6
+        attrs["allow_reuse_address"] = True
+        def server_bind(self):
+            if self.options.interface:
+                if not hasattr(socket, "SO_BINDTODEVICE"):
+                    # From /usr/include/asm-i486/socket.h
+                    socket.SO_BINDTODEVICE = 25
+                try:
+                    self.socket.setsockopt(socket.SOL_SOCKET,
+                                           socket.SO_BINDTODEVICE,
+                                           self.options.interface)
+                except socket.error, error:
+                    if error[0] == errno.EPERM:
+                        print "Warning: No permission to bind to interface", \
+                              self.options.interface
+                    else:
+                        raise error
+            return super(type(self), self).server_bind()
+        attrs["server_bind"] = server_bind
+        def init(self, *args, **kwargs):
+            if "options" in kwargs:
+                self.options = kwargs["options"]
+                del kwargs["options"]
+            if "clients" in kwargs:
+                self.clients = kwargs["clients"]
+                del kwargs["clients"]
+            if "credentials" in kwargs:
+                self.credentials = kwargs["credentials"]
+                del kwargs["credentials"]
+            return super(type(self), self).__init__(*args, **kwargs)
+        attrs["__init__"] = init
+        return type.__new__(cls, name, bases, attrs)
 
 
 class udp_handler(SocketServer.DatagramRequestHandler, object):
@@ -75,10 +83,7 @@ class udp_handler(SocketServer.DatagramRequestHandler, object):
 
 
 class IPv6_UDPServer(SocketServer.UDPServer, object):
-    __init__ = init_with_options
-    address_family = socket.AF_INET6
-    allow_reuse_address = True
-    server_bind = server_bind
+    __metaclass__ = server_metaclass
     def verify_request(self, request, client_address):
         print "UDP request came"
         return request[0] == "Marco"
@@ -110,12 +115,10 @@ class tcp_handler(SocketServer.BaseRequestHandler, object):
             # Log maybe? XXX
         session.bye()
 
+
 class IPv6_TCPServer(SocketServer.ForkingTCPServer, object):
-    __init__ = init_with_options
-    address_family = socket.AF_INET6
-    allow_reuse_address = True
+    __metaclass__ = server_metaclass
     request_queue_size = 1024
-    server_bind = server_bind
 
 
 in6addr_any = "::"
@@ -212,7 +215,7 @@ def main():
     defaults = {}
     client_config_object = ConfigParser.SafeConfigParser(defaults)
     client_config_object.read("mandos-clients.conf")
-    clients = [Client(name=section,
+    clients = [Client(name=section, options=options,
                       **(dict(client_config_object.items(section))))
                for section in client_config_object.sections()]
     
