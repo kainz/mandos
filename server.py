@@ -123,8 +123,6 @@ class IPv6_TCPServer(SocketServer.ForkingTCPServer, object):
 
 in6addr_any = "::"
 
-cred = None
-
 def string_to_delta(interval):
     """Parse a string and return a datetime.timedelta
 
@@ -157,6 +155,7 @@ def string_to_delta(interval):
     except (ValueError, IndexError):
         raise ValueError
     return delta
+
 
 def main():
     parser = OptionParser()
