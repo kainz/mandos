@@ -11,7 +11,9 @@ import gnutls.connection
 import gnutls.errors
 import ConfigParser
 import sys
-
+import re
+import os
+import signal
 
 class Client(object):
     def __init__(self, name=None, options=None, dn=None,
@@ -27,16 +29,65 @@ class Client(object):
             print "No Password or Passfile in client config file"
             # raise RuntimeError XXX
             self.password = "gazonk"
-        self.fqdn = fqdn
+        self.fqdn = fqdn                # string
         self.created = datetime.datetime.now()
-        self.last_seen = None
+        self.last_seen = None           # datetime.datetime()
         if timeout is None:
             timeout = options.timeout
-        self.timeout = timeout
+        self.timeout = timeout          # datetime.timedelta()
         if interval == -1:
             interval = options.interval
-        self.interval = interval
-        self.next_check = datetime.datetime.now()
+        self.interval = interval        # datetime.timedelta()
+        self.next_check = datetime.datetime.now() # datetime.datetime()
+        self.checker = None             # or a subprocess.Popen()
+    def check_action(self, now=None):
+        """The checker said something and might have completed.
+        Check if is has, and take appropriate actions."""
+        if self.checker.poll() is None:
+            # False alarm, no result yet
+            #self.checker.read()
+            return
+        if now is None:
+            now = datetime.datetime.now()
+        if self.checker.returncode == 0:
+            self.last_seen = now
+        while self.next_check <= now:
+            self.next_check += self.interval
+    handle_request = check_action
+    def start_checker(self):
+        self.stop_checker()
+        try:
+            self.checker = subprocess.Popen("sleep 1; fping -q -- %s"
+                                            % re.escape(self.fqdn),
+                                            stdout=subprocess.PIPE,
+                                            close_fds=True,
+                                            shell=True, cwd="/")
+        except subprocess.OSError, e:
+            print "Failed to start subprocess:", e
+    def stop_checker(self):
+        if self.checker is None:
+            return
+        os.kill(self.checker.pid, signal.SIGTERM)
+        if self.checker.poll() is None:
+            os.kill(self.checker.pid, signal.SIGKILL)
+        self.checker = None
+    __del__ = stop_checker
+    def fileno(self):
+        if self.checker is None:
+            return None
+        return self.checker.stdout.fileno()
+    def next_stop(self):
+        """The time when something must be done about this client"""
+        return min(self.last_seen + self.timeout, self.next_check)
+    def still_valid(self, now=None):
+        """Has this client's timeout not passed?"""
+        if now is None:
+            now = datetime.datetime.now()
+        return now < (self.last_seen + timeout)
+    def it_is_time_to_check(self, now=None):
+        if now is None:
+            now = datetime.datetime.now()
+        return self.next_check <= now
 
 
 class server_metaclass(type):
@@ -229,10 +280,20 @@ def main():
                                 credentials=cred)
     
     while True:
-        in_, out, err = select.select((udp_server,
-                                       tcp_server), (), ())
-        for server in in_:
-            server.handle_request()
+        try:
+            input, out, err = select.select((udp_server,
+                                             tcp_server), (), ())
+            if not input:
+                pass
+            else:
+                for obj in input:
+                    obj.handle_request()
+        except KeyboardInterrupt:
+            break
+    
+    # Cleanup here
+    for client in clients:
+        client.stop_checker()
 
 
 if __name__ == "__main__":

@@ -66,7 +66,11 @@ int main (){
 
   struct termios t_old, t_new;
   int status = 0;
-
+  
+  if (tcgetattr (STDIN_FILENO, &t_old) != 0){
+    return 1;
+  }
+  
   session = initgnutls ();
 
 #ifdef DEBUG
@@ -110,11 +114,7 @@ int main (){
   FD_ZERO(&rfds_orig);
   FD_SET(udp_sd, &rfds_orig);
   FD_SET(STDIN_FILENO, &rfds_orig);
-
-
-  if (tcgetattr (STDIN_FILENO, &t_old) != 0){
-    return 1;
-  }
+  
   t_new = t_old;
   t_new.c_lflag &= ~ECHO;
   if (tcsetattr (STDIN_FILENO, TCSAFLUSH, &t_new) != 0){
