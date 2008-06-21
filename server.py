@@ -1,5 +1,7 @@
 #!/usr/bin/python
 
+from __future__ import division
+
 import SocketServer
 import socket
 import select
@@ -14,6 +16,8 @@ import sys
 import re
 import os
 import signal
+from sets import Set
+import subprocess
 
 class Client(object):
     def __init__(self, name=None, options=None, dn=None,
@@ -37,27 +41,34 @@ class Client(object):
         self.timeout = timeout          # datetime.timedelta()
         if interval == -1:
             interval = options.interval
+        else:
+            interval = string_to_delta(interval)
         self.interval = interval        # datetime.timedelta()
         self.next_check = datetime.datetime.now() # datetime.datetime()
+        # Note: next_check may be in the past if checker is not None
         self.checker = None             # or a subprocess.Popen()
-    def check_action(self, now=None):
+    def check_action(self):
         """The checker said something and might have completed.
         Check if is has, and take appropriate actions."""
         if self.checker.poll() is None:
             # False alarm, no result yet
             #self.checker.read()
+            #print "Checker for %(name)s said nothing?" % vars(self)
             return
-        if now is None:
-            now = datetime.datetime.now()
+        now = datetime.datetime.now()
         if self.checker.returncode == 0:
+            print "Checker for %(name)s succeeded" % vars(self)
             self.last_seen = now
+        else:
+            print "Checker for %(name)s failed" % vars(self)
         while self.next_check <= now:
             self.next_check += self.interval
+        self.checker = None
     handle_request = check_action
     def start_checker(self):
         self.stop_checker()
         try:
-            self.checker = subprocess.Popen("sleep 1; fping -q -- %s"
+            self.checker = subprocess.Popen("sleep 10; fping -q -- %s"
                                             % re.escape(self.fqdn),
                                             stdout=subprocess.PIPE,
                                             close_fds=True,
@@ -77,13 +88,25 @@ class Client(object):
             return None
         return self.checker.stdout.fileno()
     def next_stop(self):
-        """The time when something must be done about this client"""
-        return min(self.last_seen + self.timeout, self.next_check)
+        """The time when something must be done about this client
+        May be in the past."""
+        if self.last_seen is None:
+            # This client has never been seen
+            next_timeout = self.created + self.timeout
+        else:
+            next_timeout = self.last_seen + self.timeout
+        if self.checker is None:
+            return min(next_timeout, self.next_check)
+        else:
+            return next_timeout
     def still_valid(self, now=None):
         """Has this client's timeout not passed?"""
         if now is None:
             now = datetime.datetime.now()
-        return now < (self.last_seen + timeout)
+        if self.last_seen is None:
+            return now < (self.created + self.timeout)
+        else:
+            return now < (self.last_seen + self.timeout)
     def it_is_time_to_check(self, now=None):
         if now is None:
             now = datetime.datetime.now()
@@ -158,10 +181,11 @@ class tcp_handler(SocketServer.BaseRequestHandler, object):
             session.bye()
             return
         try:
-            session.send(dict((client.dn, client.password)
-                              for client in self.server.clients)
-                         [session.peer_certificate.subject])
-        except KeyError:
+            session.send([client.password
+                          for client in self.server.clients
+                          if (client.dn ==
+                              session.peer_certificate.subject)][0])
+        except IndexError:
             session.send("gazonk")
             # Log maybe? XXX
         session.bye()
@@ -169,10 +193,7 @@ class tcp_handler(SocketServer.BaseRequestHandler, object):
 
 class IPv6_TCPServer(SocketServer.ForkingTCPServer, object):
     __metaclass__ = server_metaclass
-    request_queue_size = 1024
 
-
-in6addr_any = "::"
 
 def string_to_delta(interval):
     """Parse a string and return a datetime.timedelta
@@ -265,10 +286,12 @@ def main():
     defaults = {}
     client_config_object = ConfigParser.SafeConfigParser(defaults)
     client_config_object.read("mandos-clients.conf")
-    clients = [Client(name=section, options=options,
-                      **(dict(client_config_object.items(section))))
-               for section in client_config_object.sections()]
+    clients = Set(Client(name=section, options=options,
+                         **(dict(client_config_object\
+                                 .items(section))))
+                  for section in client_config_object.sections())
     
+    in6addr_any = "::"
     udp_server = IPv6_UDPServer((in6addr_any, options.port),
                                 udp_handler,
                                 options=options)
@@ -280,14 +303,45 @@ def main():
                                 credentials=cred)
     
     while True:
+        if not clients:
+            break
         try:
-            input, out, err = select.select((udp_server,
-                                             tcp_server), (), ())
-            if not input:
-                pass
-            else:
+            next_stop = min(client.next_stop() for client in clients)
+            now = datetime.datetime.now()
+            if next_stop > now:
+                delay = next_stop - now
+                delay_seconds = (delay.days * 24 * 60 * 60
+                                 + delay.seconds
+                                 + delay.microseconds / 1000000)
+                clients_with_checkers = tuple(client for client in
+                                              clients
+                                              if client.checker
+                                              is not None)
+                input_checks = (udp_server, tcp_server) \
+                               + clients_with_checkers
+                print "Waiting for network",
+                if clients_with_checkers:
+                    print "and checkers for:",
+                    for client in clients_with_checkers:
+                        print client.name,
+                print
+                input, out, err = select.select(input_checks, (), (),
+                                                delay_seconds)
                 for obj in input:
                     obj.handle_request()
+            # start new checkers
+            for client in clients:
+                if client.it_is_time_to_check(now=now) and \
+                       client.checker is None:
+                    print "Starting checker for client %(name)s" \
+                          % vars(client)
+                    client.start_checker()
+            # delete timed-out clients
+            for client in clients.copy():
+                if not client.still_valid(now=now):
+                    # log xxx
+                    print "Removing client %(name)s" % vars(client)
+                    clients.remove(client)
         except KeyboardInterrupt:
             break
     
