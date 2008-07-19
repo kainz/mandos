@@ -11,6 +11,9 @@ import errno
 import gnutls.crypto
 import gnutls.connection
 import gnutls.errors
+import gnutls.library.functions
+import gnutls.library.constants
+import gnutls.library.types
 import ConfigParser
 import sys
 import re
@@ -23,12 +26,13 @@ import dbus
 import gobject
 import avahi
 from dbus.mainloop.glib import DBusGMainLoop
+import ctypes
 
-# This variable is used to optionally bind to a specified
-# interface.
+# This variable is used to optionally bind to a specified interface.
+# It is a global variable to fit in with the other variables from the
+# Avahi server example code.
 serviceInterface = avahi.IF_UNSPEC
-# It is a global variable to fit in with the rest of the
-# variables from the Avahi server example code:
+# From the Avahi server example code:
 serviceName = "Mandos"
 serviceType = "_mandos._tcp" # http://www.dns-sd.org/ServiceTypes.html
 servicePort = None                      # Not known at startup
@@ -44,15 +48,16 @@ rename_count = 12       # Counter so we only rename after collisions a
 class Client(object):
     """A representation of a client host served by this server.
     Attributes:
-    password:  string
-    fqdn:      string, FQDN (used by the checker)
+    name:      string; from the config file, used in log messages
+    fingerprint: string (40 or 32 hexadecimal digits); used to
+                 uniquely identify the client
+    secret:    bytestring; sent verbatim (over TLS) to client
+    fqdn:      string (FQDN); available for use by the checker command
     created:   datetime.datetime()
     last_seen: datetime.datetime() or None if not yet seen
     timeout:   datetime.timedelta(); How long from last_seen until
                                      this client is invalid
     interval:  datetime.timedelta(); How often to start a new checker
-    timeout_milliseconds: Used by gobject.timeout_add()
-    interval_milliseconds: - '' -
     stop_hook: If set, called by stop() as stop_hook(self)
     checker:   subprocess.Popen(); a running checker process used
                                    to see if the client lives.
@@ -60,18 +65,55 @@ class Client(object):
     checker_initiator_tag: a gobject event source tag, or None
     stop_initiator_tag:    - '' -
     checker_callback_tag:  - '' -
+    checker_command: string; External command which is run to check if
+                     client lives.  %()s expansions are done at
+                     runtime with vars(self) as dict, so that for
+                     instance %(name)s can be used in the command.
+    Private attibutes:
+    _timeout: Real variable for 'timeout'
+    _interval: Real variable for 'interval'
+    _timeout_milliseconds: Used by gobject.timeout_add()
+    _interval_milliseconds: - '' -
     """
+    def _set_timeout(self, timeout):
+        "Setter function for 'timeout' attribute"
+        self._timeout = timeout
+        self._timeout_milliseconds = ((self.timeout.days
+                                       * 24 * 60 * 60 * 1000)
+                                      + (self.timeout.seconds * 1000)
+                                      + (self.timeout.microseconds
+                                         // 1000))
+    timeout = property(lambda self: self._timeout,
+                       _set_timeout)
+    del _set_timeout
+    def _set_interval(self, interval):
+        "Setter function for 'interval' attribute"
+        self._interval = interval
+        self._interval_milliseconds = ((self.interval.days
+                                        * 24 * 60 * 60 * 1000)
+                                       + (self.interval.seconds
+                                          * 1000)
+                                       + (self.interval.microseconds
+                                          // 1000))
+    interval = property(lambda self: self._interval,
+                        _set_interval)
+    del _set_interval
     def __init__(self, name=None, options=None, stop_hook=None,
-                 dn=None, password=None, passfile=None, fqdn=None,
-                 timeout=None, interval=-1):
+                 fingerprint=None, secret=None, secfile=None, fqdn=None,
+                 timeout=None, interval=-1, checker=None):
         self.name = name
-        self.dn = dn
-        if password:
-            self.password = password
-        elif passfile:
-            self.password = open(passfile).readall()
+        # Uppercase and remove spaces from fingerprint
+        # for later comparison purposes with return value of
+        # the fingerprint() function
+        self.fingerprint = fingerprint.upper().replace(u" ", u"")
+        if secret:
+            self.secret = secret.decode(u"base64")
+        elif secfile:
+            sf = open(secfile)
+            self.secret = sf.read()
+            sf.close()
         else:
-            raise RuntimeError(u"No Password or Passfile for client %s"
+            raise RuntimeError(u"No secret or secfile for client %s"
                                % self.name)
         self.fqdn = fqdn                # string
         self.created = datetime.datetime.now()
@@ -79,45 +121,37 @@ class Client(object):
         if timeout is None:
             timeout = options.timeout
         self.timeout = timeout
-        self.timeout_milliseconds = ((self.timeout.days
-                                      * 24 * 60 * 60 * 1000)
-                                     + (self.timeout.seconds * 1000)
-                                     + (self.timeout.microseconds
-                                        // 1000))
         if interval == -1:
             interval = options.interval
         else:
             interval = string_to_delta(interval)
         self.interval = interval
-        self.interval_milliseconds = ((self.interval.days
-                                       * 24 * 60 * 60 * 1000)
-                                      + (self.interval.seconds * 1000)
-                                      + (self.interval.microseconds
-                                         // 1000))
         self.stop_hook = stop_hook
         self.checker = None
         self.checker_initiator_tag = None
         self.stop_initiator_tag = None
         self.checker_callback_tag = None
+        self.check_command = checker
     def start(self):
         """Start this clients checker and timeout hooks"""
         # Schedule a new checker to be started an 'interval' from now,
         # and every interval from then on.
-        self.checker_initiator_tag = gobject.\
-                                     timeout_add(self.interval_milliseconds,
-                                                 self.start_checker)
+        self.checker_initiator_tag = gobject.timeout_add\
+                                     (self._interval_milliseconds,
+                                      self.start_checker)
         # Also start a new checker *right now*.
         self.start_checker()
         # Schedule a stop() when 'timeout' has passed
-        self.stop_initiator_tag = gobject.\
-                                     timeout_add(self.timeout_milliseconds,
-                                                 self.stop)
+        self.stop_initiator_tag = gobject.timeout_add\
+                                  (self._timeout_milliseconds,
+                                   self.stop)
     def stop(self):
         """Stop this client.
         The possibility that this client might be restarted is left
         open, but not currently used."""
-        # print "Stopping client", self.name
-        self.password = None
+        if debug:
+            sys.stderr.write(u"Stopping client %s\n" % self.name)
+        self.secret = None
         if self.stop_initiator_tag:
             gobject.source_remove(self.stop_initiator_tag)
             self.stop_initiator_tag = None
@@ -145,17 +179,21 @@ class Client(object):
         now = datetime.datetime.now()
         if os.WIFEXITED(condition) \
                and (os.WEXITSTATUS(condition) == 0):
-            #print "Checker for %(name)s succeeded" % vars(self)
+            if debug:
+                sys.stderr.write(u"Checker for %(name)s succeeded\n"
+                                 % vars(self))
             self.last_seen = now
             gobject.source_remove(self.stop_initiator_tag)
-            self.stop_initiator_tag = gobject.\
-                                      timeout_add(self.timeout_milliseconds,
-                                                  self.stop)
-        #else:
-        #    if not os.WIFEXITED(condition):
-        #        print "Checker for %(name)s crashed?" % vars(self)
-        #    else:
-        #        print "Checker for %(name)s failed" % vars(self)
+            self.stop_initiator_tag = gobject.timeout_add\
+                                      (self._timeout_milliseconds,
+                                       self.stop)
+        elif debug:
+            if not os.WIFEXITED(condition):
+                sys.stderr.write(u"Checker for %(name)s crashed?\n"
+                                 % vars(self))
+            else:
+                sys.stderr.write(u"Checker for %(name)s failed\n"
+                                 % vars(self))
         self.checker = None
         self.checker_callback_tag = None
     def start_checker(self):
@@ -163,11 +201,19 @@ class Client(object):
         If a checker already exists, leave it running and do
         nothing."""
         if self.checker is None:
-            #print "Starting checker for", self.name
+            if debug:
+                sys.stderr.write(u"Starting checker for %s\n"
+                                 % self.name)
+            try:
+                command = self.check_command % self.fqdn
+            except TypeError:
+                escaped_attrs = dict((key, re.escape(str(val)))
+                                     for key, val in
+                                     vars(self).iteritems())
+                command = self.check_command % escaped_attrs
             try:
                 self.checker = subprocess.\
-                               Popen("sleep 1; fping -q -- %s"
-                                     % re.escape(self.fqdn),
+                               Popen(command,
                                      stdout=subprocess.PIPE,
                                      close_fds=True, shell=True,
                                      cwd="/")
@@ -200,52 +246,119 @@ class Client(object):
             return now < (self.last_seen + self.timeout)
 
 
+def peer_certificate(session):
+    # If not an OpenPGP certificate...
+    if gnutls.library.functions.gnutls_certificate_type_get\
+            (session._c_object) \
+           != gnutls.library.constants.GNUTLS_CRT_OPENPGP:
+        # ...do the normal thing
+        return session.peer_certificate
+    list_size = ctypes.c_uint()
+    cert_list = gnutls.library.functions.gnutls_certificate_get_peers\
+        (session._c_object, ctypes.byref(list_size))
+    if list_size.value == 0:
+        return None
+    cert = cert_list[0]
+    return ctypes.string_at(cert.data, cert.size)
+
+
+def fingerprint(openpgp):
+    # New empty GnuTLS certificate
+    crt = gnutls.library.types.gnutls_openpgp_crt_t()
+    gnutls.library.functions.gnutls_openpgp_crt_init\
+        (ctypes.byref(crt))
+    # New GnuTLS "datum" with the OpenPGP public key
+    datum = gnutls.library.types.gnutls_datum_t\
+        (ctypes.cast(ctypes.c_char_p(openpgp),
+                     ctypes.POINTER(ctypes.c_ubyte)),
+         ctypes.c_uint(len(openpgp)))
+    # Import the OpenPGP public key into the certificate
+    ret = gnutls.library.functions.gnutls_openpgp_crt_import\
+        (crt,
+         ctypes.byref(datum),
+         gnutls.library.constants.GNUTLS_OPENPGP_FMT_RAW)
+    # New buffer for the fingerprint
+    buffer = ctypes.create_string_buffer(20)
+    buffer_length = ctypes.c_size_t()
+    # Get the fingerprint from the certificate into the buffer
+    gnutls.library.functions.gnutls_openpgp_crt_get_fingerprint\
+        (crt, ctypes.byref(buffer), ctypes.byref(buffer_length))
+    # Deinit the certificate
+    gnutls.library.functions.gnutls_openpgp_crt_deinit(crt)
+    # Convert the buffer to a Python bytestring
+    fpr = ctypes.string_at(buffer, buffer_length.value)
+    # Convert the bytestring to hexadecimal notation
+    hex_fpr = u''.join(u"%02X" % ord(char) for char in fpr)
+    return hex_fpr
+
+
 class tcp_handler(SocketServer.BaseRequestHandler, object):
     """A TCP request handler class.
     Instantiated by IPv6_TCPServer for each request to handle it.
     Note: This will run in its own forked process."""
+    
     def handle(self):
-        #print u"TCP request came"
-        #print u"Request:", self.request
-        #print u"Client Address:", self.client_address
-        #print u"Server:", self.server
-        session = gnutls.connection.ServerSession(self.request,
-                                                  self.server\
-                                                  .credentials)
+        if debug:
+            sys.stderr.write(u"TCP request came\n")
+            sys.stderr.write(u"Request: %s\n" % self.request)
+            sys.stderr.write(u"Client Address: %s\n"
+                             % unicode(self.client_address))
+            sys.stderr.write(u"Server: %s\n" % self.server)
+        session = gnutls.connection.ClientSession(self.request,
+                                                  gnutls.connection.\
+                                                  X509Credentials())
+        
+        #priority = ':'.join(("NONE", "+VERS-TLS1.1", "+AES-256-CBC",
+        #                "+SHA1", "+COMP-NULL", "+CTYPE-OPENPGP",
+        #                "+DHE-DSS"))
+        priority = "SECURE256"
+        
+        gnutls.library.functions.gnutls_priority_set_direct\
+            (session._c_object, priority, None);
+        
         try:
             session.handshake()
         except gnutls.errors.GNUTLSError, error:
-            #sys.stderr.write(u"Handshake failed: %s\n" % error)
+            if debug:
+                sys.stderr.write(u"Handshake failed: %s\n" % error)
             # Do not run session.bye() here: the session is not
             # established.  Just abandon the request.
             return
-        #if session.peer_certificate:
-        #    print "DN:", session.peer_certificate.subject
         try:
-            session.verify_peer()
-        except gnutls.errors.CertificateError, error:
-            #sys.stderr.write(u"Verify failed: %s\n" % error)
+            fpr = fingerprint(peer_certificate(session))
+        except (TypeError, gnutls.errors.GNUTLSError), error:
+            if debug:
+                sys.stderr.write(u"Bad certificate: %s\n" % error)
             session.bye()
             return
+        if debug:
+            sys.stderr.write(u"Fingerprint: %s\n" % fpr)
         client = None
         for c in clients:
-            if c.dn == session.peer_certificate.subject:
+            if c.fingerprint == fpr:
                 client = c
                 break
         # Have to check if client.still_valid(), since it is possible
         # that the client timed out while establishing the GnuTLS
         # session.
-        if client and client.still_valid():
-            session.send(client.password)
-        else:
-            #if client:
-            #    sys.stderr.write(u"Client %(name)s is invalid\n"
-            #                     % vars(client))
-            #else:
-            #    sys.stderr.write(u"Client not found for DN: %s\n"
-            #                     % session.peer_certificate.subject)
-            #session.send("gazonk")
-            pass
+        if (not client) or (not client.still_valid()):
+            if debug:
+                if client:
+                    sys.stderr.write(u"Client %(name)s is invalid\n"
+                                     % vars(client))
+                else:
+                    sys.stderr.write(u"Client not found for "
+                                     u"fingerprint: %s\n" % fpr)
+            session.bye()
+            return
+        sent_size = 0
+        while sent_size < len(client.secret):
+            sent = session.send(client.secret[sent_size:])
+            if debug:
+                sys.stderr.write(u"Sent: %d, remaining: %d\n"
+                                 % (sent, len(client.secret)
+                                    - (sent_size + sent)))
+            sent_size += sent
         session.bye()
 
 
@@ -254,7 +367,6 @@ class IPv6_TCPServer(SocketServer.ForkingTCPServer, object):
     Attributes:
         options:        Command line options
         clients:        Set() of Client objects
-        credentials:    GnuTLS X.509 credentials
     """
     address_family = socket.AF_INET6
     def __init__(self, *args, **kwargs):
@@ -264,9 +376,6 @@ class IPv6_TCPServer(SocketServer.ForkingTCPServer, object):
         if "clients" in kwargs:
             self.clients = kwargs["clients"]
             del kwargs["clients"]
-        if "credentials" in kwargs:
-            self.credentials = kwargs["credentials"]
-            del kwargs["credentials"]
         return super(type(self), self).__init__(*args, **kwargs)
     def server_bind(self):
         """This overrides the normal server_bind() function
@@ -282,7 +391,8 @@ class IPv6_TCPServer(SocketServer.ForkingTCPServer, object):
                                        self.options.interface)
             except socket.error, error:
                 if error[0] == errno.EPERM:
-                    sys.stderr.write(u"Warning: No permission to bind to interface %s\n"
+                    sys.stderr.write(u"Warning: No permission to" \
+                                     u" bind to interface %s\n"
                                      % self.options.interface)
                 else:
                     raise error
@@ -343,9 +453,9 @@ def add_service():
                 avahi.DBUS_INTERFACE_ENTRY_GROUP)
         group.connect_to_signal('StateChanged',
                                 entry_group_state_changed)
-    
-    # print "Adding service '%s' of type '%s' ..." % (serviceName,
-    #                                                 serviceType)
+    if debug:
+        sys.stderr.write(u"Adding service '%s' of type '%s' ...\n"
+                         % (serviceName, serviceType))
     
     group.AddService(
             serviceInterface,           # interface
@@ -369,7 +479,7 @@ def remove_service():
 def server_state_changed(state):
     """From the Avahi server example code"""
     if state == avahi.SERVER_COLLISION:
-        print "WARNING: Server name collision"
+        sys.stderr.write(u"WARNING: Server name collision\n")
         remove_service()
     elif state == avahi.SERVER_RUNNING:
         add_service()
@@ -379,25 +489,30 @@ def entry_group_state_changed(state, error):
     """From the Avahi server example code"""
     global serviceName, server, rename_count
     
-    # print "state change: %i" % state
+    if debug:
+        sys.stderr.write(u"state change: %i\n" % state)
     
     if state == avahi.ENTRY_GROUP_ESTABLISHED:
-        pass
-        # print "Service established."
+        if debug:
+            sys.stderr.write(u"Service established.\n")
     elif state == avahi.ENTRY_GROUP_COLLISION:
         
         rename_count = rename_count - 1
         if rename_count > 0:
             name = server.GetAlternativeServiceName(name)
-            print "WARNING: Service name collision, changing name to '%s' ..." % name
+            sys.stderr.write(u"WARNING: Service name collision, "
+                             u"changing name to '%s' ...\n" % name)
             remove_service()
             add_service()
             
         else:
-            print "ERROR: No suitable service name found after %i retries, exiting." % n_rename
+            sys.stderr.write(u"ERROR: No suitable service name found "
+                             u"after %i retries, exiting.\n"
+                             % n_rename)
             main_loop.quit()
     elif state == avahi.ENTRY_GROUP_FAILURE:
-        print "Error in group state changed", error
+        sys.stderr.write(u"Error in group state changed %s\n"
+                         % unicode(error))
         main_loop.quit()
         return
 
@@ -405,11 +520,9 @@ def entry_group_state_changed(state, error):
 def if_nametoindex(interface):
     """Call the C function if_nametoindex()"""
     try:
-        if "ctypes" not in sys.modules:
-            import ctypes
         libc = ctypes.cdll.LoadLibrary("libc.so.6")
         return libc.if_nametoindex(interface)
-    except (ImportError, OSError, AttributeError):
+    except (OSError, AttributeError):
         if "struct" not in sys.modules:
             import struct
         if "fcntl" not in sys.modules:
@@ -450,6 +563,8 @@ if __name__ == '__main__':
                       help="How often to check that a client is up")
     parser.add_option("--check", action="store_true", default=False,
                       help="Run self-test")
+    parser.add_option("--debug", action="store_true", default=False,
+                      help="Debug mode")
     (options, args) = parser.parse_args()
     
     if options.check:
@@ -467,14 +582,8 @@ if __name__ == '__main__':
     except ValueError:
         parser.error("option --interval: Unparseable time")
     
-    cert = gnutls.crypto.X509Certificate(open(options.cert).read())
-    key = gnutls.crypto.X509PrivateKey(open(options.key).read())
-    ca = gnutls.crypto.X509Certificate(open(options.ca).read())
-    crl = gnutls.crypto.X509CRL(open(options.crl).read())
-    cred = gnutls.connection.X509Credentials(cert, key, [ca], [crl])
-    
     # Parse config file
-    defaults = {}
+    defaults = { "checker": "sleep 1; fping -q -- %%(fqdn)s" }
     client_config = ConfigParser.SafeConfigParser(defaults)
     #client_config.readfp(open("secrets.conf"), "secrets.conf")
     client_config.read("mandos-clients.conf")
@@ -488,11 +597,14 @@ if __name__ == '__main__':
             avahi.DBUS_INTERFACE_SERVER )
     # End of Avahi example code
     
+    debug = options.debug
+    
     clients = Set()
     def remove_from_clients(client):
         clients.remove(client)
         if not clients:
-            print "No clients left, exiting"
+            if debug:
+                sys.stderr.write(u"No clients left, exiting\n")
             main_loop.quit()
     
     clients.update(Set(Client(name=section, options=options,
@@ -506,11 +618,11 @@ if __name__ == '__main__':
     tcp_server = IPv6_TCPServer((None, options.port),
                                 tcp_handler,
                                 options=options,
-                                clients=clients,
-                                credentials=cred)
+                                clients=clients)
     # Find out what random port we got
     servicePort = tcp_server.socket.getsockname()[1]
-    #sys.stderr.write("Now listening on port %d\n" % servicePort)
+    if debug:
+        sys.stderr.write(u"Now listening on port %d\n" % servicePort)
     
     if options.interface is not None:
         serviceInterface = if_nametoindex(options.interface)

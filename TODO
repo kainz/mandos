@@ -4,13 +4,11 @@ IPv4 support
 OpenPGP keys support
 
 [Server]
-Configuration for key, cert, ca, crl, and stuff
-	config file
+config file
 client-list
-	gnupg fil-hantering
-client-monitoring
-OpenPGP keys support
 run-time communication with server
+
+handle SIGTERM, SIGQUIT, etc.
 
 [Mandos-tools/utilities]
 	List clients
