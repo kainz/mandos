@@ -1,16 +1,3 @@
-/* $Id$ */
-
-/* PLEASE NOTE *
- * This file demonstrates how to use Avahi's core API, this is
- * the embeddable mDNS stack for embedded applications.
- *
- * End user applications should *not* use this API and should use
- * the D-Bus or C APIs, please see
- * client-browse-services.c and glib-integration.c
- * 
- * I repeat, you probably do *not* want to use this example.
- */
-
 /***
   This file is part of avahi.
  
@@ -72,6 +59,8 @@
 #define BUFFER_SIZE 256
 #define DH_BITS 1024
 
+bool debug;
+
 typedef struct {
   gnutls_session_t session;
   gnutls_certificate_credentials_t cred;
@@ -88,6 +77,10 @@ ssize_t gpg_packet_decrypt (char *packet, size_t packet_size, char **new_packet,
   size_t new_packet_length = 0;
   gpgme_engine_info_t engine_info;
 
+  if (debug){
+    fprintf(stderr, "Attempting to decrypt password from gpg packet\n");
+  }
+  
   /* Init GPGME */
   gpgme_check_version(NULL);
   gpgme_engine_check_version(GPGME_PROTOCOL_OpenPGP);
@@ -143,27 +136,37 @@ ssize_t gpg_packet_decrypt (char *packet, size_t packet_size, char **new_packet,
 	    gpgme_strsource(rc), gpgme_strerror(rc));
     return -1;
   }
-  
-/*   gpgme_decrypt_result_t result; */
-/*   result = gpgme_op_decrypt_result(ctx); */
-/*   fprintf(stderr, "Unsupported algorithm: %s\n", result->unsupported_algorithm); */
-/*   fprintf(stderr, "Wrong key usage: %d\n", result->wrong_key_usage); */
-/*   if(result->file_name != NULL){ */
-/*     fprintf(stderr, "File name: %s\n", result->file_name); */
-/*   } */
-/*   gpgme_recipient_t recipient; */
-/*   recipient = result->recipients; */
-/*   if(recipient){ */
-/*     while(recipient != NULL){ */
-/*       fprintf(stderr, "Public key algorithm: %s\n", */
-/* 	      gpgme_pubkey_algo_name(recipient->pubkey_algo)); */
-/*       fprintf(stderr, "Key ID: %s\n", recipient->keyid); */
-/*       fprintf(stderr, "Secret key available: %s\n", */
-/* 	      recipient->status == GPG_ERR_NO_SECKEY ? "No" : "Yes"); */
-/*       recipient = recipient->next; */
-/*     } */
-/*   } */
 
+  if(debug){
+    fprintf(stderr, "decryption of gpg packet succeeded\n");
+  }
+
+  if (debug){
+    gpgme_decrypt_result_t result;
+    result = gpgme_op_decrypt_result(ctx);
+    if (result == NULL){
+      fprintf(stderr, "gpgme_op_decrypt_result failed\n");
+    } else {
+      fprintf(stderr, "Unsupported algorithm: %s\n", result->unsupported_algorithm);
+      fprintf(stderr, "Wrong key usage: %d\n", result->wrong_key_usage);
+      if(result->file_name != NULL){
+	fprintf(stderr, "File name: %s\n", result->file_name);
+      }
+      gpgme_recipient_t recipient;
+      recipient = result->recipients;
+      if(recipient){
+	while(recipient != NULL){
+	  fprintf(stderr, "Public key algorithm: %s\n",
+		  gpgme_pubkey_algo_name(recipient->pubkey_algo));
+	  fprintf(stderr, "Key ID: %s\n", recipient->keyid);
+	  fprintf(stderr, "Secret key available: %s\n",
+		  recipient->status == GPG_ERR_NO_SECKEY ? "No" : "Yes");
+	  recipient = recipient->next;
+	}
+      }
+    }
+  }
+  
   /* Delete the GPGME FILE pointer cryptotext data buffer */
   gpgme_data_release(dh_crypto);
   
@@ -194,6 +197,10 @@ ssize_t gpg_packet_decrypt (char *packet, size_t packet_size, char **new_packet,
     new_packet_length += ret;
   }
 
+  if(debug){
+    fprintf(stderr, "decrypted password is: %s\n", *new_packet);
+  }
+
    /* Delete the GPGME plaintext data buffer */
   gpgme_data_release(dh_plain);
   return new_packet_length;
@@ -213,6 +220,11 @@ void debuggnutls(int level, const char* string){
 int initgnutls(encrypted_session *es){
   const char *err;
   int ret;
+
+  if(debug){
+    fprintf(stderr, "Initializing gnutls\n");
+  }
+
   
   if ((ret = gnutls_global_init ())
       != GNUTLS_E_SUCCESS) {
@@ -220,16 +232,22 @@ int initgnutls(encrypted_session *es){
     return -1;
   }
 
-  /* Uncomment to enable full debuggin on the gnutls library */
-  /*   gnutls_global_set_log_level(11); */
-  /*   gnutls_global_set_log_function(debuggnutls); */
-
+  if (debug){
+    gnutls_global_set_log_level(11);
+    gnutls_global_set_log_function(debuggnutls);
+  }
+  
 
   /* openpgp credentials */
   if ((ret = gnutls_certificate_allocate_credentials (&es->cred))
       != GNUTLS_E_SUCCESS) {
     fprintf (stderr, "memory error: %s\n", safer_gnutls_strerror(ret));
     return -1;
+  }
+
+  if(debug){
+    fprintf(stderr, "Attempting to use openpgp certificate %s"
+	    " and keyfile %s as gnutls credentials\n", CERTFILE, KEYFILE);
   }
 
   ret = gnutls_certificate_set_openpgp_key_file
@@ -304,15 +322,23 @@ int start_mandos_communcation(char *ip, uint16_t port){
   size_t buffer_capacity = 0;
   ssize_t decrypted_buffer_size;
   int retval = 0;
+  const char interface[] = "eth0";
 
+  if(debug){
+    fprintf(stderr, "Setting up a tcp connection to %s\n", ip);
+  }
   
   tcp_sd = socket(PF_INET6, SOCK_STREAM, 0);
   if(tcp_sd < 0) {
     perror("socket");
     return -1;
   }
-  
-  ret = setsockopt(tcp_sd, SOL_SOCKET, SO_BINDTODEVICE, "eth0", 5);
+
+  if(debug){
+    fprintf(stderr, "Binding to interface %s\n", interface);
+  }
+
+  ret = setsockopt(tcp_sd, SOL_SOCKET, SO_BINDTODEVICE, interface, 5);
   if(tcp_sd < 0) {
     perror("setsockopt bindtodevice");
     return -1;
@@ -330,7 +356,11 @@ int start_mandos_communcation(char *ip, uint16_t port){
     return -1;
   }
   to.sin6_port = htons(port);
-  to.sin6_scope_id = if_nametoindex("eth0");
+  to.sin6_scope_id = if_nametoindex(interface);
+
+  if(debug){
+    fprintf(stderr, "Connection to: %s\n", ip);
+  }
   
   ret = connect(tcp_sd, (struct sockaddr *) &to, sizeof(to));
   if (ret < 0){
@@ -347,6 +377,11 @@ int start_mandos_communcation(char *ip, uint16_t port){
   
   gnutls_transport_set_ptr (es.session, (gnutls_transport_ptr_t) tcp_sd);
 
+  if(debug){
+    fprintf(stderr, "Establishing tls session with %s\n", ip);
+  }
+
+  
   ret = gnutls_handshake (es.session);
   
   if (ret != GNUTLS_E_SUCCESS){
@@ -356,7 +391,12 @@ int start_mandos_communcation(char *ip, uint16_t port){
     goto exit;
   }
 
-  //retrive password
+  //Retrieve gpg packet that contains the wanted password
+
+  if(debug){
+    fprintf(stderr, "Retrieving pgp encrypted password from %s\n", ip);
+  }
+
   while(true){
     if (buffer_length + BUFFER_SIZE > buffer_capacity){
       buffer = realloc(buffer, buffer_capacity + BUFFER_SIZE);
@@ -396,19 +436,23 @@ int start_mandos_communcation(char *ip, uint16_t port){
       buffer_length += ret;
     }
   }
-
+  
   if (buffer_length > 0){
-    if ((decrypted_buffer_size = gpg_packet_decrypt(buffer, buffer_length, &decrypted_buffer, CERT_ROOT)) == 0){
-      retval = -1;
-    } else {
+    if ((decrypted_buffer_size = gpg_packet_decrypt(buffer, buffer_length, &decrypted_buffer, CERT_ROOT)) >= 0){
       fwrite (decrypted_buffer, 1, decrypted_buffer_size, stdout);
       free(decrypted_buffer);
+    } else {
+      retval = -1;
     }
   }
 
-  free(buffer);
-
   //shutdown procedure
+
+  if(debug){
+    fprintf(stderr, "Closing tls session\n");
+  }
+
+  free(buffer);
   gnutls_bye (es.session, GNUTLS_SHUT_RDWR);
  exit:
   close(tcp_sd);
@@ -448,6 +492,9 @@ static void resolve_callback(
         case AVAHI_RESOLVER_FOUND: {
 	  char ip[AVAHI_ADDRESS_STR_MAX];
             avahi_address_snprint(ip, sizeof(ip), address);
+	    if(debug){
+	      fprintf(stderr, "Mandos server found at %s on port %d\n", ip, port);
+	    }
 	    int ret = start_mandos_communcation(ip, port);
 	    if (ret == 0){
 	      exit(EXIT_SUCCESS);
@@ -506,10 +553,39 @@ static void browse_callback(
 int main(AVAHI_GCC_UNUSED int argc, AVAHI_GCC_UNUSED char*argv[]) {
     AvahiServerConfig config;
     AvahiSServiceBrowser *sb = NULL;
+    const char db[] = "--debug";
     int error;
     int ret = 1;
+    int returncode = EXIT_SUCCESS;
+    char *basename = rindex(argv[0], '/');
+    if(basename == NULL){
+      basename = argv[0];
+    } else {
+      basename++;
+    }
+    
+    char *program_name = malloc(strlen(basename) + sizeof(db));
 
-    avahi_set_log_function(empty_log);
+    if (program_name == NULL){
+      perror("argv[0]");
+      return EXIT_FAILURE;
+    }
+    
+    program_name[0] = '\0';
+    
+    for (int i = 1; i < argc; i++){
+      if (not strncmp(argv[i], db, 5)){
+	  strcat(strcat(strcat(program_name, db ), "="), basename);
+	  if(not strcmp(argv[i], db) or not strcmp(argv[i], program_name)){
+	    debug = true;
+	  }
+	}
+    }
+    free(program_name);
+
+    if (not debug){
+      avahi_set_log_function(empty_log);
+    }
     
     /* Initialize the psuedo-RNG */
     srand(time(NULL));
@@ -517,7 +593,8 @@ int main(AVAHI_GCC_UNUSED int argc, AVAHI_GCC_UNUSED char*argv[]) {
     /* Allocate main loop object */
     if (!(simple_poll = avahi_simple_poll_new())) {
         fprintf(stderr, "Failed to create simple poll object.\n");
-        goto fail;
+	
+        goto exit;
     }
 
     /* Do not publish any local records */
@@ -527,35 +604,39 @@ int main(AVAHI_GCC_UNUSED int argc, AVAHI_GCC_UNUSED char*argv[]) {
     config.publish_workstation = 0;
     config.publish_domain = 0;
 
-/*     /\* Set a unicast DNS server for wide area DNS-SD *\/ */
-/*     avahi_address_parse("193.11.177.11", AVAHI_PROTO_UNSPEC, &config.wide_area_servers[0]); */
-/*     config.n_wide_area_servers = 1; */
-/*     config.enable_wide_area = 1; */
-    
     /* Allocate a new server */
     server = avahi_server_new(avahi_simple_poll_get(simple_poll), &config, NULL, NULL, &error);
 
     /* Free the configuration data */
     avahi_server_config_free(&config);
 
-    /* Check wether creating the server object succeeded */
+    /* Check if creating the server object succeeded */
     if (!server) {
         fprintf(stderr, "Failed to create server: %s\n", avahi_strerror(error));
-        goto fail;
+	returncode = EXIT_FAILURE;
+        goto exit;
     }
     
     /* Create the service browser */
     if (!(sb = avahi_s_service_browser_new(server, if_nametoindex("eth0"), AVAHI_PROTO_INET6, "_mandos._tcp", NULL, 0, browse_callback, server))) {
         fprintf(stderr, "Failed to create service browser: %s\n", avahi_strerror(avahi_server_errno(server)));
-        goto fail;
+	returncode = EXIT_FAILURE;
+        goto exit;
     }
     
     /* Run the main loop */
+
+    if (debug){
+      fprintf(stderr, "Starting avahi loop search\n");
+    }
+    
     avahi_simple_poll_loop(simple_poll);
     
-    ret = 0;
-    
-fail:
+exit:
+
+    if (debug){
+      fprintf(stderr, "%s exiting\n", argv[0]);
+    }
     
     /* Cleanup things */
     if (sb)
