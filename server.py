@@ -28,6 +28,14 @@ import avahi
 from dbus.mainloop.glib import DBusGMainLoop
 import ctypes
 
+import logging
+import logging.handlers
+
+# logghandler.setFormatter(logging.Formatter('%(levelname)s %(message)s')
+
+logger = logging.Logger('mandos')
+logger.addHandler(logging.handlers.SysLogHandler(facility = logging.handlers.SysLogHandler.LOG_DAEMON))
+
 # This variable is used to optionally bind to a specified interface.
 # It is a global variable to fit in with the other variables from the
 # Avahi server example code.
@@ -149,8 +157,7 @@ class Client(object):
         """Stop this client.
         The possibility that this client might be restarted is left
         open, but not currently used."""
-        if debug:
-            sys.stderr.write(u"Stopping client %s\n" % self.name)
+        logger.debug(u"Stopping client %s", self.name)
         self.secret = None
         if self.stop_initiator_tag:
             gobject.source_remove(self.stop_initiator_tag)
@@ -179,38 +186,40 @@ class Client(object):
         now = datetime.datetime.now()
         if os.WIFEXITED(condition) \
                and (os.WEXITSTATUS(condition) == 0):
-            if debug:
-                sys.stderr.write(u"Checker for %(name)s succeeded\n"
-                                 % vars(self))
+            logger.debug(u"Checker for %(name)s succeeded",
+                         vars(self))
             self.last_seen = now
             gobject.source_remove(self.stop_initiator_tag)
             self.stop_initiator_tag = gobject.timeout_add\
                                       (self._timeout_milliseconds,
                                        self.stop)
-        elif debug:
-            if not os.WIFEXITED(condition):
-                sys.stderr.write(u"Checker for %(name)s crashed?\n"
-                                 % vars(self))
-            else:
-                sys.stderr.write(u"Checker for %(name)s failed\n"
-                                 % vars(self))
-        self.checker = None
+        if not os.WIFEXITED(condition):
+            logger.warning(u"Checker for %(name)s crashed?",
+                           vars(self))
+        else:
+            logger.debug(u"Checker for %(name)s failed",
+                         vars(self))
+            self.checker = None
         self.checker_callback_tag = None
     def start_checker(self):
         """Start a new checker subprocess if one is not running.
         If a checker already exists, leave it running and do
         nothing."""
         if self.checker is None:
-            if debug:
-                sys.stderr.write(u"Starting checker for %s\n"
-                                 % self.name)
+            logger.debug(u"Starting checker for %s",
+                         self.name)
             try:
                 command = self.check_command % self.fqdn
             except TypeError:
                 escaped_attrs = dict((key, re.escape(str(val)))
                                      for key, val in
                                      vars(self).iteritems())
-                command = self.check_command % escaped_attrs
+                try:
+                    command = self.check_command % escaped_attrs
+                except TypeError, error:
+                    logger.critical(u'Could not format string "%s": %s',
+                                    self.check_command, error)
+                    return True # Try again later
             try:
                 self.checker = subprocess.\
                                Popen(command,
@@ -222,8 +231,8 @@ class Client(object):
                                                             self.\
                                                             checker_callback)
             except subprocess.OSError, error:
-                sys.stderr.write(u"Failed to start subprocess: %s\n"
-                                 % error)
+                logger.error(u"Failed to start subprocess: %s",
+                             error)
         # Re-run this periodically if run by gobject.timeout_add
         return True
     def stop_checker(self):
@@ -298,12 +307,8 @@ class tcp_handler(SocketServer.BaseRequestHandler, object):
     Note: This will run in its own forked process."""
     
     def handle(self):
-        if debug:
-            sys.stderr.write(u"TCP request came\n")
-            sys.stderr.write(u"Request: %s\n" % self.request)
-            sys.stderr.write(u"Client Address: %s\n"
-                             % unicode(self.client_address))
-            sys.stderr.write(u"Server: %s\n" % self.server)
+        logger.debug(u"TCP connection from: %s",
+                     unicode(self.client_address))
         session = gnutls.connection.ClientSession(self.request,
                                                   gnutls.connection.\
                                                   X509Credentials())
@@ -319,20 +324,17 @@ class tcp_handler(SocketServer.BaseRequestHandler, object):
         try:
             session.handshake()
         except gnutls.errors.GNUTLSError, error:
-            if debug:
-                sys.stderr.write(u"Handshake failed: %s\n" % error)
+            logger.debug(u"Handshake failed: %s", error)
             # Do not run session.bye() here: the session is not
             # established.  Just abandon the request.
             return
         try:
             fpr = fingerprint(peer_certificate(session))
         except (TypeError, gnutls.errors.GNUTLSError), error:
-            if debug:
-                sys.stderr.write(u"Bad certificate: %s\n" % error)
+            logger.debug(u"Bad certificate: %s", error)
             session.bye()
             return
-        if debug:
-            sys.stderr.write(u"Fingerprint: %s\n" % fpr)
+        logger.debug(u"Fingerprint: %s", fpr)
         client = None
         for c in clients:
             if c.fingerprint == fpr:
@@ -342,22 +344,20 @@ class tcp_handler(SocketServer.BaseRequestHandler, object):
         # that the client timed out while establishing the GnuTLS
         # session.
         if (not client) or (not client.still_valid()):
-            if debug:
-                if client:
-                    sys.stderr.write(u"Client %(name)s is invalid\n"
-                                     % vars(client))
-                else:
-                    sys.stderr.write(u"Client not found for "
-                                     u"fingerprint: %s\n" % fpr)
+            if client:
+                logger.debug(u"Client %(name)s is invalid",
+                             vars(client))
+            else:
+                logger.debug(u"Client not found for fingerprint: %s",
+                             fpr)
             session.bye()
             return
         sent_size = 0
         while sent_size < len(client.secret):
             sent = session.send(client.secret[sent_size:])
-            if debug:
-                sys.stderr.write(u"Sent: %d, remaining: %d\n"
-                                 % (sent, len(client.secret)
-                                    - (sent_size + sent)))
+            logger.debug(u"Sent: %d, remaining: %d",
+                         sent, len(client.secret)
+                         - (sent_size + sent))
             sent_size += sent
         session.bye()
 
@@ -391,9 +391,9 @@ class IPv6_TCPServer(SocketServer.ForkingTCPServer, object):
                                        self.options.interface)
             except socket.error, error:
                 if error[0] == errno.EPERM:
-                    sys.stderr.write(u"Warning: No permission to" \
-                                     u" bind to interface %s\n"
-                                     % self.options.interface)
+                    logger.warning(u"No permission to"
+                                   u" bind to interface %s",
+                                   self.options.interface)
                 else:
                     raise error
         # Only bind(2) the socket if we really need to.
@@ -453,9 +453,8 @@ def add_service():
                 avahi.DBUS_INTERFACE_ENTRY_GROUP)
         group.connect_to_signal('StateChanged',
                                 entry_group_state_changed)
-    if debug:
-        sys.stderr.write(u"Adding service '%s' of type '%s' ...\n"
-                         % (serviceName, serviceType))
+    logger.debug(u"Adding service '%s' of type '%s' ...",
+                 serviceName, serviceType)
     
     group.AddService(
             serviceInterface,           # interface
@@ -479,7 +478,7 @@ def remove_service():
 def server_state_changed(state):
     """From the Avahi server example code"""
     if state == avahi.SERVER_COLLISION:
-        sys.stderr.write(u"WARNING: Server name collision\n")
+        logger.warning(u"Server name collision")
         remove_service()
     elif state == avahi.SERVER_RUNNING:
         add_service()
@@ -489,30 +488,28 @@ def entry_group_state_changed(state, error):
     """From the Avahi server example code"""
     global serviceName, server, rename_count
     
-    if debug:
-        sys.stderr.write(u"state change: %i\n" % state)
+    logger.debug(u"state change: %i", state)
     
     if state == avahi.ENTRY_GROUP_ESTABLISHED:
-        if debug:
-            sys.stderr.write(u"Service established.\n")
+        logger.debug(u"Service established.")
     elif state == avahi.ENTRY_GROUP_COLLISION:
         
         rename_count = rename_count - 1
         if rename_count > 0:
             name = server.GetAlternativeServiceName(name)
-            sys.stderr.write(u"WARNING: Service name collision, "
-                             u"changing name to '%s' ...\n" % name)
+            logger.warning(u"Service name collision, "
+                           u"changing name to '%s' ...", name)
             remove_service()
             add_service()
             
         else:
-            sys.stderr.write(u"ERROR: No suitable service name found "
-                             u"after %i retries, exiting.\n"
-                             % n_rename)
+            logger.error(u"No suitable service name found "
+                         u"after %i retries, exiting.",
+                         n_rename)
             main_loop.quit()
     elif state == avahi.ENTRY_GROUP_FAILURE:
-        sys.stderr.write(u"Error in group state changed %s\n"
-                         % unicode(error))
+        logger.error(u"Error in group state changed %s",
+                     unicode(error))
         main_loop.quit()
         return
 
@@ -603,8 +600,7 @@ if __name__ == '__main__':
     def remove_from_clients(client):
         clients.remove(client)
         if not clients:
-            if debug:
-                sys.stderr.write(u"No clients left, exiting\n")
+            logger.debug(u"No clients left, exiting")
             main_loop.quit()
     
     clients.update(Set(Client(name=section, options=options,
@@ -621,8 +617,7 @@ if __name__ == '__main__':
                                 clients=clients)
     # Find out what random port we got
     servicePort = tcp_server.socket.getsockname()[1]
-    if debug:
-        sys.stderr.write(u"Now listening on port %d\n" % servicePort)
+    logger.debug(u"Now listening on port %d", servicePort)
     
     if options.interface is not None:
         serviceInterface = if_nametoindex(options.interface)
