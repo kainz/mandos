@@ -1,10 +1,10 @@
-CXXFLAGS=-Wall -W -g
+CFLAGS="-Wall -std=gnu99"
 LDFLAGS=-lgnutls
 
-all: client server
+all: plugbasedclient
 
 clean:
-	rm -f server client client_debug
+	rm -f plugbasedclient
 
 client_debug: client
 	mv -f client client.tmp
