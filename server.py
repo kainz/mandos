@@ -1,4 +1,5 @@
 #!/usr/bin/python
+# -*- mode: python; coding: utf-8 -*-
 
 from __future__ import division
 
@@ -21,6 +22,8 @@ import os
 import signal
 from sets import Set
 import subprocess
+import atexit
+import stat
 
 import dbus
 import gobject
@@ -31,10 +34,13 @@ import ctypes
 import logging
 import logging.handlers
 
-# logghandler.setFormatter(logging.Formatter('%(levelname)s %(message)s')
-
 logger = logging.Logger('mandos')
-logger.addHandler(logging.handlers.SysLogHandler(facility = logging.handlers.SysLogHandler.LOG_DAEMON))
+syslogger = logging.handlers.SysLogHandler\
+            (facility = logging.handlers.SysLogHandler.LOG_DAEMON)
+syslogger.setFormatter(logging.Formatter\
+                        ('%(levelname)s: %(message)s'))
+logger.addHandler(syslogger)
+del syslogger
 
 # This variable is used to optionally bind to a specified interface.
 # It is a global variable to fit in with the other variables from the
@@ -107,8 +113,8 @@ class Client(object):
                         _set_interval)
     del _set_interval
     def __init__(self, name=None, options=None, stop_hook=None,
-                 fingerprint=None, secret=None, secfile=None, fqdn=None,
-                 timeout=None, interval=-1, checker=None):
+                 fingerprint=None, secret=None, secfile=None,
+                 fqdn=None, timeout=None, interval=-1, checker=None):
         self.name = name
         # Uppercase and remove spaces from fingerprint
         # for later comparison purposes with return value of
@@ -127,13 +133,13 @@ class Client(object):
         self.created = datetime.datetime.now()
         self.last_seen = None
         if timeout is None:
-            timeout = options.timeout
-        self.timeout = timeout
-        if interval == -1:
-            interval = options.interval
+            self.timeout = options.timeout
         else:
-            interval = string_to_delta(interval)
-        self.interval = interval
+            self.timeout = string_to_delta(timeout)
+        if interval == -1:
+            self.interval = options.interval
+        else:
+            self.interval = string_to_delta(interval)
         self.stop_hook = stop_hook
         self.checker = None
         self.checker_initiator_tag = None
@@ -193,7 +199,7 @@ class Client(object):
             self.stop_initiator_tag = gobject.timeout_add\
                                       (self._timeout_milliseconds,
                                        self.stop)
-        if not os.WIFEXITED(condition):
+        elif not os.WIFEXITED(condition):
             logger.warning(u"Checker for %(name)s crashed?",
                            vars(self))
         else:
@@ -206,8 +212,6 @@ class Client(object):
         If a checker already exists, leave it running and do
         nothing."""
         if self.checker is None:
-            logger.debug(u"Starting checker for %s",
-                         self.name)
             try:
                 command = self.check_command % self.fqdn
             except TypeError:
@@ -217,19 +221,19 @@ class Client(object):
                 try:
                     command = self.check_command % escaped_attrs
                 except TypeError, error:
-                    logger.critical(u'Could not format string "%s": %s',
-                                    self.check_command, error)
+                    logger.critical(u'Could not format string "%s":'
+                                    u' %s', self.check_command, error)
                     return True # Try again later
             try:
+                logger.debug(u"Starting checker %r for %s",
+                             command, self.name)
                 self.checker = subprocess.\
                                Popen(command,
-                                     stdout=subprocess.PIPE,
                                      close_fds=True, shell=True,
                                      cwd="/")
-                self.checker_callback_tag = gobject.\
-                                            child_watch_add(self.checker.pid,
-                                                            self.\
-                                                            checker_callback)
+                self.checker_callback_tag = gobject.child_watch_add\
+                                            (self.checker.pid,
+                                             self.checker_callback)
             except subprocess.OSError, error:
                 logger.error(u"Failed to start subprocess: %s",
                              error)
@@ -256,6 +260,7 @@ class Client(object):
 
 
 def peer_certificate(session):
+    "Return an OpenPGP data packet string for the peer's certificate"
     # If not an OpenPGP certificate...
     if gnutls.library.functions.gnutls_certificate_type_get\
             (session._c_object) \
@@ -272,6 +277,7 @@ def peer_certificate(session):
 
 
 def fingerprint(openpgp):
+    "Convert an OpenPGP data string to a hexdigit fingerprint string"
     # New empty GnuTLS certificate
     crt = gnutls.library.types.gnutls_openpgp_crt_t()
     gnutls.library.functions.gnutls_openpgp_crt_init\
@@ -503,15 +509,13 @@ def entry_group_state_changed(state, error):
             add_service()
             
         else:
-            logger.error(u"No suitable service name found "
-                         u"after %i retries, exiting.",
-                         n_rename)
-            main_loop.quit()
+            logger.error(u"No suitable service name found after %i"
+                         u" retries, exiting.", n_rename)
+            killme(1)
     elif state == avahi.ENTRY_GROUP_FAILURE:
         logger.error(u"Error in group state changed %s",
                      unicode(error))
-        main_loop.quit()
-        return
+        killme(1)
 
 
 def if_nametoindex(interface):
@@ -533,23 +537,43 @@ def if_nametoindex(interface):
         return interface_index
 
 
+def daemon(nochdir, noclose):
+    """See daemon(3).  Standard BSD Unix function.
+    This should really exist as os.daemon, but it doesn't (yet)."""
+    if os.fork():
+        sys.exit()
+    os.setsid()
+    if not nochdir:
+        os.chdir("/")
+    if not noclose:
+        # Close all standard open file descriptors
+        null = os.open("/dev/null", os.O_NOCTTY | os.O_RDWR)
+        if not stat.S_ISCHR(os.fstat(null).st_mode):
+            raise OSError(errno.ENODEV,
+                          "/dev/null not a character device")
+        os.dup2(null, sys.stdin.fileno())
+        os.dup2(null, sys.stdout.fileno())
+        os.dup2(null, sys.stderr.fileno())
+        if null > 2:
+            os.close(null)
+
+
+def killme(status = 0):
+    logger.debug("Stopping server with exit status %d", status)
+    exitstatus = status
+    if main_loop_started:
+        main_loop.quit()
+    else:
+        sys.exit(status)
+
+
 if __name__ == '__main__':
+    exitstatus = 0
+    main_loop_started = False
     parser = OptionParser()
     parser.add_option("-i", "--interface", type="string",
                       default=None, metavar="IF",
                       help="Bind to interface IF")
-    parser.add_option("--cert", type="string", default="cert.pem",
-                      metavar="FILE",
-                      help="Public key certificate PEM file to use")
-    parser.add_option("--key", type="string", default="key.pem",
-                      metavar="FILE",
-                      help="Private key PEM file to use")
-    parser.add_option("--ca", type="string", default="ca.pem",
-                      metavar="FILE",
-                      help="Certificate Authority certificate PEM file to use")
-    parser.add_option("--crl", type="string", default="crl.pem",
-                      metavar="FILE",
-                      help="Certificate Revokation List PEM file to use")
     parser.add_option("-p", "--port", type="int", default=None,
                       help="Port number to receive requests on")
     parser.add_option("--timeout", type="string", # Parsed later
@@ -580,7 +604,7 @@ if __name__ == '__main__':
         parser.error("option --interval: Unparseable time")
     
     # Parse config file
-    defaults = { "checker": "sleep 1; fping -q -- %%(fqdn)s" }
+    defaults = { "checker": "fping -q -- %%(fqdn)s" }
     client_config = ConfigParser.SafeConfigParser(defaults)
     #client_config.readfp(open("secrets.conf"), "secrets.conf")
     client_config.read("mandos-clients.conf")
@@ -596,18 +620,50 @@ if __name__ == '__main__':
     
     debug = options.debug
     
+    if debug:
+        console = logging.StreamHandler()
+        # console.setLevel(logging.DEBUG)
+        console.setFormatter(logging.Formatter\
+                             ('%(levelname)s: %(message)s'))
+        logger.addHandler(console)
+        del console
+    
     clients = Set()
     def remove_from_clients(client):
         clients.remove(client)
         if not clients:
             logger.debug(u"No clients left, exiting")
-            main_loop.quit()
+            killme()
     
     clients.update(Set(Client(name=section, options=options,
                               stop_hook = remove_from_clients,
                               **(dict(client_config\
                                       .items(section))))
                        for section in client_config.sections()))
+    
+    if not debug:
+        daemon(False, False)
+    
+    def cleanup():
+        "Cleanup function; run on exit"
+        global group
+        # From the Avahi server example code
+        if not group is None:
+            group.Free()
+            group = None
+        # End of Avahi example code
+        
+        for client in clients:
+            client.stop_hook = None
+            client.stop()
+    
+    atexit.register(cleanup)
+    
+    if not debug:
+        signal.signal(signal.SIGINT, signal.SIG_IGN)
+    signal.signal(signal.SIGHUP, lambda signum, frame: killme())
+    signal.signal(signal.SIGTERM, lambda signum, frame: killme())
+    
     for client in clients:
         client.start()
     
@@ -624,7 +680,11 @@ if __name__ == '__main__':
     
     # From the Avahi server example code
     server.connect_to_signal("StateChanged", server_state_changed)
-    server_state_changed(server.GetState())
+    try:
+        server_state_changed(server.GetState())
+    except dbus.exceptions.DBusException, error:
+        logger.critical(u"DBusException: %s", error)
+        killme(1)
     # End of Avahi example code
     
     gobject.io_add_watch(tcp_server.fileno(), gobject.IO_IN,
@@ -632,17 +692,10 @@ if __name__ == '__main__':
                          tcp_server.handle_request(*args[2:],
                                                    **kwargs) or True)
     try:
+        main_loop_started = True
         main_loop.run()
     except KeyboardInterrupt:
-        print
+        if debug:
+            print
     
-    # Cleanup here
-
-    # From the Avahi server example code
-    if not group is None:
-        group.Free()
-    # End of Avahi example code
-    
-    for client in clients:
-        client.stop_hook = None
-        client.stop()
+    sys.exit(exitstatus)
