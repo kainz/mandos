@@ -1,14 +1,10 @@
 [Client]
-configuration for cert, key, CA and interface
+configuration for OpenPGP key and interface
 IPv4 support
-OpenPGP keys support
 
 [Server]
 config file
-client-list
 run-time communication with server
-
-handle SIGTERM, SIGQUIT, etc.
 
 [Mandos-tools/utilities]
 	List clients
