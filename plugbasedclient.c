@@ -60,12 +60,12 @@ int main(int argc, char *argv[]){
 	or dirst->d_name[d_name_len - 1] == '~'){
       continue;
     }
-    
-    char *filename = malloc(d_name_len + plugindir_len + 1);
+
+    char *filename = malloc(d_name_len + plugindir_len + 2);
     strcpy(filename, plugindir);
     strcat(filename, "/");
     strcat(filename, dirst->d_name);    
-    
+
     stat(filename, &st);
 
     if (S_ISREG(st.st_mode) and (access(filename, X_OK) == 0)){
@@ -80,7 +80,7 @@ int main(int argc, char *argv[]){
 	close(pipefd[0]);	/* close unused read end of pipe */
 	dup2(pipefd[1], STDOUT_FILENO); /* replace our stdout */
 	/* create a new modified argument list */
-	char **new_argv = malloc(sizeof(char *) * argc + 1);
+	char **new_argv = malloc(sizeof(char *) * (argc + 1));
 	new_argv[0] = filename;
 	for(int i = 1; i < argc; i++){
 	  new_argv[i] = argv[i];
