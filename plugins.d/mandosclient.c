@@ -59,7 +59,7 @@
 #define BUFFER_SIZE 256
 #define DH_BITS 1024
 
-bool debug;
+bool debug = false;
 
 typedef struct {
   gnutls_session_t session;
