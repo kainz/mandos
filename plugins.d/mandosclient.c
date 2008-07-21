@@ -48,10 +48,8 @@
 #include <avahi-common/error.h>
 
 //mandos client part
-#include <sys/types.h>		/* socket(), setsockopt(),
-				   inet_pton() */
-#include <sys/socket.h>		/* socket(), setsockopt(),
-				   struct sockaddr_in6,
+#include <sys/types.h>		/* socket(), inet_pton() */
+#include <sys/socket.h>		/* socket(), struct sockaddr_in6,
 				   struct in6_addr, inet_pton() */
 #include <gnutls/gnutls.h>	/* All GnuTLS stuff */
 #include <gnutls/openpgp.h>	/* GnuTLS with openpgp stuff */
@@ -195,7 +193,7 @@ ssize_t pgp_packet_decrypt (char *packet, size_t packet_size,
   gpgme_data_release(dh_crypto);
   
   /* Seek back to the beginning of the GPGME plaintext data buffer */
-  gpgme_data_seek(dh_plain, 0, SEEK_SET);
+  gpgme_data_seek(dh_plain, (off_t) 0, SEEK_SET);
 
   *new_packet = 0;
   while(true){
@@ -345,7 +343,7 @@ int initgnutls(encrypted_session *es){
 void empty_log(__attribute__((unused)) AvahiLogLevel level,
 	       __attribute__((unused)) const char *txt){}
 
-int start_mandos_communication(char *ip, uint16_t port,
+int start_mandos_communication(const char *ip, uint16_t port,
 			       unsigned int if_index){
   int ret, tcp_sd;
   struct sockaddr_in6 to;
@@ -355,6 +353,7 @@ int start_mandos_communication(char *ip, uint16_t port,
   size_t buffer_length = 0;
   size_t buffer_capacity = 0;
   ssize_t decrypted_buffer_size;
+  size_t written = 0;
   int retval = 0;
   char interface[IF_NAMESIZE];
   
@@ -379,13 +378,7 @@ int start_mandos_communication(char *ip, uint16_t port,
     fprintf(stderr, "Binding to interface %s\n", interface);
   }
   
-  ret = setsockopt(tcp_sd, SOL_SOCKET, SO_BINDTODEVICE, interface, 5);
-  if(ret < 0) {
-    perror("setsockopt bindtodevice");
-    return -1;
-  }
-  
-  memset(&to,0,sizeof(to));
+  memset(&to,0,sizeof(to));	/* Spurious warning */
   to.sin6_family = AF_INET6;
   ret = inet_pton(AF_INET6, ip, &to.sin6_addr);
   if (ret < 0 ){
@@ -396,9 +389,7 @@ int start_mandos_communication(char *ip, uint16_t port,
     fprintf(stderr, "Bad address: %s\n", ip);
     return -1;
   }
-  /* Spurious warnings for the next line, see for instance
-     <http://bugs.debian.org/488884> */
-  to.sin6_port = htons(port);
+  to.sin6_port = htons(port);	/* Spurious warning */
   
   to.sin6_scope_id = (uint32_t)if_index;
   
@@ -488,9 +479,10 @@ int start_mandos_communication(char *ip, uint16_t port,
 					       &decrypted_buffer,
 					       CERT_ROOT);
     if (decrypted_buffer_size >= 0){
-      while(decrypted_buffer_size > 0){
-	ret = fwrite (decrypted_buffer, 1, (size_t)decrypted_buffer_size,
-		      stdout);
+      while(written < decrypted_buffer_size){
+	ret = (int)fwrite (decrypted_buffer + written, 1,
+			   (size_t)decrypted_buffer_size - written,
+			   stdout);
 	if(ret == 0 and ferror(stdout)){
 	  if(debug){
 	    fprintf(stderr, "Error writing encrypted data: %s\n",
@@ -499,8 +491,7 @@ int start_mandos_communication(char *ip, uint16_t port,
 	  retval = -1;
 	  break;
 	}
-	decrypted_buffer += ret;
-	decrypted_buffer_size -= ret;
+	written += (size_t)ret;
       }
       free(decrypted_buffer);
     } else {
@@ -529,7 +520,7 @@ static AvahiServer *server = NULL;
 
 static void resolve_callback(
     AvahiSServiceResolver *r,
-    AVAHI_GCC_UNUSED AvahiIfIndex interface,
+    AvahiIfIndex interface,
     AVAHI_GCC_UNUSED AvahiProtocol protocol,
     AvahiResolverEvent event,
     const char *name,
@@ -542,11 +533,11 @@ static void resolve_callback(
     AVAHI_GCC_UNUSED AvahiLookupResultFlags flags,
     AVAHI_GCC_UNUSED void* userdata) {
     
-  assert(r);
-
+  assert(r);			/* Spurious warning */
+  
   /* Called whenever a service has been resolved successfully or
      timed out */
-
+  
   switch (event) {
   default:
   case AVAHI_RESOLVER_FAILURE:
@@ -554,7 +545,7 @@ static void resolve_callback(
 	    " type '%s' in domain '%s': %s\n", name, type, domain,
 	    avahi_strerror(avahi_server_errno(server)));
     break;
-      
+    
   case AVAHI_RESOLVER_FOUND:
     {
       char ip[AVAHI_ADDRESS_STR_MAX];
@@ -564,8 +555,7 @@ static void resolve_callback(
 		host_name, ip, port);
       }
       int ret = start_mandos_communication(ip, port,
-					   (unsigned int)
-					   interface);
+					   (unsigned int) interface);
       if (ret == 0){
 	exit(EXIT_SUCCESS);
       } else {
@@ -588,11 +578,11 @@ static void browse_callback(
     void* userdata) {
     
     AvahiServer *s = userdata;
-    assert(b);
-
+    assert(b);			/* Spurious warning */
+    
     /* Called whenever a new services becomes available on the LAN or
        is removed from the LAN */
-
+    
     switch (event) {
     default:
     case AVAHI_BROWSER_FAILURE:
@@ -638,11 +628,11 @@ int main(AVAHI_GCC_UNUSED int argc, AVAHI_GCC_UNUSED char*argv[]) {
 	{"debug", no_argument, (int *)&debug, 1},
 	{"interface", required_argument, 0, 'i'},
 	{0, 0, 0, 0} };
-
+      
       int option_index = 0;
       ret = getopt_long (argc, argv, "i:", long_options,
 			 &option_index);
-
+      
       if (ret == -1){
 	break;
       }
