@@ -1,3 +1,29 @@
+/*  -*- coding: utf-8 -*- */
+/*
+ * Mandos plugin runner - Run Mandos plugins
+ *
+ * Copyright © 2007-2008 Teddy Hogeborn and Björn Påhlsson.
+ * 
+ * This program is free software: you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see
+ * <http://www.gnu.org/licenses/>.
+ * 
+ * Contact the authors at <https://www.fukt.bsnet.se/~belorn/> and
+ * <https://www.fukt.bsnet.se/~teddy/>.
+ */
+
+#define _FORTIFY_SOURCE 2
+
 #include <stdio.h>	/* popen, fileno */
 #include <iso646.h>	/* and, or, not */
 #include <sys/types.h>	/* DIR, opendir, stat, struct stat, waitpid,
@@ -7,7 +33,8 @@
 #include <sys/stat.h>	/* stat, struct stat */
 #include <unistd.h>	/* stat, struct stat, chdir */
 #include <stdlib.h>	/* EXIT_FAILURE */
-#include <sys/select.h>	/* fd_set, select, FD_ZERO, FD_SET, FD_ISSET */
+#include <sys/select.h>	/* fd_set, select, FD_ZERO, FD_SET,
+			   FD_ISSET */
 #include <string.h>	/* strlen, strcpy, strcat */
 #include <stdbool.h>	/* true */
 #include <sys/wait.h>	/* waitpid, WIFEXITED, WEXITSTATUS */
@@ -19,8 +46,8 @@ typedef struct process{
   pid_t pid;
   int fd;
   char *buffer;
-  int buffer_size;
-  int buffer_length;
+  size_t buffer_size;
+  size_t buffer_length;
   struct process *next;
 } process;
 
@@ -80,7 +107,8 @@ int main(int argc, char *argv[]){
 	close(pipefd[0]);	/* close unused read end of pipe */
 	dup2(pipefd[1], STDOUT_FILENO); /* replace our stdout */
 	/* create a new modified argument list */
-	char **new_argv = malloc(sizeof(char *) * (argc + 1));
+	char **new_argv = malloc(sizeof(char *)
+				 * ((unsigned int) argc + 1));
 	new_argv[0] = filename;
 	for(int i = 1; i < argc; i++){
 	  new_argv[i] = argv[i];
@@ -131,7 +159,7 @@ int main(int argc, char *argv[]){
 	       > process_itr->buffer_size){
 		process_itr->buffer = realloc(process_itr->buffer,
 					      process_itr->buffer_size
-					      + BUFFER_SIZE);
+					      + (size_t) BUFFER_SIZE);
 		if (process_itr->buffer == NULL){
 		  perror(argv[0]);
 		  goto end;
@@ -140,7 +168,11 @@ int main(int argc, char *argv[]){
 	    }
 	    ret = read(process_itr->fd, process_itr->buffer
 		       + process_itr->buffer_length, BUFFER_SIZE);
-	    process_itr->buffer_length+=ret;
+	    if(ret < 0){
+	      /* Read error from this process; ignore it */
+	      continue;
+	    }
+	    process_itr->buffer_length += (size_t) ret;
 	    if(ret == 0){
 	      /* got EOF */
 	      /* wait for process exit */
