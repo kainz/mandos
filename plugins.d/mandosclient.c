@@ -311,7 +311,7 @@ int initgnutls(encrypted_session *es){
 
 void empty_log(AvahiLogLevel level, const char *txt){}
 
-int start_mandos_communcation(char *ip, uint16_t port){
+int start_mandos_communication(char *ip, uint16_t port){
   int ret, tcp_sd;
   struct sockaddr_in6 to;
   encrypted_session es;
@@ -494,7 +494,7 @@ static void resolve_callback(
 	    if(debug){
 	      fprintf(stderr, "Mandos server found at %s on port %d\n", ip, port);
 	    }
-	    int ret = start_mandos_communcation(ip, port);
+	    int ret = start_mandos_communication(ip, port);
 	    if (ret == 0){
 	      exit(EXIT_SUCCESS);
 	    } else {
