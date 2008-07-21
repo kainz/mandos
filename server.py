@@ -1,5 +1,34 @@
 #!/usr/bin/python
 # -*- mode: python; coding: utf-8 -*-
+# 
+# Mandos server - give out binary blobs to connecting clients.
+# 
+# This program is partly derived from an example program for an Avahi
+# service publisher, downloaded from
+# <http://avahi.org/wiki/PythonPublishExample>.  This includes the
+# following functions: "add_service", "remove_service",
+# "server_state_changed", "entry_group_state_changed", and some lines
+# in "main".
+# 
+# Everything else is Copyright © 2007-2008 Teddy Hogeborn and Björn
+# Påhlsson.
+# 
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+#     This program is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+# 
+# Contact the authors at <https://www.fukt.bsnet.se/~belorn/> and
+# <https://www.fukt.bsnet.se/~teddy/>.
+# 
 
 from __future__ import division
 
@@ -24,6 +53,8 @@ from sets import Set
 import subprocess
 import atexit
 import stat
+import logging
+import logging.handlers
 
 import dbus
 import gobject
@@ -31,8 +62,17 @@ import avahi
 from dbus.mainloop.glib import DBusGMainLoop
 import ctypes
 
-import logging
-import logging.handlers
+# Brief description of the operation of this program:
+# 
+# This server announces itself as a Zeroconf service.  Connecting
+# clients use the TLS protocol, with the unusual quirk that this
+# server program acts as a TLS "client" while the connecting clients
+# acts as a TLS "server".  The clients (acting as a TLS "server") must
+# supply an OpenPGP certificate, and the fingerprint of this
+# certificate is used by this server to look up (in a list read from a
+# file at start time) which binary blob to give the client.  No other
+# authentication or authorization is done by this server.
+
 
 logger = logging.Logger('mandos')
 syslogger = logging.handlers.SysLogHandler\
@@ -44,9 +84,9 @@ del syslogger
 
 # This variable is used to optionally bind to a specified interface.
 # It is a global variable to fit in with the other variables from the
-# Avahi server example code.
+# Avahi example code.
 serviceInterface = avahi.IF_UNSPEC
-# From the Avahi server example code:
+# From the Avahi example code:
 serviceName = "Mandos"
 serviceType = "_mandos._tcp" # http://www.dns-sd.org/ServiceTypes.html
 servicePort = None                      # Not known at startup
@@ -115,6 +155,8 @@ class Client(object):
     def __init__(self, name=None, options=None, stop_hook=None,
                  fingerprint=None, secret=None, secfile=None,
                  fqdn=None, timeout=None, interval=-1, checker=None):
+        """Note: the 'checker' argument sets the 'checker_command'
+        attribute and not the 'checker' attribute.."""
         self.name = name
         # Uppercase and remove spaces from fingerprint
         # for later comparison purposes with return value of
@@ -147,7 +189,7 @@ class Client(object):
         self.checker_callback_tag = None
         self.check_command = checker
     def start(self):
-        """Start this clients checker and timeout hooks"""
+        """Start this client's checker and timeout hooks"""
         # Schedule a new checker to be started an 'interval' from now,
         # and every interval from then on.
         self.checker_initiator_tag = gobject.timeout_add\
@@ -163,21 +205,12 @@ class Client(object):
         """Stop this client.
         The possibility that this client might be restarted is left
         open, but not currently used."""
-        logger.debug(u"Stopping client %s", self.name)
-        self.secret = None
-        if self.stop_initiator_tag:
-            gobject.source_remove(self.stop_initiator_tag)
-            self.stop_initiator_tag = None
-        if self.checker_initiator_tag:
-            gobject.source_remove(self.checker_initiator_tag)
-            self.checker_initiator_tag = None
-        self.stop_checker()
-        if self.stop_hook:
-            self.stop_hook(self)
-        # Do not run this again if called by a gobject.timeout_add
-        return False
-    def __del__(self):
-        # Some code duplication here and in stop()
+        # If this client doesn't have a secret, it is already stopped.
+        if self.secret:
+            logger.debug(u"Stopping client %s", self.name)
+            self.secret = None
+        else:
+            return False
         if hasattr(self, "stop_initiator_tag") \
                and self.stop_initiator_tag:
             gobject.source_remove(self.stop_initiator_tag)
@@ -187,9 +220,18 @@ class Client(object):
             gobject.source_remove(self.checker_initiator_tag)
             self.checker_initiator_tag = None
         self.stop_checker()
+        if self.stop_hook:
+            self.stop_hook(self)
+        # Do not run this again if called by a gobject.timeout_add
+        return False
+    def __del__(self):
+        self.stop_hook = None
+        self.stop()
     def checker_callback(self, pid, condition):
         """The checker has completed, so take appropriate actions."""
         now = datetime.datetime.now()
+        self.checker_callback_tag = None
+        self.checker = None
         if os.WIFEXITED(condition) \
                and (os.WEXITSTATUS(condition) == 0):
             logger.debug(u"Checker for %(name)s succeeded",
@@ -205,12 +247,18 @@ class Client(object):
         else:
             logger.debug(u"Checker for %(name)s failed",
                          vars(self))
-            self.checker = None
-        self.checker_callback_tag = None
     def start_checker(self):
         """Start a new checker subprocess if one is not running.
         If a checker already exists, leave it running and do
         nothing."""
+        # The reason for not killing a running checker is that if we
+        # did that, then if a checker (for some reason) started
+        # running slowly and taking more than 'interval' time, the
+        # client would inevitably timeout, since no checker would get
+        # a chance to run to completion.  If we instead leave running
+        # checkers alone, the checker would have to take more time
+        # than 'timeout' for the client to be declared invalid, which
+        # is as it should be.
         if self.checker is None:
             try:
                 command = self.check_command % self.fqdn
@@ -241,13 +289,20 @@ class Client(object):
         return True
     def stop_checker(self):
         """Force the checker process, if any, to stop."""
+        if self.checker_callback_tag:
+            gobject.source_remove(self.checker_callback_tag)
+            self.checker_callback_tag = None
         if not hasattr(self, "checker") or self.checker is None:
             return
-        gobject.source_remove(self.checker_callback_tag)
-        self.checker_callback_tag = None
-        os.kill(self.checker.pid, signal.SIGTERM)
-        if self.checker.poll() is None:
-            os.kill(self.checker.pid, signal.SIGKILL)
+        logger.debug("Stopping checker for %(name)s", vars(self))
+        try:
+            os.kill(self.checker.pid, signal.SIGTERM)
+            #os.sleep(0.5)
+            #if self.checker.poll() is None:
+            #    os.kill(self.checker.pid, signal.SIGKILL)
+        except OSError, error:
+            if error.errno != errno.ESRCH:
+                raise
         self.checker = None
     def still_valid(self, now=None):
         """Has the timeout not yet passed for this client?"""
@@ -260,7 +315,7 @@ class Client(object):
 
 
 def peer_certificate(session):
-    "Return an OpenPGP data packet string for the peer's certificate"
+    "Return the peer's OpenPGP certificate as a bytestring"
     # If not an OpenPGP certificate...
     if gnutls.library.functions.gnutls_certificate_type_get\
             (session._c_object) \
@@ -277,7 +332,7 @@ def peer_certificate(session):
 
 
 def fingerprint(openpgp):
-    "Convert an OpenPGP data string to a hexdigit fingerprint string"
+    "Convert an OpenPGP bytestring to a hexdigit fingerprint string"
     # New empty GnuTLS certificate
     crt = gnutls.library.types.gnutls_openpgp_crt_t()
     gnutls.library.functions.gnutls_openpgp_crt_init\
@@ -342,7 +397,7 @@ class tcp_handler(SocketServer.BaseRequestHandler, object):
             return
         logger.debug(u"Fingerprint: %s", fpr)
         client = None
-        for c in clients:
+        for c in self.server.clients:
             if c.fingerprint == fpr:
                 client = c
                 break
@@ -449,7 +504,7 @@ def string_to_delta(interval):
 
 
 def add_service():
-    """From the Avahi server example code"""
+    """Derived from the Avahi example code"""
     global group, serviceName, serviceType, servicePort, serviceTXT, \
            domain, host
     if group is None:
@@ -474,7 +529,7 @@ def add_service():
 
 
 def remove_service():
-    """From the Avahi server example code"""
+    """From the Avahi example code"""
     global group
     
     if not group is None:
@@ -482,7 +537,7 @@ def remove_service():
 
 
 def server_state_changed(state):
-    """From the Avahi server example code"""
+    """Derived from the Avahi example code"""
     if state == avahi.SERVER_COLLISION:
         logger.warning(u"Server name collision")
         remove_service()
@@ -491,7 +546,7 @@ def server_state_changed(state):
 
 
 def entry_group_state_changed(state, error):
-    """From the Avahi server example code"""
+    """Derived from the Avahi example code"""
     global serviceName, server, rename_count
     
     logger.debug(u"state change: %i", state)
@@ -567,13 +622,18 @@ def killme(status = 0):
         sys.exit(status)
 
 
-if __name__ == '__main__':
+def main():
+    global exitstatus
     exitstatus = 0
+    global main_loop_started
     main_loop_started = False
+    
     parser = OptionParser()
     parser.add_option("-i", "--interface", type="string",
                       default=None, metavar="IF",
                       help="Bind to interface IF")
+    parser.add_option("-a", "--address", type="string", default=None,
+                      help="Address to listen for requests on")
     parser.add_option("-p", "--port", type="int", default=None,
                       help="Port number to receive requests on")
     parser.add_option("--timeout", type="string", # Parsed later
@@ -606,10 +666,13 @@ if __name__ == '__main__':
     # Parse config file
     defaults = { "checker": "fping -q -- %%(fqdn)s" }
     client_config = ConfigParser.SafeConfigParser(defaults)
-    #client_config.readfp(open("secrets.conf"), "secrets.conf")
+    #client_config.readfp(open("global.conf"), "global.conf")
     client_config.read("mandos-clients.conf")
     
-    # From the Avahi server example code
+    global main_loop
+    global bus
+    global server
+    # From the Avahi example code
     DBusGMainLoop(set_as_default=True )
     main_loop = gobject.MainLoop()
     bus = dbus.SystemBus()
@@ -647,13 +710,14 @@ if __name__ == '__main__':
     def cleanup():
         "Cleanup function; run on exit"
         global group
-        # From the Avahi server example code
+        # From the Avahi example code
         if not group is None:
             group.Free()
             group = None
         # End of Avahi example code
         
-        for client in clients:
+        while clients:
+            client = clients.pop()
             client.stop_hook = None
             client.stop()
     
@@ -667,18 +731,20 @@ if __name__ == '__main__':
     for client in clients:
         client.start()
     
-    tcp_server = IPv6_TCPServer((None, options.port),
+    tcp_server = IPv6_TCPServer((options.address, options.port),
                                 tcp_handler,
                                 options=options,
                                 clients=clients)
     # Find out what random port we got
+    global servicePort
     servicePort = tcp_server.socket.getsockname()[1]
     logger.debug(u"Now listening on port %d", servicePort)
     
     if options.interface is not None:
+        global serviceInterface
         serviceInterface = if_nametoindex(options.interface)
     
-    # From the Avahi server example code
+    # From the Avahi example code
     server.connect_to_signal("StateChanged", server_state_changed)
     try:
         server_state_changed(server.GetState())
@@ -692,6 +758,7 @@ if __name__ == '__main__':
                          tcp_server.handle_request(*args[2:],
                                                    **kwargs) or True)
     try:
+        logger.debug("Starting main loop")
         main_loop_started = True
         main_loop.run()
     except KeyboardInterrupt:
@@ -699,3 +766,6 @@ if __name__ == '__main__':
             print
     
     sys.exit(exitstatus)
+
+if __name__ == '__main__':
+    main()

@@ -1,9 +1,16 @@
-[Client]
+[Mandos client]
 configuration for OpenPGP key and interface
 IPv4 support
 
+[Pluginbasedclient]
+disable certain plugins
+change uid to nobody:nogroup
+	other drop privs stuff?
+
 [Server]
-config file
+config file for:
+	TXT record
+	GnuTLS priority string
 run-time communication with server
 
 [Mandos-tools/utilities]
