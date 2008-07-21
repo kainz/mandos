@@ -1,18 +1,8 @@
-CFLAGS=-Wall -g --std=gnu99
-LDFLAGS=-lgnutls -lavahi-core -lgpgme
+# See the parent directory Makefile
 
-PROGS=mandosclient passprompt
-
-objects=mandosclient.o passprompt.o
-
-all: $(PROGS)
-
-mandosclient: mandosclient.o
-	$(LINK.o) -lgnutls -lavahi-core -lgpgme $(COMMON) $^ $(LOADLIBES) $(LDLIBS) -o $@
-
-passprompt: passprompt.o
-	$(LINK.o) $(COMMON) $^ $(LOADLIBES) $(LDLIBS) -o $@
+all:
+	$(MAKE) -C .. all
 
 .PHONY : clean
 clean :
-	-rm -f $(PROGS) $(objects) core
+	$(MAKE) -C .. clean

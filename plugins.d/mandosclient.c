@@ -50,6 +50,8 @@
 #include <errno.h>		/* perror() */
 #include <gpgme.h>
 
+// getopt long
+#include <getopt.h>
 
 #ifndef CERT_ROOT
 #define CERT_ROOT "/conf/conf.d/cryptkeyreq/"
@@ -60,6 +62,7 @@
 #define DH_BITS 1024
 
 bool debug = false;
+char *interface = "eth0";
 
 typedef struct {
   gnutls_session_t session;
@@ -197,11 +200,15 @@ ssize_t gpg_packet_decrypt (char *packet, size_t packet_size, char **new_packet,
     new_packet_length += ret;
   }
 
-  if(debug){
-    fprintf(stderr, "decrypted password is: %s\n", *new_packet);
-  }
-
-   /* Delete the GPGME plaintext data buffer */
+  /* FIXME: check characters before printing to screen so to not print
+     terminal control characters */
+  /*   if(debug){ */
+  /*     fprintf(stderr, "decrypted password is: "); */
+  /*     fwrite(*new_packet, 1, new_packet_length, stderr); */
+  /*     fprintf(stderr, "\n"); */
+  /*   } */
+  
+  /* Delete the GPGME plaintext data buffer */
   gpgme_data_release(dh_plain);
   return new_packet_length;
 }
@@ -322,7 +329,6 @@ int start_mandos_communcation(char *ip, uint16_t port){
   size_t buffer_capacity = 0;
   ssize_t decrypted_buffer_size;
   int retval = 0;
-  const char interface[] = "eth0";
 
   if(debug){
     fprintf(stderr, "Setting up a tcp connection to %s\n", ip);
@@ -553,36 +559,34 @@ static void browse_callback(
 int main(AVAHI_GCC_UNUSED int argc, AVAHI_GCC_UNUSED char*argv[]) {
     AvahiServerConfig config;
     AvahiSServiceBrowser *sb = NULL;
-    const char db[] = "--debug";
     int error;
-    int ret = 1;
+    int ret;
     int returncode = EXIT_SUCCESS;
-    char *basename = rindex(argv[0], '/');
-    if(basename == NULL){
-      basename = argv[0];
-    } else {
-      basename++;
-    }
-    
-    char *program_name = malloc(strlen(basename) + sizeof(db));
 
-    if (program_name == NULL){
-      perror("argv[0]");
-      return EXIT_FAILURE;
-    }
-    
-    program_name[0] = '\0';
-    
-    for (int i = 1; i < argc; i++){
-      if (not strncmp(argv[i], db, 5)){
-	  strcat(strcat(strcat(program_name, db ), "="), basename);
-	  if(not strcmp(argv[i], db) or not strcmp(argv[i], program_name)){
-	    debug = true;
-	  }
-	}
-    }
-    free(program_name);
+    while (true){
+      static struct option long_options[] = {
+	{"debug", no_argument, (int *)&debug, 1},
+	{"interface", required_argument, 0, 'i'},
+	{0, 0, 0, 0} };
 
+      int option_index = 0;
+      ret = getopt_long (argc, argv, "i:", long_options, &option_index);
+
+      if (ret == -1){
+	break;
+      }
+      
+      switch(ret){
+      case 0:
+	break;
+      case 'i':
+	interface = optarg;
+	break;
+      default:
+	exit(EXIT_FAILURE);
+      }
+    }
+    
     if (not debug){
       avahi_set_log_function(empty_log);
     }
@@ -648,5 +652,5 @@ exit:
     if (simple_poll)
         avahi_simple_poll_free(simple_poll);
 
-    return ret;
+    return returncode;
 }

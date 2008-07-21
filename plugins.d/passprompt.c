@@ -11,14 +11,16 @@
 				   SIGQUIT, SIGHUP, SIGTERM */
 #include <stddef.h>		/* NULL, size_t */
 #include <sys/types.h>		/* ssize_t */
-#include <stdlib.h>		/* EXIT_SUCCESS, EXIT_FAILURE */
+#include <stdlib.h>		/* EXIT_SUCCESS, EXIT_FAILURE,
+				   getopt_long */
 #include <stdio.h>		/* fprintf(), stderr, getline(),
 				   stdin, feof(), perror(), fputc(),
-				   stdout */
+				   stdout, getopt_long */
 #include <errno.h>		/* errno, EINVAL */
 #include <iso646.h>		/* or, not */
 #include <stdbool.h>		/* bool, false, true */
 #include <string.h> 		/* strlen, rindex, strncmp, strcmp */
+#include <getopt.h>		/* getopt_long */
 
 volatile bool quit_now = false;
 bool debug = false;
@@ -28,40 +30,41 @@ void termination_handler(int signum){
 }
 
 int main(int argc, char **argv){
-  ssize_t ret = -1;
+  ssize_t ret;
   size_t n;
   struct termios t_new, t_old;
   char *buffer = NULL;
+  char *prefix = NULL;
   int status = EXIT_SUCCESS;
   struct sigaction old_action,
     new_action = { .sa_handler = termination_handler,
 		   .sa_flags = 0 };
-  const char db[] = "--debug";
-  char *basename = rindex(argv[0], '/');
-  if(basename == NULL){
-    basename = argv[0];
-  } else {
-    basename++;
-  }
 
-  char *program_name = malloc(strlen(basename) + sizeof(db));
-  if (program_name == NULL){
-    perror("argv[0]");
-    return EXIT_FAILURE;
-  }
-    
-  program_name[0] = '\0';
-    
-  for (int i = 1; i < argc; i++){
-    if (not strncmp(argv[i], db, 5)){
-      strcat(strcat(strcat(program_name, db ), "="), basename);
-      if(not strcmp(argv[i], db) or not strcmp(argv[i], program_name)){
-	debug = true;
-      }
+  while (true){
+    static struct option long_options[] = {
+      {"debug", no_argument, (int *)&debug, 1},
+      {"prefix", required_argument, 0, 'p'},
+      {0, 0, 0, 0} };
+
+    int option_index = 0;
+    ret = getopt_long (argc, argv, "p:", long_options, &option_index);
+
+    if (ret == -1){
+      break;
+    }
+      
+    switch(ret){
+    case 0:
+      break;
+    case 'p':
+      prefix = optarg;
+      break;
+    default:
+      fprintf(stderr, "bad arguments\n");
+      exit(EXIT_FAILURE);
     }
   }
-  free(program_name);
-
+      
   if (debug){
     fprintf(stderr, "Starting %s\n", argv[0]);
   }
@@ -111,7 +114,12 @@ int main(int argc, char **argv){
       status = EXIT_FAILURE;
       break;
     }
-    fprintf(stderr, "Password: ");
+
+    if(prefix){
+      fprintf(stderr, "%s Password: ", prefix);
+    } else {
+      fprintf(stderr, "Password: ");
+    }      
     ret = getline(&buffer, &n, stdin);
     if (ret > 0){
       fprintf(stdout, "%s", buffer);
