@@ -1,5 +1,30 @@
+/*  -*- coding: utf-8 -*- */
+/*
+ * Passprompt - Read a password from the terminal and print it
+ *
+ * Copyright © 2007-2008 Teddy Hogeborn and Björn Påhlsson.
+ * 
+ * This program is free software: you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see
+ * <http://www.gnu.org/licenses/>.
+ * 
+ * Contact the authors at <https://www.fukt.bsnet.se/~belorn/> and
+ * <https://www.fukt.bsnet.se/~teddy/>.
+ */
+
 #define _GNU_SOURCE		/* getline() */
 #define _FORTIFY_SOURCE 2
+
 #include <termios.h> 		/* struct termios, tcsetattr(),
 				   TCSAFLUSH, tcgetattr(), ECHO */
 #include <unistd.h>		/* struct termios, tcsetattr(),
@@ -25,7 +50,7 @@
 volatile bool quit_now = false;
 bool debug = false;
 
-void termination_handler(int signum){
+void termination_handler(__attribute__((unused))int signum){
   quit_now = true;
 }
 
