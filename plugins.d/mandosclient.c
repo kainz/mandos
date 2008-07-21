@@ -314,7 +314,6 @@ void empty_log(AvahiLogLevel level, const char *txt){}
 int start_mandos_communcation(char *ip, uint16_t port){
   int ret, tcp_sd;
   struct sockaddr_in6 to;
-  struct in6_addr ip_addr;
   encrypted_session es;
   char *buffer = NULL;
   char *decrypted_buffer;
@@ -346,7 +345,7 @@ int start_mandos_communcation(char *ip, uint16_t port){
   
   memset(&to,0,sizeof(to));
   to.sin6_family = AF_INET6;
-  ret = inet_pton(AF_INET6, ip, &ip_addr);
+  ret = inet_pton(AF_INET6, ip, &to.sin6_addr);
   if (ret < 0 ){
     perror("inet_pton");
     return -1;
