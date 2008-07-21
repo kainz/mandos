@@ -18,8 +18,10 @@
 #include <errno.h>		/* errno, EINVAL */
 #include <iso646.h>		/* or, not */
 #include <stdbool.h>		/* bool, false, true */
+#include <string.h> 		/* strlen, rindex, strncmp, strcmp */
 
 volatile bool quit_now = false;
+bool debug = false;
 
 void termination_handler(int signum){
   quit_now = true;
@@ -34,6 +36,38 @@ int main(int argc, char **argv){
   struct sigaction old_action,
     new_action = { .sa_handler = termination_handler,
 		   .sa_flags = 0 };
+  const char db[] = "--debug";
+  char *basename = rindex(argv[0], '/');
+  if(basename == NULL){
+    basename = argv[0];
+  } else {
+    basename++;
+  }
+
+  char *program_name = malloc(strlen(basename) + sizeof(db));
+  if (program_name == NULL){
+    perror("argv[0]");
+    return EXIT_FAILURE;
+  }
+    
+  program_name[0] = '\0';
+    
+  for (int i = 1; i < argc; i++){
+    if (not strncmp(argv[i], db, 5)){
+      strcat(strcat(strcat(program_name, db ), "="), basename);
+      if(not strcmp(argv[i], db) or not strcmp(argv[i], program_name)){
+	debug = true;
+      }
+    }
+  }
+  free(program_name);
+
+  if (debug){
+    fprintf(stderr, "Starting %s\n", argv[0]);
+  }
+  if (debug){
+    fprintf(stderr, "Storing current terminal attributes\n");
+  }
   
   if (tcgetattr(STDIN_FILENO, &t_old) != 0){
     return EXIT_FAILURE;
@@ -56,6 +90,11 @@ int main(int argc, char **argv){
   sigaction(SIGTERM, NULL, &old_action);
   if (old_action.sa_handler != SIG_IGN)
     sigaction(SIGTERM, &new_action, NULL);
+
+  
+  if (debug){
+    fprintf(stderr, "Removing echo flag from terminal attributes\n");
+  }
   
   t_new = t_old;
   t_new.c_lflag &= ~ECHO;
@@ -63,7 +102,10 @@ int main(int argc, char **argv){
     perror("tcsetattr-echo");
     return EXIT_FAILURE;
   }
-  
+
+  if (debug){
+    fprintf(stderr, "Waiting for input from stdin \n");
+  }
   while(true){
     if (quit_now){
       status = EXIT_FAILURE;
@@ -87,8 +129,15 @@ int main(int argc, char **argv){
     fputc('\n', stderr);
   }
 
+  if (debug){
+    fprintf(stderr, "Restoring terminal attributes\n");
+  }
   if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &t_old) != 0){
     perror("tcsetattr+echo");
+  }
+
+  if (debug){
+    fprintf(stderr, "%s is exiting\n", argv[0]);
   }
   
   return status;
