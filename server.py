@@ -87,7 +87,7 @@ del syslogger
 # Avahi example code.
 serviceInterface = avahi.IF_UNSPEC
 # From the Avahi example code:
-serviceName = "Mandos"
+serviceName = None
 serviceType = "_mandos._tcp" # http://www.dns-sd.org/ServiceTypes.html
 servicePort = None                      # Not known at startup
 serviceTXT = []                         # TXT record for the service
@@ -152,16 +152,18 @@ class Client(object):
     interval = property(lambda self: self._interval,
                         _set_interval)
     del _set_interval
-    def __init__(self, name=None, options=None, stop_hook=None,
-                 fingerprint=None, secret=None, secfile=None,
-                 fqdn=None, timeout=None, interval=-1, checker=None):
+    def __init__(self, name=None, stop_hook=None, fingerprint=None,
+                 secret=None, secfile=None, fqdn=None, timeout=None,
+                 interval=-1, checker=None):
         """Note: the 'checker' argument sets the 'checker_command'
         attribute and not the 'checker' attribute.."""
         self.name = name
+        logger.debug(u"Creating client %r", self.name)
         # Uppercase and remove spaces from fingerprint
         # for later comparison purposes with return value of
         # the fingerprint() function
         self.fingerprint = fingerprint.upper().replace(u" ", u"")
+        logger.debug(u"  Fingerprint: %s", self.fingerprint)
         if secret:
             self.secret = secret.decode(u"base64")
         elif secfile:
@@ -174,14 +176,8 @@ class Client(object):
         self.fqdn = fqdn                # string
         self.created = datetime.datetime.now()
         self.last_seen = None
-        if timeout is None:
-            self.timeout = options.timeout
-        else:
-            self.timeout = string_to_delta(timeout)
-        if interval == -1:
-            self.interval = options.interval
-        else:
-            self.interval = string_to_delta(interval)
+        self.timeout = string_to_delta(timeout)
+        self.interval = string_to_delta(interval)
         self.stop_hook = stop_hook
         self.checker = None
         self.checker_initiator_tag = None
@@ -377,8 +373,9 @@ class tcp_handler(SocketServer.BaseRequestHandler, object):
         #priority = ':'.join(("NONE", "+VERS-TLS1.1", "+AES-256-CBC",
         #                "+SHA1", "+COMP-NULL", "+CTYPE-OPENPGP",
         #                "+DHE-DSS"))
-        priority = "SECURE256"
-        
+        priority = "NORMAL"
+        if self.server.options.priority:
+            priority = self.server.options.priority
         gnutls.library.functions.gnutls_priority_set_direct\
             (session._c_object, priority, None);
         
@@ -636,16 +633,16 @@ def main():
                       help="Address to listen for requests on")
     parser.add_option("-p", "--port", type="int", default=None,
                       help="Port number to receive requests on")
-    parser.add_option("--timeout", type="string", # Parsed later
-                      default="1h",
-                      help="Amount of downtime allowed for clients")
-    parser.add_option("--interval", type="string", # Parsed later
-                      default="5m",
-                      help="How often to check that a client is up")
     parser.add_option("--check", action="store_true", default=False,
                       help="Run self-test")
     parser.add_option("--debug", action="store_true", default=False,
                       help="Debug mode")
+    parser.add_option("--priority", type="string",
+                      default="SECURE256",
+                      help="GnuTLS priority string"
+                      " (see GnuTLS documentation)")
+    parser.add_option("--servicename", type="string",
+                      default="Mandos", help="Zeroconf service name")
     (options, args) = parser.parse_args()
     
     if options.check:
@@ -653,21 +650,17 @@ def main():
         doctest.testmod()
         sys.exit()
     
-    # Parse the time arguments
-    try:
-        options.timeout = string_to_delta(options.timeout)
-    except ValueError:
-        parser.error("option --timeout: Unparseable time")
-    try:
-        options.interval = string_to_delta(options.interval)
-    except ValueError:
-        parser.error("option --interval: Unparseable time")
-    
     # Parse config file
-    defaults = { "checker": "fping -q -- %%(fqdn)s" }
+    defaults = { "timeout": "1h",
+                 "interval": "5m",
+                 "checker": "fping -q -- %%(fqdn)s",
+                 }
     client_config = ConfigParser.SafeConfigParser(defaults)
     #client_config.readfp(open("global.conf"), "global.conf")
     client_config.read("mandos-clients.conf")
+    
+    global serviceName
+    serviceName = options.servicename;
     
     global main_loop
     global bus
@@ -698,7 +691,7 @@ def main():
             logger.debug(u"No clients left, exiting")
             killme()
     
-    clients.update(Set(Client(name=section, options=options,
+    clients.update(Set(Client(name=section,
                               stop_hook = remove_from_clients,
                               **(dict(client_config\
                                       .items(section))))

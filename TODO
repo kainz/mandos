@@ -1,19 +1,25 @@
 [Mandos client]
 configuration for OpenPGP key
+header files/symbols tally
+check exit codes of all system calls
 IPv4 support
 
 [Pluginbasedclient]
 disable certain plugins
+header files/symbols tally
+check exit codes of all system calls
 change uid to nobody:nogroup
 	other drop privs stuff?
 
 [Server]
 config file for:
 	TXT record
-	GnuTLS priority string
 run-time communication with server
 
 [Mandos-tools/utilities]
 	List clients
 	Enable client
 	Disable client
+
+[Installer]
+...
