@@ -39,6 +39,7 @@
 #include <stdbool.h>	/* true */
 #include <sys/wait.h>	/* waitpid, WIFEXITED, WEXITSTATUS */
 #include <errno.h>	/* errno */
+#include <argp.h>	/* argp */
 
 struct process;
 
@@ -51,7 +52,62 @@ typedef struct process{
   struct process *next;
 } process;
 
+typedef struct plugin{
+  char *name; 		/* can be "global" and any plugin name */
+  char **argv;
+  int argc;
+  struct plugin *next;
+} plugin;
+
+plugin *getplugin(char *name, plugin **plugin_list){
+  for (plugin *p = *plugin_list; p != NULL; p = p->next){
+    if ((p->name == name)
+	or (p->name and name and (strcmp(p->name, name) == 0))){
+      return p;
+    }
+  }
+  /* Create a new plugin */
+  plugin *new_plugin = malloc(sizeof(plugin));
+  if (new_plugin == NULL){
+    perror("malloc");
+    exit(EXIT_FAILURE);
+  }
+  new_plugin->name = name;
+  new_plugin->argv = malloc(sizeof(char *) * 2);
+  if (new_plugin->argv == NULL){
+    perror("malloc");
+    exit(EXIT_FAILURE);
+  }
+  new_plugin->argv[0] = name;
+  new_plugin->argv[1] = NULL;
+  new_plugin->argc = 1;
+  /* Append the new plugin to the list */
+  new_plugin->next = *plugin_list;
+  *plugin_list = new_plugin;
+  return new_plugin;
+}
+
+void addarguments(plugin *p, char *arg){
+  p->argv[p->argc] = arg;
+  p->argv = realloc(p->argv, sizeof(char *) * (size_t)(p->argc + 2));
+  if (p->argv == NULL){
+    perror("malloc");
+    exit(EXIT_FAILURE);
+  }
+  p->argc++;
+  p->argv[p->argc] = NULL;
+}
+	
 #define BUFFER_SIZE 256
+
+const char *argp_program_version =
+  "plugbasedclient 0.9";
+const char *argp_program_bug_address =
+  "<mandos@fukt.bsnet.se>";
+static char doc[] =
+  "Mandos plugin runner -- Run Mandos plugins";
+/* A description of the arguments we accept. */
+static char args_doc[] = "";
 
 int main(int argc, char *argv[]){
   char plugindir[] = "plugins.d";
@@ -63,8 +119,71 @@ int main(int argc, char *argv[]){
   int ret, maxfd = 0;
   process *process_list = NULL;
   
-  dir = opendir(plugindir);
+  /* The options we understand. */
+  struct argp_option options[] = {
+    { .name = "global-options", .key = 'g',
+      .arg = "option[,option[,...]]", .flags = 0,
+      .doc = "Options effecting all plugins" },
+    { .name = "options-for", .key = 'o',
+      .arg = "plugin:option[,option[,...]]", .flags = 0,
+      .doc = "Options effecting only specified plugins" },
+    { .name = NULL }
+  };
+  
+  error_t parse_opt (int key, char *arg, struct argp_state *state) {
+       /* Get the INPUT argument from `argp_parse', which we
+          know is a pointer to our arguments structure. */
+    plugin **plugins = state->input;
+    switch (key) {
+    case 'g':
+      if (arg != NULL){
+	char *p = strtok(arg, ",");
+	do{
+	  addarguments(getplugin(NULL, plugins), p);
+	  p = strtok(NULL, ",");
+	} while (p);
+      }
+      break;
+    case 'o':
+      if (arg != NULL){
+	char *name = strtok(arg, ":");
+	char *p = strtok(NULL, ":");
+	p = strtok(p, ",");
+	do{
+	  addarguments(getplugin(name, plugins), p);
+	  p = strtok(NULL, ",");
+	} while (p);
+      }
+      break;
+    case ARGP_KEY_ARG:
+      argp_usage (state);
+      break;
+    case ARGP_KEY_END:
+      break;
+    default:
+      return ARGP_ERR_UNKNOWN;
+    }
+    return 0;
+  }
 
+  plugin *plugin_list = NULL;
+  
+  struct argp argp = { .options = options, .parser = parse_opt,
+		       .args_doc = args_doc, .doc = doc };
+
+  argp_parse (&argp, argc, argv, 0, 0, &plugin_list);
+
+/*   for(plugin *p = plugin_list; p != NULL; p=p->next){ */
+/*     fprintf(stderr, "Plugin: %s has %d arguments\n", p->name ? p->name : "Global", p->argc); */
+/*     for(char **a = p->argv + 1; *a != NULL; a++){ */
+/*       fprintf(stderr, "\tArg: %s\n", *a); */
+/*     } */
+/*   } */
+  
+/*   return 0; */
+  
+  dir = opendir(plugindir);
+  
   if(dir == NULL){
     fprintf(stderr, "Can not open directory\n");
     return EXIT_FAILURE;
@@ -99,22 +218,31 @@ int main(int argc, char *argv[]){
       // Starting a new process to be watched
       process *new_process = malloc(sizeof(process));
       int pipefd[2];
-      pipe(pipefd);
+      ret = pipe(pipefd);
+      if (ret == -1){
+	perror(argv[0]);
+	goto end;
+      }
       new_process->pid = fork();
       if(new_process->pid == 0){
 	/* this is the child process */
 	closedir(dir);
 	close(pipefd[0]);	/* close unused read end of pipe */
 	dup2(pipefd[1], STDOUT_FILENO); /* replace our stdout */
-	/* create a new modified argument list */
-	char **new_argv = malloc(sizeof(char *)
-				 * ((unsigned int) argc + 1));
-	new_argv[0] = filename;
-	for(int i = 1; i < argc; i++){
-	  new_argv[i] = argv[i];
+	char *basename;
+	basename = strrchr(filename, '/');
+	if (basename == NULL){
+	  basename = filename;
+	} else {
+	  basename++;
 	}
-	new_argv[argc] = NULL;
-	if(execv(filename, new_argv) < 0){
+	plugin *p = getplugin(basename, &plugin_list);
+
+	plugin *g = getplugin(NULL, &plugin_list);
+	for(char **a = g->argv + 1; *a != NULL; a++){
+	  addarguments(p, *a);
+	}
+	if(execv(filename, p->argv) < 0){
 	  perror(argv[0]);
 	  close(pipefd[1]);
 	  exit(EXIT_FAILURE);
@@ -179,8 +307,17 @@ int main(int argc, char *argv[]){
 	      int status;
 	      waitpid(process_itr->pid, &status, 0);
 	      if(WIFEXITED(status) and WEXITSTATUS(status) == 0){
-		write(STDOUT_FILENO, process_itr->buffer,
-		      process_itr->buffer_length);
+		for(size_t written = 0;
+		    written < process_itr->buffer_length;){
+		  ret = write(STDOUT_FILENO,
+			      process_itr->buffer + written,
+			      process_itr->buffer_length - written);
+		  if(ret < 0){
+		    perror(argv[0]);
+		    goto end;
+		  }
+		  written += (size_t)ret;
+		}
 		goto end;
 	      } else {
 		FD_CLR(process_itr->fd, &rfds_orig);
