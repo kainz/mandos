@@ -419,8 +419,10 @@ int start_mandos_communication(const char *ip, uint16_t port,
   ret = gnutls_handshake (es.session);
   
   if (ret != GNUTLS_E_SUCCESS){
-    fprintf(stderr, "\n*** Handshake failed ***\n");
-    gnutls_perror (ret);
+    if(debug){
+      fprintf(stderr, "\n*** Handshake failed ***\n");
+      gnutls_perror (ret);
+    }
     retval = -1;
     goto exit;
   }
@@ -551,15 +553,13 @@ static void resolve_callback(
       char ip[AVAHI_ADDRESS_STR_MAX];
       avahi_address_snprint(ip, sizeof(ip), address);
       if(debug){
-	fprintf(stderr, "Mandos server found on %s (%s) on port %d\n",
-		host_name, ip, port);
+	fprintf(stderr, "Mandos server \"%s\" found on %s (%s) on"
+		" port %d\n", name, host_name, ip, port);
       }
       int ret = start_mandos_communication(ip, port,
 					   (unsigned int) interface);
       if (ret == 0){
 	exit(EXIT_SUCCESS);
-      } else {
-	exit(EXIT_FAILURE);
       }
     }
   }
