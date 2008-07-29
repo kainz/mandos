@@ -2,7 +2,7 @@
 /*
  * Mandos plugin runner - Run Mandos plugins
  *
- * Copyright © 2007-2008 Teddy Hogeborn and Björn Påhlsson.
+ * Copyright © 2007-2008 Teddy Hogeborn & Björn Påhlsson
  * 
  * This program is free software: you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -18,11 +18,8 @@
  * along with this program.  If not, see
  * <http://www.gnu.org/licenses/>.
  * 
- * Contact the authors at <https://www.fukt.bsnet.se/~belorn/> and
- * <https://www.fukt.bsnet.se/~teddy/>.
+ * Contact the authors at <mandos@fukt.bsnet.se>.
  */
-
-#define _FORTIFY_SOURCE 2
 
 #include <stdio.h>	/* popen, fileno */
 #include <iso646.h>	/* and, or, not */

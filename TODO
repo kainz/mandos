@@ -1,8 +1,10 @@
 [Mandos client]
-configuration for OpenPGP key
+configuration for OpenPGP key dir
 header files/symbols tally
 check exit codes of all system calls
 IPv4 support
+protocol version header
+use strsep instead of strtok?
 
 [Pluginbasedclient]
 disable certain plugins
@@ -10,11 +12,17 @@ header files/symbols tally
 check exit codes of all system calls
 change uid to nobody:nogroup
 	other drop privs stuff?
+pass things in environment, like device name, etc
+	Does cryptsetup already do this?
+Configurable plugin dir
+use strsep instead of strtok?
 
 [Server]
-config file for:
+config for:
 	TXT record
-run-time communication with server
+protocol version header
+Run-time communication with server
+	probably using D-Bus
 
 [Mandos-tools/utilities]
 	List clients
