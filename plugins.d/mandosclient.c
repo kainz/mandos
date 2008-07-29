@@ -8,8 +8,8 @@
  * includes the following functions: "resolve_callback",
  * "browse_callback", and parts of "main".
  * 
- * Everything else is Copyright © 2007-2008 Teddy Hogeborn and Björn
- * Påhlsson.
+ * Everything else is
+ * Copyright © 2007-2008 Teddy Hogeborn & Björn Påhlsson
  * 
  * This program is free software: you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -29,8 +29,7 @@
  * <https://www.fukt.bsnet.se/~teddy/>.
  */
 
-#define _FORTIFY_SOURCE 2
-
+/* Needed by GPGME, specifically gpgme_data_seek() */
 #define _LARGEFILE_SOURCE
 #define _FILE_OFFSET_BITS 64
 
@@ -358,7 +357,8 @@ int start_mandos_communication(const char *ip, uint16_t port,
   char interface[IF_NAMESIZE];
   
   if(debug){
-    fprintf(stderr, "Setting up a tcp connection to %s\n", ip);
+    fprintf(stderr, "Setting up a tcp connection to %s, port %d\n",
+	    ip, port);
   }
   
   tcp_sd = socket(PF_INET6, SOCK_STREAM, 0);
@@ -394,7 +394,15 @@ int start_mandos_communication(const char *ip, uint16_t port,
   to.sin6_scope_id = (uint32_t)if_index;
   
   if(debug){
-    fprintf(stderr, "Connection to: %s\n", ip);
+    fprintf(stderr, "Connection to: %s, port %d\n", ip, port);
+/*     char addrstr[INET6_ADDRSTRLEN]; */
+/*     if(inet_ntop(to.sin6_family, &(to.sin6_addr), addrstr, */
+/* 		 sizeof(addrstr)) == NULL){ */
+/*       perror("inet_ntop"); */
+/*     } else { */
+/*       fprintf(stderr, "Really connecting to: %s, port %d\n", */
+/* 	      addrstr, ntohs(to.sin6_port)); */
+/*     } */
   }
   
   ret = connect(tcp_sd, (struct sockaddr *) &to, sizeof(to));
@@ -481,7 +489,7 @@ int start_mandos_communication(const char *ip, uint16_t port,
 					       &decrypted_buffer,
 					       CERT_ROOT);
     if (decrypted_buffer_size >= 0){
-      while(written < decrypted_buffer_size){
+      while(written < (size_t) decrypted_buffer_size){
 	ret = (int)fwrite (decrypted_buffer + written, 1,
 			   (size_t)decrypted_buffer_size - written,
 			   stdout);
@@ -622,10 +630,13 @@ int main(AVAHI_GCC_UNUSED int argc, AVAHI_GCC_UNUSED char*argv[]) {
     int ret;
     int returncode = EXIT_SUCCESS;
     const char *interface = "eth0";
+    unsigned int if_index;
+    char *connect_to = NULL;
     
     while (true){
       static struct option long_options[] = {
 	{"debug", no_argument, (int *)&debug, 1},
+	{"connect", required_argument, 0, 'c'},
 	{"interface", required_argument, 0, 'i'},
 	{0, 0, 0, 0} };
       
@@ -643,8 +654,41 @@ int main(AVAHI_GCC_UNUSED int argc, AVAHI_GCC_UNUSED char*argv[]) {
       case 'i':
 	interface = optarg;
 	break;
+      case 'c':
+	connect_to = optarg;
+	break;
       default:
 	exit(EXIT_FAILURE);
+      }
+    }
+    
+    if_index = if_nametoindex(interface);
+    if(if_index == 0){
+      fprintf(stderr, "No such interface: \"%s\"\n", interface);
+      exit(EXIT_FAILURE);
+    }
+    
+    if(connect_to != NULL){
+      /* Connect directly, do not use Zeroconf */
+      /* (Mainly meant for debugging) */
+      char *address = strrchr(connect_to, ':');
+      if(address == NULL){
+        fprintf(stderr, "No colon in address\n");
+	exit(EXIT_FAILURE);
+      }
+      errno = 0;
+      uint16_t port = (uint16_t) strtol(address+1, NULL, 10);
+      if(errno){
+	perror("Bad port number");
+	exit(EXIT_FAILURE);
+      }
+      *address = '\0';
+      address = connect_to;
+      ret = start_mandos_communication(address, port, if_index);
+      if(ret < 0){
+	exit(EXIT_FAILURE);
+      } else {
+	exit(EXIT_SUCCESS);
       }
     }
     
@@ -685,9 +729,7 @@ int main(AVAHI_GCC_UNUSED int argc, AVAHI_GCC_UNUSED char*argv[]) {
     }
     
     /* Create the service browser */
-    sb = avahi_s_service_browser_new(server,
-				     (AvahiIfIndex)
-				     if_nametoindex(interface),
+    sb = avahi_s_service_browser_new(server, (AvahiIfIndex)if_index,
 				     AVAHI_PROTO_INET6,
 				     "_mandos._tcp", NULL, 0,
 				     browse_callback, server);

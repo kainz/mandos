@@ -6,12 +6,12 @@
 # This program is partly derived from an example program for an Avahi
 # service publisher, downloaded from
 # <http://avahi.org/wiki/PythonPublishExample>.  This includes the
-# following functions: "add_service", "remove_service",
+# following functions: "AvahiService.add", "AvahiService.remove",
 # "server_state_changed", "entry_group_state_changed", and some lines
 # in "main".
 # 
-# Everything else is Copyright © 2007-2008 Teddy Hogeborn and Björn
-# Påhlsson.
+# Everything else is
+# Copyright © 2007-2008 Teddy Hogeborn & Björn Påhlsson
 # 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -26,8 +26,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 # 
-# Contact the authors at <https://www.fukt.bsnet.se/~belorn/> and
-# <https://www.fukt.bsnet.se/~teddy/>.
+# Contact the authors at <mandos@fukt.bsnet.se>.
 # 
 
 from __future__ import division
@@ -66,8 +65,8 @@ import ctypes
 # 
 # This server announces itself as a Zeroconf service.  Connecting
 # clients use the TLS protocol, with the unusual quirk that this
-# server program acts as a TLS "client" while the connecting clients
-# acts as a TLS "server".  The clients (acting as a TLS "server") must
+# server program acts as a TLS "client" while a connecting client acts
+# as a TLS "server".  The client (acting as a TLS "server") must
 # supply an OpenPGP certificate, and the fingerprint of this
 # certificate is used by this server to look up (in a list read from a
 # file at start time) which binary blob to give the client.  No other
@@ -82,20 +81,90 @@ syslogger.setFormatter(logging.Formatter\
 logger.addHandler(syslogger)
 del syslogger
 
-# This variable is used to optionally bind to a specified interface.
-# It is a global variable to fit in with the other variables from the
-# Avahi example code.
-serviceInterface = avahi.IF_UNSPEC
+
+class AvahiError(Exception):
+    def __init__(self, value):
+        self.value = value
+    def __str__(self):
+        return repr(self.value)
+
+class AvahiServiceError(AvahiError):
+    pass
+
+class AvahiGroupError(AvahiError):
+    pass
+
+
+class AvahiService(object):
+    """
+    interface: integer; avahi.IF_UNSPEC or an interface index.
+               Used to optionally bind to the specified interface.
+    name = string; Example: "Mandos"
+    type = string; Example: "_mandos._tcp".
+                   See <http://www.dns-sd.org/ServiceTypes.html>
+    port = integer; what port to announce
+    TXT = list of strings; TXT record for the service
+    domain = string; Domain to publish on, default to .local if empty.
+    host = string; Host to publish records for, default to localhost
+                   if empty.
+    max_renames = integer; maximum number of renames
+    rename_count = integer; counter so we only rename after collisions
+                   a sensible number of times
+    """
+    def __init__(self, interface = avahi.IF_UNSPEC, name = None,
+                 type = None, port = None, TXT = None, domain = "",
+                 host = "", max_renames = 12):
+        """An Avahi (Zeroconf) service. """
+        self.interface = interface
+        self.name = name
+        self.type = type
+        self.port = port
+        if TXT is None:
+            self.TXT = []
+        else:
+            self.TXT = TXT
+        self.domain = domain
+        self.host = host
+        self.rename_count = 0
+    def rename(self):
+        """Derived from the Avahi example code"""
+        if self.rename_count >= self.max_renames:
+            logger.critical(u"No suitable service name found after %i"
+                            u" retries, exiting.", rename_count)
+            raise AvahiServiceError("Too many renames")
+        name = server.GetAlternativeServiceName(name)
+        logger.notice(u"Changing name to %r ...", name)
+        self.remove()
+        self.add()
+        self.rename_count += 1
+    def remove(self):
+        """Derived from the Avahi example code"""
+        if group is not None:
+            group.Reset()
+    def add(self):
+        """Derived from the Avahi example code"""
+        global group
+        if group is None:
+            group = dbus.Interface\
+                    (bus.get_object(avahi.DBUS_NAME,
+                                    server.EntryGroupNew()),
+                     avahi.DBUS_INTERFACE_ENTRY_GROUP)
+            group.connect_to_signal('StateChanged',
+                                    entry_group_state_changed)
+        logger.debug(u"Adding service '%s' of type '%s' ...",
+                     service.name, service.type)
+        group.AddService(
+                self.interface,         # interface
+                avahi.PROTO_INET6,      # protocol
+                dbus.UInt32(0),         # flags
+                self.name, self.type,
+                self.domain, self.host,
+                dbus.UInt16(self.port),
+                avahi.string_array_to_txt_array(self.TXT))
+        group.Commit()
+
 # From the Avahi example code:
-serviceName = None
-serviceType = "_mandos._tcp" # http://www.dns-sd.org/ServiceTypes.html
-servicePort = None                      # Not known at startup
-serviceTXT = []                         # TXT record for the service
-domain = ""                  # Domain to publish on, default to .local
-host = ""          # Host to publish records for, default to localhost
-group = None #our entry group
-rename_count = 12       # Counter so we only rename after collisions a
-                        # sensible number of times
+group = None                            # our entry group
 # End of Avahi example code
 
 
@@ -107,26 +176,26 @@ class Client(object):
                  uniquely identify the client
     secret:    bytestring; sent verbatim (over TLS) to client
     fqdn:      string (FQDN); available for use by the checker command
-    created:   datetime.datetime()
-    last_seen: datetime.datetime() or None if not yet seen
-    timeout:   datetime.timedelta(); How long from last_seen until
-                                     this client is invalid
+    created:   datetime.datetime(); object creation, not client host
+    last_checked_ok: datetime.datetime() or None if not yet checked OK
+    timeout:   datetime.timedelta(); How long from last_checked_ok
+                                     until this client is invalid
     interval:  datetime.timedelta(); How often to start a new checker
     stop_hook: If set, called by stop() as stop_hook(self)
     checker:   subprocess.Popen(); a running checker process used
                                    to see if the client lives.
-                                   Is None if no process is running.
+                                   'None' if no process is running.
     checker_initiator_tag: a gobject event source tag, or None
     stop_initiator_tag:    - '' -
     checker_callback_tag:  - '' -
     checker_command: string; External command which is run to check if
-                     client lives.  %()s expansions are done at
+                     client lives.  %() expansions are done at
                      runtime with vars(self) as dict, so that for
                      instance %(name)s can be used in the command.
     Private attibutes:
     _timeout: Real variable for 'timeout'
     _interval: Real variable for 'interval'
-    _timeout_milliseconds: Used by gobject.timeout_add()
+    _timeout_milliseconds: Used when calling gobject.timeout_add()
     _interval_milliseconds: - '' -
     """
     def _set_timeout(self, timeout):
@@ -171,11 +240,11 @@ class Client(object):
             self.secret = sf.read()
             sf.close()
         else:
-            raise RuntimeError(u"No secret or secfile for client %s"
-                               % self.name)
-        self.fqdn = fqdn                # string
+            raise TypeError(u"No secret or secfile for client %s"
+                            % self.name)
+        self.fqdn = fqdn
         self.created = datetime.datetime.now()
-        self.last_seen = None
+        self.last_checked_ok = None
         self.timeout = string_to_delta(timeout)
         self.interval = string_to_delta(interval)
         self.stop_hook = stop_hook
@@ -199,20 +268,18 @@ class Client(object):
                                    self.stop)
     def stop(self):
         """Stop this client.
-        The possibility that this client might be restarted is left
-        open, but not currently used."""
+        The possibility that a client might be restarted is left open,
+        but not currently used."""
         # If this client doesn't have a secret, it is already stopped.
         if self.secret:
             logger.debug(u"Stopping client %s", self.name)
             self.secret = None
         else:
             return False
-        if hasattr(self, "stop_initiator_tag") \
-               and self.stop_initiator_tag:
+        if getattr(self, "stop_initiator_tag", False):
             gobject.source_remove(self.stop_initiator_tag)
             self.stop_initiator_tag = None
-        if hasattr(self, "checker_initiator_tag") \
-               and self.checker_initiator_tag:
+        if getattr(self, "checker_initiator_tag", False):
             gobject.source_remove(self.checker_initiator_tag)
             self.checker_initiator_tag = None
         self.stop_checker()
@@ -232,7 +299,7 @@ class Client(object):
                and (os.WEXITSTATUS(condition) == 0):
             logger.debug(u"Checker for %(name)s succeeded",
                          vars(self))
-            self.last_seen = now
+            self.last_checked_ok = now
             gobject.source_remove(self.stop_initiator_tag)
             self.stop_initiator_tag = gobject.timeout_add\
                                       (self._timeout_milliseconds,
@@ -257,24 +324,25 @@ class Client(object):
         # is as it should be.
         if self.checker is None:
             try:
+                # In case check_command has exactly one % operator
                 command = self.check_command % self.fqdn
             except TypeError:
+                # Escape attributes for the shell
                 escaped_attrs = dict((key, re.escape(str(val)))
                                      for key, val in
                                      vars(self).iteritems())
                 try:
                     command = self.check_command % escaped_attrs
                 except TypeError, error:
-                    logger.critical(u'Could not format string "%s":'
-                                    u' %s', self.check_command, error)
+                    logger.error(u'Could not format string "%s":'
+                                 u' %s', self.check_command, error)
                     return True # Try again later
             try:
                 logger.debug(u"Starting checker %r for %s",
                              command, self.name)
-                self.checker = subprocess.\
-                               Popen(command,
-                                     close_fds=True, shell=True,
-                                     cwd="/")
+                self.checker = subprocess.Popen(command,
+                                                close_fds=True,
+                                                shell=True, cwd="/")
                 self.checker_callback_tag = gobject.child_watch_add\
                                             (self.checker.pid,
                                              self.checker_callback)
@@ -288,7 +356,7 @@ class Client(object):
         if self.checker_callback_tag:
             gobject.source_remove(self.checker_callback_tag)
             self.checker_callback_tag = None
-        if not hasattr(self, "checker") or self.checker is None:
+        if getattr(self, "checker", None) is None:
             return
         logger.debug("Stopping checker for %(name)s", vars(self))
         try:
@@ -297,17 +365,16 @@ class Client(object):
             #if self.checker.poll() is None:
             #    os.kill(self.checker.pid, signal.SIGKILL)
         except OSError, error:
-            if error.errno != errno.ESRCH:
+            if error.errno != errno.ESRCH: # No such process
                 raise
         self.checker = None
-    def still_valid(self, now=None):
+    def still_valid(self):
         """Has the timeout not yet passed for this client?"""
-        if now is None:
-            now = datetime.datetime.now()
-        if self.last_seen is None:
+        now = datetime.datetime.now()
+        if self.last_checked_ok is None:
             return now < (self.created + self.timeout)
         else:
-            return now < (self.last_seen + self.timeout)
+            return now < (self.last_checked_ok + self.timeout)
 
 
 def peer_certificate(session):
@@ -366,16 +433,20 @@ class tcp_handler(SocketServer.BaseRequestHandler, object):
     def handle(self):
         logger.debug(u"TCP connection from: %s",
                      unicode(self.client_address))
-        session = gnutls.connection.ClientSession(self.request,
-                                                  gnutls.connection.\
-                                                  X509Credentials())
+        session = gnutls.connection.ClientSession\
+                  (self.request, gnutls.connection.X509Credentials())
+        # Note: gnutls.connection.X509Credentials is really a generic
+        # GnuTLS certificate credentials object so long as no X.509
+        # keys are added to it.  Therefore, we can use it here despite
+        # using OpenPGP certificates.
         
         #priority = ':'.join(("NONE", "+VERS-TLS1.1", "+AES-256-CBC",
         #                "+SHA1", "+COMP-NULL", "+CTYPE-OPENPGP",
         #                "+DHE-DSS"))
-        priority = "NORMAL"
-        if self.server.options.priority:
-            priority = self.server.options.priority
+        priority = "NORMAL"             # Fallback default, since this
+                                        # MUST be set.
+        if self.server.settings["priority"]:
+            priority = self.server.settings["priority"]
         gnutls.library.functions.gnutls_priority_set_direct\
             (session._c_object, priority, None);
         
@@ -398,16 +469,15 @@ class tcp_handler(SocketServer.BaseRequestHandler, object):
             if c.fingerprint == fpr:
                 client = c
                 break
+        if not client:
+            logger.debug(u"Client not found for fingerprint: %s", fpr)
+            session.bye()
+            return
         # Have to check if client.still_valid(), since it is possible
         # that the client timed out while establishing the GnuTLS
         # session.
-        if (not client) or (not client.still_valid()):
-            if client:
-                logger.debug(u"Client %(name)s is invalid",
-                             vars(client))
-            else:
-                logger.debug(u"Client not found for fingerprint: %s",
-                             fpr)
+        if not client.still_valid():
+            logger.debug(u"Client %(name)s is invalid", vars(client))
             session.bye()
             return
         sent_size = 0
@@ -423,14 +493,14 @@ class tcp_handler(SocketServer.BaseRequestHandler, object):
 class IPv6_TCPServer(SocketServer.ForkingTCPServer, object):
     """IPv6 TCP server.  Accepts 'None' as address and/or port.
     Attributes:
-        options:        Command line options
+        settings:       Server settings
         clients:        Set() of Client objects
     """
     address_family = socket.AF_INET6
     def __init__(self, *args, **kwargs):
-        if "options" in kwargs:
-            self.options = kwargs["options"]
-            del kwargs["options"]
+        if "settings" in kwargs:
+            self.settings = kwargs["settings"]
+            del kwargs["settings"]
         if "clients" in kwargs:
             self.clients = kwargs["clients"]
             del kwargs["clients"]
@@ -439,19 +509,18 @@ class IPv6_TCPServer(SocketServer.ForkingTCPServer, object):
         """This overrides the normal server_bind() function
         to bind to an interface if one was specified, and also NOT to
         bind to an address or port if they were not specified."""
-        if self.options.interface:
-            if not hasattr(socket, "SO_BINDTODEVICE"):
-                # From /usr/include/asm-i486/socket.h
-                socket.SO_BINDTODEVICE = 25
+        if self.settings["interface"] != avahi.IF_UNSPEC:
+            # 25 is from /usr/include/asm-i486/socket.h
+            SO_BINDTODEVICE = getattr(socket, "SO_BINDTODEVICE", 25)
             try:
                 self.socket.setsockopt(socket.SOL_SOCKET,
-                                       socket.SO_BINDTODEVICE,
-                                       self.options.interface)
+                                       SO_BINDTODEVICE,
+                                       self.settings["interface"])
             except socket.error, error:
                 if error[0] == errno.EPERM:
                     logger.warning(u"No permission to"
                                    u" bind to interface %s",
-                                   self.options.interface)
+                                   self.settings["interface"])
                 else:
                     raise error
         # Only bind(2) the socket if we really need to.
@@ -500,93 +569,61 @@ def string_to_delta(interval):
     return delta
 
 
-def add_service():
-    """Derived from the Avahi example code"""
-    global group, serviceName, serviceType, servicePort, serviceTXT, \
-           domain, host
-    if group is None:
-        group = dbus.Interface(
-                bus.get_object( avahi.DBUS_NAME,
-                                server.EntryGroupNew()),
-                avahi.DBUS_INTERFACE_ENTRY_GROUP)
-        group.connect_to_signal('StateChanged',
-                                entry_group_state_changed)
-    logger.debug(u"Adding service '%s' of type '%s' ...",
-                 serviceName, serviceType)
-    
-    group.AddService(
-            serviceInterface,           # interface
-            avahi.PROTO_INET6,          # protocol
-            dbus.UInt32(0),             # flags
-            serviceName, serviceType,
-            domain, host,
-            dbus.UInt16(servicePort),
-            avahi.string_array_to_txt_array(serviceTXT))
-    group.Commit()
-
-
-def remove_service():
-    """From the Avahi example code"""
-    global group
-    
-    if not group is None:
-        group.Reset()
-
-
 def server_state_changed(state):
     """Derived from the Avahi example code"""
     if state == avahi.SERVER_COLLISION:
         logger.warning(u"Server name collision")
-        remove_service()
+        service.remove()
     elif state == avahi.SERVER_RUNNING:
-        add_service()
+        service.add()
 
 
 def entry_group_state_changed(state, error):
     """Derived from the Avahi example code"""
-    global serviceName, server, rename_count
-    
     logger.debug(u"state change: %i", state)
     
     if state == avahi.ENTRY_GROUP_ESTABLISHED:
         logger.debug(u"Service established.")
     elif state == avahi.ENTRY_GROUP_COLLISION:
-        
-        rename_count = rename_count - 1
-        if rename_count > 0:
-            name = server.GetAlternativeServiceName(name)
-            logger.warning(u"Service name collision, "
-                           u"changing name to '%s' ...", name)
-            remove_service()
-            add_service()
-            
-        else:
-            logger.error(u"No suitable service name found after %i"
-                         u" retries, exiting.", n_rename)
-            killme(1)
+        logger.warning(u"Service name collision.")
+        service.rename()
     elif state == avahi.ENTRY_GROUP_FAILURE:
-        logger.error(u"Error in group state changed %s",
-                     unicode(error))
-        killme(1)
+        logger.critical(u"Error in group state changed %s",
+                        unicode(error))
+        raise AvahiGroupError("State changed: %s", str(error))
 
-
-def if_nametoindex(interface):
-    """Call the C function if_nametoindex()"""
+def if_nametoindex(interface, _func=[None]):
+    """Call the C function if_nametoindex(), or equivalent"""
+    if _func[0] is not None:
+        return _func[0](interface)
     try:
-        libc = ctypes.cdll.LoadLibrary("libc.so.6")
-        return libc.if_nametoindex(interface)
+        if "ctypes.util" not in sys.modules:
+            import ctypes.util
+        while True:
+            try:
+                libc = ctypes.cdll.LoadLibrary\
+                       (ctypes.util.find_library("c"))
+                func[0] = libc.if_nametoindex
+                return _func[0](interface)
+            except IOError, e:
+                if e != errno.EINTR:
+                    raise
     except (OSError, AttributeError):
         if "struct" not in sys.modules:
             import struct
         if "fcntl" not in sys.modules:
             import fcntl
-        SIOCGIFINDEX = 0x8933      # From /usr/include/linux/sockios.h
-        s = socket.socket()
-        ifreq = fcntl.ioctl(s, SIOCGIFINDEX,
-                            struct.pack("16s16x", interface))
-        s.close()
-        interface_index = struct.unpack("I", ifreq[16:20])[0]
-        return interface_index
+        def the_hard_way(interface):
+            "Get an interface index the hard way, i.e. using fcntl()"
+            SIOCGIFINDEX = 0x8933  # From /usr/include/linux/sockios.h
+            s = socket.socket()
+            ifreq = fcntl.ioctl(s, SIOCGIFINDEX,
+                                struct.pack("16s16x", interface))
+            s.close()
+            interface_index = struct.unpack("I", ifreq[16:20])[0]
+            return interface_index
+        _func[0] = the_hard_way
+        return _func[0](interface)
 
 
 def daemon(nochdir, noclose):
@@ -599,7 +636,7 @@ def daemon(nochdir, noclose):
         os.chdir("/")
     if not noclose:
         # Close all standard open file descriptors
-        null = os.open("/dev/null", os.O_NOCTTY | os.O_RDWR)
+        null = os.open(os.path.devnull, os.O_NOCTTY | os.O_RDWR)
         if not stat.S_ISCHR(os.fstat(null).st_mode):
             raise OSError(errno.ENODEV,
                           "/dev/null not a character device")
@@ -610,39 +647,30 @@ def daemon(nochdir, noclose):
             os.close(null)
 
 
-def killme(status = 0):
-    logger.debug("Stopping server with exit status %d", status)
-    exitstatus = status
-    if main_loop_started:
-        main_loop.quit()
-    else:
-        sys.exit(status)
-
-
 def main():
-    global exitstatus
-    exitstatus = 0
     global main_loop_started
     main_loop_started = False
     
     parser = OptionParser()
     parser.add_option("-i", "--interface", type="string",
-                      default=None, metavar="IF",
-                      help="Bind to interface IF")
-    parser.add_option("-a", "--address", type="string", default=None,
+                      metavar="IF", help="Bind to interface IF")
+    parser.add_option("-a", "--address", type="string",
                       help="Address to listen for requests on")
-    parser.add_option("-p", "--port", type="int", default=None,
+    parser.add_option("-p", "--port", type="int",
                       help="Port number to receive requests on")
     parser.add_option("--check", action="store_true", default=False,
                       help="Run self-test")
     parser.add_option("--debug", action="store_true", default=False,
-                      help="Debug mode")
-    parser.add_option("--priority", type="string",
-                      default="SECURE256",
-                      help="GnuTLS priority string"
-                      " (see GnuTLS documentation)")
-    parser.add_option("--servicename", type="string",
-                      default="Mandos", help="Zeroconf service name")
+                      help="Debug mode; run in foreground and log to"
+                      " terminal")
+    parser.add_option("--priority", type="string", help="GnuTLS"
+                      " priority string (see GnuTLS documentation)")
+    parser.add_option("--servicename", type="string", metavar="NAME",
+                      help="Zeroconf service name")
+    parser.add_option("--configdir", type="string",
+                      default="/etc/mandos", metavar="DIR",
+                      help="Directory to search for configuration"
+                      " files")
     (options, args) = parser.parse_args()
     
     if options.check:
@@ -650,17 +678,52 @@ def main():
         doctest.testmod()
         sys.exit()
     
-    # Parse config file
-    defaults = { "timeout": "1h",
-                 "interval": "5m",
-                 "checker": "fping -q -- %%(fqdn)s",
-                 }
-    client_config = ConfigParser.SafeConfigParser(defaults)
-    #client_config.readfp(open("global.conf"), "global.conf")
-    client_config.read("mandos-clients.conf")
+    # Default values for config file for server-global settings
+    server_defaults = { "interface": "",
+                        "address": "",
+                        "port": "",
+                        "debug": "False",
+                        "priority":
+                        "SECURE256:!CTYPE-X.509:+CTYPE-OPENPGP",
+                        "servicename": "Mandos",
+                        }
     
-    global serviceName
-    serviceName = options.servicename;
+    # Parse config file for server-global settings
+    server_config = ConfigParser.SafeConfigParser(server_defaults)
+    del server_defaults
+    server_config.read(os.path.join(options.configdir, "server.conf"))
+    server_section = "server"
+    # Convert the SafeConfigParser object to a dict
+    server_settings = dict(server_config.items(server_section))
+    # Use getboolean on the boolean config option
+    server_settings["debug"] = server_config.getboolean\
+                               (server_section, "debug")
+    del server_config
+    if not server_settings["interface"]:
+        server_settings["interface"] = avahi.IF_UNSPEC
+    
+    # Override the settings from the config file with command line
+    # options, if set.
+    for option in ("interface", "address", "port", "debug",
+                   "priority", "servicename", "configdir"):
+        value = getattr(options, option)
+        if value is not None:
+            server_settings[option] = value
+    del options
+    # Now we have our good server settings in "server_settings"
+    
+    # Parse config file with clients
+    client_defaults = { "timeout": "1h",
+                        "interval": "5m",
+                        "checker": "fping -q -- %%(fqdn)s",
+                        }
+    client_config = ConfigParser.SafeConfigParser(client_defaults)
+    client_config.read(os.path.join(server_settings["configdir"],
+                                    "clients.conf"))
+    
+    global service
+    service = AvahiService(name = server_settings["servicename"],
+                           type = "_mandos._tcp", );
     
     global main_loop
     global bus
@@ -674,7 +737,7 @@ def main():
             avahi.DBUS_INTERFACE_SERVER )
     # End of Avahi example code
     
-    debug = options.debug
+    debug = server_settings["debug"]
     
     if debug:
         console = logging.StreamHandler()
@@ -689,7 +752,7 @@ def main():
         clients.remove(client)
         if not clients:
             logger.debug(u"No clients left, exiting")
-            killme()
+            sys.exit()
     
     clients.update(Set(Client(name=section,
                               stop_hook = remove_from_clients,
@@ -718,47 +781,49 @@ def main():
     
     if not debug:
         signal.signal(signal.SIGINT, signal.SIG_IGN)
-    signal.signal(signal.SIGHUP, lambda signum, frame: killme())
-    signal.signal(signal.SIGTERM, lambda signum, frame: killme())
+    signal.signal(signal.SIGHUP, lambda signum, frame: sys.exit())
+    signal.signal(signal.SIGTERM, lambda signum, frame: sys.exit())
     
     for client in clients:
         client.start()
     
-    tcp_server = IPv6_TCPServer((options.address, options.port),
+    tcp_server = IPv6_TCPServer((server_settings["address"],
+                                 server_settings["port"]),
                                 tcp_handler,
-                                options=options,
+                                settings=server_settings,
                                 clients=clients)
-    # Find out what random port we got
-    global servicePort
-    servicePort = tcp_server.socket.getsockname()[1]
-    logger.debug(u"Now listening on port %d", servicePort)
+    # Find out what port we got
+    service.port = tcp_server.socket.getsockname()[1]
+    logger.debug(u"Now listening on port %d", service.port)
     
-    if options.interface is not None:
-        global serviceInterface
-        serviceInterface = if_nametoindex(options.interface)
+    if not server_settings["interface"]:
+        service.interface = if_nametoindex\
+                            (server_settings["interface"])
     
-    # From the Avahi example code
-    server.connect_to_signal("StateChanged", server_state_changed)
     try:
-        server_state_changed(server.GetState())
-    except dbus.exceptions.DBusException, error:
-        logger.critical(u"DBusException: %s", error)
-        killme(1)
-    # End of Avahi example code
-    
-    gobject.io_add_watch(tcp_server.fileno(), gobject.IO_IN,
-                         lambda *args, **kwargs:
-                         tcp_server.handle_request(*args[2:],
-                                                   **kwargs) or True)
-    try:
+        # From the Avahi example code
+        server.connect_to_signal("StateChanged", server_state_changed)
+        try:
+            server_state_changed(server.GetState())
+        except dbus.exceptions.DBusException, error:
+            logger.critical(u"DBusException: %s", error)
+            sys.exit(1)
+        # End of Avahi example code
+        
+        gobject.io_add_watch(tcp_server.fileno(), gobject.IO_IN,
+                             lambda *args, **kwargs:
+                             tcp_server.handle_request\
+                             (*args[2:], **kwargs) or True)
+        
         logger.debug("Starting main loop")
         main_loop_started = True
         main_loop.run()
+    except AvahiError, error:
+        logger.critical(u"AvahiError: %s" + unicode(error))
+        sys.exit(1)
     except KeyboardInterrupt:
         if debug:
             print
-    
-    sys.exit(exitstatus)
 
 if __name__ == '__main__':
     main()
