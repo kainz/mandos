@@ -68,13 +68,12 @@
 // getopt long
 #include <getopt.h>
 
-#ifndef CERT_ROOT
-#define CERT_ROOT "/conf/conf.d/cryptkeyreq/"
-#endif
-#define CERTFILE CERT_ROOT "openpgp-client.txt"
-#define KEYFILE CERT_ROOT "openpgp-client-key.txt"
 #define BUFFER_SIZE 256
 #define DH_BITS 1024
+
+const char *certdir = "/conf/conf.d/cryptkeyreq/";
+const char *certfile = "openpgp-client.txt";
+const char *certkey = "openpgp-client-key.txt";
 
 bool debug = false;
 
@@ -101,7 +100,12 @@ ssize_t pgp_packet_decrypt (char *packet, size_t packet_size,
   
   /* Init GPGME */
   gpgme_check_version(NULL);
-  gpgme_engine_check_version(GPGME_PROTOCOL_OpenPGP);
+  rc = gpgme_engine_check_version(GPGME_PROTOCOL_OpenPGP);
+  if (rc != GPG_ERR_NO_ERROR){
+    fprintf(stderr, "bad gpgme_engine_check_version: %s: %s\n",
+	    gpgme_strsource(rc), gpgme_strerror(rc));
+    return -1;
+  }
   
   /* Set GPGME home directory */
   rc = gpgme_get_engine_info (&engine_info);
@@ -253,7 +257,7 @@ int initgnutls(encrypted_session *es){
   if(debug){
     fprintf(stderr, "Initializing GnuTLS\n");
   }
-  
+
   if ((ret = gnutls_global_init ())
       != GNUTLS_E_SUCCESS) {
     fprintf (stderr, "global_init: %s\n", safer_gnutls_strerror(ret));
@@ -275,17 +279,17 @@ int initgnutls(encrypted_session *es){
   
   if(debug){
     fprintf(stderr, "Attempting to use OpenPGP certificate %s"
-	    " and keyfile %s as GnuTLS credentials\n", CERTFILE,
-	    KEYFILE);
+	    " and keyfile %s as GnuTLS credentials\n", certfile,
+	    certkey);
   }
   
   ret = gnutls_certificate_set_openpgp_key_file
-    (es->cred, CERTFILE, KEYFILE, GNUTLS_OPENPGP_FMT_BASE64);
+    (es->cred, certfile, certkey, GNUTLS_OPENPGP_FMT_BASE64);
   if (ret != GNUTLS_E_SUCCESS) {
     fprintf
       (stderr, "Error[%d] while reading the OpenPGP key pair ('%s',"
        " '%s')\n",
-       ret, CERTFILE, KEYFILE);
+       ret, certfile, certkey);
     fprintf(stdout, "The Error is: %s\n",
 	    safer_gnutls_strerror(ret));
     return -1;
@@ -479,7 +483,7 @@ int start_mandos_communication(const char *ip, uint16_t port,
     decrypted_buffer_size = pgp_packet_decrypt(buffer,
 					       buffer_length,
 					       &decrypted_buffer,
-					       CERT_ROOT);
+					       certdir);
     if (decrypted_buffer_size >= 0){
       while(written < decrypted_buffer_size){
 	ret = (int)fwrite (decrypted_buffer + written, 1,
@@ -615,6 +619,20 @@ static void browse_callback(
     }
 }
 
+/* combinds two strings and returns the malloced new string. som sane checks could/should be added */
+const char *combinestrings(const char *first, const char *second){
+  char *tmp;
+  tmp = malloc(strlen(first) + strlen(second));
+  if (tmp == NULL){
+    perror("malloc");
+    return NULL;
+  }
+  strcpy(tmp, first);
+  strcat(tmp, second);
+  return tmp;
+}
+
+
 int main(AVAHI_GCC_UNUSED int argc, AVAHI_GCC_UNUSED char*argv[]) {
     AvahiServerConfig config;
     AvahiSServiceBrowser *sb = NULL;
@@ -627,6 +645,9 @@ int main(AVAHI_GCC_UNUSED int argc, AVAHI_GCC_UNUSED char*argv[]) {
       static struct option long_options[] = {
 	{"debug", no_argument, (int *)&debug, 1},
 	{"interface", required_argument, 0, 'i'},
+	{"certdir", required_argument, 0, 'd'},
+	{"certkey", required_argument, 0, 'c'},
+	{"certfile", required_argument, 0, 'k'},
 	{0, 0, 0, 0} };
       
       int option_index = 0;
@@ -643,11 +664,30 @@ int main(AVAHI_GCC_UNUSED int argc, AVAHI_GCC_UNUSED char*argv[]) {
       case 'i':
 	interface = optarg;
 	break;
+      case 'd':
+	certdir = optarg;
+	break;
+      case 'c':
+	certfile = optarg;
+	break;
+      case 'k':
+	certkey = optarg;
+	break;
       default:
 	exit(EXIT_FAILURE);
       }
     }
+
+    certfile = combinestrings(certdir, certfile);
+    if (certfile == NULL){
+      goto exit;
+    }
     
+    certkey = combinestrings(certdir, certkey);
+    if (certkey == NULL){
+      goto exit;
+    }
+	
     if (not debug){
       avahi_set_log_function(empty_log);
     }
