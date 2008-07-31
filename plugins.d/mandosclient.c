@@ -343,7 +343,7 @@ void empty_log(__attribute__((unused)) AvahiLogLevel level,
 	       __attribute__((unused)) const char *txt){}
 
 int start_mandos_communication(const char *ip, uint16_t port,
-			       unsigned int if_index){
+			       AvahiIfIndex if_index){
   int ret, tcp_sd;
   struct sockaddr_in6 to;
   encrypted_session es;
@@ -367,7 +367,7 @@ int start_mandos_communication(const char *ip, uint16_t port,
     return -1;
   }
   
-  if(if_indextoname(if_index, interface) == NULL){
+  if(if_indextoname((unsigned int)if_index, interface) == NULL){
     if(debug){
       perror("if_indextoname");
     }
@@ -564,8 +564,7 @@ static void resolve_callback(
 	fprintf(stderr, "Mandos server \"%s\" found on %s (%s) on"
 		" port %d\n", name, host_name, ip, port);
       }
-      int ret = start_mandos_communication(ip, port,
-					   (unsigned int) interface);
+      int ret = start_mandos_communication(ip, port, interface);
       if (ret == 0){
 	exit(EXIT_SUCCESS);
       }
@@ -629,8 +628,8 @@ int main(AVAHI_GCC_UNUSED int argc, AVAHI_GCC_UNUSED char*argv[]) {
     int error;
     int ret;
     int returncode = EXIT_SUCCESS;
-    const char *interface = "eth0";
-    unsigned int if_index;
+    const char *interface = NULL;
+    AvahiIfIndex if_index = AVAHI_IF_UNSPEC;
     char *connect_to = NULL;
     
     while (true){
@@ -662,10 +661,12 @@ int main(AVAHI_GCC_UNUSED int argc, AVAHI_GCC_UNUSED char*argv[]) {
       }
     }
     
-    if_index = if_nametoindex(interface);
-    if(if_index == 0){
-      fprintf(stderr, "No such interface: \"%s\"\n", interface);
-      exit(EXIT_FAILURE);
+    if(interface != NULL){
+      if_index = (AvahiIfIndex) if_nametoindex(interface);
+      if(if_index == 0){
+	fprintf(stderr, "No such interface: \"%s\"\n", interface);
+	exit(EXIT_FAILURE);
+      }
     }
     
     if(connect_to != NULL){
@@ -729,7 +730,7 @@ int main(AVAHI_GCC_UNUSED int argc, AVAHI_GCC_UNUSED char*argv[]) {
     }
     
     /* Create the service browser */
-    sb = avahi_s_service_browser_new(server, (AvahiIfIndex)if_index,
+    sb = avahi_s_service_browser_new(server, if_index,
 				     AVAHI_PROTO_INET6,
 				     "_mandos._tcp", NULL, 0,
 				     browse_callback, server);
