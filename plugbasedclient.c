@@ -56,6 +56,7 @@ typedef struct plugin{
   char *name; 		/* can be "global" and any plugin name */
   char **argv;
   int argc;
+  bool disable;
   struct plugin *next;
 } plugin;
 
@@ -81,8 +82,9 @@ plugin *getplugin(char *name, plugin **plugin_list){
   new_plugin->argv[0] = name;
   new_plugin->argv[1] = NULL;
   new_plugin->argc = 1;
-  /* Append the new plugin to the list */
+  new_plugin->disable = false;
   new_plugin->next = *plugin_list;
+  /* Append the new plugin to the list */
   *plugin_list = new_plugin;
   return new_plugin;
 }
@@ -110,15 +112,15 @@ static char doc[] =
 static char args_doc[] = "";
 
 int main(int argc, char *argv[]){
-  char plugindir[] = "plugins.d";
-  size_t d_name_len, plugindir_len = sizeof(plugindir)-1;
+  const char *plugindir = "plugins.d";
+  size_t d_name_len;
   DIR *dir;
   struct dirent *dirst;
   struct stat st;
   fd_set rfds_orig;
   int ret, maxfd = 0;
   process *process_list = NULL;
-  
+
   /* The options we understand. */
   struct argp_option options[] = {
     { .name = "global-options", .key = 'g',
@@ -127,6 +129,12 @@ int main(int argc, char *argv[]){
     { .name = "options-for", .key = 'o',
       .arg = "plugin:option[,option[,...]]", .flags = 0,
       .doc = "Options effecting only specified plugins" },
+    { .name = "disable-plugin", .key = 'd',
+      .arg = "Plugin[,Plugin[,...]]", .flags = 0,
+      .doc = "Option to disable specififed plugins" },
+    { .name = "plugin-dir", .key = 128,
+      .arg = "Directory", .flags = 0,
+      .doc = "Option to change directory to search for plugins" },
     { .name = NULL }
   };
   
@@ -155,6 +163,18 @@ int main(int argc, char *argv[]){
 	} while (p);
       }
       break;
+    case 'd':
+      if (arg != NULL){
+	char *p = strtok(arg, ",");
+	do{
+	  getplugin(p, plugins)->disable = true;
+	  p = strtok(NULL, ",");
+	} while (p);
+      }
+      break;
+    case 128:
+      plugindir = arg;
+      break;
     case ARGP_KEY_ARG:
       argp_usage (state);
       break;
@@ -181,7 +201,7 @@ int main(int argc, char *argv[]){
 /*   } */
   
 /*   return 0; */
-  
+
   dir = opendir(plugindir);
   
   if(dir == NULL){
@@ -207,17 +227,19 @@ int main(int argc, char *argv[]){
       continue;
     }
 
-    char *filename = malloc(d_name_len + plugindir_len + 2);
+    char *filename = malloc(d_name_len + strlen(plugindir) + 2);
     strcpy(filename, plugindir);
     strcat(filename, "/");
     strcat(filename, dirst->d_name);    
 
     stat(filename, &st);
 
-    if (S_ISREG(st.st_mode) and (access(filename, X_OK) == 0)){
+    if (S_ISREG(st.st_mode)
+	and (access(filename, X_OK) == 0)
+	and not (getplugin(dirst->d_name, &plugin_list)->disable)){
       // Starting a new process to be watched
       process *new_process = malloc(sizeof(process));
-      int pipefd[2];
+      int pipefd[2]; 
       ret = pipe(pipefd);
       if (ret == -1){
 	perror(argv[0]);
@@ -229,15 +251,8 @@ int main(int argc, char *argv[]){
 	closedir(dir);
 	close(pipefd[0]);	/* close unused read end of pipe */
 	dup2(pipefd[1], STDOUT_FILENO); /* replace our stdout */
-	char *basename;
-	basename = strrchr(filename, '/');
-	if (basename == NULL){
-	  basename = filename;
-	} else {
-	  basename++;
-	}
-	plugin *p = getplugin(basename, &plugin_list);
 
+	plugin *p = getplugin(dirst->d_name, &plugin_list);
 	plugin *g = getplugin(NULL, &plugin_list);
 	for(char **a = g->argv + 1; *a != NULL; a++){
 	  addarguments(p, *a);

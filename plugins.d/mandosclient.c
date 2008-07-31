@@ -197,8 +197,10 @@ ssize_t pgp_packet_decrypt (char *packet, size_t packet_size,
   gpgme_data_release(dh_crypto);
   
   /* Seek back to the beginning of the GPGME plaintext data buffer */
-  gpgme_data_seek(dh_plain, (off_t) 0, SEEK_SET);
-
+  if (gpgme_data_seek(dh_plain, (off_t) 0, SEEK_SET) == -1){
+    perror("pgpme_data_seek");
+  }
+  
   *new_packet = 0;
   while(true){
     if (new_packet_length + BUFFER_SIZE > new_packet_capacity){
@@ -619,15 +621,18 @@ static void browse_callback(
     }
 }
 
-/* combinds two strings and returns the malloced new string. som sane checks could/should be added */
-const char *combinestrings(const char *first, const char *second){
+/* combinds file name and path and returns the malloced new string. som sane checks could/should be added */
+const char *combinepath(const char *first, const char *second){
   char *tmp;
-  tmp = malloc(strlen(first) + strlen(second));
+  tmp = malloc(strlen(first) + strlen(second) + 2);
   if (tmp == NULL){
     perror("malloc");
     return NULL;
   }
   strcpy(tmp, first);
+  if (first[0] != '\0' and first[strlen(first) - 1] != '/'){
+    strcat(tmp, "/");
+  }
   strcat(tmp, second);
   return tmp;
 }
@@ -678,12 +683,12 @@ int main(AVAHI_GCC_UNUSED int argc, AVAHI_GCC_UNUSED char*argv[]) {
       }
     }
 
-    certfile = combinestrings(certdir, certfile);
+    certfile = combinepath(certdir, certfile);
     if (certfile == NULL){
       goto exit;
     }
     
-    certkey = combinestrings(certdir, certkey);
+    certkey = combinepath(certdir, certkey);
     if (certkey == NULL){
       goto exit;
     }
@@ -761,6 +766,8 @@ int main(AVAHI_GCC_UNUSED int argc, AVAHI_GCC_UNUSED char*argv[]) {
 
     if (simple_poll)
         avahi_simple_poll_free(simple_poll);
-
+    free(certfile);
+    free(certkey);
+    
     return returncode;
 }
