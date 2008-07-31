@@ -509,7 +509,7 @@ class IPv6_TCPServer(SocketServer.ForkingTCPServer, object):
         """This overrides the normal server_bind() function
         to bind to an interface if one was specified, and also NOT to
         bind to an address or port if they were not specified."""
-        if self.settings["interface"] != avahi.IF_UNSPEC:
+        if self.settings["interface"]:
             # 25 is from /usr/include/asm-i486/socket.h
             SO_BINDTODEVICE = getattr(socket, "SO_BINDTODEVICE", 25)
             try:
@@ -603,7 +603,7 @@ def if_nametoindex(interface, _func=[None]):
             try:
                 libc = ctypes.cdll.LoadLibrary\
                        (ctypes.util.find_library("c"))
-                func[0] = libc.if_nametoindex
+                _func[0] = libc.if_nametoindex
                 return _func[0](interface)
             except IOError, e:
                 if e != errno.EINTR:
@@ -699,8 +699,6 @@ def main():
     server_settings["debug"] = server_config.getboolean\
                                (server_section, "debug")
     del server_config
-    if not server_settings["interface"]:
-        server_settings["interface"] = avahi.IF_UNSPEC
     
     # Override the settings from the config file with command line
     # options, if set.
@@ -724,6 +722,8 @@ def main():
     global service
     service = AvahiService(name = server_settings["servicename"],
                            type = "_mandos._tcp", );
+    if server_settings["interface"]:
+        service.interface = if_nametoindex(server_settings["interface"])
     
     global main_loop
     global bus
@@ -794,11 +794,10 @@ def main():
                                 clients=clients)
     # Find out what port we got
     service.port = tcp_server.socket.getsockname()[1]
-    logger.debug(u"Now listening on port %d", service.port)
+    logger.debug(u"Now listening on address %r, port %d, flowinfo %d,"
+                 u" scope_id %d" % tcp_server.socket.getsockname())
     
-    if not server_settings["interface"]:
-        service.interface = if_nametoindex\
-                            (server_settings["interface"])
+    #service.interface = tcp_server.socket.getsockname()[3]
     
     try:
         # From the Avahi example code
