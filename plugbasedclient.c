@@ -21,12 +21,15 @@
  * Contact the authors at <mandos@fukt.bsnet.se>.
  */
 
+#define _GNU_SOURCE		/* TEMP_FAILURE_RETRY() */
+
 #include <stdio.h>		/* popen(), fileno(), fprintf(),
 				   stderr, STDOUT_FILENO */
 #include <iso646.h>		/* and, or, not */
-#include <sys/types.h>	       /* DIR, opendir(), stat(), struct stat,
-				  waitpid(), WIFEXITED(),
-				  WEXITSTATUS(), wait() */
+#include <sys/types.h>	        /* DIR, opendir(), stat(),
+				   struct stat, waitpid(),
+				   WIFEXITED(), WEXITSTATUS(),
+				   wait() */
 #include <sys/wait.h>		/* wait() */
 #include <dirent.h>		/* DIR, struct dirent, opendir(),
 				   readdir(), closedir() */
@@ -229,11 +232,22 @@ int main(int argc, char *argv[]){
   }
   
   dir = opendir(plugindir);
-  /* Set the FD_CLOEXEC flag on the directory */
-  ret = set_cloexec_flag(dirfd(dir));
-  if(ret < 0){
-    perror("set_cloexec_flag");
+  if(dir == NULL){
+    perror("Could not open plugin dir");
+    exitstatus = EXIT_FAILURE;
     goto end;
+  }
+  /* Set the FD_CLOEXEC flag on the directory, if possible */
+  {
+    int dir_fd = dirfd(dir);
+    if(dir_fd >= 0){
+      ret = set_cloexec_flag(dir_fd);
+      if(ret < 0){
+	perror("set_cloexec_flag");
+	exitstatus = EXIT_FAILURE;
+	goto end;
+      }
+    }
   }
   
   if(dir == NULL){
@@ -267,7 +281,7 @@ int main(int argc, char *argv[]){
 	if((d_name_len >= pre_len)
 	   and strncmp((dirst->d_name), *pre, pre_len) == 0){
 	  if(debug){
-	    fprintf(stderr, "Ignoring plugin dir entry name \"%s\""
+	    fprintf(stderr, "Ignoring plugin dir entry \"%s\""
 		    " with bad prefix %s\n", dirst->d_name, *pre);
 	  }
 	  bad_name = true;
@@ -285,7 +299,7 @@ int main(int argc, char *argv[]){
 	   and (strcmp((dirst->d_name)+d_name_len-suf_len, *suf)
 		== 0)){
 	  if(debug){
-	    fprintf(stderr, "Ignoring plugin dir entry name \"%s\""
+	    fprintf(stderr, "Ignoring plugin dir entry \"%s\""
 		    " with bad suffix %s\n", dirst->d_name, *suf);
 	  }
 	  bad_name = true;
@@ -301,7 +315,7 @@ int main(int argc, char *argv[]){
     char *filename = malloc(d_name_len + strlen(plugindir) + 2);
     if (filename == NULL){
       perror("malloc");
-      exitstatus =EXIT_FAILURE;
+      exitstatus = EXIT_FAILURE;
       goto end;
     }
     strcpy(filename, plugindir);
@@ -312,24 +326,17 @@ int main(int argc, char *argv[]){
 
     if (not S_ISREG(st.st_mode)	or (access(filename, X_OK) != 0)){
       if(debug){
-	fprintf(stderr, "Ignoring plugin dir entry name \"%s\""
+	fprintf(stderr, "Ignoring plugin dir entry \"%s\""
 		" with bad type or mode\n", filename);
       }
       continue;
     }
     if(getplugin(dirst->d_name, &plugin_list)->disabled){
       if(debug){
-	fprintf(stderr, "Ignoring disabled plugin \"%s\"",
+	fprintf(stderr, "Ignoring disabled plugin \"%s\"\n",
 		dirst->d_name);
       }
       continue;
-    }
-    // Starting a new process to be watched
-    int pipefd[2]; 
-    ret = pipe(pipefd);
-    if (ret == -1){
-      perror("pipe");
-      goto end;
     }
     plugin *p = getplugin(dirst->d_name, &plugin_list);
     {
@@ -339,23 +346,43 @@ int main(int argc, char *argv[]){
 	addargument(p, *a);
       }
     }
+    int pipefd[2]; 
+    ret = pipe(pipefd);
+    if (ret == -1){
+      perror("pipe");
+      exitstatus = EXIT_FAILURE;
+      goto end;
+    }
+    ret = set_cloexec_flag(pipefd[0]);
+    if(ret < 0){
+      perror("set_cloexec_flag");
+      exitstatus = EXIT_FAILURE;
+      goto end;
+    }
+    ret = set_cloexec_flag(pipefd[1]);
+    if(ret < 0){
+      perror("set_cloexec_flag");
+      exitstatus = EXIT_FAILURE;
+      goto end;
+    }
+    // Starting a new process to be watched
     pid_t pid = fork();
     if(pid == 0){
       /* this is the child process */
-      closedir(dir);
-      close(pipefd[0]);	/* close unused read end of pipe */
       dup2(pipefd[1], STDOUT_FILENO); /* replace our stdout */
-      if(pipefd[1] > 2){
-	close(pipefd[1]);
-      }
       
+      if(dirfd(dir) < 0){
+	/* If dir has no file descriptor, we could not set FD_CLOEXEC
+	   and must close it manually  */
+	closedir(dir);
+      }
       if(execv(filename, p->argv) < 0){
-	perror(argv[0]);
-	close(pipefd[1]);
+	perror("execv");
 	_exit(EXIT_FAILURE);
       }
       /* no return */
     }
+    /* parent process */
     close(pipefd[1]);		/* close unused write end of pipe */
     process *new_process = malloc(sizeof(process));
     if (new_process == NULL){
@@ -364,91 +391,93 @@ int main(int argc, char *argv[]){
       goto end;
     }
     
-    new_process->fd = pipefd[0];
-    new_process->buffer = malloc(BUFFER_SIZE);
-    if (new_process->buffer == NULL){
-      perror("malloc");
-      exitstatus = EXIT_FAILURE;
-      goto end;
-    }
-    new_process->buffer_size = BUFFER_SIZE;
-    new_process->buffer_length = 0;
+    *new_process = (struct process){ .pid = pid,
+				     .fd = pipefd[0],
+				     .next = process_list };
     FD_SET(new_process->fd, &rfds_all);
-      
+    
     if (maxfd < new_process->fd){
       maxfd = new_process->fd;
     }
     
     //List handling
-    new_process->next = process_list;
     process_list = new_process;
+  }
+  
+  /* Free the plugin list */
+  for(plugin *next; plugin_list != NULL; plugin_list = next){
+    next = plugin_list->next;
+    free(plugin_list->argv);
+    free(plugin_list);
   }
   
   closedir(dir);
   
-  if (process_list != NULL){
-    while(true){
-      fd_set rfds = rfds_all;
-      int select_ret = select(maxfd+1, &rfds, NULL, NULL, NULL);
-      if (select_ret == -1){
-	perror(argv[0]);
-	goto end;
-      }else{	
-	for(process *process_itr = process_list; process_itr != NULL;
-	    process_itr = process_itr->next){
-	  if(FD_ISSET(process_itr->fd, &rfds)){
-	    if(process_itr->buffer_length + BUFFER_SIZE
-	       > process_itr->buffer_size){
-		process_itr->buffer = realloc(process_itr->buffer,
-					      process_itr->buffer_size
-					      + (size_t) BUFFER_SIZE);
-		if (process_itr->buffer == NULL){
-		  perror(argv[0]);
-		  goto end;
-		}
-		process_itr->buffer_size += BUFFER_SIZE;
-	    }
-	    ret = read(process_itr->fd, process_itr->buffer
-		       + process_itr->buffer_length, BUFFER_SIZE);
-	    if(ret < 0){
-	      /* Read error from this process; ignore it */
-	      continue;
-	    }
-	    process_itr->buffer_length += (size_t) ret;
-	    if(ret == 0){
-	      /* got EOF */
-	      /* wait for process exit */
-	      int status;
-	      waitpid(process_itr->pid, &status, 0);
-	      if(WIFEXITED(status) and WEXITSTATUS(status) == 0){
-		for(size_t written = 0;
-		    written < process_itr->buffer_length;){
-		  ret = write(STDOUT_FILENO,
-			      process_itr->buffer + written,
-			      process_itr->buffer_length - written);
-		  if(ret < 0){
-		    perror(argv[0]);
-		    goto end;
-		  }
-		  written += (size_t)ret;
-		}
-		goto end;
-	      } else {
-		FD_CLR(process_itr->fd, &rfds_all);
-	      }
-	    }
+  if (process_list == NULL){
+    fprintf(stderr, "No plugin processes started, exiting\n");
+    return EXIT_FAILURE;
+  }
+  while(true){
+    fd_set rfds = rfds_all;
+    int select_ret = select(maxfd+1, &rfds, NULL, NULL, NULL);
+    if (select_ret == -1){
+      perror("select");
+      exitstatus = EXIT_FAILURE;
+      goto end;
+    }
+    for(process *proc = process_list; proc ; proc = proc->next){
+      if(not FD_ISSET(proc->fd, &rfds)){
+	continue;
+      }
+      if(proc->buffer_length + BUFFER_SIZE > proc->buffer_size){
+	proc->buffer = realloc(proc->buffer, proc->buffer_size
+			       + (size_t) BUFFER_SIZE);
+	if (proc->buffer == NULL){
+	  perror("malloc");
+	  exitstatus = EXIT_FAILURE;
+	  goto end;
+	}
+	proc->buffer_size += BUFFER_SIZE;
+      }
+      ret = read(proc->fd, proc->buffer + proc->buffer_length,
+		 BUFFER_SIZE);
+      if(ret < 0){
+	/* Read error from this process; ignore it */
+	continue;
+      }
+      proc->buffer_length += (size_t) ret;
+      if(ret == 0){
+	/* got EOF */
+	/* wait for process exit */
+	int status;
+	waitpid(proc->pid, &status, 0);
+	if(not WIFEXITED(status) or WEXITSTATUS(status) != 0){
+	  FD_CLR(proc->fd, &rfds_all);
+	  continue;
+	}
+	for(size_t written = 0;
+	    written < proc->buffer_length; written += (size_t)ret){
+	  ret = TEMP_FAILURE_RETRY(write(STDOUT_FILENO,
+					 proc->buffer + written,
+					 proc->buffer_length
+					 - written));
+	  if(ret < 0){
+	    perror("write");
+	    exitstatus = EXIT_FAILURE;
+	    goto end;
 	  }
 	}
+	goto end;
       }
     }
   }
   
  end:
-  for(process *process_itr = process_list; process_itr != NULL;
-      process_itr = process_itr->next){
-    close(process_itr->fd);
-    kill(process_itr->pid, SIGTERM);
-    free(process_itr->buffer);
+  for(process *next; process_list != NULL; process_list = next){
+    close(process_list->fd);
+    kill(process_list->pid, SIGTERM);
+    free(process_list->buffer);
+    free(process_list);
   }
   
   while(true){
