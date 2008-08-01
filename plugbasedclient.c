@@ -106,6 +106,23 @@ void addargument(plugin *p, char *arg){
   p->argv[p->argc] = NULL;
 }
 
+/*
+ * Based on the example in the GNU LibC manual chapter 13.13 "File
+ * Descriptor Flags".
+ * *Note File Descriptor Flags:(libc)Descriptor Flags.
+ */
+int set_cloexec_flag(int fd)
+{
+  int ret = fcntl(fd, F_GETFD, 0);
+  /* If reading the flags failed, return error indication now. */
+  if(ret < 0){
+    return ret;
+  }
+  /* Store modified flag word in the descriptor. */
+  return fcntl(fd, F_SETFD, ret | FD_CLOEXEC);
+}
+
+
 #define BUFFER_SIZE 256
 
 const char *argp_program_version =
@@ -204,7 +221,7 @@ int main(int argc, char *argv[]){
   if(debug){
     for(plugin *p = plugin_list; p != NULL; p=p->next){
       fprintf(stderr, "Plugin: %s has %d arguments\n",
-	      p->name ? p->name : "Global", p->argc);
+	      p->name ? p->name : "Global", p->argc - 1);
       for(char **a = p->argv; *a != NULL; a++){
 	fprintf(stderr, "\tArg: %s\n", *a);
       }
@@ -212,19 +229,11 @@ int main(int argc, char *argv[]){
   }
   
   dir = opendir(plugindir);
-  {
-    /* Set the FD_CLOEXEC flag on the directory */
-    int fd = dirfd(dir);
-    ret = fcntl (fd, F_GETFD, 0);
-    if(ret < 0){
-      perror("fcntl F_GETFD");
-      goto end;
-    }
-    ret = fcntl(fd, F_SETFD, FD_CLOEXEC | ret);
-    if(ret < 0){
-      perror("fcntl F_SETFD");
-      goto end;
-    }
+  /* Set the FD_CLOEXEC flag on the directory */
+  ret = set_cloexec_flag(dirfd(dir));
+  if(ret < 0){
+    perror("set_cloexec_flag");
+    goto end;
   }
   
   if(dir == NULL){
@@ -322,6 +331,14 @@ int main(int argc, char *argv[]){
       perror(argv[0]);
       goto end;
     }
+    plugin *p = getplugin(dirst->d_name, &plugin_list);
+    {
+      /* Add global arguments to argument list for this plugin */
+      plugin *g = getplugin(NULL, &plugin_list);
+      for(char **a = g->argv + 1; *a != NULL; a++){
+	addargument(p, *a);
+      }
+    }
     pid_t pid = fork();
     if(pid == 0){
       /* this is the child process */
@@ -329,11 +346,6 @@ int main(int argc, char *argv[]){
       close(pipefd[0]);	/* close unused read end of pipe */
       dup2(pipefd[1], STDOUT_FILENO); /* replace our stdout */
       
-      plugin *p = getplugin(dirst->d_name, &plugin_list);
-      plugin *g = getplugin(NULL, &plugin_list);
-      for(char **a = g->argv + 1; *a != NULL; a++){
-	addargument(p, *a);
-      }
       if(execv(filename, p->argv) < 0){
 	perror(argv[0]);
 	close(pipefd[1]);
