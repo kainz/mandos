@@ -21,22 +21,31 @@
  * Contact the authors at <mandos@fukt.bsnet.se>.
  */
 
-#include <stdio.h>	/* popen, fileno */
-#include <iso646.h>	/* and, or, not */
-#include <sys/types.h>	/* DIR, opendir, stat, struct stat, waitpid,
-			   WIFEXITED, WEXITSTATUS, wait */
-#include <sys/wait.h>	/* wait */
-#include <dirent.h>	/* DIR, opendir */
-#include <sys/stat.h>	/* stat, struct stat */
-#include <unistd.h>	/* stat, struct stat, chdir */
-#include <stdlib.h>	/* EXIT_FAILURE */
-#include <sys/select.h>	/* fd_set, select, FD_ZERO, FD_SET,
-			   FD_ISSET */
-#include <string.h>	/* strlen, strcpy, strcat */
-#include <stdbool.h>	/* true */
-#include <sys/wait.h>	/* waitpid, WIFEXITED, WEXITSTATUS */
-#include <errno.h>	/* errno */
-#include <argp.h>	/* argp */
+#include <stdio.h>		/* popen(), fileno(), fprintf(),
+				   stderr, STDOUT_FILENO */
+#include <iso646.h>		/* and, or, not */
+#include <sys/types.h>	       /* DIR, opendir(), stat(), struct stat,
+				  waitpid(), WIFEXITED(),
+				  WEXITSTATUS(), wait() */
+#include <sys/wait.h>		/* wait() */
+#include <dirent.h>		/* DIR, struct dirent, opendir(),
+				   readdir(), closedir() */
+#include <sys/stat.h>		/* struct stat, stat(), S_ISREG() */
+#include <unistd.h>		/* struct stat, stat(), S_ISREG(),
+				   fcntl() */
+#include <fcntl.h>		/* fcntl() */
+#include <stddef.h>		/* NULL */
+#include <stdlib.h>		/* EXIT_FAILURE */
+#include <sys/select.h>		/* fd_set, select(), FD_ZERO(),
+				   FD_SET(), FD_ISSET() */
+#include <string.h>		/* strlen(), strcpy(), strcat() */
+#include <stdbool.h>		/* true */
+#include <sys/wait.h>		/* waitpid(), WIFEXITED(),
+				   WEXITSTATUS() */
+#include <errno.h>		/* errno */
+#include <argp.h>		/* struct argp_option,
+				   struct argp_state, struct argp,
+				   argp_parse() */
 
 struct process;
 
@@ -50,10 +59,10 @@ typedef struct process{
 } process;
 
 typedef struct plugin{
-  char *name; 		/* can be "global" and any plugin name */
+  char *name;			/* can be NULL or any plugin name */
   char **argv;
   int argc;
-  bool disable;
+  bool disabled;
   struct plugin *next;
 } plugin;
 
@@ -79,14 +88,14 @@ plugin *getplugin(char *name, plugin **plugin_list){
   new_plugin->argv[0] = name;
   new_plugin->argv[1] = NULL;
   new_plugin->argc = 1;
-  new_plugin->disable = false;
+  new_plugin->disabled = false;
   new_plugin->next = *plugin_list;
   /* Append the new plugin to the list */
   *plugin_list = new_plugin;
   return new_plugin;
 }
 
-void addarguments(plugin *p, char *arg){
+void addargument(plugin *p, char *arg){
   p->argv[p->argc] = arg;
   p->argv = realloc(p->argv, sizeof(char *) * (size_t)(p->argc + 2));
   if (p->argv == NULL){
@@ -96,55 +105,55 @@ void addarguments(plugin *p, char *arg){
   p->argc++;
   p->argv[p->argc] = NULL;
 }
-	
+
 #define BUFFER_SIZE 256
 
 const char *argp_program_version =
   "plugbasedclient 0.9";
 const char *argp_program_bug_address =
   "<mandos@fukt.bsnet.se>";
-static char doc[] =
-  "Mandos plugin runner -- Run Mandos plugins";
-/* A description of the arguments we accept. */
-static char args_doc[] = "";
 
 int main(int argc, char *argv[]){
-  const char *plugindir = "plugins.d";
+  const char *plugindir = "/conf/conf.d/mandos/plugins.d";
   size_t d_name_len;
   DIR *dir;
   struct dirent *dirst;
   struct stat st;
-  fd_set rfds_orig;
+  fd_set rfds_all;
   int ret, maxfd = 0;
   process *process_list = NULL;
-
+  bool debug = false;
+  int exitstatus = EXIT_SUCCESS;
+  
   /* The options we understand. */
   struct argp_option options[] = {
     { .name = "global-options", .key = 'g',
-      .arg = "option[,option[,...]]", .flags = 0,
-      .doc = "Options effecting all plugins" },
+      .arg = "OPTION[,OPTION[,...]]",
+      .doc = "Options passed to all plugins" },
     { .name = "options-for", .key = 'o',
-      .arg = "plugin:option[,option[,...]]", .flags = 0,
-      .doc = "Options effecting only specified plugins" },
-    { .name = "disable-plugin", .key = 'd',
-      .arg = "Plugin[,Plugin[,...]]", .flags = 0,
-      .doc = "Option to disable specififed plugins" },
+      .arg = "PLUGIN:OPTION[,OPTION[,...]]",
+      .doc = "Options passed only to specified plugin" },
+    { .name = "disable", .key = 'd',
+      .arg = "PLUGIN",
+      .doc = "Disable a specific plugin", .group = 1 },
     { .name = "plugin-dir", .key = 128,
-      .arg = "Directory", .flags = 0,
-      .doc = "Option to change directory to search for plugins" },
+      .arg = "DIRECTORY",
+      .doc = "Specify a different plugin directory", .group = 2 },
+    { .name = "debug", .key = 129,
+      .doc = "Debug mode", .group = 3 },
     { .name = NULL }
   };
   
   error_t parse_opt (int key, char *arg, struct argp_state *state) {
        /* Get the INPUT argument from `argp_parse', which we
-          know is a pointer to our arguments structure. */
+          know is a pointer to our plugin list pointer. */
     plugin **plugins = state->input;
     switch (key) {
     case 'g':
       if (arg != NULL){
 	char *p = strtok(arg, ",");
 	do{
-	  addarguments(getplugin(NULL, plugins), p);
+	  addargument(getplugin(NULL, plugins), p);
 	  p = strtok(NULL, ",");
 	} while (p);
       }
@@ -153,24 +162,25 @@ int main(int argc, char *argv[]){
       if (arg != NULL){
 	char *name = strtok(arg, ":");
 	char *p = strtok(NULL, ":");
-	p = strtok(p, ",");
-	do{
-	  addarguments(getplugin(name, plugins), p);
-	  p = strtok(NULL, ",");
-	} while (p);
+	if(p){
+	  p = strtok(p, ",");
+	  do{
+	    addargument(getplugin(name, plugins), p);
+	    p = strtok(NULL, ",");
+	  } while (p);
+	}
       }
       break;
     case 'd':
       if (arg != NULL){
-	char *p = strtok(arg, ",");
-	do{
-	  getplugin(p, plugins)->disable = true;
-	  p = strtok(NULL, ",");
-	} while (p);
+	getplugin(arg, plugins)->disabled = true;
       }
       break;
     case 128:
       plugindir = arg;
+      break;
+    case 129:
+      debug = true;
       break;
     case ARGP_KEY_ARG:
       argp_usage (state);
@@ -182,31 +192,47 @@ int main(int argc, char *argv[]){
     }
     return 0;
   }
-
+  
   plugin *plugin_list = NULL;
   
   struct argp argp = { .options = options, .parser = parse_opt,
-		       .args_doc = args_doc, .doc = doc };
-
-  argp_parse (&argp, argc, argv, 0, 0, &plugin_list);
-
-/*   for(plugin *p = plugin_list; p != NULL; p=p->next){ */
-/*     fprintf(stderr, "Plugin: %s has %d arguments\n", p->name ? p->name : "Global", p->argc); */
-/*     for(char **a = p->argv + 1; *a != NULL; a++){ */
-/*       fprintf(stderr, "\tArg: %s\n", *a); */
-/*     } */
-/*   } */
+		       .args_doc = "",
+		       .doc = "Mandos plugin runner -- Run plugins" };
   
-/*   return 0; */
-
+  argp_parse (&argp, argc, argv, 0, 0, &plugin_list);
+  
+  if(debug){
+    for(plugin *p = plugin_list; p != NULL; p=p->next){
+      fprintf(stderr, "Plugin: %s has %d arguments\n",
+	      p->name ? p->name : "Global", p->argc);
+      for(char **a = p->argv; *a != NULL; a++){
+	fprintf(stderr, "\tArg: %s\n", *a);
+      }
+    }
+  }
+  
   dir = opendir(plugindir);
+  {
+    /* Set the FD_CLOEXEC flag on the directory */
+    int fd = dirfd(dir);
+    ret = fcntl (fd, F_GETFD, 0);
+    if(ret < 0){
+      perror("fcntl F_GETFD");
+      goto end;
+    }
+    ret = fcntl(fd, F_SETFD, FD_CLOEXEC | ret);
+    if(ret < 0){
+      perror("fcntl F_SETFD");
+      goto end;
+    }
+  }
   
   if(dir == NULL){
     fprintf(stderr, "Can not open directory\n");
     return EXIT_FAILURE;
   }
   
-  FD_ZERO(&rfds_orig);
+  FD_ZERO(&rfds_all);
   
   while(true){
     dirst = readdir(dir);
@@ -218,75 +244,136 @@ int main(int argc, char *argv[]){
     
     d_name_len = strlen(dirst->d_name);
     
-    // Ignore dotfiles and backup files
-    if (dirst->d_name[0] == '.'
-	or dirst->d_name[d_name_len - 1] == '~'){
-      continue;
+    // Ignore dotfiles, backup files and other junk
+    {
+      bool bad_name = false;
+      
+      const char const *bad_prefixes[] = { ".", "#", NULL };
+      
+      const char const *bad_suffixes[] = { "~", "#", ".dpkg-new",
+					   ".dpkg-old",
+					   ".dpkg-divert", NULL };
+      for(const char **pre = bad_prefixes; *pre != NULL; pre++){
+	size_t pre_len = strlen(*pre);
+	if((d_name_len >= pre_len)
+	   and strncmp((dirst->d_name), *pre, pre_len) == 0){
+	  if(debug){
+	    fprintf(stderr, "Ignoring plugin dir entry name \"%s\""
+		    " with bad prefix %s\n", dirst->d_name, *pre);
+	  }
+	  bad_name = true;
+	  break;
+	}
+      }
+      
+      if(bad_name){
+	continue;
+      }
+      
+      for(const char **suf = bad_suffixes; *suf != NULL; suf++){
+	size_t suf_len = strlen(*suf);
+	if((d_name_len >= suf_len)
+	   and (strcmp((dirst->d_name)+d_name_len-suf_len, *suf)
+		== 0)){
+	  if(debug){
+	    fprintf(stderr, "Ignoring plugin dir entry name \"%s\""
+		    " with bad suffix %s\n", dirst->d_name, *suf);
+	  }
+	  bad_name = true;
+	  break;
+	}
+      }
+      
+      if(bad_name){
+	continue;
+      }
     }
-
+    
     char *filename = malloc(d_name_len + strlen(plugindir) + 2);
+    if (filename == NULL){
+      perror("malloc");
+      exitstatus =EXIT_FAILURE;
+      goto end;
+    }
     strcpy(filename, plugindir);
     strcat(filename, "/");
     strcat(filename, dirst->d_name);    
 
     stat(filename, &st);
 
-    if (S_ISREG(st.st_mode)
-	and (access(filename, X_OK) == 0)
-	and not (getplugin(dirst->d_name, &plugin_list)->disable)){
-      // Starting a new process to be watched
-      process *new_process = malloc(sizeof(process));
-      int pipefd[2]; 
-      ret = pipe(pipefd);
-      if (ret == -1){
-	perror(argv[0]);
-	goto end;
+    if (not S_ISREG(st.st_mode)	or (access(filename, X_OK) != 0)){
+      if(debug){
+	fprintf(stderr, "Ignoring plugin dir entry name \"%s\""
+		" with bad type or mode\n", filename);
       }
-      new_process->pid = fork();
-      if(new_process->pid == 0){
-	/* this is the child process */
-	closedir(dir);
-	close(pipefd[0]);	/* close unused read end of pipe */
-	dup2(pipefd[1], STDOUT_FILENO); /* replace our stdout */
-
-	plugin *p = getplugin(dirst->d_name, &plugin_list);
-	plugin *g = getplugin(NULL, &plugin_list);
-	for(char **a = g->argv + 1; *a != NULL; a++){
-	  addarguments(p, *a);
-	}
-	if(execv(filename, p->argv) < 0){
-	  perror(argv[0]);
-	  close(pipefd[1]);
-	  exit(EXIT_FAILURE);
-	}
-	/* no return */
-      }
-      close(pipefd[1]);		/* close unused write end of pipe */
-      new_process->fd = pipefd[0];
-      new_process->buffer = malloc(BUFFER_SIZE);
-      if (new_process->buffer == NULL){
-	perror(argv[0]);
-	goto end;
-      }
-      new_process->buffer_size = BUFFER_SIZE;
-      new_process->buffer_length = 0;
-      FD_SET(new_process->fd, &rfds_orig);
-      
-      if (maxfd < new_process->fd){
-	maxfd = new_process->fd;
-      }
-      
-      //List handling
-      new_process->next = process_list;
-      process_list = new_process;
+      continue;
     }
+    if(getplugin(dirst->d_name, &plugin_list)->disabled){
+      if(debug){
+	fprintf(stderr, "Ignoring disabled plugin \"%s\"",
+		dirst->d_name);
+      }
+      continue;
+    }
+    // Starting a new process to be watched
+    int pipefd[2]; 
+    ret = pipe(pipefd);
+    if (ret == -1){
+      perror(argv[0]);
+      goto end;
+    }
+    pid_t pid = fork();
+    if(pid == 0){
+      /* this is the child process */
+      closedir(dir);
+      close(pipefd[0]);	/* close unused read end of pipe */
+      dup2(pipefd[1], STDOUT_FILENO); /* replace our stdout */
+      
+      plugin *p = getplugin(dirst->d_name, &plugin_list);
+      plugin *g = getplugin(NULL, &plugin_list);
+      for(char **a = g->argv + 1; *a != NULL; a++){
+	addargument(p, *a);
+      }
+      if(execv(filename, p->argv) < 0){
+	perror(argv[0]);
+	close(pipefd[1]);
+	_exit(EXIT_FAILURE);
+      }
+      /* no return */
+    }
+    close(pipefd[1]);		/* close unused write end of pipe */
+    process *new_process = malloc(sizeof(process));
+    if (new_process == NULL){
+      perror("malloc");
+      exitstatus = EXIT_FAILURE;
+      goto end;
+    }
+    
+    new_process->fd = pipefd[0];
+    new_process->buffer = malloc(BUFFER_SIZE);
+    if (new_process->buffer == NULL){
+      perror("malloc");
+      exitstatus = EXIT_FAILURE;
+      goto end;
+    }
+    new_process->buffer_size = BUFFER_SIZE;
+    new_process->buffer_length = 0;
+    FD_SET(new_process->fd, &rfds_all);
+      
+    if (maxfd < new_process->fd){
+      maxfd = new_process->fd;
+    }
+    
+    //List handling
+    new_process->next = process_list;
+    process_list = new_process;
   }
   
   closedir(dir);
   
   if (process_list != NULL){
     while(true){
-      fd_set rfds = rfds_orig;
+      fd_set rfds = rfds_all;
       int select_ret = select(maxfd+1, &rfds, NULL, NULL, NULL);
       if (select_ret == -1){
 	perror(argv[0]);
@@ -332,7 +419,7 @@ int main(int argc, char *argv[]){
 		}
 		goto end;
 	      } else {
-		FD_CLR(process_itr->fd, &rfds_orig);
+		FD_CLR(process_itr->fd, &rfds_all);
 	      }
 	    }
 	  }
@@ -359,5 +446,5 @@ int main(int argc, char *argv[]){
       break;
     }
   }  
-  return EXIT_SUCCESS;
+  return exitstatus;
 }
