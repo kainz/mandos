@@ -328,7 +328,7 @@ int main(int argc, char *argv[]){
     int pipefd[2]; 
     ret = pipe(pipefd);
     if (ret == -1){
-      perror(argv[0]);
+      perror("pipe");
       goto end;
     }
     plugin *p = getplugin(dirst->d_name, &plugin_list);
@@ -345,6 +345,9 @@ int main(int argc, char *argv[]){
       closedir(dir);
       close(pipefd[0]);	/* close unused read end of pipe */
       dup2(pipefd[1], STDOUT_FILENO); /* replace our stdout */
+      if(pipefd[1] > 2){
+	close(pipefd[1]);
+      }
       
       if(execv(filename, p->argv) < 0){
 	perror(argv[0]);
