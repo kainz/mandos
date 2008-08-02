@@ -63,18 +63,20 @@
 #include <errno.h>		/* perror() */
 #include <gpgme.h>
 
-// getopt long
+// getopt_long
 #include <getopt.h>
 
 #define BUFFER_SIZE 256
-#define DH_BITS 1024
 
-static const char *certdir = "/conf/conf.d/mandos";
-static const char *certfile = "openpgp-client.txt";
-static const char *certkey = "openpgp-client-key.txt";
+static int dh_bits = 1024;
+
+static const char *keydir = "/conf/conf.d/mandos";
+static const char *pubkeyfile = "pubkey.txt";
+static const char *seckeyfile = "seckey.txt";
 
 bool debug = false;
 
+/* Used for  */
 typedef struct {
   gnutls_session_t session;
   gnutls_certificate_credentials_t cred;
@@ -280,17 +282,17 @@ static int initgnutls(encrypted_session *es){
   
   if(debug){
     fprintf(stderr, "Attempting to use OpenPGP certificate %s"
-	    " and keyfile %s as GnuTLS credentials\n", certfile,
-	    certkey);
+	    " and keyfile %s as GnuTLS credentials\n", pubkeyfile,
+	    seckeyfile);
   }
   
   ret = gnutls_certificate_set_openpgp_key_file
-    (es->cred, certfile, certkey, GNUTLS_OPENPGP_FMT_BASE64);
+    (es->cred, pubkeyfile, seckeyfile, GNUTLS_OPENPGP_FMT_BASE64);
   if (ret != GNUTLS_E_SUCCESS) {
     fprintf
       (stderr, "Error[%d] while reading the OpenPGP key pair ('%s',"
        " '%s')\n",
-       ret, certfile, certkey);
+       ret, pubkeyfile, seckeyfile);
     fprintf(stdout, "The Error is: %s\n",
 	    safer_gnutls_strerror(ret));
     return -1;
@@ -304,7 +306,7 @@ static int initgnutls(encrypted_session *es){
     return -1;
   }
   
-  if ((ret = gnutls_dh_params_generate2 (es->dh_params, DH_BITS))
+  if ((ret = gnutls_dh_params_generate2 (es->dh_params, dh_bits))
       != GNUTLS_E_SUCCESS) {
     fprintf (stderr, "Error in prime generation: %s\n",
 	     safer_gnutls_strerror(ret));
@@ -340,7 +342,7 @@ static int initgnutls(encrypted_session *es){
   gnutls_certificate_server_set_request (es->session,
 					 GNUTLS_CERT_IGNORE);
   
-  gnutls_dh_set_prime_bits (es->session, DH_BITS);
+  gnutls_dh_set_prime_bits (es->session, dh_bits);
   
   return 0;
 }
@@ -401,14 +403,16 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   
   if(debug){
     fprintf(stderr, "Connection to: %s, port %d\n", ip, port);
-/*     char addrstr[INET6_ADDRSTRLEN]; */
-/*     if(inet_ntop(to.sin6_family, &(to.sin6_addr), addrstr, */
-/* 		 sizeof(addrstr)) == NULL){ */
-/*       perror("inet_ntop"); */
-/*     } else { */
-/*       fprintf(stderr, "Really connecting to: %s, port %d\n", */
-/* 	      addrstr, ntohs(to.sin6_port)); */
-/*     } */
+    char addrstr[INET6_ADDRSTRLEN] = "";
+    if(inet_ntop(to.sin6_family, &(to.sin6_addr), addrstr,
+		 sizeof(addrstr)) == NULL){
+      perror("inet_ntop");
+    } else {
+      if(strcmp(addrstr, ip) != 0){
+	fprintf(stderr, "Canonical address form: %s\n",
+		addrstr, ntohs(to.sin6_port));
+      }
+    }
   }
   
   ret = connect(tcp_sd, (struct sockaddr *) &to, sizeof(to));
@@ -493,7 +497,7 @@ static int start_mandos_communication(const char *ip, uint16_t port,
     decrypted_buffer_size = pgp_packet_decrypt(buffer,
 					       buffer_length,
 					       &decrypted_buffer,
-					       certdir);
+					       keydir);
     if (decrypted_buffer_size >= 0){
       while(written < (size_t) decrypted_buffer_size){
 	ret = (int)fwrite (decrypted_buffer + written, 1,
@@ -654,19 +658,22 @@ int main(AVAHI_GCC_UNUSED int argc, AVAHI_GCC_UNUSED char*argv[]) {
     AvahiSServiceBrowser *sb = NULL;
     int error;
     int ret;
+    int debug_int = 0;
     int returncode = EXIT_SUCCESS;
     const char *interface = NULL;
     AvahiIfIndex if_index = AVAHI_IF_UNSPEC;
     char *connect_to = NULL;
     
+    debug_int = debug ? 1 : 0;
     while (true){
       static struct option long_options[] = {
-	{"debug", no_argument, (int *)&debug, 1},
-	{"connect", required_argument, 0, 'C'},
-	{"interface", required_argument, 0, 'i'},
-	{"certdir", required_argument, 0, 'd'},
-	{"certkey", required_argument, 0, 'c'},
-	{"certfile", required_argument, 0, 'k'},
+	{"debug", no_argument, &debug_int, 1},
+	{"connect", required_argument, NULL, 'C'},
+	{"interface", required_argument, NULL, 'i'},
+	{"keydir", required_argument, NULL, 'd'},
+	{"seckey", required_argument, NULL, 'c'},
+	{"pubkey", required_argument, NULL, 'k'},
+	{"dh-bits", required_argument, NULL, 'D'},
 	{0, 0, 0, 0} };
       
       int option_index = 0;
@@ -687,21 +694,27 @@ int main(AVAHI_GCC_UNUSED int argc, AVAHI_GCC_UNUSED char*argv[]) {
 	connect_to = optarg;
 	break;
       case 'd':
-	certdir = optarg;
+	keydir = optarg;
 	break;
       case 'c':
-	certfile = optarg;
+	pubkeyfile = optarg;
 	break;
       case 'k':
-	certkey = optarg;
+	seckeyfile = optarg;
 	break;
+      case 'D':
+	dh_bits = atoi(optarg);
+	break;
+      case '?':
+	break
       default:
 	exit(EXIT_FAILURE);
       }
     }
+    debug = debug_int ? true : false;
     
-    certfile = combinepath(certdir, certfile);
-    if (certfile == NULL){
+    pubkeyfile = combinepath(keydir, pubkeyfile);
+    if (pubkeyfile == NULL){
       perror("combinepath");
       goto exit;
     }
@@ -738,8 +751,8 @@ int main(AVAHI_GCC_UNUSED int argc, AVAHI_GCC_UNUSED char*argv[]) {
       }
     }
     
-    certkey = combinepath(certdir, certkey);
-    if (certkey == NULL){
+    seckeyfile = combinepath(keydir, seckeyfile);
+    if (seckeyfile == NULL){
       perror("combinepath");
       goto exit;
     }
@@ -815,8 +828,8 @@ int main(AVAHI_GCC_UNUSED int argc, AVAHI_GCC_UNUSED char*argv[]) {
 
     if (simple_poll)
         avahi_simple_poll_free(simple_poll);
-    free(certfile);
-    free(certkey);
+    free(pubkeyfile);
+    free(seckeyfile);
     
     return returncode;
 }
