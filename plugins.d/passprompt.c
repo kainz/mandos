@@ -102,15 +102,11 @@ int main(int argc, char **argv){
   
   sigemptyset(&new_action.sa_mask);
   sigaddset(&new_action.sa_mask, SIGINT);
-  sigaddset(&new_action.sa_mask, SIGQUIT);
   sigaddset(&new_action.sa_mask, SIGHUP);
   sigaddset(&new_action.sa_mask, SIGTERM);
   sigaction(SIGINT, NULL, &old_action);
   if (old_action.sa_handler != SIG_IGN)
     sigaction(SIGINT, &new_action, NULL);
-  sigaction(SIGQUIT, NULL, &old_action);
-  if (old_action.sa_handler != SIG_IGN)
-    sigaction(SIGQUIT, &new_action, NULL);
   sigaction(SIGHUP, NULL, &old_action);
   if (old_action.sa_handler != SIG_IGN)
     sigaction(SIGHUP, &new_action, NULL);
