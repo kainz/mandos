@@ -78,11 +78,12 @@ static const char *certkey = "openpgp-client-key.txt";
 bool debug = false;
 
 typedef struct {
-  gnutls_session_t session;
+  AvahiSimplePoll *simple_poll;
+  AvahiServer *server;
   gnutls_certificate_credentials_t cred;
-  gnutls_dh_params_t dh_params;
-} encrypted_session;
-
+  unsigned int dh_bits;
+  const char *priority;
+} mandos_context;
 
 static ssize_t pgp_packet_decrypt (char *packet, size_t packet_size,
 				   char **new_packet,
@@ -253,7 +254,7 @@ static void debuggnutls(__attribute__((unused)) int level,
   fprintf(stderr, "%s", string);
 }
 
-static int initgnutls(encrypted_session *es){
+static int initgnutls(mandos_context *mc){
   const char *err;
   int ret;
   
@@ -322,7 +323,7 @@ static int initgnutls(encrypted_session *es){
 	    safer_gnutls_strerror(ret));
   }
   
-  if ((ret = gnutls_priority_set_direct (es->session, "NORMAL", &err))
+  if ((ret = gnutls_priority_set_direct (es->session, mc->priority, &err))
       != GNUTLS_E_SUCCESS) {
     fprintf(stderr, "Syntax error at: %s\n", err);
     fprintf(stderr, "GnuTLS error: %s\n",
@@ -351,7 +352,8 @@ static void empty_log(__attribute__((unused)) AvahiLogLevel level,
 		      __attribute__((unused)) const char *txt){}
 
 static int start_mandos_communication(const char *ip, uint16_t port,
-				      AvahiIfIndex if_index){
+				      AvahiIfIndex if_index,
+				      mandos_context *mc){
   int ret, tcp_sd;
   struct sockaddr_in6 to;
   encrypted_session es;
@@ -533,24 +535,20 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   return retval;
 }
 
-static AvahiSimplePoll *simple_poll = NULL;
-static AvahiServer *server = NULL;
-
-static void resolve_callback(
-    AvahiSServiceResolver *r,
-    AvahiIfIndex interface,
-    AVAHI_GCC_UNUSED AvahiProtocol protocol,
-    AvahiResolverEvent event,
-    const char *name,
-    const char *type,
-    const char *domain,
-    const char *host_name,
-    const AvahiAddress *address,
-    uint16_t port,
-    AVAHI_GCC_UNUSED AvahiStringList *txt,
-    AVAHI_GCC_UNUSED AvahiLookupResultFlags flags,
-    AVAHI_GCC_UNUSED void* userdata) {
-    
+static void resolve_callback( AvahiSServiceResolver *r,
+			      AvahiIfIndex interface,
+			      AVAHI_GCC_UNUSED AvahiProtocol protocol,
+			      AvahiResolverEvent event,
+			      const char *name,
+			      const char *type,
+			      const char *domain,
+			      const char *host_name,
+			      const AvahiAddress *address,
+			      uint16_t port,
+			      AVAHI_GCC_UNUSED AvahiStringList *txt,
+			      AVAHI_GCC_UNUSED AvahiLookupResultFlags flags,
+			      AVAHI_GCC_UNUSED void* userdata) {
+  mandos_context *mc = userdata;
   assert(r);			/* Spurious warning */
   
   /* Called whenever a service has been resolved successfully or
@@ -561,7 +559,7 @@ static void resolve_callback(
   case AVAHI_RESOLVER_FAILURE:
     fprintf(stderr, "(Resolver) Failed to resolve service '%s' of"
 	    " type '%s' in domain '%s': %s\n", name, type, domain,
-	    avahi_strerror(avahi_server_errno(server)));
+	    avahi_strerror(avahi_server_errno(mc->server)));
     break;
     
   case AVAHI_RESOLVER_FOUND:
@@ -572,7 +570,7 @@ static void resolve_callback(
 	fprintf(stderr, "Mandos server \"%s\" found on %s (%s) on"
 		" port %d\n", name, host_name, ip, port);
       }
-      int ret = start_mandos_communication(ip, port, interface);
+      int ret = start_mandos_communication(ip, port, interface, mc);
       if (ret == 0){
 	exit(EXIT_SUCCESS);
       }
@@ -581,53 +579,51 @@ static void resolve_callback(
   avahi_s_service_resolver_free(r);
 }
 
-static void browse_callback(
-    AvahiSServiceBrowser *b,
-    AvahiIfIndex interface,
-    AvahiProtocol protocol,
-    AvahiBrowserEvent event,
-    const char *name,
-    const char *type,
-    const char *domain,
-    AVAHI_GCC_UNUSED AvahiLookupResultFlags flags,
-    void* userdata) {
-    
-    AvahiServer *s = userdata;
-    assert(b);			/* Spurious warning */
-    
-    /* Called whenever a new services becomes available on the LAN or
-       is removed from the LAN */
-    
-    switch (event) {
-    default:
-    case AVAHI_BROWSER_FAILURE:
+static void browse_callback( AvahiSServiceBrowser *b,
+			     AvahiIfIndex interface,
+			     AvahiProtocol protocol,
+			     AvahiBrowserEvent event,
+			     const char *name,
+			     const char *type,
+			     const char *domain,
+			     AVAHI_GCC_UNUSED AvahiLookupResultFlags flags,
+			     void* userdata) {
+  mandos_context *mc = userdata;
+  assert(b);			/* Spurious warning */
+  
+  /* Called whenever a new services becomes available on the LAN or
+     is removed from the LAN */
+  
+  switch (event) {
+  default:
+  case AVAHI_BROWSER_FAILURE:
       
-      fprintf(stderr, "(Browser) %s\n",
-	      avahi_strerror(avahi_server_errno(server)));
-      avahi_simple_poll_quit(simple_poll);
-      return;
+    fprintf(stderr, "(Browser) %s\n",
+	    avahi_strerror(avahi_server_errno(mc->server)));
+    avahi_simple_poll_quit(mc->simple_poll);
+    return;
       
-    case AVAHI_BROWSER_NEW:
-      /* We ignore the returned resolver object. In the callback
-	 function we free it. If the server is terminated before
-	 the callback function is called the server will free
-	 the resolver for us. */
+  case AVAHI_BROWSER_NEW:
+    /* We ignore the returned resolver object. In the callback
+       function we free it. If the server is terminated before
+       the callback function is called the server will free
+       the resolver for us. */
       
-      if (!(avahi_s_service_resolver_new(s, interface, protocol, name,
-					 type, domain,
-					 AVAHI_PROTO_INET6, 0,
-					 resolve_callback, s)))
-	fprintf(stderr, "Failed to resolve service '%s': %s\n", name,
-		avahi_strerror(avahi_server_errno(s)));
-      break;
+    if (!(avahi_s_service_resolver_new(mc->server, interface, protocol, name,
+				       type, domain,
+				       AVAHI_PROTO_INET6, 0,
+				       resolve_callback, mc)))
+      fprintf(stderr, "Failed to resolve service '%s': %s\n", name,
+	      avahi_strerror(avahi_server_errno(s)));
+    break;
       
-    case AVAHI_BROWSER_REMOVE:
-      break;
+  case AVAHI_BROWSER_REMOVE:
+    break;
       
-    case AVAHI_BROWSER_ALL_FOR_NOW:
-    case AVAHI_BROWSER_CACHE_EXHAUSTED:
-      break;
-    }
+  case AVAHI_BROWSER_ALL_FOR_NOW:
+  case AVAHI_BROWSER_CACHE_EXHAUSTED:
+    break;
+  }
 }
 
 /* Combines file name and path and returns the malloced new
@@ -662,6 +658,8 @@ int main(AVAHI_GCC_UNUSED int argc, AVAHI_GCC_UNUSED char*argv[]) {
     int sd;
     char *connect_to = NULL;
     AvahiIfIndex if_index = AVAHI_IF_UNSPEC;
+    mandos_context mc = { .simple_poll = NULL, .server = NULL,
+			  .dh_bits = 2048, .priority = "SECURE256"};
     
     while (true){
       static struct option long_options[] = {
@@ -671,6 +669,8 @@ int main(AVAHI_GCC_UNUSED int argc, AVAHI_GCC_UNUSED char*argv[]) {
 	{"certdir", required_argument, 0, 'd'},
 	{"certkey", required_argument, 0, 'c'},
 	{"certfile", required_argument, 0, 'k'},
+	{"dh_bits", required_argument, 0, 'D'},
+	{"priority", required_argument, 0, 'p'},
 	{0, 0, 0, 0} };
       
       int option_index = 0;
@@ -698,6 +698,21 @@ int main(AVAHI_GCC_UNUSED int argc, AVAHI_GCC_UNUSED char*argv[]) {
 	break;
       case 'k':
 	certkey = optarg;
+	break;
+      case 'D':
+	{
+	  long int tmp;
+	  errno = 0;
+	  tmp = strtol(optarg, NULL, 10);
+	  if (errno == ERANGE){
+	    perror("strtol");
+	    exit(EXIT_FAILURE);
+	  }
+	  mc.dh_bits = tmp;
+	}
+	break;
+      case 'p':
+	mc.priority = optarg;
 	break;
       default:
 	exit(EXIT_FAILURE);
@@ -781,7 +796,7 @@ int main(AVAHI_GCC_UNUSED int argc, AVAHI_GCC_UNUSED char*argv[]) {
     srand((unsigned int) time(NULL));
 
     /* Allocate main loop object */
-    if (!(simple_poll = avahi_simple_poll_new())) {
+    if (!(mc.simple_poll = avahi_simple_poll_new())) {
         fprintf(stderr, "Failed to create simple poll object.\n");
 	returncode = EXIT_FAILURE;	
         goto exit;
@@ -795,14 +810,14 @@ int main(AVAHI_GCC_UNUSED int argc, AVAHI_GCC_UNUSED char*argv[]) {
     config.publish_domain = 0;
 
     /* Allocate a new server */
-    server = avahi_server_new(avahi_simple_poll_get(simple_poll),
+    mc.server = avahi_server_new(avahi_simple_poll_get(simple_poll),
 			      &config, NULL, NULL, &error);
 
     /* Free the configuration data */
     avahi_server_config_free(&config);
 
     /* Check if creating the server object succeeded */
-    if (!server) {
+    if (!mc.server) {
         fprintf(stderr, "Failed to create server: %s\n",
 		avahi_strerror(error));
 	returncode = EXIT_FAILURE;
@@ -810,13 +825,13 @@ int main(AVAHI_GCC_UNUSED int argc, AVAHI_GCC_UNUSED char*argv[]) {
     }
     
     /* Create the service browser */
-    sb = avahi_s_service_browser_new(server, if_index,
+    sb = avahi_s_service_browser_new(mc.server, if_index,
 				     AVAHI_PROTO_INET6,
 				     "_mandos._tcp", NULL, 0,
-				     browse_callback, server);
+				     browse_callback, &mc);
     if (!sb) {
         fprintf(stderr, "Failed to create service browser: %s\n",
-		avahi_strerror(avahi_server_errno(server)));
+		avahi_strerror(avahi_server_errno(mc.server)));
 	returncode = EXIT_FAILURE;
         goto exit;
     }
@@ -839,8 +854,8 @@ int main(AVAHI_GCC_UNUSED int argc, AVAHI_GCC_UNUSED char*argv[]) {
     if (sb)
         avahi_s_service_browser_free(sb);
     
-    if (server)
-        avahi_server_free(server);
+    if (mc.server)
+        avahi_server_free(mc.server);
 
     if (simple_poll)
         avahi_simple_poll_free(simple_poll);
