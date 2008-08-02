@@ -2,7 +2,7 @@
 /*
  * Passprompt - Read a password from the terminal and print it
  *
- * Copyright © 2007-2008 Teddy Hogeborn and Björn Påhlsson.
+ * Copyright © 2007-2008 Teddy Hogeborn & Björn Påhlsson
  * 
  * This program is free software: you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -23,7 +23,6 @@
  */
 
 #define _GNU_SOURCE		/* getline() */
-#define _FORTIFY_SOURCE 2
 
 #include <termios.h> 		/* struct termios, tcsetattr(),
 				   TCSAFLUSH, tcgetattr(), ECHO */
@@ -103,15 +102,11 @@ int main(int argc, char **argv){
   
   sigemptyset(&new_action.sa_mask);
   sigaddset(&new_action.sa_mask, SIGINT);
-  sigaddset(&new_action.sa_mask, SIGQUIT);
   sigaddset(&new_action.sa_mask, SIGHUP);
   sigaddset(&new_action.sa_mask, SIGTERM);
   sigaction(SIGINT, NULL, &old_action);
   if (old_action.sa_handler != SIG_IGN)
     sigaction(SIGINT, &new_action, NULL);
-  sigaction(SIGQUIT, NULL, &old_action);
-  if (old_action.sa_handler != SIG_IGN)
-    sigaction(SIGQUIT, &new_action, NULL);
   sigaction(SIGHUP, NULL, &old_action);
   if (old_action.sa_handler != SIG_IGN)
     sigaction(SIGHUP, &new_action, NULL);

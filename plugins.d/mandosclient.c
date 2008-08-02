@@ -8,8 +8,8 @@
  * includes the following functions: "resolve_callback",
  * "browse_callback", and parts of "main".
  * 
- * Everything else is Copyright © 2007-2008 Teddy Hogeborn and Björn
- * Påhlsson.
+ * Everything else is
+ * Copyright © 2007-2008 Teddy Hogeborn & Björn Påhlsson
  * 
  * This program is free software: you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -25,12 +25,10 @@
  * along with this program.  If not, see
  * <http://www.gnu.org/licenses/>.
  * 
- * Contact the authors at <https://www.fukt.bsnet.se/~belorn/> and
- * <https://www.fukt.bsnet.se/~teddy/>.
+ * Contact the authors at <mandos@fukt.bsnet.se>.
  */
 
-#define _FORTIFY_SOURCE 2
-
+/* Needed by GPGME, specifically gpgme_data_seek() */
 #define _LARGEFILE_SOURCE
 #define _FILE_OFFSET_BITS 64
 
@@ -73,9 +71,9 @@
 #define BUFFER_SIZE 256
 #define DH_BITS 1024
 
-const char *certdir = "/conf/conf.d/cryptkeyreq/";
-const char *certfile = "openpgp-client.txt";
-const char *certkey = "openpgp-client-key.txt";
+static const char *certdir = "/conf/conf.d/mandos";
+static const char *certfile = "openpgp-client.txt";
+static const char *certkey = "openpgp-client-key.txt";
 
 bool debug = false;
 
@@ -86,8 +84,9 @@ typedef struct {
 } encrypted_session;
 
 
-ssize_t pgp_packet_decrypt (char *packet, size_t packet_size,
-			    char **new_packet, const char *homedir){
+static ssize_t pgp_packet_decrypt (char *packet, size_t packet_size,
+				   char **new_packet,
+				   const char *homedir){
   gpgme_data_t dh_crypto, dh_plain;
   gpgme_ctx_t ctx;
   gpgme_error_t rc;
@@ -249,12 +248,12 @@ static const char * safer_gnutls_strerror (int value) {
   return ret;
 }
 
-void debuggnutls(__attribute__((unused)) int level,
-		 const char* string){
+static void debuggnutls(__attribute__((unused)) int level,
+			const char* string){
   fprintf(stderr, "%s", string);
 }
 
-int initgnutls(encrypted_session *es){
+static int initgnutls(encrypted_session *es){
   const char *err;
   int ret;
   
@@ -348,11 +347,11 @@ int initgnutls(encrypted_session *es){
   return 0;
 }
 
-void empty_log(__attribute__((unused)) AvahiLogLevel level,
-	       __attribute__((unused)) const char *txt){}
+static void empty_log(__attribute__((unused)) AvahiLogLevel level,
+		      __attribute__((unused)) const char *txt){}
 
-int start_mandos_communication(const char *ip, uint16_t port,
-			       unsigned int if_index){
+static int start_mandos_communication(const char *ip, uint16_t port,
+				      AvahiIfIndex if_index){
   int ret, tcp_sd;
   struct sockaddr_in6 to;
   encrypted_session es;
@@ -366,7 +365,8 @@ int start_mandos_communication(const char *ip, uint16_t port,
   char interface[IF_NAMESIZE];
   
   if(debug){
-    fprintf(stderr, "Setting up a tcp connection to %s\n", ip);
+    fprintf(stderr, "Setting up a tcp connection to %s, port %d\n",
+	    ip, port);
   }
   
   tcp_sd = socket(PF_INET6, SOCK_STREAM, 0);
@@ -376,7 +376,7 @@ int start_mandos_communication(const char *ip, uint16_t port,
   }
 
   if(debug){
-    if(if_indextoname(if_index, interface) == NULL){
+    if(if_indextoname((unsigned int)if_index, interface) == NULL){
       if(debug){
 	perror("if_indextoname");
       }
@@ -402,7 +402,15 @@ int start_mandos_communication(const char *ip, uint16_t port,
   to.sin6_scope_id = (uint32_t)if_index;
   
   if(debug){
-    fprintf(stderr, "Connection to: %s\n", ip);
+    fprintf(stderr, "Connection to: %s, port %d\n", ip, port);
+/*     char addrstr[INET6_ADDRSTRLEN]; */
+/*     if(inet_ntop(to.sin6_family, &(to.sin6_addr), addrstr, */
+/* 		 sizeof(addrstr)) == NULL){ */
+/*       perror("inet_ntop"); */
+/*     } else { */
+/*       fprintf(stderr, "Really connecting to: %s, port %d\n", */
+/* 	      addrstr, ntohs(to.sin6_port)); */
+/*     } */
   }
   
   ret = connect(tcp_sd, (struct sockaddr *) &to, sizeof(to));
@@ -489,7 +497,7 @@ int start_mandos_communication(const char *ip, uint16_t port,
 					       &decrypted_buffer,
 					       certdir);
     if (decrypted_buffer_size >= 0){
-      while(written < (size_t)decrypted_buffer_size){
+      while(written < (size_t) decrypted_buffer_size){
 	ret = (int)fwrite (decrypted_buffer + written, 1,
 			   (size_t)decrypted_buffer_size - written,
 			   stdout);
@@ -564,8 +572,7 @@ static void resolve_callback(
 	fprintf(stderr, "Mandos server \"%s\" found on %s (%s) on"
 		" port %d\n", name, host_name, ip, port);
       }
-      int ret = start_mandos_communication(ip, port,
-					   (unsigned int) interface);
+      int ret = start_mandos_communication(ip, port, interface);
       if (ret == 0){
 	exit(EXIT_SUCCESS);
       }
@@ -623,19 +630,23 @@ static void browse_callback(
     }
 }
 
-/* combinds file name and path and returns the malloced new string. som sane checks could/should be added */
-const char *combinepath(const char *first, const char *second){
-  char *tmp;
-  tmp = malloc(strlen(first) + strlen(second) + 2);
+/* Combines file name and path and returns the malloced new
+   string. some sane checks could/should be added */
+static const char *combinepath(const char *first, const char *second){
+  size_t f_len = strlen(first);
+  size_t s_len = strlen(second);
+  char *tmp = malloc(f_len + s_len + 2);
   if (tmp == NULL){
-    perror("malloc");
     return NULL;
   }
-  strcpy(tmp, first);
-  if (first[0] != '\0' and first[strlen(first) - 1] != '/'){
-    strcat(tmp, "/");
+  if(f_len > 0){
+    memcpy(tmp, first, f_len);
   }
-  strcat(tmp, second);
+  tmp[f_len] = '/';
+  if(s_len > 0){
+    memcpy(tmp + f_len + 1, second, s_len);
+  }
+  tmp[f_len + 1 + s_len] = '\0';
   return tmp;
 }
 
@@ -649,10 +660,13 @@ int main(AVAHI_GCC_UNUSED int argc, AVAHI_GCC_UNUSED char*argv[]) {
     const char *interface = "eth0";
     struct ifreq network;
     int sd;
+    char *connect_to = NULL;
+    AvahiIfIndex if_index = AVAHI_IF_UNSPEC;
     
     while (true){
       static struct option long_options[] = {
 	{"debug", no_argument, (int *)&debug, 1},
+	{"connect", required_argument, 0, 'C'},
 	{"interface", required_argument, 0, 'i'},
 	{"certdir", required_argument, 0, 'd'},
 	{"certkey", required_argument, 0, 'c'},
@@ -673,6 +687,9 @@ int main(AVAHI_GCC_UNUSED int argc, AVAHI_GCC_UNUSED char*argv[]) {
       case 'i':
 	interface = optarg;
 	break;
+      case 'C':
+	connect_to = optarg;
+	break;
       case 'd':
 	certdir = optarg;
 	break;
@@ -686,19 +703,51 @@ int main(AVAHI_GCC_UNUSED int argc, AVAHI_GCC_UNUSED char*argv[]) {
 	exit(EXIT_FAILURE);
       }
     }
-
+    
     certfile = combinepath(certdir, certfile);
     if (certfile == NULL){
+      perror("combinepath");
+      returncode = EXIT_FAILURE;
+      goto exit;
+    }
+
+    certkey = combinepath(certdir, certkey);
+    if (certkey == NULL){
+      perror("combinepath");
       returncode = EXIT_FAILURE;
       goto exit;
     }
     
-    certkey = combinepath(certdir, certkey);
-    if (certkey == NULL){
-      returncode = EXIT_FAILURE;
-      goto exit;
+    if_index = (AvahiIfIndex) if_nametoindex(interface);
+    if(if_index == 0){
+      fprintf(stderr, "No such interface: \"%s\"\n", interface);
+      exit(EXIT_FAILURE);
     }
-
+    
+    if(connect_to != NULL){
+      /* Connect directly, do not use Zeroconf */
+      /* (Mainly meant for debugging) */
+      char *address = strrchr(connect_to, ':');
+      if(address == NULL){
+        fprintf(stderr, "No colon in address\n");
+	exit(EXIT_FAILURE);
+      }
+      errno = 0;
+      uint16_t port = (uint16_t) strtol(address+1, NULL, 10);
+      if(errno){
+	perror("Bad port number");
+	exit(EXIT_FAILURE);
+      }
+      *address = '\0';
+      address = connect_to;
+      ret = start_mandos_communication(address, port, if_index);
+      if(ret < 0){
+	exit(EXIT_FAILURE);
+      } else {
+	exit(EXIT_SUCCESS);
+      }
+    }
+    
     sd = socket(PF_INET6, SOCK_DGRAM, IPPROTO_IP);
     if(sd < 0) {
       perror("socket");
@@ -761,9 +810,7 @@ int main(AVAHI_GCC_UNUSED int argc, AVAHI_GCC_UNUSED char*argv[]) {
     }
     
     /* Create the service browser */
-    sb = avahi_s_service_browser_new(server,
-				     (AvahiIfIndex)
-				     if_nametoindex(interface),
+    sb = avahi_s_service_browser_new(server, if_index,
 				     AVAHI_PROTO_INET6,
 				     "_mandos._tcp", NULL, 0,
 				     browse_callback, server);
