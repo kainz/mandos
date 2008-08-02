@@ -120,7 +120,8 @@ int main(int argc, char *argv[]){
   fd_set rfds_orig;
   int ret, maxfd = 0;
   process *process_list = NULL;
-
+  uid_t uid = 65534;
+  gid_t gid = 65534;
   /* The options we understand. */
   struct argp_option options[] = {
     { .name = "global-options", .key = 'g',
@@ -135,6 +136,12 @@ int main(int argc, char *argv[]){
     { .name = "plugin-dir", .key = 128,
       .arg = "Directory", .flags = 0,
       .doc = "Option to change directory to search for plugins" },
+    { .name = "userid", .key = 129,
+      .arg = "Id", .flags = 0,
+      .doc = "Option to change which user id the plugins will run as" },
+    { .name = "groupid", .key = 130,
+      .arg = "Id", .flags = 0,
+      .doc = "Option to change which group id the plugins will run as" },
     { .name = NULL }
   };
   
@@ -175,6 +182,12 @@ int main(int argc, char *argv[]){
     case 128:
       plugindir = arg;
       break;
+    case 129:
+      uid = (uid_t)strtol(arg, NULL, 10);
+      break;
+    case 130:
+      gid = (gid_t)strtol(arg, NULL, 10);
+      break;
     case ARGP_KEY_ARG:
       argp_usage (state);
       break;
@@ -202,6 +215,16 @@ int main(int argc, char *argv[]){
   
 /*   return 0; */
 
+  ret = setuid(uid);
+  if (ret == -1){
+    perror("setuid");
+  }
+
+  setgid(gid);
+  if (ret == -1){
+    perror("setuid");
+  }
+  
   dir = opendir(plugindir);
   
   if(dir == NULL){
