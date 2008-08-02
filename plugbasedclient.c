@@ -142,7 +142,7 @@ void handle_sigchld(__attribute__((unused)) int sig){
   int status;
   pid_t pid = wait(&status);
   while(proc != NULL and proc->pid != pid){
-    proc = proc->next;    
+    proc = proc->next;
   }
   if(proc == NULL){
     /* Process not found in process list */
@@ -167,7 +167,9 @@ int main(int argc, char *argv[]){
   struct sigaction old_sigchld_action;
   struct sigaction sigchld_action = { .sa_handler = handle_sigchld,
 				      .sa_flags = SA_NOCLDSTOP };
-
+  char *plus_options = NULL;
+  char **plus_argv = NULL;
+  
   /* Establish a signal handler */
   sigemptyset(&sigchld_action.sa_mask);
   ret = sigaddset(&sigchld_action.sa_mask, SIGCHLD);
@@ -217,19 +219,19 @@ int main(int argc, char *argv[]){
 	do{
 	  addargument(getplugin(NULL, plugins), p);
 	  p = strtok(NULL, ",");
-	} while (p);
+	} while (p != NULL);
       }
       break;
     case 'o':
       if (arg != NULL){
 	char *name = strtok(arg, ":");
 	char *p = strtok(NULL, ":");
-	if(p){
+	if(p != NULL){
 	  p = strtok(p, ",");
 	  do{
 	    addargument(getplugin(name, plugins), p);
 	    p = strtok(NULL, ",");
-	  } while (p);
+	  } while (p != NULL);
 	}
       }
       break;
@@ -251,7 +253,10 @@ int main(int argc, char *argv[]){
       debug = true;
       break;
     case ARGP_KEY_ARG:
-      argp_usage (state);
+      if(plus_options != NULL or arg == NULL or arg[0] != '+'){
+	argp_usage (state);
+      }
+      plus_options = arg;
       break;
     case ARGP_KEY_END:
       break;
@@ -264,11 +269,44 @@ int main(int argc, char *argv[]){
   plugin *plugin_list = NULL;
   
   struct argp argp = { .options = options, .parser = parse_opt,
-		       .args_doc = "",
+		       .args_doc = "[+PLUS_SEPARATED_OPTIONS]",
 		       .doc = "Mandos plugin runner -- Run plugins" };
   
   argp_parse (&argp, argc, argv, 0, 0, &plugin_list);  
-
+  
+  if(plus_options){
+    /* This is a mangled argument in the form of
+     "+--option+--other-option=parameter+--yet-another-option", etc */
+    /* Make new argc and argv vars, and call argp_parse() again. */
+    plus_options++;		/* skip the first '+' character */
+    const char delims[] = "+";
+    char *arg;
+    int new_argc = 1;
+    plus_argv = malloc(sizeof(char*) * 2);
+    if(plus_argv == NULL){
+      perror("malloc");
+      exitstatus = EXIT_FAILURE;
+      goto end;
+    }
+    plus_argv[0] = argv[0];
+    plus_argv[1] = NULL;
+    arg = strtok(plus_options, delims); /* Get first argument */
+    while(arg != NULL){
+      new_argc++;
+      plus_argv = realloc(plus_argv, sizeof(char *)
+			 * ((unsigned int) new_argc + 1));
+      if(plus_argv == NULL){
+	perror("malloc");
+	exitstatus = EXIT_FAILURE;
+	goto end;
+      }
+      plus_argv[new_argc-1] = arg;
+      plus_argv[new_argc] = NULL;
+      arg = strtok(NULL, delims); /* Get next argument */
+    }
+    argp_parse (&argp, new_argc, plus_argv, 0, 0, &plugin_list);  
+  }
+  
   if(debug){
     for(plugin *p = plugin_list; p != NULL; p=p->next){
       fprintf(stderr, "Plugin: %s has %d arguments\n",
@@ -278,7 +316,7 @@ int main(int argc, char *argv[]){
       }
     }
   }
-
+  
   ret = setuid(uid);
   if (ret == -1){
     perror("setuid");
@@ -623,6 +661,8 @@ int main(int argc, char *argv[]){
  end:
   /* Restore old signal handler */
   sigaction(SIGCHLD, &old_sigchld_action, NULL);
+  
+  free(plus_argv);
   
   /* Free the plugin list */
   for(plugin *next; plugin_list != NULL; plugin_list = next){
