@@ -39,6 +39,8 @@
 #include <stdlib.h>
 #include <time.h>
 #include <net/if.h>		/* if_nametoindex */
+#include <sys/ioctl.h> 		// ioctl, ifreq, SIOCGIFFLAGS, IFF_UP, SIOCSIFFLAGS
+#include <net/if.h> 		// ioctl, ifreq, SIOCGIFFLAGS, IFF_UP, SIOCSIFFLAGS
 
 #include <avahi-core/core.h>
 #include <avahi-core/lookup.h>
@@ -372,15 +374,15 @@ int start_mandos_communication(const char *ip, uint16_t port,
     perror("socket");
     return -1;
   }
-  
-  if(if_indextoname(if_index, interface) == NULL){
-    if(debug){
-      perror("if_indextoname");
-    }
-    return -1;
-  }
-  
+
   if(debug){
+    if(if_indextoname(if_index, interface) == NULL){
+      if(debug){
+	perror("if_indextoname");
+      }
+      return -1;
+    }
+    
     fprintf(stderr, "Binding to interface %s\n", interface);
   }
   
@@ -487,7 +489,7 @@ int start_mandos_communication(const char *ip, uint16_t port,
 					       &decrypted_buffer,
 					       certdir);
     if (decrypted_buffer_size >= 0){
-      while(written < decrypted_buffer_size){
+      while(written < (size_t)decrypted_buffer_size){
 	ret = (int)fwrite (decrypted_buffer + written, 1,
 			   (size_t)decrypted_buffer_size - written,
 			   stdout);
@@ -645,6 +647,8 @@ int main(AVAHI_GCC_UNUSED int argc, AVAHI_GCC_UNUSED char*argv[]) {
     int ret;
     int returncode = EXIT_SUCCESS;
     const char *interface = "eth0";
+    struct ifreq network;
+    int sd;
     
     while (true){
       static struct option long_options[] = {
@@ -685,14 +689,41 @@ int main(AVAHI_GCC_UNUSED int argc, AVAHI_GCC_UNUSED char*argv[]) {
 
     certfile = combinepath(certdir, certfile);
     if (certfile == NULL){
+      returncode = EXIT_FAILURE;
       goto exit;
     }
     
     certkey = combinepath(certdir, certkey);
     if (certkey == NULL){
+      returncode = EXIT_FAILURE;
       goto exit;
     }
-	
+
+    sd = socket(PF_INET6, SOCK_DGRAM, IPPROTO_IP);
+    if(sd < 0) {
+      perror("socket");
+      returncode = EXIT_FAILURE;
+      goto exit;
+    }
+    strcpy(network.ifr_name, interface);    
+    ret = ioctl(sd, SIOCGIFFLAGS, &network);
+    if(ret == -1){
+      
+      perror("ioctl SIOCGIFFLAGS");
+      returncode = EXIT_FAILURE;
+      goto exit;
+    }
+    if((network.ifr_flags & IFF_UP) == 0){
+      network.ifr_flags |= IFF_UP;
+      ret = ioctl(sd, SIOCSIFFLAGS, &network);
+      if(ret == -1){
+	perror("ioctl SIOCSIFFLAGS");
+	returncode = EXIT_FAILURE;
+	goto exit;
+      }
+    }
+    close(sd);
+    
     if (not debug){
       avahi_set_log_function(empty_log);
     }
@@ -703,7 +734,7 @@ int main(AVAHI_GCC_UNUSED int argc, AVAHI_GCC_UNUSED char*argv[]) {
     /* Allocate main loop object */
     if (!(simple_poll = avahi_simple_poll_new())) {
         fprintf(stderr, "Failed to create simple poll object.\n");
-	
+	returncode = EXIT_FAILURE;	
         goto exit;
     }
 
