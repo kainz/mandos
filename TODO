@@ -1,25 +1,35 @@
-[Mandos client]
-configuration for OpenPGP key
-header files/symbols tally
-check exit codes of all system calls
-IPv4 support
+-*- org -*-
 
-[Pluginbasedclient]
-disable certain plugins
-header files/symbols tally
-check exit codes of all system calls
-change uid to nobody:nogroup
-	other drop privs stuff?
+* Mandos client
+** header files/symbols tally
+** check exit codes of all system calls
+** IPv4 support
+** protocol version header
+** use strsep instead of strtok?
 
-[Server]
-config file for:
-	TXT record
-run-time communication with server
+* Pluginbasedclient
+** header files/symbols tally
+** check exit codes of all system calls
+** change uid to nobody:nogroup
+   other drop privs stuff?
+** pass things in environment, like device name, etc
+   Does cryptsetup already do this?
+** use strsep instead of strtok?
 
-[Mandos-tools/utilities]
-	List clients
-	Enable client
-	Disable client
+* Server
+** config for:
+*** TXT record
+** protocol version header
+** Run-time communication with server
+   probably using D-Bus
 
-[Installer]
-...
+* Mandos-tools/utilities
+  All of this probably using D-Bus
+** List clients
+** Enable client
+** Disable client
+
+* Installer
+
+
+#+STARTUP: showall

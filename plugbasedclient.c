@@ -2,7 +2,7 @@
 /*
  * Mandos plugin runner - Run Mandos plugins
  *
- * Copyright © 2007-2008 Teddy Hogeborn and Björn Påhlsson.
+ * Copyright © 2007-2008 Teddy Hogeborn & Björn Påhlsson
  * 
  * This program is free software: you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -18,28 +18,37 @@
  * along with this program.  If not, see
  * <http://www.gnu.org/licenses/>.
  * 
- * Contact the authors at <https://www.fukt.bsnet.se/~belorn/> and
- * <https://www.fukt.bsnet.se/~teddy/>.
+ * Contact the authors at <mandos@fukt.bsnet.se>.
  */
 
-#define _FORTIFY_SOURCE 2
+#define _GNU_SOURCE		/* TEMP_FAILURE_RETRY() */
 
-#include <stdio.h>	/* popen, fileno */
-#include <iso646.h>	/* and, or, not */
-#include <sys/types.h>	/* DIR, opendir, stat, struct stat, waitpid,
-			   WIFEXITED, WEXITSTATUS, wait */
-#include <sys/wait.h>	/* wait */
-#include <dirent.h>	/* DIR, opendir */
-#include <sys/stat.h>	/* stat, struct stat */
-#include <unistd.h>	/* stat, struct stat, chdir */
-#include <stdlib.h>	/* EXIT_FAILURE */
-#include <sys/select.h>	/* fd_set, select, FD_ZERO, FD_SET,
-			   FD_ISSET */
-#include <string.h>	/* strlen, strcpy, strcat */
-#include <stdbool.h>	/* true */
-#include <sys/wait.h>	/* waitpid, WIFEXITED, WEXITSTATUS */
-#include <errno.h>	/* errno */
-#include <argp.h>	/* argp */
+#include <stdio.h>		/* popen(), fileno(), fprintf(),
+				   stderr, STDOUT_FILENO */
+#include <iso646.h>		/* and, or, not */
+#include <sys/types.h>	        /* DIR, opendir(), stat(),
+				   struct stat, waitpid(),
+				   WIFEXITED(), WEXITSTATUS(),
+				   wait() */
+#include <sys/wait.h>		/* wait() */
+#include <dirent.h>		/* DIR, struct dirent, opendir(),
+				   readdir(), closedir() */
+#include <sys/stat.h>		/* struct stat, stat(), S_ISREG() */
+#include <unistd.h>		/* struct stat, stat(), S_ISREG(),
+				   fcntl() */
+#include <fcntl.h>		/* fcntl() */
+#include <stddef.h>		/* NULL */
+#include <stdlib.h>		/* EXIT_FAILURE */
+#include <sys/select.h>		/* fd_set, select(), FD_ZERO(),
+				   FD_SET(), FD_ISSET() */
+#include <string.h>		/* strlen(), strcpy(), strcat() */
+#include <stdbool.h>		/* true */
+#include <sys/wait.h>		/* waitpid(), WIFEXITED(),
+				   WEXITSTATUS() */
+#include <errno.h>		/* errno */
+#include <argp.h>		/* struct argp_option,
+				   struct argp_state, struct argp,
+				   argp_parse() */
 
 struct process;
 
@@ -49,14 +58,17 @@ typedef struct process{
   char *buffer;
   size_t buffer_size;
   size_t buffer_length;
+  bool eof;
+  bool completed;
+  int status;
   struct process *next;
 } process;
 
 typedef struct plugin{
-  char *name; 		/* can be "global" and any plugin name */
+  char *name;			/* can be NULL or any plugin name */
   char **argv;
   int argc;
-  bool disable;
+  bool disabled;
   struct plugin *next;
 } plugin;
 
@@ -82,14 +94,14 @@ plugin *getplugin(char *name, plugin **plugin_list){
   new_plugin->argv[0] = name;
   new_plugin->argv[1] = NULL;
   new_plugin->argc = 1;
-  new_plugin->disable = false;
+  new_plugin->disabled = false;
   new_plugin->next = *plugin_list;
   /* Append the new plugin to the list */
   *plugin_list = new_plugin;
   return new_plugin;
 }
 
-void addarguments(plugin *p, char *arg){
+void addargument(plugin *p, char *arg){
   p->argv[p->argc] = arg;
   p->argv = realloc(p->argv, sizeof(char *) * (size_t)(p->argc + 2));
   if (p->argv == NULL){
@@ -99,62 +111,111 @@ void addarguments(plugin *p, char *arg){
   p->argc++;
   p->argv[p->argc] = NULL;
 }
-	
+
+/*
+ * Based on the example in the GNU LibC manual chapter 13.13 "File
+ * Descriptor Flags".
+ * *Note File Descriptor Flags:(libc)Descriptor Flags.
+ */
+int set_cloexec_flag(int fd)
+{
+  int ret = fcntl(fd, F_GETFD, 0);
+  /* If reading the flags failed, return error indication now. */
+  if(ret < 0){
+    return ret;
+  }
+  /* Store modified flag word in the descriptor. */
+  return fcntl(fd, F_SETFD, ret | FD_CLOEXEC);
+}
+
 #define BUFFER_SIZE 256
 
-const char *argp_program_version =
-  "plugbasedclient 0.9";
-const char *argp_program_bug_address =
-  "<mandos@fukt.bsnet.se>";
-static char doc[] =
-  "Mandos plugin runner -- Run Mandos plugins";
-/* A description of the arguments we accept. */
-static char args_doc[] = "";
+const char *argp_program_version = "plugbasedclient 0.9";
+const char *argp_program_bug_address = "<mandos@fukt.bsnet.se>";
+
+process *process_list = NULL;
+
+/* Mark a process as completed when it exits, and save its exit
+   status. */
+void handle_sigchld(__attribute__((unused)) int sig){
+  process *proc = process_list;
+  int status;
+  pid_t pid = wait(&status);
+  while(proc != NULL and proc->pid != pid){
+    proc = proc->next;    
+  }
+  if(proc == NULL){
+    /* Process not found in process list */
+    return;
+  }
+  proc->status = status;
+  proc->completed = true;
+}
 
 int main(int argc, char *argv[]){
-  const char *plugindir = "plugins.d";
+  const char *plugindir = "/conf/conf.d/mandos/plugins.d";
   size_t d_name_len;
-  DIR *dir;
+  DIR *dir = NULL;
   struct dirent *dirst;
   struct stat st;
-  fd_set rfds_orig;
+  fd_set rfds_all;
   int ret, maxfd = 0;
-  process *process_list = NULL;
   uid_t uid = 65534;
   gid_t gid = 65534;
+  bool debug = false;
+  int exitstatus = EXIT_SUCCESS;
+  struct sigaction old_sigchld_action;
+  struct sigaction sigchld_action = { .sa_handler = handle_sigchld,
+				      .sa_flags = SA_NOCLDSTOP };
+
+  /* Establish a signal handler */
+  sigemptyset(&sigchld_action.sa_mask);
+  ret = sigaddset(&sigchld_action.sa_mask, SIGCHLD);
+  if(ret < 0){
+    perror("sigaddset");
+    exit(EXIT_FAILURE);
+  }
+  ret = sigaction(SIGCHLD, &sigchld_action, &old_sigchld_action);
+  if(ret < 0){
+    perror("sigaction");
+    exit(EXIT_FAILURE);
+  }
+  
   /* The options we understand. */
   struct argp_option options[] = {
     { .name = "global-options", .key = 'g',
-      .arg = "option[,option[,...]]", .flags = 0,
-      .doc = "Options effecting all plugins" },
+      .arg = "OPTION[,OPTION[,...]]",
+      .doc = "Options passed to all plugins" },
     { .name = "options-for", .key = 'o',
-      .arg = "plugin:option[,option[,...]]", .flags = 0,
-      .doc = "Options effecting only specified plugins" },
-    { .name = "disable-plugin", .key = 'd',
-      .arg = "Plugin[,Plugin[,...]]", .flags = 0,
-      .doc = "Option to disable specififed plugins" },
+      .arg = "PLUGIN:OPTION[,OPTION[,...]]",
+      .doc = "Options passed only to specified plugin" },
+    { .name = "disable", .key = 'd',
+      .arg = "PLUGIN",
+      .doc = "Disable a specific plugin", .group = 1 },
     { .name = "plugin-dir", .key = 128,
-      .arg = "Directory", .flags = 0,
-      .doc = "Option to change directory to search for plugins" },
+      .arg = "DIRECTORY",
+      .doc = "Specify a different plugin directory", .group = 2 },
     { .name = "userid", .key = 129,
-      .arg = "Id", .flags = 0,
-      .doc = "Option to change which user id the plugins will run as" },
+      .arg = "ID", .flags = 0,
+      .doc = "User ID the plugins will run as", .group = 2 },
     { .name = "groupid", .key = 130,
-      .arg = "Id", .flags = 0,
-      .doc = "Option to change which group id the plugins will run as" },
+      .arg = "ID", .flags = 0,
+      .doc = "Group ID the plugins will run as", .group = 2 },
+    { .name = "debug", .key = 131,
+      .doc = "Debug mode", .group = 3 },
     { .name = NULL }
   };
   
   error_t parse_opt (int key, char *arg, struct argp_state *state) {
-       /* Get the INPUT argument from `argp_parse', which we
-          know is a pointer to our arguments structure. */
+    /* Get the INPUT argument from `argp_parse', which we know is a
+       pointer to our plugin list pointer. */
     plugin **plugins = state->input;
     switch (key) {
     case 'g':
       if (arg != NULL){
 	char *p = strtok(arg, ",");
 	do{
-	  addarguments(getplugin(NULL, plugins), p);
+	  addargument(getplugin(NULL, plugins), p);
 	  p = strtok(NULL, ",");
 	} while (p);
       }
@@ -163,20 +224,18 @@ int main(int argc, char *argv[]){
       if (arg != NULL){
 	char *name = strtok(arg, ":");
 	char *p = strtok(NULL, ":");
-	p = strtok(p, ",");
-	do{
-	  addarguments(getplugin(name, plugins), p);
-	  p = strtok(NULL, ",");
-	} while (p);
+	if(p){
+	  p = strtok(p, ",");
+	  do{
+	    addargument(getplugin(name, plugins), p);
+	    p = strtok(NULL, ",");
+	  } while (p);
+	}
       }
       break;
     case 'd':
       if (arg != NULL){
-	char *p = strtok(arg, ",");
-	do{
-	  getplugin(p, plugins)->disable = true;
-	  p = strtok(NULL, ",");
-	} while (p);
+	getplugin(arg, plugins)->disabled = true;
       }
       break;
     case 128:
@@ -188,6 +247,9 @@ int main(int argc, char *argv[]){
     case 130:
       gid = (gid_t)strtol(arg, NULL, 10);
       break;
+    case 131:
+      debug = true;
+      break;
     case ARGP_KEY_ARG:
       argp_usage (state);
       break;
@@ -198,41 +260,56 @@ int main(int argc, char *argv[]){
     }
     return 0;
   }
-
+  
   plugin *plugin_list = NULL;
   
   struct argp argp = { .options = options, .parser = parse_opt,
-		       .args_doc = args_doc, .doc = doc };
-
-  argp_parse (&argp, argc, argv, 0, 0, &plugin_list);
-
-/*   for(plugin *p = plugin_list; p != NULL; p=p->next){ */
-/*     fprintf(stderr, "Plugin: %s has %d arguments\n", p->name ? p->name : "Global", p->argc); */
-/*     for(char **a = p->argv + 1; *a != NULL; a++){ */
-/*       fprintf(stderr, "\tArg: %s\n", *a); */
-/*     } */
-/*   } */
+		       .args_doc = "",
+		       .doc = "Mandos plugin runner -- Run plugins" };
   
-/*   return 0; */
+  argp_parse (&argp, argc, argv, 0, 0, &plugin_list);  
+
+  if(debug){
+    for(plugin *p = plugin_list; p != NULL; p=p->next){
+      fprintf(stderr, "Plugin: %s has %d arguments\n",
+	      p->name ? p->name : "Global", p->argc - 1);
+      for(char **a = p->argv; *a != NULL; a++){
+	fprintf(stderr, "\tArg: %s\n", *a);
+      }
+    }
+  }
 
   ret = setuid(uid);
   if (ret == -1){
     perror("setuid");
   }
-
+  
   setgid(gid);
   if (ret == -1){
     perror("setuid");
   }
   
   dir = opendir(plugindir);
-  
   if(dir == NULL){
-    fprintf(stderr, "Can not open directory\n");
-    return EXIT_FAILURE;
+    perror("Could not open plugin dir");
+    exitstatus = EXIT_FAILURE;
+    goto end;
   }
   
-  FD_ZERO(&rfds_orig);
+  /* Set the FD_CLOEXEC flag on the directory, if possible */
+  {
+    int dir_fd = dirfd(dir);
+    if(dir_fd >= 0){
+      ret = set_cloexec_flag(dir_fd);
+      if(ret < 0){
+	perror("set_cloexec_flag");
+	exitstatus = EXIT_FAILURE;
+	goto end;
+      }
+    }
+  }
+  
+  FD_ZERO(&rfds_all);
   
   while(true){
     dirst = readdir(dir);
@@ -244,146 +321,336 @@ int main(int argc, char *argv[]){
     
     d_name_len = strlen(dirst->d_name);
     
-    // Ignore dotfiles and backup files
-    if (dirst->d_name[0] == '.'
-	or dirst->d_name[d_name_len - 1] == '~'){
+    // Ignore dotfiles, backup files and other junk
+    {
+      bool bad_name = false;
+      
+      const char const *bad_prefixes[] = { ".", "#", NULL };
+      
+      const char const *bad_suffixes[] = { "~", "#", ".dpkg-new",
+					   ".dpkg-old",
+					   ".dpkg-divert", NULL };
+      for(const char **pre = bad_prefixes; *pre != NULL; pre++){
+	size_t pre_len = strlen(*pre);
+	if((d_name_len >= pre_len)
+	   and strncmp((dirst->d_name), *pre, pre_len) == 0){
+	  if(debug){
+	    fprintf(stderr, "Ignoring plugin dir entry \"%s\""
+		    " with bad prefix %s\n", dirst->d_name, *pre);
+	  }
+	  bad_name = true;
+	  break;
+	}
+      }
+      
+      if(bad_name){
+	continue;
+      }
+      
+      for(const char **suf = bad_suffixes; *suf != NULL; suf++){
+	size_t suf_len = strlen(*suf);
+	if((d_name_len >= suf_len)
+	   and (strcmp((dirst->d_name)+d_name_len-suf_len, *suf)
+		== 0)){
+	  if(debug){
+	    fprintf(stderr, "Ignoring plugin dir entry \"%s\""
+		    " with bad suffix %s\n", dirst->d_name, *suf);
+	  }
+	  bad_name = true;
+	  break;
+	}
+      }
+      
+      if(bad_name){
+	continue;
+      }
+    }
+    
+    char *filename = malloc(d_name_len + strlen(plugindir) + 2);
+    if (filename == NULL){
+      perror("malloc");
+      exitstatus = EXIT_FAILURE;
+      goto end;
+    }
+    strcpy(filename, plugindir); /* Spurious warning */
+    strcat(filename, "/");	/* Spurious warning */
+    strcat(filename, dirst->d_name); /* Spurious warning */
+    
+    stat(filename, &st);
+    
+    if (not S_ISREG(st.st_mode)	or (access(filename, X_OK) != 0)){
+      if(debug){
+	fprintf(stderr, "Ignoring plugin dir entry \"%s\""
+		" with bad type or mode\n", filename);
+      }
+      free(filename);
       continue;
     }
-
-    char *filename = malloc(d_name_len + strlen(plugindir) + 2);
-    strcpy(filename, plugindir);
-    strcat(filename, "/");
-    strcat(filename, dirst->d_name);    
-
-    stat(filename, &st);
-
-    if (S_ISREG(st.st_mode)
-	and (access(filename, X_OK) == 0)
-	and not (getplugin(dirst->d_name, &plugin_list)->disable)){
-      // Starting a new process to be watched
-      process *new_process = malloc(sizeof(process));
-      int pipefd[2]; 
-      ret = pipe(pipefd);
-      if (ret == -1){
-	perror(argv[0]);
-	goto end;
+    if(getplugin(dirst->d_name, &plugin_list)->disabled){
+      if(debug){
+	fprintf(stderr, "Ignoring disabled plugin \"%s\"\n",
+		dirst->d_name);
       }
-      new_process->pid = fork();
-      if(new_process->pid == 0){
-	/* this is the child process */
-	closedir(dir);
-	close(pipefd[0]);	/* close unused read end of pipe */
-	dup2(pipefd[1], STDOUT_FILENO); /* replace our stdout */
-
-	plugin *p = getplugin(dirst->d_name, &plugin_list);
-	plugin *g = getplugin(NULL, &plugin_list);
-	for(char **a = g->argv + 1; *a != NULL; a++){
-	  addarguments(p, *a);
-	}
-	if(execv(filename, p->argv) < 0){
-	  perror(argv[0]);
-	  close(pipefd[1]);
-	  exit(EXIT_FAILURE);
-	}
-	/* no return */
-      }
-      close(pipefd[1]);		/* close unused write end of pipe */
-      new_process->fd = pipefd[0];
-      new_process->buffer = malloc(BUFFER_SIZE);
-      if (new_process->buffer == NULL){
-	perror(argv[0]);
-	goto end;
-      }
-      new_process->buffer_size = BUFFER_SIZE;
-      new_process->buffer_length = 0;
-      FD_SET(new_process->fd, &rfds_orig);
-      
-      if (maxfd < new_process->fd){
-	maxfd = new_process->fd;
-      }
-      
-      //List handling
-      new_process->next = process_list;
-      process_list = new_process;
+      free(filename);
+      continue;
     }
+    plugin *p = getplugin(dirst->d_name, &plugin_list);
+    {
+      /* Add global arguments to argument list for this plugin */
+      plugin *g = getplugin(NULL, &plugin_list);
+      for(char **a = g->argv + 1; *a != NULL; a++){
+	addargument(p, *a);
+      }
+    }
+    int pipefd[2]; 
+    ret = pipe(pipefd);
+    if (ret == -1){
+      perror("pipe");
+      exitstatus = EXIT_FAILURE;
+      goto end;
+    }
+    ret = set_cloexec_flag(pipefd[0]);
+    if(ret < 0){
+      perror("set_cloexec_flag");
+      exitstatus = EXIT_FAILURE;
+      goto end;
+    }
+    ret = set_cloexec_flag(pipefd[1]);
+    if(ret < 0){
+      perror("set_cloexec_flag");
+      exitstatus = EXIT_FAILURE;
+      goto end;
+    }
+    /* Block SIGCHLD until process is safely in process list */
+    ret = sigprocmask (SIG_BLOCK, &sigchld_action.sa_mask, NULL);
+    if(ret < 0){
+      perror("sigprocmask");
+      exitstatus = EXIT_FAILURE;
+      goto end;
+    }
+    // Starting a new process to be watched
+    pid_t pid = fork();
+    if(pid == 0){
+      /* this is the child process */
+      ret = sigaction(SIGCHLD, &old_sigchld_action, NULL);
+      if(ret < 0){
+	perror("sigaction");
+	_exit(EXIT_FAILURE);
+      }
+      ret = sigprocmask (SIG_UNBLOCK, &sigchld_action.sa_mask, NULL);
+      if(ret < 0){
+	perror("sigprocmask");
+	_exit(EXIT_FAILURE);
+      }
+      dup2(pipefd[1], STDOUT_FILENO); /* replace our stdout */
+      
+      if(dirfd(dir) < 0){
+	/* If dir has no file descriptor, we could not set FD_CLOEXEC
+	   above and must now close it manually here. */
+	closedir(dir);
+      }
+      if(execv(filename, p->argv) < 0){
+	perror("execv");
+	_exit(EXIT_FAILURE);
+      }
+      /* no return */
+    }
+    /* parent process */
+    free(filename);
+    close(pipefd[1]);		/* close unused write end of pipe */
+    process *new_process = malloc(sizeof(process));
+    if (new_process == NULL){
+      perror("malloc");
+      ret = sigprocmask (SIG_UNBLOCK, &sigchld_action.sa_mask, NULL);
+      if(ret < 0){
+	perror("sigprocmask");
+      }
+      exitstatus = EXIT_FAILURE;
+      goto end;
+    }
+    
+    *new_process = (struct process){ .pid = pid,
+				     .fd = pipefd[0],
+				     .next = process_list };
+    // List handling
+    process_list = new_process;
+    /* Unblock SIGCHLD so signal handler can be run if this process
+       has already completed */
+    ret = sigprocmask (SIG_UNBLOCK, &sigchld_action.sa_mask, NULL);
+    if(ret < 0){
+      perror("sigprocmask");
+      exitstatus = EXIT_FAILURE;
+      goto end;
+    }
+    
+    FD_SET(new_process->fd, &rfds_all);
+    
+    if (maxfd < new_process->fd){
+      maxfd = new_process->fd;
+    }
+    
+  }
+  
+  /* Free the plugin list */
+  for(plugin *next; plugin_list != NULL; plugin_list = next){
+    next = plugin_list->next;
+    free(plugin_list->argv);
+    free(plugin_list);
   }
   
   closedir(dir);
+  dir = NULL;
   
-  if (process_list != NULL){
-    while(true){
-      fd_set rfds = rfds_orig;
-      int select_ret = select(maxfd+1, &rfds, NULL, NULL, NULL);
-      if (select_ret == -1){
-	perror(argv[0]);
-	goto end;
-      }else{	
-	for(process *process_itr = process_list; process_itr != NULL;
-	    process_itr = process_itr->next){
-	  if(FD_ISSET(process_itr->fd, &rfds)){
-	    if(process_itr->buffer_length + BUFFER_SIZE
-	       > process_itr->buffer_size){
-		process_itr->buffer = realloc(process_itr->buffer,
-					      process_itr->buffer_size
-					      + (size_t) BUFFER_SIZE);
-		if (process_itr->buffer == NULL){
-		  perror(argv[0]);
-		  goto end;
-		}
-		process_itr->buffer_size += BUFFER_SIZE;
+  if (process_list == NULL){
+    fprintf(stderr, "No plugin processes started, exiting\n");
+    exitstatus = EXIT_FAILURE;
+    goto end;
+  }
+  while(process_list){
+    fd_set rfds = rfds_all;
+    int select_ret = select(maxfd+1, &rfds, NULL, NULL, NULL);
+    if (select_ret == -1){
+      perror("select");
+      exitstatus = EXIT_FAILURE;
+      goto end;
+    }
+    /* OK, now either a process completed, or something can be read
+       from one of them */
+    for(process *proc = process_list; proc ; proc = proc->next){
+      /* Is this process completely done? */
+      if(proc->eof and proc->completed){
+	/* Only accept the plugin output if it exited cleanly */
+	if(not WIFEXITED(proc->status)
+	   or WEXITSTATUS(proc->status) != 0){
+	  /* Bad exit by plugin */
+	  if(debug){
+	    if(WIFEXITED(proc->status)){
+	      fprintf(stderr, "Plugin %d exited with status %d\n",
+		      proc->pid, WEXITSTATUS(proc->status));
+	    } else if(WIFSIGNALED(proc->status)) {
+	      fprintf(stderr, "Plugin %d killed by signal %d\n",
+		      proc->pid, WTERMSIG(proc->status));
+	    } else if(WCOREDUMP(proc->status)){
+	      fprintf(stderr, "Plugin %d dumped core\n", proc->pid);
 	    }
-	    ret = read(process_itr->fd, process_itr->buffer
-		       + process_itr->buffer_length, BUFFER_SIZE);
-	    if(ret < 0){
-	      /* Read error from this process; ignore it */
-	      continue;
-	    }
-	    process_itr->buffer_length += (size_t) ret;
-	    if(ret == 0){
-	      /* got EOF */
-	      /* wait for process exit */
-	      int status;
-	      waitpid(process_itr->pid, &status, 0);
-	      if(WIFEXITED(status) and WEXITSTATUS(status) == 0){
-		for(size_t written = 0;
-		    written < process_itr->buffer_length;){
-		  ret = write(STDOUT_FILENO,
-			      process_itr->buffer + written,
-			      process_itr->buffer_length - written);
-		  if(ret < 0){
-		    perror(argv[0]);
-		    goto end;
-		  }
-		  written += (size_t)ret;
-		}
-		goto end;
-	      } else {
-		FD_CLR(process_itr->fd, &rfds_orig);
+	  }
+	  /* Remove the plugin */
+	  FD_CLR(proc->fd, &rfds_all);
+	  /* Block signal while modifying process_list */
+	  ret = sigprocmask (SIG_BLOCK, &sigchld_action.sa_mask, NULL);
+	  if(ret < 0){
+	    perror("sigprocmask");
+	    exitstatus = EXIT_FAILURE;
+	    goto end;
+	  }
+	  /* Delete this process entry from the list */
+	  if(process_list == proc){
+	    /* First one - simple */
+	    process_list = proc->next;
+	  } else {
+	    /* Second one or later */
+	    for(process *p = process_list; p != NULL; p = p->next){
+	      if(p->next == proc){
+		p->next = proc->next;
+		break;
 	      }
 	    }
 	  }
+	  /* We are done modifying process list, so unblock signal */
+	  ret = sigprocmask (SIG_UNBLOCK, &sigchld_action.sa_mask,
+			     NULL);
+	  if(ret < 0){
+	    perror("sigprocmask");
+	  }
+	  free(proc->buffer);
+	  free(proc);
+	  /* We deleted this process from the list, so we can't go
+	     proc->next.  Therefore, start over from the beginning of
+	     the process list */
+	  break;
 	}
+	/* This process exited nicely, so print its buffer */
+	for(size_t written = 0; written < proc->buffer_length;
+	    written += (size_t)ret){
+	  ret = TEMP_FAILURE_RETRY(write(STDOUT_FILENO,
+					 proc->buffer + written,
+					 proc->buffer_length
+					 - written));
+	  if(ret < 0){
+	    perror("write");
+	    exitstatus = EXIT_FAILURE;
+	    goto end;
+	  }
+	}
+	goto end;
+      }
+      /* This process has not completed.  Does it have any output? */
+      if(proc->eof or not FD_ISSET(proc->fd, &rfds)){
+	/* This process had nothing to say at this time */
+	continue;
+      }
+      /* Before reading, make the process' data buffer large enough */
+      if(proc->buffer_length + BUFFER_SIZE > proc->buffer_size){
+	proc->buffer = realloc(proc->buffer, proc->buffer_size
+			       + (size_t) BUFFER_SIZE);
+	if (proc->buffer == NULL){
+	  perror("malloc");
+	  exitstatus = EXIT_FAILURE;
+	  goto end;
+	}
+	proc->buffer_size += BUFFER_SIZE;
+      }
+      /* Read from the process */
+      ret = read(proc->fd, proc->buffer + proc->buffer_length,
+		 BUFFER_SIZE);
+      if(ret < 0){
+	/* Read error from this process; ignore the error */
+	continue;
+      }
+      if(ret == 0){
+	/* got EOF */
+	proc->eof = true;
+      } else {
+	proc->buffer_length += (size_t) ret;
       }
     }
+  }
+  if(process_list == NULL){
+    fprintf(stderr, "All plugin processes failed, exiting\n");
+    exitstatus = EXIT_FAILURE;
   }
   
  end:
-  for(process *process_itr = process_list; process_itr != NULL;
-      process_itr = process_itr->next){
-    close(process_itr->fd);
-    kill(process_itr->pid, SIGTERM);
-    free(process_itr->buffer);
+  /* Restore old signal handler */
+  sigaction(SIGCHLD, &old_sigchld_action, NULL);
+  
+  /* Free the plugin list */
+  for(plugin *next; plugin_list != NULL; plugin_list = next){
+    next = plugin_list->next;
+    free(plugin_list->argv);
+    free(plugin_list);
   }
   
-  while(true){
-    int status;
-    ret = wait(&status);
-    if (ret == -1){
-      if(errno != ECHILD){
-	perror("wait");
-      }
-      break;
-    }
-  }  
-  return EXIT_SUCCESS;
+  if(dir != NULL){
+    closedir(dir);
+  }
+  
+  /* Free the process list and kill the processes */
+  for(process *next; process_list != NULL; process_list = next){
+    next = process_list->next;
+    close(process_list->fd);
+    kill(process_list->pid, SIGTERM);
+    free(process_list->buffer);
+    free(process_list);
+  }
+  
+  /* Wait for any remaining child processes to terminate */
+  do{
+    ret = wait(NULL);
+  } while(ret >= 0);
+  if(errno != ECHILD){
+    perror("wait");
+  }
+  
+  return exitstatus;
 }
