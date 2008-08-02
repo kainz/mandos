@@ -69,9 +69,9 @@
 #define BUFFER_SIZE 256
 #define DH_BITS 1024
 
-const char *certdir = "/conf/conf.d/cryptkeyreq/";
-const char *certfile = "openpgp-client.txt";
-const char *certkey = "openpgp-client-key.txt";
+static const char *certdir = "/conf/conf.d/mandos";
+static const char *certfile = "openpgp-client.txt";
+static const char *certkey = "openpgp-client-key.txt";
 
 bool debug = false;
 
@@ -82,8 +82,9 @@ typedef struct {
 } encrypted_session;
 
 
-ssize_t pgp_packet_decrypt (char *packet, size_t packet_size,
-			    char **new_packet, const char *homedir){
+static ssize_t pgp_packet_decrypt (char *packet, size_t packet_size,
+				   char **new_packet,
+				   const char *homedir){
   gpgme_data_t dh_crypto, dh_plain;
   gpgme_ctx_t ctx;
   gpgme_error_t rc;
@@ -245,12 +246,12 @@ static const char * safer_gnutls_strerror (int value) {
   return ret;
 }
 
-void debuggnutls(__attribute__((unused)) int level,
-		 const char* string){
+static void debuggnutls(__attribute__((unused)) int level,
+			const char* string){
   fprintf(stderr, "%s", string);
 }
 
-int initgnutls(encrypted_session *es){
+static int initgnutls(encrypted_session *es){
   const char *err;
   int ret;
   
@@ -344,11 +345,11 @@ int initgnutls(encrypted_session *es){
   return 0;
 }
 
-void empty_log(__attribute__((unused)) AvahiLogLevel level,
-	       __attribute__((unused)) const char *txt){}
+static void empty_log(__attribute__((unused)) AvahiLogLevel level,
+		      __attribute__((unused)) const char *txt){}
 
-int start_mandos_communication(const char *ip, uint16_t port,
-			       AvahiIfIndex if_index){
+static int start_mandos_communication(const char *ip, uint16_t port,
+				      AvahiIfIndex if_index){
   int ret, tcp_sd;
   struct sockaddr_in6 to;
   encrypted_session es;
@@ -627,19 +628,23 @@ static void browse_callback(
     }
 }
 
-/* combinds file name and path and returns the malloced new string. som sane checks could/should be added */
-const char *combinepath(const char *first, const char *second){
-  char *tmp;
-  tmp = malloc(strlen(first) + strlen(second) + 2);
+/* Combines file name and path and returns the malloced new
+   string. some sane checks could/should be added */
+static const char *combinepath(const char *first, const char *second){
+  size_t f_len = strlen(first);
+  size_t s_len = strlen(second);
+  char *tmp = malloc(f_len + s_len + 2);
   if (tmp == NULL){
-    perror("malloc");
     return NULL;
   }
-  strcpy(tmp, first);
-  if (first[0] != '\0' and first[strlen(first) - 1] != '/'){
-    strcat(tmp, "/");
+  if(f_len > 0){
+    memcpy(tmp, first, f_len);
   }
-  strcat(tmp, second);
+  tmp[f_len] = '/';
+  if(s_len > 0){
+    memcpy(tmp + f_len + 1, second, s_len);
+  }
+  tmp[f_len + 1 + s_len] = '\0';
   return tmp;
 }
 
@@ -694,9 +699,10 @@ int main(AVAHI_GCC_UNUSED int argc, AVAHI_GCC_UNUSED char*argv[]) {
 	exit(EXIT_FAILURE);
       }
     }
-
+    
     certfile = combinepath(certdir, certfile);
     if (certfile == NULL){
+      perror("combinepath");
       goto exit;
     }
     
@@ -734,6 +740,7 @@ int main(AVAHI_GCC_UNUSED int argc, AVAHI_GCC_UNUSED char*argv[]) {
     
     certkey = combinepath(certdir, certkey);
     if (certkey == NULL){
+      perror("combinepath");
       goto exit;
     }
     
