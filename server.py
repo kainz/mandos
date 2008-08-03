@@ -602,28 +602,20 @@ def entry_group_state_changed(state, error):
                         unicode(error))
         raise AvahiGroupError("State changed: %s", str(error))
 
-def if_nametoindex(interface, _func=[None]):
+def if_nametoindex(interface):
     """Call the C function if_nametoindex(), or equivalent"""
-    if _func[0] is not None:
-        return _func[0](interface)
+    global if_nametoindex
     try:
         if "ctypes.util" not in sys.modules:
             import ctypes.util
-        while True:
-            try:
-                libc = ctypes.cdll.LoadLibrary\
-                       (ctypes.util.find_library("c"))
-                _func[0] = libc.if_nametoindex
-                return _func[0](interface)
-            except IOError, e:
-                if e != errno.EINTR:
-                    raise
+        if_nametoindex = ctypes.cdll.LoadLibrary\
+            (ctypes.util.find_library("c")).if_nametoindex
     except (OSError, AttributeError):
         if "struct" not in sys.modules:
             import struct
         if "fcntl" not in sys.modules:
             import fcntl
-        def the_hard_way(interface):
+        def if_nametoindex(interface):
             "Get an interface index the hard way, i.e. using fcntl()"
             SIOCGIFINDEX = 0x8933  # From /usr/include/linux/sockios.h
             s = socket.socket()
@@ -632,8 +624,7 @@ def if_nametoindex(interface, _func=[None]):
             s.close()
             interface_index = struct.unpack("I", ifreq[16:20])[0]
             return interface_index
-        _func[0] = the_hard_way
-        return _func[0](interface)
+    return if_nametoindex(interface)
 
 
 def daemon(nochdir, noclose):
