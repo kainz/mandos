@@ -32,6 +32,8 @@
 #define _LARGEFILE_SOURCE
 #define _FILE_OFFSET_BITS 64
 
+#define _GNU_SOURCE		/* TEMP_FAILURE_RETRY() */
+
 #include <stdio.h>
 #include <assert.h>
 #include <stdlib.h>
@@ -77,6 +79,8 @@ static const char *certkey = "openpgp-client-key.txt";
 
 bool debug = false;
 
+const char mandos_protocol_version[] = "1";
+
 typedef struct {
   AvahiSimplePoll *simple_poll;
   AvahiServer *server;
@@ -85,6 +89,18 @@ typedef struct {
   const char *priority;
 } mandos_context;
 
+size_t adjustbuffer(char *buffer, size_t buffer_length,
+		  size_t buffer_capacity){
+  if (buffer_length + BUFFER_SIZE > buffer_capacity){
+    buffer = realloc(buffer, buffer_capacity + BUFFER_SIZE);
+    if (buffer == NULL){
+      return 0;
+    }
+    buffer_capacity += BUFFER_SIZE;
+  }
+  return buffer_capacity;
+}
+
 static ssize_t pgp_packet_decrypt (char *packet, size_t packet_size,
 				   char **new_packet,
 				   const char *homedir){
@@ -92,7 +108,7 @@ static ssize_t pgp_packet_decrypt (char *packet, size_t packet_size,
   gpgme_ctx_t ctx;
   gpgme_error_t rc;
   ssize_t ret;
-  ssize_t new_packet_capacity = 0;
+  size_t new_packet_capacity = 0;
   ssize_t new_packet_length = 0;
   gpgme_engine_info_t engine_info;
 
@@ -205,12 +221,10 @@ static ssize_t pgp_packet_decrypt (char *packet, size_t packet_size,
   
   *new_packet = 0;
   while(true){
-    if (new_packet_length + BUFFER_SIZE > new_packet_capacity){
-      *new_packet = realloc(*new_packet,
-			    (unsigned int)new_packet_capacity
-			    + BUFFER_SIZE);
-      if (*new_packet == NULL){
-	perror("realloc");
+    new_packet_capacity = adjustbuffer(*new_packet, new_packet_length,
+				       new_packet_capacity);
+    if (new_packet_capacity == 0){
+	perror("adjustbuffer");
 	return -1;
       }
       new_packet_capacity += BUFFER_SIZE;
@@ -362,7 +376,7 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   size_t buffer_length = 0;
   size_t buffer_capacity = 0;
   ssize_t decrypted_buffer_size;
-  size_t written = 0;
+  size_t written;
   int retval = 0;
   char interface[IF_NAMESIZE];
   
@@ -420,7 +434,31 @@ static int start_mandos_communication(const char *ip, uint16_t port,
     perror("connect");
     return -1;
   }
-  
+
+  char *out = mandos_protocol_version;
+  written = 0;
+  while (true){
+    size_t out_size = strlen(out);
+    ret = TEMP_FAILURE_RETRY(write(tcp_sd, out + written,
+				   out_size - written));
+    if (ret == -1){
+      perror("write");
+      retval = -1;
+      goto end;
+    }
+    written += ret;
+    if(written < out_size){
+      continue;
+    } else {
+      if (out == mandos_protocol_version){
+	written = 0;
+	out = "\r\n";
+      } else {
+	break;
+      }
+    }
+  }
+ 
   ret = initgnutls (&es);
   if (ret != 0){
     retval = -1;
@@ -453,13 +491,11 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   }
 
   while(true){
-    if (buffer_length + BUFFER_SIZE > buffer_capacity){
-      buffer = realloc(buffer, buffer_capacity + BUFFER_SIZE);
-      if (buffer == NULL){
-	perror("realloc");
-	goto exit;
-      }
-      buffer_capacity += BUFFER_SIZE;
+    buffer_capacity = adjustbuffer(buffer, buffer_length, buffer_capacity);
+    if (buffer_capacity == 0){
+      perror("adjustbuffer");
+      retval = -1;
+      goto exit;
     }
     
     ret = gnutls_record_recv
@@ -499,6 +535,7 @@ static int start_mandos_communication(const char *ip, uint16_t port,
 					       &decrypted_buffer,
 					       certdir);
     if (decrypted_buffer_size >= 0){
+      written = 0;
       while(written < (size_t) decrypted_buffer_size){
 	ret = (int)fwrite (decrypted_buffer + written, 1,
 			   (size_t)decrypted_buffer_size - written,
