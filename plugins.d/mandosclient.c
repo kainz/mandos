@@ -49,7 +49,7 @@
 #include <avahi-common/malloc.h>
 #include <avahi-common/error.h>
 
-//mandos client part
+/* Mandos client part */
 #include <sys/types.h>		/* socket(), inet_pton() */
 #include <sys/socket.h>		/* socket(), struct sockaddr_in6,
 				   struct in6_addr, inet_pton() */
@@ -62,12 +62,13 @@
 #include <string.h>		/* memset */
 #include <arpa/inet.h>		/* inet_pton() */
 #include <iso646.h>		/* not */
+#include <net/if.h>		/* IF_NAMESIZE */
 
-// gpgme
+/* GPGME */
 #include <errno.h>		/* perror() */
 #include <gpgme.h>
 
-// getopt_long
+/* getopt_long */
 #include <getopt.h>
 
 #define BUFFER_SIZE 256
@@ -99,7 +100,7 @@ static ssize_t pgp_packet_decrypt (const char *cryptotext,
   gpgme_ctx_t ctx;
   gpgme_error_t rc;
   ssize_t ret;
-  ssize_t plaintext_capacity = 0;
+  size_t plaintext_capacity = 0;
   ssize_t plaintext_length = 0;
   gpgme_engine_info_t engine_info;
   
@@ -215,9 +216,9 @@ static ssize_t pgp_packet_decrypt (const char *cryptotext,
   
   *plaintext = NULL;
   while(true){
-    if (plaintext_length + BUFFER_SIZE > plaintext_capacity){
-      *plaintext = realloc(*plaintext,
-			    (unsigned int)plaintext_capacity
+    if (plaintext_length + BUFFER_SIZE
+	> (ssize_t) plaintext_capacity){
+      *plaintext = realloc(*plaintext, plaintext_capacity
 			    + BUFFER_SIZE);
       if (*plaintext == NULL){
 	perror("realloc");
@@ -244,7 +245,7 @@ static ssize_t pgp_packet_decrypt (const char *cryptotext,
 
   if(debug){
     fprintf(stderr, "Decrypted password is: ");
-    for(size_t i = 0; i < plaintext_length; i++){
+    for(ssize_t i = 0; i < plaintext_length; i++){
       fprintf(stderr, "%02hhX ", (*plaintext)[i]);
     }
     fprintf(stderr, "\n");
@@ -267,14 +268,14 @@ static const char * safer_gnutls_strerror (int value) {
   return ret;
 }
 
+/* GnuTLS log function callback */
 static void debuggnutls(__attribute__((unused)) int level,
 			const char* string){
-  fprintf(stderr, "%s", string);
+  fprintf(stderr, "GnuTLS: %s", string);
 }
 
 static int initgnutls(mandos_context *mc, gnutls_session_t *session,
 		      gnutls_dh_params_t *dh_params){
-  const char *err;
   int ret;
   
   if(debug){
@@ -283,19 +284,23 @@ static int initgnutls(mandos_context *mc, gnutls_session_t *session,
 
   if ((ret = gnutls_global_init ())
       != GNUTLS_E_SUCCESS) {
-    fprintf (stderr, "global_init: %s\n", safer_gnutls_strerror(ret));
+    fprintf (stderr, "GnuTLS global_init: %s\n",
+	     safer_gnutls_strerror(ret));
     return -1;
   }
   
   if (debug){
+    /* "Use a log level over 10 to enable all debugging options."
+     * - GnuTLS manual
+     */
     gnutls_global_set_log_level(11);
     gnutls_global_set_log_function(debuggnutls);
   }
   
-  /* openpgp credentials */
+  /* OpenPGP credentials */
   if ((ret = gnutls_certificate_allocate_credentials (&mc->cred))
       != GNUTLS_E_SUCCESS) {
-    fprintf (stderr, "memory error: %s\n",
+    fprintf (stderr, "GnuTLS memory error: %s\n",
 	     safer_gnutls_strerror(ret));
     return -1;
   }
@@ -309,51 +314,52 @@ static int initgnutls(mandos_context *mc, gnutls_session_t *session,
   ret = gnutls_certificate_set_openpgp_key_file
     (mc->cred, pubkeyfile, seckeyfile, GNUTLS_OPENPGP_FMT_BASE64);
   if (ret != GNUTLS_E_SUCCESS) {
-    fprintf
-      (stderr, "Error[%d] while reading the OpenPGP key pair ('%s',"
-       " '%s')\n",
-       ret, pubkeyfile, seckeyfile);
-    fprintf(stdout, "The Error is: %s\n",
+    fprintf(stderr,
+	    "Error[%d] while reading the OpenPGP key pair ('%s',"
+	    " '%s')\n", ret, pubkeyfile, seckeyfile);
+    fprintf(stdout, "The GnuTLS error is: %s\n",
 	    safer_gnutls_strerror(ret));
     return -1;
   }
   
-  //GnuTLS server initialization
-  if ((ret = gnutls_dh_params_init(dh_params))
-      != GNUTLS_E_SUCCESS) {
-    fprintf (stderr, "Error in dh parameter initialization: %s\n",
-	     safer_gnutls_strerror(ret));
+  /* GnuTLS server initialization */
+  ret = gnutls_dh_params_init(dh_params);
+  if (ret != GNUTLS_E_SUCCESS) {
+    fprintf (stderr, "Error in GnuTLS DH parameter initialization:"
+	     " %s\n", safer_gnutls_strerror(ret));
     return -1;
   }
-  
-  if ((ret = gnutls_dh_params_generate2(*dh_params, mc->dh_bits))
-      != GNUTLS_E_SUCCESS) {
-    fprintf (stderr, "Error in prime generation: %s\n",
+  ret = gnutls_dh_params_generate2(*dh_params, mc->dh_bits);
+  if (ret != GNUTLS_E_SUCCESS) {
+    fprintf (stderr, "Error in GnuTLS prime generation: %s\n",
 	     safer_gnutls_strerror(ret));
     return -1;
   }
   
   gnutls_certificate_set_dh_params(mc->cred, *dh_params);
   
-  // GnuTLS session creation
-  if ((ret = gnutls_init(session, GNUTLS_SERVER))
-      != GNUTLS_E_SUCCESS){
+  /* GnuTLS session creation */
+  ret = gnutls_init(session, GNUTLS_SERVER);
+  if (ret != GNUTLS_E_SUCCESS){
     fprintf(stderr, "Error in GnuTLS session initialization: %s\n",
 	    safer_gnutls_strerror(ret));
   }
   
-  if ((ret = gnutls_priority_set_direct(*session, mc->priority, &err))
-      != GNUTLS_E_SUCCESS) {
-    fprintf(stderr, "Syntax error at: %s\n", err);
-    fprintf(stderr, "GnuTLS error: %s\n",
-	    safer_gnutls_strerror(ret));
-    return -1;
+  {
+    const char *err;
+    ret = gnutls_priority_set_direct(*session, mc->priority, &err);
+    if (ret != GNUTLS_E_SUCCESS) {
+      fprintf(stderr, "Syntax error at: %s\n", err);
+      fprintf(stderr, "GnuTLS error: %s\n",
+	      safer_gnutls_strerror(ret));
+      return -1;
+    }
   }
   
-  if ((ret = gnutls_credentials_set(*session, GNUTLS_CRD_CERTIFICATE,
-				    mc->cred))
-      != GNUTLS_E_SUCCESS) {
-    fprintf(stderr, "Error setting a credentials set: %s\n",
+  ret = gnutls_credentials_set(*session, GNUTLS_CRD_CERTIFICATE,
+			       mc->cred);
+  if (ret != GNUTLS_E_SUCCESS) {
+    fprintf(stderr, "Error setting GnuTLS credentials: %s\n",
 	    safer_gnutls_strerror(ret));
     return -1;
   }
@@ -367,9 +373,11 @@ static int initgnutls(mandos_context *mc, gnutls_session_t *session,
   return 0;
 }
 
+/* Avahi log function callback */
 static void empty_log(__attribute__((unused)) AvahiLogLevel level,
 		      __attribute__((unused)) const char *txt){}
 
+/* Called when a Mandos server is found */
 static int start_mandos_communication(const char *ip, uint16_t port,
 				      AvahiIfIndex if_index,
 				      mandos_context *mc){
@@ -385,6 +393,11 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   char interface[IF_NAMESIZE];
   gnutls_session_t session;
   gnutls_dh_params_t dh_params;
+  
+  ret = initgnutls (mc, &session, &dh_params);
+  if (ret != 0){
+    return -1;
+  }
   
   if(debug){
     fprintf(stderr, "Setting up a tcp connection to %s, port %d\n",
@@ -407,6 +420,8 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   
   memset(&to,0,sizeof(to));	/* Spurious warning */
   to.sin6_family = AF_INET6;
+  /* It would be nice to have a way to detect if we were passed an
+     IPv4 address here.   Now we assume an IPv6 address. */
   ret = inet_pton(AF_INET6, ip, &to.sin6_addr);
   if (ret < 0 ){
     perror("inet_pton");
@@ -439,30 +454,24 @@ static int start_mandos_communication(const char *ip, uint16_t port,
     return -1;
   }
   
-  ret = initgnutls (mc, &session, &dh_params);
-  if (ret != 0){
-    retval = -1;
-    return -1;
-  }
-  
-  gnutls_transport_set_ptr (session, (gnutls_transport_ptr_t) tcp_sd);
-  
   if(debug){
     fprintf(stderr, "Establishing TLS session with %s\n", ip);
   }
+  
+  gnutls_transport_set_ptr (session, (gnutls_transport_ptr_t) tcp_sd);
   
   ret = gnutls_handshake (session);
   
   if (ret != GNUTLS_E_SUCCESS){
     if(debug){
-      fprintf(stderr, "\n*** Handshake failed ***\n");
+      fprintf(stderr, "*** GnuTLS Handshake failed ***\n");
       gnutls_perror (ret);
     }
     retval = -1;
-    goto exit;
+    goto mandos_end;
   }
   
-  //Retrieve OpenPGP packet that contains the wanted password
+  /* Read OpenPGP packet that contains the wanted password */
   
   if(debug){
     fprintf(stderr, "Retrieving pgp encrypted password from %s\n",
@@ -474,7 +483,8 @@ static int start_mandos_communication(const char *ip, uint16_t port,
       buffer = realloc(buffer, buffer_capacity + BUFFER_SIZE);
       if (buffer == NULL){
 	perror("realloc");
-	goto exit;
+	retval = -1;
+	goto mandos_end;
       }
       buffer_capacity += BUFFER_SIZE;
     }
@@ -492,23 +502,29 @@ static int start_mandos_communication(const char *ip, uint16_t port,
       case GNUTLS_E_REHANDSHAKE:
 	ret = gnutls_handshake (session);
 	if (ret < 0){
-	  fprintf(stderr, "\n*** Handshake failed ***\n");
+	  fprintf(stderr, "*** GnuTLS Re-handshake failed ***\n");
 	  gnutls_perror (ret);
 	  retval = -1;
-	  goto exit;
+	  goto mandos_end;
 	}
 	break;
       default:
 	fprintf(stderr, "Unknown error while reading data from"
-		" encrypted session with mandos server\n");
+		" encrypted session with Mandos server\n");
 	retval = -1;
 	gnutls_bye (session, GNUTLS_SHUT_RDWR);
-	goto exit;
+	goto mandos_end;
       }
     } else {
       buffer_length += (size_t) ret;
     }
   }
+  
+  if(debug){
+    fprintf(stderr, "Closing TLS session\n");
+  }
+  
+  gnutls_bye (session, GNUTLS_SHUT_RDWR);
   
   if (buffer_length > 0){
     decrypted_buffer_size = pgp_packet_decrypt(buffer,
@@ -535,16 +551,11 @@ static int start_mandos_communication(const char *ip, uint16_t port,
       retval = -1;
     }
   }
-
-  //shutdown procedure
-
-  if(debug){
-    fprintf(stderr, "Closing TLS session\n");
-  }
-
+  
+  /* Shutdown procedure */
+  
+ mandos_end:
   free(buffer);
-  gnutls_bye (session, GNUTLS_SHUT_RDWR);
- exit:
   close(tcp_sd);
   gnutls_deinit (session);
   gnutls_certificate_free_credentials (mc->cred);
@@ -575,8 +586,8 @@ static void resolve_callback(AvahiSServiceResolver *r,
   switch (event) {
   default:
   case AVAHI_RESOLVER_FAILURE:
-    fprintf(stderr, "(Resolver) Failed to resolve service '%s' of"
-	    " type '%s' in domain '%s': %s\n", name, type, domain,
+    fprintf(stderr, "(Avahi Resolver) Failed to resolve service '%s'"
+	    " of type '%s' in domain '%s': %s\n", name, type, domain,
 	    avahi_strerror(avahi_server_errno(mc->server)));
     break;
     
@@ -585,8 +596,8 @@ static void resolve_callback(AvahiSServiceResolver *r,
       char ip[AVAHI_ADDRESS_STR_MAX];
       avahi_address_snprint(ip, sizeof(ip), address);
       if(debug){
-	fprintf(stderr, "Mandos server \"%s\" found on %s (%s) on"
-		" port %d\n", name, host_name, ip, port);
+	fprintf(stderr, "Mandos server \"%s\" found on %s (%s, %d) on"
+		" port %d\n", name, host_name, ip, interface, port);
       }
       int ret = start_mandos_communication(ip, port, interface, mc);
       if (ret == 0){
@@ -617,23 +628,23 @@ static void browse_callback( AvahiSServiceBrowser *b,
   default:
   case AVAHI_BROWSER_FAILURE:
     
-    fprintf(stderr, "(Browser) %s\n",
+    fprintf(stderr, "(Avahi browser) %s\n",
 	    avahi_strerror(avahi_server_errno(mc->server)));
     avahi_simple_poll_quit(mc->simple_poll);
     return;
     
   case AVAHI_BROWSER_NEW:
-    /* We ignore the returned resolver object. In the callback
-       function we free it. If the server is terminated before
-       the callback function is called the server will free
-       the resolver for us. */
+    /* We ignore the returned Avahi resolver object. In the callback
+       function we free it. If the Avahi server is terminated before
+       the callback function is called the Avahi server will free the
+       resolver for us. */
     
     if (!(avahi_s_service_resolver_new(mc->server, interface,
 				       protocol, name, type, domain,
 				       AVAHI_PROTO_INET6, 0,
 				       resolve_callback, mc)))
-      fprintf(stderr, "Failed to resolve service '%s': %s\n", name,
-	      avahi_strerror(avahi_server_errno(mc->server)));
+      fprintf(stderr, "Avahi: Failed to resolve service '%s': %s\n",
+	      name, avahi_strerror(avahi_server_errno(mc->server)));
     break;
     
   case AVAHI_BROWSER_REMOVE:
@@ -641,6 +652,9 @@ static void browse_callback( AvahiSServiceBrowser *b,
     
   case AVAHI_BROWSER_ALL_FOR_NOW:
   case AVAHI_BROWSER_CACHE_EXHAUSTED:
+    if(debug){
+      fprintf(stderr, "No Mandos server found, still searching...\n");
+    }
     break;
   }
 }
@@ -666,13 +680,11 @@ static const char *combinepath(const char *first, const char *second){
 }
 
 
-int main(AVAHI_GCC_UNUSED int argc, AVAHI_GCC_UNUSED char*argv[]) {
-    AvahiServerConfig config;
+int main(int argc, char *argv[]){
     AvahiSServiceBrowser *sb = NULL;
     int error;
     int ret;
-    int debug_int;
-    int returncode = EXIT_SUCCESS;
+    int exitcode = EXIT_SUCCESS;
     const char *interface = "eth0";
     struct ifreq network;
     int sd;
@@ -681,74 +693,80 @@ int main(AVAHI_GCC_UNUSED int argc, AVAHI_GCC_UNUSED char*argv[]) {
     mandos_context mc = { .simple_poll = NULL, .server = NULL,
 			  .dh_bits = 1024, .priority = "SECURE256"};
     
-    debug_int = debug ? 1 : 0;
-    while (true){
-      struct option long_options[] = {
-	{"debug", no_argument, &debug_int, 1},
-	{"connect", required_argument, NULL, 'c'},
-	{"interface", required_argument, NULL, 'i'},
-	{"keydir", required_argument, NULL, 'd'},
-	{"seckey", required_argument, NULL, 's'},
-	{"pubkey", required_argument, NULL, 'p'},
-	{"dh-bits", required_argument, NULL, 'D'},
-	{"priority", required_argument, NULL, 'P'},
-	{0, 0, 0, 0} };
+    {
+      /* Temporary int to get the address of for getopt_long */
+      int debug_int = debug ? 1 : 0;
+      while (true){
+	struct option long_options[] = {
+	  {"debug", no_argument, &debug_int, 1},
+	  {"connect", required_argument, NULL, 'c'},
+	  {"interface", required_argument, NULL, 'i'},
+	  {"keydir", required_argument, NULL, 'd'},
+	  {"seckey", required_argument, NULL, 's'},
+	  {"pubkey", required_argument, NULL, 'p'},
+	  {"dh-bits", required_argument, NULL, 'D'},
+	  {"priority", required_argument, NULL, 'P'},
+	  {0, 0, 0, 0} };
       
-      int option_index = 0;
-      ret = getopt_long (argc, argv, "i:", long_options,
-			 &option_index);
+	int option_index = 0;
+	ret = getopt_long (argc, argv, "i:", long_options,
+			   &option_index);
       
-      if (ret == -1){
-	break;
-      }
+	if (ret == -1){
+	  break;
+	}
       
-      switch(ret){
-      case 0:
-	break;
-      case 'i':
-	interface = optarg;
-	break;
-      case 'c':
-	connect_to = optarg;
-	break;
-      case 'd':
-	keydir = optarg;
-	break;
-      case 'p':
-	pubkeyfile = optarg;
-	break;
-      case 's':
-	seckeyfile = optarg;
-	break;
-      case 'D':
-	errno = 0;
-	mc.dh_bits = (unsigned int) strtol(optarg, NULL, 10);
-	if (errno){
-	  perror("strtol");
+	switch(ret){
+	case 0:
+	  break;
+	case 'i':
+	  interface = optarg;
+	  break;
+	case 'c':
+	  connect_to = optarg;
+	  break;
+	case 'd':
+	  keydir = optarg;
+	  break;
+	case 'p':
+	  pubkeyfile = optarg;
+	  break;
+	case 's':
+	  seckeyfile = optarg;
+	  break;
+	case 'D':
+	  errno = 0;
+	  mc.dh_bits = (unsigned int) strtol(optarg, NULL, 10);
+	  if (errno){
+	    perror("strtol");
+	    exit(EXIT_FAILURE);
+	  }
+	  break;
+	case 'P':
+	  mc.priority = optarg;
+	  break;
+	case '?':
+	default:
+	  /* getopt_long() has already printed a message about the
+	     unrcognized option, so just exit. */
 	  exit(EXIT_FAILURE);
 	}
-	break;
-      case 'P':
-	mc.priority = optarg;
-	break;
-      case '?':
-      default:
-	exit(EXIT_FAILURE);
       }
+      /* Set the global debug flag from the temporary int */
+      debug = debug_int ? true : false;
     }
-    debug = debug_int ? true : false;
     
     pubkeyfile = combinepath(keydir, pubkeyfile);
     if (pubkeyfile == NULL){
       perror("combinepath");
-      returncode = EXIT_FAILURE;
-      goto exit;
+      exitcode = EXIT_FAILURE;
+      goto end;
     }
     
     seckeyfile = combinepath(keydir, seckeyfile);
     if (seckeyfile == NULL){
       perror("combinepath");
-      goto exit;
+      goto end;
     }
     
     if_index = (AvahiIfIndex) if_nametoindex(interface);
@@ -781,104 +799,112 @@ int main(AVAHI_GCC_UNUSED int argc, AVAHI_GCC_UNUSED char*argv[]) {
       }
     }
     
-    sd = socket(PF_INET6, SOCK_DGRAM, IPPROTO_IP);
-    if(sd < 0) {
-      perror("socket");
-      returncode = EXIT_FAILURE;
-      goto exit;
-    }
-    strcpy(network.ifr_name, interface); /* Spurious warning */
-    ret = ioctl(sd, SIOCGIFFLAGS, &network);
-    if(ret == -1){
-      
-      perror("ioctl SIOCGIFFLAGS");
-      returncode = EXIT_FAILURE;
-      goto exit;
-    }
-    if((network.ifr_flags & IFF_UP) == 0){
-      network.ifr_flags |= IFF_UP;
-      ret = ioctl(sd, SIOCSIFFLAGS, &network);
-      if(ret == -1){
-	perror("ioctl SIOCSIFFLAGS");
-	returncode = EXIT_FAILURE;
-	goto exit;
+    /* If the interface is down, bring it up */
+    {
+      sd = socket(PF_INET6, SOCK_DGRAM, IPPROTO_IP);
+      if(sd < 0) {
+	perror("socket");
+	exitcode = EXIT_FAILURE;
+	goto end;
       }
+      strcpy(network.ifr_name, interface); /* Spurious warning */
+      ret = ioctl(sd, SIOCGIFFLAGS, &network);
+      if(ret == -1){
+	perror("ioctl SIOCGIFFLAGS");
+	exitcode = EXIT_FAILURE;
+	goto end;
+      }
+      if((network.ifr_flags & IFF_UP) == 0){
+	network.ifr_flags |= IFF_UP;
+	ret = ioctl(sd, SIOCSIFFLAGS, &network);
+	if(ret == -1){
+	  perror("ioctl SIOCSIFFLAGS");
+	  exitcode = EXIT_FAILURE;
+	  goto end;
+	}
+      }
+      close(sd);
     }
-    close(sd);
     
     if (not debug){
       avahi_set_log_function(empty_log);
     }
     
-    /* Initialize the psuedo-RNG */
+    /* Initialize the pseudo-RNG for Avahi */
     srand((unsigned int) time(NULL));
-
-    /* Allocate main loop object */
-    if (!(mc.simple_poll = avahi_simple_poll_new())) {
-        fprintf(stderr, "Failed to create simple poll object.\n");
-	returncode = EXIT_FAILURE;
-        goto exit;
+    
+    /* Allocate main Avahi loop object */
+    mc.simple_poll = avahi_simple_poll_new();
+    if (mc.simple_poll == NULL) {
+        fprintf(stderr, "Avahi: Failed to create simple poll"
+		" object.\n");
+	exitcode = EXIT_FAILURE;
+        goto end;
     }
 
-    /* Do not publish any local records */
-    avahi_server_config_init(&config);
-    config.publish_hinfo = 0;
-    config.publish_addresses = 0;
-    config.publish_workstation = 0;
-    config.publish_domain = 0;
+    {
+      AvahiServerConfig config;
+      /* Do not publish any local Zeroconf records */
+      avahi_server_config_init(&config);
+      config.publish_hinfo = 0;
+      config.publish_addresses = 0;
+      config.publish_workstation = 0;
+      config.publish_domain = 0;
 
-    /* Allocate a new server */
-    mc.server=avahi_server_new(avahi_simple_poll_get(mc.simple_poll),
-			       &config, NULL, NULL, &error);
+      /* Allocate a new server */
+      mc.server = avahi_server_new(avahi_simple_poll_get
+				   (mc.simple_poll), &config, NULL,
+				   NULL, &error);
     
-    /* Free the configuration data */
-    avahi_server_config_free(&config);
+      /* Free the Avahi configuration data */
+      avahi_server_config_free(&config);
+    }
     
-    /* Check if creating the server object succeeded */
-    if (!mc.server) {
-        fprintf(stderr, "Failed to create server: %s\n",
+    /* Check if creating the Avahi server object succeeded */
+    if (mc.server == NULL) {
+        fprintf(stderr, "Failed to create Avahi server: %s\n",
 		avahi_strerror(error));
-	returncode = EXIT_FAILURE;
-        goto exit;
+	exitcode = EXIT_FAILURE;
+        goto end;
     }
     
-    /* Create the service browser */
+    /* Create the Avahi service browser */
     sb = avahi_s_service_browser_new(mc.server, if_index,
 				     AVAHI_PROTO_INET6,
 				     "_mandos._tcp", NULL, 0,
 				     browse_callback, &mc);
-    if (!sb) {
+    if (sb == NULL) {
         fprintf(stderr, "Failed to create service browser: %s\n",
 		avahi_strerror(avahi_server_errno(mc.server)));
-	returncode = EXIT_FAILURE;
-        goto exit;
+	exitcode = EXIT_FAILURE;
+        goto end;
     }
     
     /* Run the main loop */
 
     if (debug){
-      fprintf(stderr, "Starting avahi loop search\n");
+      fprintf(stderr, "Starting Avahi loop search\n");
     }
     
     avahi_simple_poll_loop(mc.simple_poll);
     
- exit:
+ end:
 
     if (debug){
       fprintf(stderr, "%s exiting\n", argv[0]);
     }
     
     /* Cleanup things */
-    if (sb)
+    if (sb != NULL)
         avahi_s_service_browser_free(sb);
     
-    if (mc.server)
+    if (mc.server != NULL)
         avahi_server_free(mc.server);
 
-    if (mc.simple_poll)
+    if (mc.simple_poll != NULL)
         avahi_simple_poll_free(mc.simple_poll);
     free(pubkeyfile);
     free(seckeyfile);
     
-    return returncode;
+    return exitcode;
 }
