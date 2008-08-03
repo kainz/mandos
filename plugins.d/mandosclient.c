@@ -32,6 +32,8 @@
 #define _LARGEFILE_SOURCE
 #define _FILE_OFFSET_BITS 64
 
+#define _GNU_SOURCE		/* TEMP_FAILURE_RETRY() */
+
 #include <stdio.h>
 #include <assert.h>
 #include <stdlib.h>
@@ -79,14 +81,29 @@ static const char *seckeyfile = "seckey.txt";
 
 bool debug = false;
 
+const char mandos_protocol_version[] = "1";
+
 /* Used for passing in values through all the callback functions */
 typedef struct {
   AvahiSimplePoll *simple_poll;
   AvahiServer *server;
   gnutls_certificate_credentials_t cred;
   unsigned int dh_bits;
+  gnutls_dh_params_t dh_params;
   const char *priority;
 } mandos_context;
+
+size_t adjustbuffer(char **buffer, size_t buffer_length,
+		  size_t buffer_capacity){
+  if (buffer_length + BUFFER_SIZE > buffer_capacity){
+    *buffer = realloc(*buffer, buffer_capacity + BUFFER_SIZE);
+    if (buffer == NULL){
+      return 0;
+    }
+    buffer_capacity += BUFFER_SIZE;
+  }
+  return buffer_capacity;
+}
 
 /* 
  * Decrypt OpenPGP data using keyrings in HOMEDIR.
@@ -216,16 +233,12 @@ static ssize_t pgp_packet_decrypt (const char *cryptotext,
   
   *plaintext = NULL;
   while(true){
-    if (plaintext_length + BUFFER_SIZE
-	> (ssize_t) plaintext_capacity){
-      *plaintext = realloc(*plaintext, plaintext_capacity
-			    + BUFFER_SIZE);
-      if (*plaintext == NULL){
-	perror("realloc");
+    plaintext_capacity = adjustbuffer(plaintext, (size_t)plaintext_length,
+				      plaintext_capacity);
+    if (plaintext_capacity == 0){
+	perror("adjustbuffer");
 	plaintext_length = -1;
 	goto decrypt_end;
-      }
-      plaintext_capacity += BUFFER_SIZE;
     }
     
     ret = gpgme_data_read(dh_plain, *plaintext + plaintext_length,
@@ -274,8 +287,7 @@ static void debuggnutls(__attribute__((unused)) int level,
   fprintf(stderr, "GnuTLS: %s", string);
 }
 
-static int initgnutls(mandos_context *mc, gnutls_session_t *session,
-		      gnutls_dh_params_t *dh_params){
+static int init_gnutls_global(mandos_context *mc){
   int ret;
   
   if(debug){
@@ -323,21 +335,26 @@ static int initgnutls(mandos_context *mc, gnutls_session_t *session,
   }
   
   /* GnuTLS server initialization */
-  ret = gnutls_dh_params_init(dh_params);
+  ret = gnutls_dh_params_init(&mc->dh_params);
   if (ret != GNUTLS_E_SUCCESS) {
     fprintf (stderr, "Error in GnuTLS DH parameter initialization:"
 	     " %s\n", safer_gnutls_strerror(ret));
     return -1;
   }
-  ret = gnutls_dh_params_generate2(*dh_params, mc->dh_bits);
+  ret = gnutls_dh_params_generate2(mc->dh_params, mc->dh_bits);
   if (ret != GNUTLS_E_SUCCESS) {
     fprintf (stderr, "Error in GnuTLS prime generation: %s\n",
 	     safer_gnutls_strerror(ret));
     return -1;
   }
   
-  gnutls_certificate_set_dh_params(mc->cred, *dh_params);
-  
+  gnutls_certificate_set_dh_params(mc->cred, mc->dh_params);
+
+  return 0;
+}
+
+static int init_gnutls_session(mandos_context *mc, gnutls_session_t *session){
+  int ret;
   /* GnuTLS session creation */
   ret = gnutls_init(session, GNUTLS_SERVER);
   if (ret != GNUTLS_E_SUCCESS){
@@ -388,13 +405,13 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   size_t buffer_length = 0;
   size_t buffer_capacity = 0;
   ssize_t decrypted_buffer_size;
-  size_t written = 0;
+  size_t written;
   int retval = 0;
   char interface[IF_NAMESIZE];
   gnutls_session_t session;
   gnutls_dh_params_t dh_params;
   
-  ret = initgnutls (mc, &session, &dh_params);
+  ret = init_gnutls_session (mc, &session);
   if (ret != 0){
     return -1;
   }
@@ -453,7 +470,31 @@ static int start_mandos_communication(const char *ip, uint16_t port,
     perror("connect");
     return -1;
   }
-  
+
+  const char *out = mandos_protocol_version;
+  written = 0;
+  while (true){
+    size_t out_size = strlen(out);
+    ret = TEMP_FAILURE_RETRY(write(tcp_sd, out + written,
+				   out_size - written));
+    if (ret == -1){
+      perror("write");
+      retval = -1;
+      goto mandos_end;
+    }
+    written += (size_t)ret;
+    if(written < out_size){
+      continue;
+    } else {
+      if (out == mandos_protocol_version){
+	written = 0;
+	out = "\r\n";
+      } else {
+	break;
+      }
+    }
+  }
+ 
   if(debug){
     fprintf(stderr, "Establishing TLS session with %s\n", ip);
   }
@@ -479,14 +520,11 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   }
 
   while(true){
-    if (buffer_length + BUFFER_SIZE > buffer_capacity){
-      buffer = realloc(buffer, buffer_capacity + BUFFER_SIZE);
-      if (buffer == NULL){
-	perror("realloc");
-	retval = -1;
-	goto mandos_end;
-      }
-      buffer_capacity += BUFFER_SIZE;
+    buffer_capacity = adjustbuffer(&buffer, buffer_length, buffer_capacity);
+    if (buffer_capacity == 0){
+      perror("adjustbuffer");
+      retval = -1;
+      goto mandos_end;
     }
     
     ret = gnutls_record_recv(session, buffer+buffer_length,
@@ -532,6 +570,7 @@ static int start_mandos_communication(const char *ip, uint16_t port,
 					       &decrypted_buffer,
 					       keydir);
     if (decrypted_buffer_size >= 0){
+      written = 0;
       while(written < (size_t) decrypted_buffer_size){
 	ret = (int)fwrite (decrypted_buffer + written, 1,
 			   (size_t)decrypted_buffer_size - written,
@@ -688,6 +727,8 @@ int main(int argc, char *argv[]){
     const char *interface = "eth0";
     struct ifreq network;
     int sd;
+    uid_t uid;
+    gid_t gid;
     char *connect_to = NULL;
     AvahiIfIndex if_index = AVAHI_IF_UNSPEC;
     mandos_context mc = { .simple_poll = NULL, .server = NULL,
@@ -768,6 +809,25 @@ int main(int argc, char *argv[]){
       perror("combinepath");
       goto end;
     }
+
+    ret = init_gnutls_global(&mc);
+    if (ret == -1){
+      fprintf(stderr, "init_gnutls_global\n");
+      goto end;
+    }
+
+    uid = getuid();
+    gid = getgid();
+
+    ret = setuid(uid);
+    if (ret == -1){
+      perror("setuid");
+    }
+    
+    setgid(gid);
+    if (ret == -1){
+      perror("setgid");
+    }
     
     if_index = (AvahiIfIndex) if_nametoindex(interface);
     if(if_index == 0){
@@ -781,22 +841,25 @@ int main(int argc, char *argv[]){
       char *address = strrchr(connect_to, ':');
       if(address == NULL){
         fprintf(stderr, "No colon in address\n");
-	exit(EXIT_FAILURE);
+	exitcode = EXIT_FAILURE;
+	goto end;
       }
       errno = 0;
       uint16_t port = (uint16_t) strtol(address+1, NULL, 10);
       if(errno){
 	perror("Bad port number");
-	exit(EXIT_FAILURE);
+	exitcode = EXIT_FAILURE;
+	goto end;
       }
       *address = '\0';
       address = connect_to;
       ret = start_mandos_communication(address, port, if_index, &mc);
       if(ret < 0){
-	exit(EXIT_FAILURE);
+	exitcode = EXIT_FAILURE;
       } else {
-	exit(EXIT_SUCCESS);
+	exitcode = EXIT_SUCCESS;
       }
+      goto end;
     }
     
     /* If the interface is down, bring it up */

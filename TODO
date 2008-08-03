@@ -4,19 +4,19 @@
 ** Use argp instead of getopt_long
 ** header files/symbols tally
 ** check exit codes of all system calls
-** IPv4 support
-** protocol version header
+** [#C] IPv4 support
 ** use strsep instead of strtok?
-** change uid to nobody:nogroup
-   other drop privs stuff?
+** Use argp
+
+* Passprompt
+** Use argp
 
 * Pluginbasedclient
 ** header files/symbols tally
 ** check exit codes of all system calls
-** [#C] pass things in environment, like device name, etc
-   Does cryptsetup already do this?
 ** use strsep instead of strtok?
 ** use config file in addition to arguments
+** [#C] pass things in environment, like device name, etc
 
 * Server
 ** config for:

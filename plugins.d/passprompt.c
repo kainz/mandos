@@ -146,7 +146,6 @@ int main(int argc, char **argv){
       status = EXIT_SUCCESS;
       break;
     }
-    // ret == 0 makes no other sence than to retry to read from stdin
     if (ret < 0){
       if (errno != EINTR and not feof(stdin)){
 	perror("getline");
@@ -154,16 +153,18 @@ int main(int argc, char **argv){
 	break;
       }
     }
+    /* if(ret == 0), then the only sensible thing to do is to retry to
+       read from stdin */
     fputc('\n', stderr);
   }
-
+  
   if (debug){
     fprintf(stderr, "Restoring terminal attributes\n");
   }
   if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &t_old) != 0){
     perror("tcsetattr+echo");
   }
-
+  
   if (debug){
     fprintf(stderr, "%s is exiting\n", argv[0]);
   }
