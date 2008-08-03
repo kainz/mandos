@@ -49,7 +49,7 @@
 volatile bool quit_now = false;
 bool debug = false;
 
-void termination_handler(__attribute__((unused))int signum){
+static void termination_handler(__attribute__((unused))int signum){
   quit_now = true;
 }
 

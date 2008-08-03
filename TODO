@@ -1,6 +1,7 @@
 -*- org -*-
 
 * Mandos client
+** Use argp instead of getopt_long
 ** header files/symbols tally
 ** check exit codes of all system calls
 ** IPv4 support
