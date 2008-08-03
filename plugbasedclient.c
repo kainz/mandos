@@ -50,6 +50,8 @@
 				   struct argp_state, struct argp,
 				   argp_parse() */
 
+#define BUFFER_SIZE 256
+
 struct process;
 
 typedef struct process{
@@ -72,7 +74,7 @@ typedef struct plugin{
   struct plugin *next;
 } plugin;
 
-plugin *getplugin(char *name, plugin **plugin_list){
+static plugin *getplugin(char *name, plugin **plugin_list){
   for (plugin *p = *plugin_list; p != NULL; p = p->next){
     if ((p->name == name)
 	or (p->name and name and (strcmp(p->name, name) == 0))){
@@ -101,7 +103,7 @@ plugin *getplugin(char *name, plugin **plugin_list){
   return new_plugin;
 }
 
-void addargument(plugin *p, char *arg){
+static void addargument(plugin *p, char *arg){
   p->argv[p->argc] = arg;
   p->argv = realloc(p->argv, sizeof(char *) * (size_t)(p->argc + 2));
   if (p->argv == NULL){
@@ -117,7 +119,7 @@ void addargument(plugin *p, char *arg){
  * Descriptor Flags".
  * *Note File Descriptor Flags:(libc)Descriptor Flags.
  */
-int set_cloexec_flag(int fd)
+static int set_cloexec_flag(int fd)
 {
   int ret = fcntl(fd, F_GETFD, 0);
   /* If reading the flags failed, return error indication now. */
@@ -127,8 +129,6 @@ int set_cloexec_flag(int fd)
   /* Store modified flag word in the descriptor. */
   return fcntl(fd, F_SETFD, ret | FD_CLOEXEC);
 }
-
-#define BUFFER_SIZE 256
 
 const char *argp_program_version = "plugbasedclient 0.9";
 const char *argp_program_bug_address = "<mandos@fukt.bsnet.se>";
@@ -324,7 +324,7 @@ int main(int argc, char *argv[]){
   
   setgid(gid);
   if (ret == -1){
-    perror("setuid");
+    perror("setgid");
   }
   
   dir = opendir(plugindir);

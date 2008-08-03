@@ -434,7 +434,8 @@ class tcp_handler(SocketServer.BaseRequestHandler, object):
         logger.debug(u"TCP connection from: %s",
                      unicode(self.client_address))
 
-        line = self.socket.makefile().readline()
+        line = self.request.makefile().readline()
+        logger.debug(u"Protocol version: %r", line)
         try:
             if int(line.strip().split()[0]) > 1:
                 raise RuntimeError
