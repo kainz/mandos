@@ -433,6 +433,15 @@ class tcp_handler(SocketServer.BaseRequestHandler, object):
     def handle(self):
         logger.debug(u"TCP connection from: %s",
                      unicode(self.client_address))
+
+        line = self.socket.makefile().readline()
+        try:
+            if int(line.strip().split()[0]) > 1:
+                raise RuntimeError
+        except (ValueError, IndexError, RuntimeError), error:
+            logger.error(u"Unknown protocol version: %s", error)
+            return
+        
         session = gnutls.connection.ClientSession\
                   (self.request, gnutls.connection.X509Credentials())
         # Note: gnutls.connection.X509Credentials is really a generic
