@@ -1,20 +1,22 @@
 -*- org -*-
 
 * Mandos client
+** Use argp instead of getopt_long
 ** header files/symbols tally
 ** check exit codes of all system calls
 ** IPv4 support
 ** protocol version header
 ** use strsep instead of strtok?
+** change uid to nobody:nogroup
+   other drop privs stuff?
 
 * Pluginbasedclient
 ** header files/symbols tally
 ** check exit codes of all system calls
-** change uid to nobody:nogroup
-   other drop privs stuff?
-** pass things in environment, like device name, etc
+** [#C] pass things in environment, like device name, etc
    Does cryptsetup already do this?
 ** use strsep instead of strtok?
+** use config file in addition to arguments
 
 * Server
 ** config for:
