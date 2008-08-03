@@ -324,7 +324,7 @@ int main(int argc, char *argv[]){
   
   setgid(gid);
   if (ret == -1){
-    perror("setuid");
+    perror("setgid");
   }
   
   dir = opendir(plugindir);

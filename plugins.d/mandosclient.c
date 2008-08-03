@@ -37,8 +37,10 @@
 #include <stdlib.h>
 #include <time.h>
 #include <net/if.h>		/* if_nametoindex */
-#include <sys/ioctl.h> 		// ioctl, ifreq, SIOCGIFFLAGS, IFF_UP, SIOCSIFFLAGS
-#include <net/if.h> 		// ioctl, ifreq, SIOCGIFFLAGS, IFF_UP, SIOCSIFFLAGS
+#include <sys/ioctl.h>          /* ioctl, ifreq, SIOCGIFFLAGS, IFF_UP,
+				   SIOCSIFFLAGS */
+#include <net/if.h>		/* ioctl, ifreq, SIOCGIFFLAGS, IFF_UP,
+				   SIOCSIFFLAGS */
 
 #include <avahi-core/core.h>
 #include <avahi-core/lookup.h>
@@ -85,19 +87,24 @@ typedef struct {
   const char *priority;
 } mandos_context;
 
-static ssize_t pgp_packet_decrypt (char *packet, size_t packet_size,
-				   char **new_packet,
+/* 
+ * Decrypt OpenPGP data using keyrings in HOMEDIR.
+ * Returns -1 on error
+ */
+static ssize_t pgp_packet_decrypt (const char *cryptotext,
+				   size_t crypto_size,
+				   char **plaintext,
 				   const char *homedir){
   gpgme_data_t dh_crypto, dh_plain;
   gpgme_ctx_t ctx;
   gpgme_error_t rc;
   ssize_t ret;
-  ssize_t new_packet_capacity = 0;
-  ssize_t new_packet_length = 0;
+  ssize_t plaintext_capacity = 0;
+  ssize_t plaintext_length = 0;
   gpgme_engine_info_t engine_info;
-
+  
   if (debug){
-    fprintf(stderr, "Trying to decrypt OpenPGP packet\n");
+    fprintf(stderr, "Trying to decrypt OpenPGP data\n");
   }
   
   /* Init GPGME */
@@ -109,7 +116,7 @@ static ssize_t pgp_packet_decrypt (char *packet, size_t packet_size,
     return -1;
   }
   
-  /* Set GPGME home directory */
+  /* Set GPGME home directory for the OpenPGP engine only */
   rc = gpgme_get_engine_info (&engine_info);
   if (rc != GPG_ERR_NO_ERROR){
     fprintf(stderr, "bad gpgme_get_engine_info: %s: %s\n",
@@ -125,12 +132,13 @@ static ssize_t pgp_packet_decrypt (char *packet, size_t packet_size,
     engine_info = engine_info->next;
   }
   if(engine_info == NULL){
-    fprintf(stderr, "Could not set home dir to %s\n", homedir);
+    fprintf(stderr, "Could not set GPGME home dir to %s\n", homedir);
     return -1;
   }
   
-  /* Create new GPGME data buffer from packet buffer */
-  rc = gpgme_data_new_from_mem(&dh_crypto, packet, packet_size, 0);
+  /* Create new GPGME data buffer from memory cryptotext */
+  rc = gpgme_data_new_from_mem(&dh_crypto, cryptotext, crypto_size,
+			       0);
   if (rc != GPG_ERR_NO_ERROR){
     fprintf(stderr, "bad gpgme_data_new_from_mem: %s: %s\n",
 	    gpgme_strsource(rc), gpgme_strerror(rc));
@@ -142,6 +150,7 @@ static ssize_t pgp_packet_decrypt (char *packet, size_t packet_size,
   if (rc != GPG_ERR_NO_ERROR){
     fprintf(stderr, "bad gpgme_data_new: %s: %s\n",
 	    gpgme_strsource(rc), gpgme_strerror(rc));
+    gpgme_data_release(dh_crypto);
     return -1;
   }
   
@@ -150,22 +159,24 @@ static ssize_t pgp_packet_decrypt (char *packet, size_t packet_size,
   if (rc != GPG_ERR_NO_ERROR){
     fprintf(stderr, "bad gpgme_new: %s: %s\n",
 	    gpgme_strsource(rc), gpgme_strerror(rc));
-    return -1;
+    plaintext_length = -1;
+    goto decrypt_end;
   }
   
-  /* Decrypt data from the FILE pointer to the plaintext data
-     buffer */
+  /* Decrypt data from the cryptotext data buffer to the plaintext
+     data buffer */
   rc = gpgme_op_decrypt(ctx, dh_crypto, dh_plain);
   if (rc != GPG_ERR_NO_ERROR){
     fprintf(stderr, "bad gpgme_op_decrypt: %s: %s\n",
 	    gpgme_strsource(rc), gpgme_strerror(rc));
-    return -1;
+    plaintext_length = -1;
+    goto decrypt_end;
   }
-
+  
   if(debug){
-    fprintf(stderr, "Decryption of OpenPGP packet succeeded\n");
+    fprintf(stderr, "Decryption of OpenPGP data succeeded\n");
   }
-
+  
   if (debug){
     gpgme_decrypt_result_t result;
     result = gpgme_op_decrypt_result(ctx);
@@ -195,51 +206,58 @@ static ssize_t pgp_packet_decrypt (char *packet, size_t packet_size,
     }
   }
   
-  /* Delete the GPGME FILE pointer cryptotext data buffer */
-  gpgme_data_release(dh_crypto);
-  
   /* Seek back to the beginning of the GPGME plaintext data buffer */
   if (gpgme_data_seek(dh_plain, (off_t) 0, SEEK_SET) == -1){
     perror("pgpme_data_seek");
+    plaintext_length = -1;
+    goto decrypt_end;
   }
   
-  *new_packet = 0;
+  *plaintext = NULL;
   while(true){
-    if (new_packet_length + BUFFER_SIZE > new_packet_capacity){
-      *new_packet = realloc(*new_packet,
-			    (unsigned int)new_packet_capacity
+    if (plaintext_length + BUFFER_SIZE > plaintext_capacity){
+      *plaintext = realloc(*plaintext,
+			    (unsigned int)plaintext_capacity
 			    + BUFFER_SIZE);
-      if (*new_packet == NULL){
+      if (*plaintext == NULL){
 	perror("realloc");
-	return -1;
+	plaintext_length = -1;
+	goto decrypt_end;
       }
-      new_packet_capacity += BUFFER_SIZE;
+      plaintext_capacity += BUFFER_SIZE;
     }
     
-    ret = gpgme_data_read(dh_plain, *new_packet + new_packet_length,
+    ret = gpgme_data_read(dh_plain, *plaintext + plaintext_length,
 			  BUFFER_SIZE);
     /* Print the data, if any */
     if (ret == 0){
+      /* EOF */
       break;
     }
     if(ret < 0){
       perror("gpgme_data_read");
-      return -1;
+      plaintext_length = -1;
+      goto decrypt_end;
     }
-    new_packet_length += ret;
+    plaintext_length += ret;
   }
 
-  /* FIXME: check characters before printing to screen so to not print
-     terminal control characters */
-  /*   if(debug){ */
-  /*     fprintf(stderr, "decrypted password is: "); */
-  /*     fwrite(*new_packet, 1, new_packet_length, stderr); */
-  /*     fprintf(stderr, "\n"); */
-  /*   } */
+  if(debug){
+    fprintf(stderr, "Decrypted password is: ");
+    for(size_t i = 0; i < plaintext_length; i++){
+      fprintf(stderr, "%02hhX ", (*plaintext)[i]);
+    }
+    fprintf(stderr, "\n");
+  }
+  
+ decrypt_end:
+  
+  /* Delete the GPGME cryptotext data buffer */
+  gpgme_data_release(dh_crypto);
   
   /* Delete the GPGME plaintext data buffer */
   gpgme_data_release(dh_plain);
-  return new_packet_length;
+  return plaintext_length;
 }
 
 static const char * safer_gnutls_strerror (int value) {
@@ -534,19 +552,20 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   return retval;
 }
 
-static void resolve_callback( AvahiSServiceResolver *r,
-			      AvahiIfIndex interface,
-			      AVAHI_GCC_UNUSED AvahiProtocol protocol,
-			      AvahiResolverEvent event,
-			      const char *name,
-			      const char *type,
-			      const char *domain,
-			      const char *host_name,
-			      const AvahiAddress *address,
-			      uint16_t port,
-			      AVAHI_GCC_UNUSED AvahiStringList *txt,
-			      AVAHI_GCC_UNUSED AvahiLookupResultFlags flags,
-			      void* userdata) {
+static void resolve_callback(AvahiSServiceResolver *r,
+			     AvahiIfIndex interface,
+			     AVAHI_GCC_UNUSED AvahiProtocol protocol,
+			     AvahiResolverEvent event,
+			     const char *name,
+			     const char *type,
+			     const char *domain,
+			     const char *host_name,
+			     const AvahiAddress *address,
+			     uint16_t port,
+			     AVAHI_GCC_UNUSED AvahiStringList *txt,
+			     AVAHI_GCC_UNUSED AvahiLookupResultFlags
+			     flags,
+			     void* userdata) {
   mandos_context *mc = userdata;
   assert(r);			/* Spurious warning */
   
@@ -585,7 +604,8 @@ static void browse_callback( AvahiSServiceBrowser *b,
 			     const char *name,
 			     const char *type,
 			     const char *domain,
-			     AVAHI_GCC_UNUSED AvahiLookupResultFlags flags,
+			     AVAHI_GCC_UNUSED AvahiLookupResultFlags
+			     flags,
 			     void* userdata) {
   mandos_context *mc = userdata;
   assert(b);			/* Spurious warning */
@@ -608,8 +628,8 @@ static void browse_callback( AvahiSServiceBrowser *b,
        the callback function is called the server will free
        the resolver for us. */
     
-    if (!(avahi_s_service_resolver_new(mc->server, interface, protocol, name,
-				       type, domain,
+    if (!(avahi_s_service_resolver_new(mc->server, interface,
+				       protocol, name, type, domain,
 				       AVAHI_PROTO_INET6, 0,
 				       resolve_callback, mc)))
       fprintf(stderr, "Failed to resolve service '%s': %s\n", name,
