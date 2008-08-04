@@ -44,10 +44,14 @@
 #include <iso646.h>		/* or, not */
 #include <stdbool.h>		/* bool, false, true */
 #include <string.h> 		/* strlen, rindex, strncmp, strcmp */
-#include <getopt.h>		/* getopt_long */
+#include <argp.h>		/* struct argp_option,
+				   struct argp_state, struct argp,
+				   argp_parse() */
 
 volatile bool quit_now = false;
 bool debug = false;
+const char *argp_program_version = "passprompt 0.9";
+const char *argp_program_bug_address = "<mandos@fukt.bsnet.se>";
 
 static void termination_handler(__attribute__((unused))int signum){
   quit_now = true;
@@ -63,32 +67,43 @@ int main(int argc, char **argv){
   struct sigaction old_action,
     new_action = { .sa_handler = termination_handler,
 		   .sa_flags = 0 };
-
-  while (true){
-    static struct option long_options[] = {
-      {"debug", no_argument, (int *)&debug, 1},
-      {"prefix", required_argument, 0, 'p'},
-      {0, 0, 0, 0} };
-
-    int option_index = 0;
-    ret = getopt_long (argc, argv, "p:", long_options, &option_index);
-
-    if (ret == -1){
-      break;
+  {
+    struct argp_option options[] = {
+      { .name = "prefix", .key = 'p',
+	.arg = "PREFIX", .flags = 0,
+	.doc = "Prefix used before the passprompt", .group = 2 },
+      { .name = "debug", .key = 128,
+	.doc = "Debug mode", .group = 3 },
+      { .name = NULL }
+    };
+  
+    error_t parse_opt (int key, char *arg, struct argp_state *state) {
+      /* Get the INPUT argument from `argp_parse', which we know is a
+	 pointer to our plugin list pointer. */
+      switch (key) {
+      case 'p':
+	prefix = arg;
+	break;
+      case 128:
+	debug = true;
+	break;
+      case ARGP_KEY_ARG:
+	argp_usage (state);
+	break;
+      case ARGP_KEY_END:
+	break;
+      default:
+	return ARGP_ERR_UNKNOWN;
+      }
+      return 0;
     }
-      
-    switch(ret){
-    case 0:
-      break;
-    case 'p':
-      prefix = optarg;
-      break;
-    default:
-      fprintf(stderr, "bad arguments\n");
-      exit(EXIT_FAILURE);
-    }
+  
+    struct argp argp = { .options = options, .parser = parse_opt,
+			 .args_doc = "",
+			 .doc = "Mandos Passprompt -- Provides a passprompt" };
+    argp_parse (&argp, argc, argv, 0, 0, NULL);
   }
-      
+    
   if (debug){
     fprintf(stderr, "Starting %s\n", argv[0]);
   }
