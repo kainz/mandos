@@ -75,12 +75,12 @@
 #define BUFFER_SIZE 256
 
 bool debug = false;
-const char *keydir = "/conf/conf.d/mandos";
+static const char *keydir = "/conf/conf.d/mandos";
 const char *argp_program_version = "mandosclient 0.9";
 const char *argp_program_bug_address = "<mandos@fukt.bsnet.se>";
-const char mandos_protocol_version[] = "1";
+static const char mandos_protocol_version[] = "1";
 
-/* Used for passing in values through all the callback functions */
+/* Used for passing in values through the Avahi callback functions */
 typedef struct {
   AvahiSimplePoll *simple_poll;
   AvahiServer *server;
@@ -90,6 +90,9 @@ typedef struct {
   const char *priority;
 } mandos_context;
 
+/* Make room in "buffer" for at least BUFFER_SIZE additional bytes.
+ * "buffer_capacity" is how much is currently allocated,
+ * "buffer_length" is how much is already used. */
 size_t adjustbuffer(char **buffer, size_t buffer_length,
 		  size_t buffer_capacity){
   if (buffer_length + BUFFER_SIZE > buffer_capacity){
@@ -230,7 +233,8 @@ static ssize_t pgp_packet_decrypt (const char *cryptotext,
   
   *plaintext = NULL;
   while(true){
-    plaintext_capacity = adjustbuffer(plaintext, (size_t)plaintext_length,
+    plaintext_capacity = adjustbuffer(plaintext,
+				      (size_t)plaintext_length,
 				      plaintext_capacity);
     if (plaintext_capacity == 0){
 	perror("adjustbuffer");
@@ -352,7 +356,8 @@ static int init_gnutls_global(mandos_context *mc,
   return 0;
 }
 
-static int init_gnutls_session(mandos_context *mc, gnutls_session_t *session){
+static int init_gnutls_session(mandos_context *mc,
+			       gnutls_session_t *session){
   int ret;
   /* GnuTLS session creation */
   ret = gnutls_init(session, GNUTLS_SERVER);
@@ -398,7 +403,7 @@ static int start_mandos_communication(const char *ip, uint16_t port,
 				      AvahiIfIndex if_index,
 				      mandos_context *mc){
   int ret, tcp_sd;
-  struct sockaddr_in6 to;
+  union { struct sockaddr in; struct sockaddr_in6 in6; } to;
   char *buffer = NULL;
   char *decrypted_buffer;
   size_t buffer_length = 0;
@@ -408,7 +413,6 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   int retval = 0;
   char interface[IF_NAMESIZE];
   gnutls_session_t session;
-  gnutls_dh_params_t dh_params;
   
   ret = init_gnutls_session (mc, &session);
   if (ret != 0){
@@ -435,10 +439,10 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   }
   
   memset(&to,0,sizeof(to));	/* Spurious warning */
-  to.sin6_family = AF_INET6;
+  to.in6.sin6_family = AF_INET6;
   /* It would be nice to have a way to detect if we were passed an
      IPv4 address here.   Now we assume an IPv6 address. */
-  ret = inet_pton(AF_INET6, ip, &to.sin6_addr);
+  ret = inet_pton(AF_INET6, ip, &to.in6.sin6_addr);
   if (ret < 0 ){
     perror("inet_pton");
     return -1;
@@ -447,14 +451,14 @@ static int start_mandos_communication(const char *ip, uint16_t port,
     fprintf(stderr, "Bad address: %s\n", ip);
     return -1;
   }
-  to.sin6_port = htons(port);	/* Spurious warning */
+  to.in6.sin6_port = htons(port);	/* Spurious warning */
   
-  to.sin6_scope_id = (uint32_t)if_index;
+  to.in6.sin6_scope_id = (uint32_t)if_index;
   
   if(debug){
     fprintf(stderr, "Connection to: %s, port %d\n", ip, port);
     char addrstr[INET6_ADDRSTRLEN] = "";
-    if(inet_ntop(to.sin6_family, &(to.sin6_addr), addrstr,
+    if(inet_ntop(to.in6.sin6_family, &(to.in6.sin6_addr), addrstr,
 		 sizeof(addrstr)) == NULL){
       perror("inet_ntop");
     } else {
@@ -464,7 +468,7 @@ static int start_mandos_communication(const char *ip, uint16_t port,
     }
   }
   
-  ret = connect(tcp_sd, (struct sockaddr *) &to, sizeof(to));
+  ret = connect(tcp_sd, &to.in, sizeof(to));
   if (ret < 0){
     perror("connect");
     return -1;
@@ -519,7 +523,8 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   }
 
   while(true){
-    buffer_capacity = adjustbuffer(&buffer, buffer_length, buffer_capacity);
+    buffer_capacity = adjustbuffer(&buffer, buffer_length,
+				   buffer_capacity);
     if (buffer_capacity == 0){
       perror("adjustbuffer");
       retval = -1;
@@ -741,22 +746,28 @@ int main(int argc, char *argv[]){
 	  .doc = "Debug mode", .group = 3 },
 	{ .name = "connect", .key = 'c',
 	  .arg = "IP",
-	  .doc = "Connect directly to a sepcified mandos server", .group = 1 },
+	  .doc = "Connect directly to a sepcified mandos server",
+	  .group = 1 },
 	{ .name = "interface", .key = 'i',
 	  .arg = "INTERFACE",
-	  .doc = "Interface that Avahi will conntect through", .group = 1 },
+	  .doc = "Interface that Avahi will conntect through",
+	  .group = 1 },
 	{ .name = "keydir", .key = 'd',
 	  .arg = "KEYDIR",
-	  .doc = "Directory where the openpgp keyring is", .group = 1 },
+	  .doc = "Directory where the openpgp keyring is",
+	  .group = 1 },
 	{ .name = "seckey", .key = 's',
 	  .arg = "SECKEY",
-	  .doc = "Secret openpgp key for gnutls authentication", .group = 1 },
+	  .doc = "Secret openpgp key for gnutls authentication",
+	  .group = 1 },
 	{ .name = "pubkey", .key = 'p',
 	  .arg = "PUBKEY",
-	  .doc = "Public openpgp key for gnutls authentication", .group = 2 },
+	  .doc = "Public openpgp key for gnutls authentication",
+	  .group = 2 },
 	{ .name = "dh-bits", .key = 129,
 	  .arg = "BITS",
-	  .doc = "dh-bits to use in gnutls communication", .group = 2 },
+	  .doc = "dh-bits to use in gnutls communication",
+	  .group = 2 },
 	{ .name = "priority", .key = 130,
 	  .arg = "PRIORITY",
 	  .doc = "GNUTLS priority", .group = 1 },
@@ -764,9 +775,10 @@ int main(int argc, char *argv[]){
       };
 
       
-      error_t parse_opt (int key, char *arg, struct argp_state *state) {
-	/* Get the INPUT argument from `argp_parse', which we know is a
-	   pointer to our plugin list pointer. */
+      error_t parse_opt (int key, char *arg,
+			 struct argp_state *state) {
+	/* Get the INPUT argument from `argp_parse', which we know is
+	   a pointer to our plugin list pointer. */
 	switch (key) {
 	case 128:
 	  debug = true;
@@ -810,7 +822,8 @@ int main(int argc, char *argv[]){
 
       struct argp argp = { .options = options, .parser = parse_opt,
 			   .args_doc = "",
-			   .doc = "Mandos client -- Get and decrypt passwords from mandos server" };
+			   .doc = "Mandos client -- Get and decrypt"
+			   " passwords from mandos server" };
       argp_parse (&argp, argc, argv, 0, 0, NULL);
     }
       
