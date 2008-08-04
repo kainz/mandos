@@ -96,25 +96,24 @@ class AvahiGroupError(AvahiError):
 
 
 class AvahiService(object):
-    """
+    """An Avahi (Zeroconf) service.
+    Attributes:
     interface: integer; avahi.IF_UNSPEC or an interface index.
                Used to optionally bind to the specified interface.
-    name = string; Example: "Mandos"
-    type = string; Example: "_mandos._tcp".
-                   See <http://www.dns-sd.org/ServiceTypes.html>
-    port = integer; what port to announce
-    TXT = list of strings; TXT record for the service
-    domain = string; Domain to publish on, default to .local if empty.
-    host = string; Host to publish records for, default to localhost
-                   if empty.
-    max_renames = integer; maximum number of renames
-    rename_count = integer; counter so we only rename after collisions
-                   a sensible number of times
+    name: string; Example: 'Mandos'
+    type: string; Example: '_mandos._tcp'.
+                  See <http://www.dns-sd.org/ServiceTypes.html>
+    port: integer; what port to announce
+    TXT: list of strings; TXT record for the service
+    domain: string; Domain to publish on, default to .local if empty.
+    host: string; Host to publish records for, default is localhost
+    max_renames: integer; maximum number of renames
+    rename_count: integer; counter so we only rename after collisions
+                  a sensible number of times
     """
     def __init__(self, interface = avahi.IF_UNSPEC, name = None,
                  type = None, port = None, TXT = None, domain = "",
                  host = "", max_renames = 12):
-        """An Avahi (Zeroconf) service. """
         self.interface = interface
         self.name = name
         self.type = type
@@ -222,13 +221,14 @@ class Client(object):
                         _set_interval)
     del _set_interval
     def __init__(self, name = None, stop_hook=None, config={}):
-        """Note: the 'checker' argument sets the 'checker_command'
-        attribute and not the 'checker' attribute.."""
+        """Note: the 'checker' key in 'config' sets the
+        'checker_command' attribute and *not* the 'checker'
+        attribute."""
         self.name = name
         logger.debug(u"Creating client %r", self.name)
-        # Uppercase and remove spaces from fingerprint
-        # for later comparison purposes with return value of
-        # the fingerprint() function
+        # Uppercase and remove spaces from fingerprint for later
+        # comparison purposes with return value from the fingerprint()
+        # function
         self.fingerprint = config["fingerprint"].upper()\
                            .replace(u" ", u"")
         logger.debug(u"  Fingerprint: %s", self.fingerprint)
@@ -395,20 +395,19 @@ def peer_certificate(session):
 
 def fingerprint(openpgp):
     "Convert an OpenPGP bytestring to a hexdigit fingerprint string"
-    # New empty GnuTLS certificate
-    crt = gnutls.library.types.gnutls_openpgp_crt_t()
-    gnutls.library.functions.gnutls_openpgp_crt_init\
-        (ctypes.byref(crt))
     # New GnuTLS "datum" with the OpenPGP public key
     datum = gnutls.library.types.gnutls_datum_t\
         (ctypes.cast(ctypes.c_char_p(openpgp),
                      ctypes.POINTER(ctypes.c_ubyte)),
          ctypes.c_uint(len(openpgp)))
+    # New empty GnuTLS certificate
+    crt = gnutls.library.types.gnutls_openpgp_crt_t()
+    gnutls.library.functions.gnutls_openpgp_crt_init\
+        (ctypes.byref(crt))
     # Import the OpenPGP public key into the certificate
-    ret = gnutls.library.functions.gnutls_openpgp_crt_import\
-        (crt,
-         ctypes.byref(datum),
-         gnutls.library.constants.GNUTLS_OPENPGP_FMT_RAW)
+    gnutls.library.functions.gnutls_openpgp_crt_import\
+                    (crt, ctypes.byref(datum),
+                     gnutls.library.constants.GNUTLS_OPENPGP_FMT_RAW)
     # New buffer for the fingerprint
     buffer = ctypes.create_string_buffer(20)
     buffer_length = ctypes.c_size_t()

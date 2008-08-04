@@ -27,6 +27,7 @@
 ** [#A] Man page
 ** [#A] write PID file
 ** [#A] /etc/init.d/mandos-server
+** Better comments in config files
 ** Log level
 ** /etc/mandos/clients.d/*.conf
    Watch this directory and add/remove/update clients?
