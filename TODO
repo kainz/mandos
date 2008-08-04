@@ -1,27 +1,36 @@
 -*- org -*-
 
+* README file
+
 * Mandos client
-** Use argp instead of getopt_long
-** header files/symbols tally
-** check exit codes of all system calls
-** [#C] IPv4 support
+** [#A] Man page
+** [#A] check exit codes of all system calls
+** [#B] header files/symbols tally
+** IPv4 support
 ** use strsep instead of strtok?
-** Use argp
+** Do not depend on GPG key rings on disk
+   This would mean creating new GPG key rings with GPGME by importing
+   the key files from scratch every time we start the program.
 
 * Passprompt
-** Use argp
+** [#A] Man page
 
 * Pluginbasedclient
-** header files/symbols tally
-** check exit codes of all system calls
+** [#A] Man page
+** [#A] check exit codes of all system calls
+** [#B] header files/symbols tally
 ** use strsep instead of strtok?
 ** use config file in addition to arguments
-** [#C] pass things in environment, like device name, etc
+** pass things in environment, like device name, etc
 
 * Server
-** config for:
-*** TXT record
-** protocol version header
+** [#A] Man page
+** [#A] write PID file
+** [#A] /etc/init.d/mandos-server
+** Log level
+** /etc/mandos/clients.d/*.conf
+   Watch this directory and add/remove/update clients?
+** config for TXT record
 ** Run-time communication with server
    probably using D-Bus
 
@@ -32,6 +41,8 @@
 ** Disable client
 
 * Installer
+** Change initrd.img file to not be publically readable
+** Create GPG key ring files in initrd
 
 
 #+STARTUP: showall
