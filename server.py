@@ -6,9 +6,9 @@
 # This program is partly derived from an example program for an Avahi
 # service publisher, downloaded from
 # <http://avahi.org/wiki/PythonPublishExample>.  This includes the
-# following functions: "AvahiService.add", "AvahiService.remove",
-# "server_state_changed", "entry_group_state_changed", and some lines
-# in "main".
+# methods "add" and "remove" in the "AvahiService" class, the
+# "server_state_changed" and "entry_group_state_changed" functions,
+# and some lines in "main".
 # 
 # Everything else is
 # Copyright © 2007-2008 Teddy Hogeborn & Björn Påhlsson
@@ -60,17 +60,6 @@ import gobject
 import avahi
 from dbus.mainloop.glib import DBusGMainLoop
 import ctypes
-
-# Brief description of the operation of this program:
-# 
-# This server announces itself as a Zeroconf service.  Connecting
-# clients use the TLS protocol, with the unusual quirk that this
-# server program acts as a TLS "client" while a connecting client acts
-# as a TLS "server".  The client (acting as a TLS "server") must
-# supply an OpenPGP certificate, and the fingerprint of this
-# certificate is used by this server to look up (in a list read from a
-# file at start time) which binary blob to give the client.  No other
-# authentication or authorization is done by this server.
 
 
 logger = logging.Logger('mandos')
@@ -635,6 +624,8 @@ def daemon(nochdir, noclose):
     os.setsid()
     if not nochdir:
         os.chdir("/")
+    if os.fork():
+        sys.exit()
     if not noclose:
         # Close all standard open file descriptors
         null = os.open(os.path.devnull, os.O_NOCTTY | os.O_RDWR)

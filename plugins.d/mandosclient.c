@@ -319,6 +319,7 @@ static int init_gnutls_global(mandos_context *mc,
       != GNUTLS_E_SUCCESS) {
     fprintf (stderr, "GnuTLS memory error: %s\n",
 	     safer_gnutls_strerror(ret));
+    gnutls_global_deinit ();
     return -1;
   }
   
@@ -336,7 +337,7 @@ static int init_gnutls_global(mandos_context *mc,
 	    " '%s')\n", ret, pubkeyfile, seckeyfile);
     fprintf(stdout, "The GnuTLS error is: %s\n",
 	    safer_gnutls_strerror(ret));
-    return -1;
+    goto globalfail;
   }
   
   /* GnuTLS server initialization */
@@ -344,18 +345,25 @@ static int init_gnutls_global(mandos_context *mc,
   if (ret != GNUTLS_E_SUCCESS) {
     fprintf (stderr, "Error in GnuTLS DH parameter initialization:"
 	     " %s\n", safer_gnutls_strerror(ret));
-    return -1;
+    goto globalfail;
   }
   ret = gnutls_dh_params_generate2(mc->dh_params, mc->dh_bits);
   if (ret != GNUTLS_E_SUCCESS) {
     fprintf (stderr, "Error in GnuTLS prime generation: %s\n",
 	     safer_gnutls_strerror(ret));
-    return -1;
+    goto globalfail;
   }
   
   gnutls_certificate_set_dh_params(mc->cred, mc->dh_params);
 
   return 0;
+
+ globalfail:
+
+  gnutls_certificate_free_credentials (mc->cred);
+  gnutls_global_deinit ();
+  return -1;
+
 }
 
 static int init_gnutls_session(mandos_context *mc,
@@ -375,6 +383,7 @@ static int init_gnutls_session(mandos_context *mc,
       fprintf(stderr, "Syntax error at: %s\n", err);
       fprintf(stderr, "GnuTLS error: %s\n",
 	      safer_gnutls_strerror(ret));
+      gnutls_deinit (*session);
       return -1;
     }
   }
@@ -384,6 +393,7 @@ static int init_gnutls_session(mandos_context *mc,
   if (ret != GNUTLS_E_SUCCESS) {
     fprintf(stderr, "Error setting GnuTLS credentials: %s\n",
 	    safer_gnutls_strerror(ret));
+    gnutls_deinit (*session);
     return -1;
   }
   
@@ -603,8 +613,6 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   free(buffer);
   close(tcp_sd);
   gnutls_deinit (session);
-  gnutls_certificate_free_credentials (mc->cred);
-  gnutls_global_deinit ();
   return retval;
 }
 
@@ -741,6 +749,7 @@ int main(int argc, char *argv[]){
     const char *seckeyfile = "seckey.txt";
     mandos_context mc = { .simple_poll = NULL, .server = NULL,
 			  .dh_bits = 1024, .priority = "SECURE256"};
+    bool gnutls_initalized = false;
     
     {
       struct argp_option options[] = {
@@ -846,6 +855,8 @@ int main(int argc, char *argv[]){
     if (ret == -1){
       fprintf(stderr, "init_gnutls_global\n");
       goto end;
+    } else {
+      gnutls_initalized = true;
     }
 
     uid = getuid();
@@ -1000,6 +1011,11 @@ int main(int argc, char *argv[]){
         avahi_simple_poll_free(mc.simple_poll);
     free(pubkeyfile);
     free(seckeyfile);
+
+    if (gnutls_initalized){
+      gnutls_certificate_free_credentials (mc.cred);
+      gnutls_global_deinit ();
+    }
     
     return exitcode;
 }

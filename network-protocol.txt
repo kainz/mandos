@@ -1,0 +1,14 @@
+Network Protocol Version 1
+
+The server announces itself as an IPv6 Zeroconf service of type
+"_mandos._tcp".  A connecting client sends a line of text where the
+first whitespace-separated field is the protocol version, which
+currently is "1".  The client and server then start a TLS handshake,
+with the unusual property that the server program acts as a TLS
+"client" and the connecting client acts as a TLS "server".  In this
+TLS handshake the client must supply an OpenPGP certificate, and the
+fingerprint of this certificate is used by the server to look up (in a
+list read from file at start time) which binary blob to give the
+client.  No other authentication or authorization is done by the
+server.  After the binary blob is sent by the server to the client,
+the server closes the connection.
