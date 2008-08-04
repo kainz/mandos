@@ -65,22 +65,19 @@
 #include <arpa/inet.h>		/* inet_pton() */
 #include <iso646.h>		/* not */
 #include <net/if.h>		/* IF_NAMESIZE */
-
+#include <argp.h>		/* struct argp_option,
+				   struct argp_state, struct argp,
+				   argp_parse() */
 /* GPGME */
 #include <errno.h>		/* perror() */
 #include <gpgme.h>
 
-/* getopt_long */
-#include <getopt.h>
-
 #define BUFFER_SIZE 256
 
-static const char *keydir = "/conf/conf.d/mandos";
-static const char *pubkeyfile = "pubkey.txt";
-static const char *seckeyfile = "seckey.txt";
-
 bool debug = false;
-
+const char *keydir = "/conf/conf.d/mandos";
+const char *argp_program_version = "mandosclient 0.9";
+const char *argp_program_bug_address = "<mandos@fukt.bsnet.se>";
 const char mandos_protocol_version[] = "1";
 
 /* Used for passing in values through all the callback functions */
@@ -287,7 +284,9 @@ static void debuggnutls(__attribute__((unused)) int level,
   fprintf(stderr, "GnuTLS: %s", string);
 }
 
-static int init_gnutls_global(mandos_context *mc){
+static int init_gnutls_global(mandos_context *mc,
+			      const char *pubkeyfile,
+			      const char *seckeyfile){
   int ret;
   
   if(debug){
@@ -731,72 +730,90 @@ int main(int argc, char *argv[]){
     gid_t gid;
     char *connect_to = NULL;
     AvahiIfIndex if_index = AVAHI_IF_UNSPEC;
+    const char *pubkeyfile = "pubkey.txt";
+    const char *seckeyfile = "seckey.txt";
     mandos_context mc = { .simple_poll = NULL, .server = NULL,
 			  .dh_bits = 1024, .priority = "SECURE256"};
     
     {
-      /* Temporary int to get the address of for getopt_long */
-      int debug_int = debug ? 1 : 0;
-      while (true){
-	struct option long_options[] = {
-	  {"debug", no_argument, &debug_int, 1},
-	  {"connect", required_argument, NULL, 'c'},
-	  {"interface", required_argument, NULL, 'i'},
-	  {"keydir", required_argument, NULL, 'd'},
-	  {"seckey", required_argument, NULL, 's'},
-	  {"pubkey", required_argument, NULL, 'p'},
-	  {"dh-bits", required_argument, NULL, 'D'},
-	  {"priority", required_argument, NULL, 'P'},
-	  {0, 0, 0, 0} };
+      struct argp_option options[] = {
+	{ .name = "debug", .key = 128,
+	  .doc = "Debug mode", .group = 3 },
+	{ .name = "connect", .key = 'c',
+	  .arg = "IP",
+	  .doc = "Connect directly to a sepcified mandos server", .group = 1 },
+	{ .name = "interface", .key = 'i',
+	  .arg = "INTERFACE",
+	  .doc = "Interface that Avahi will conntect through", .group = 1 },
+	{ .name = "keydir", .key = 'd',
+	  .arg = "KEYDIR",
+	  .doc = "Directory where the openpgp keyring is", .group = 1 },
+	{ .name = "seckey", .key = 's',
+	  .arg = "SECKEY",
+	  .doc = "Secret openpgp key for gnutls authentication", .group = 1 },
+	{ .name = "pubkey", .key = 'p',
+	  .arg = "PUBKEY",
+	  .doc = "Public openpgp key for gnutls authentication", .group = 2 },
+	{ .name = "dh-bits", .key = 129,
+	  .arg = "BITS",
+	  .doc = "dh-bits to use in gnutls communication", .group = 2 },
+	{ .name = "priority", .key = 130,
+	  .arg = "PRIORITY",
+	  .doc = "GNUTLS priority", .group = 1 },
+	{ .name = NULL }
+      };
+
       
-	int option_index = 0;
-	ret = getopt_long (argc, argv, "i:", long_options,
-			   &option_index);
-      
-	if (ret == -1){
-	  break;
-	}
-      
-	switch(ret){
-	case 0:
-	  break;
-	case 'i':
-	  interface = optarg;
+      error_t parse_opt (int key, char *arg, struct argp_state *state) {
+	/* Get the INPUT argument from `argp_parse', which we know is a
+	   pointer to our plugin list pointer. */
+	switch (key) {
+	case 128:
+	  debug = true;
 	  break;
 	case 'c':
-	  connect_to = optarg;
+	  connect_to = arg;
+	  break;
+	case 'i':
+	  interface = arg;
 	  break;
 	case 'd':
-	  keydir = optarg;
-	  break;
-	case 'p':
-	  pubkeyfile = optarg;
+	  keydir = arg;
 	  break;
 	case 's':
-	  seckeyfile = optarg;
+	  seckeyfile = arg;
 	  break;
-	case 'D':
+	case 'p':
+	  pubkeyfile = arg;
+	  break;
+	case 129:
 	  errno = 0;
-	  mc.dh_bits = (unsigned int) strtol(optarg, NULL, 10);
+	  mc.dh_bits = (unsigned int) strtol(arg, NULL, 10);
 	  if (errno){
 	    perror("strtol");
 	    exit(EXIT_FAILURE);
 	  }
 	  break;
-	case 'P':
-	  mc.priority = optarg;
+	case 130:
+	  mc.priority = arg;
 	  break;
-	case '?':
+	case ARGP_KEY_ARG:
+	  argp_usage (state);
+	  break;
+	  case ARGP_KEY_END:
+	    break;
 	default:
-	  /* getopt_long() has already printed a message about the
-	     unrcognized option, so just exit. */
-	  exit(EXIT_FAILURE);
+	  return ARGP_ERR_UNKNOWN;
 	}
+	return 0;
       }
-      /* Set the global debug flag from the temporary int */
-      debug = debug_int ? true : false;
+
+      struct argp argp = { .options = options, .parser = parse_opt,
+			   .args_doc = "",
+			   .doc = "Mandos client -- Get and decrypt passwords from mandos server" };
+      argp_parse (&argp, argc, argv, 0, 0, NULL);
     }
-    
+      
     pubkeyfile = combinepath(keydir, pubkeyfile);
     if (pubkeyfile == NULL){
       perror("combinepath");
@@ -810,7 +827,7 @@ int main(int argc, char *argv[]){
       goto end;
     }
 
-    ret = init_gnutls_global(&mc);
+    ret = init_gnutls_global(&mc, pubkeyfile, seckeyfile);
     if (ret == -1){
       fprintf(stderr, "init_gnutls_global\n");
       goto end;
