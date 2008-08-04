@@ -133,7 +133,7 @@ class AvahiService(object):
                             u" retries, exiting.", rename_count)
             raise AvahiServiceError("Too many renames")
         name = server.GetAlternativeServiceName(name)
-        logger.notice(u"Changing name to %r ...", name)
+        logger.error(u"Changing name to %r ...", name)
         self.remove()
         self.add()
         self.rename_count += 1
@@ -221,9 +221,7 @@ class Client(object):
     interval = property(lambda self: self._interval,
                         _set_interval)
     del _set_interval
-    def __init__(self, name=None, stop_hook=None, fingerprint=None,
-                 secret=None, secfile=None, fqdn=None, timeout=None,
-                 interval=-1, checker=None):
+    def __init__(self, name = None, stop_hook=None, config={}):
         """Note: the 'checker' argument sets the 'checker_command'
         attribute and not the 'checker' attribute.."""
         self.name = name
@@ -231,28 +229,29 @@ class Client(object):
         # Uppercase and remove spaces from fingerprint
         # for later comparison purposes with return value of
         # the fingerprint() function
-        self.fingerprint = fingerprint.upper().replace(u" ", u"")
+        self.fingerprint = config["fingerprint"].upper()\
+                           .replace(u" ", u"")
         logger.debug(u"  Fingerprint: %s", self.fingerprint)
-        if secret:
-            self.secret = secret.decode(u"base64")
-        elif secfile:
-            sf = open(secfile)
+        if "secret" in config:
+            self.secret = config["secret"].decode(u"base64")
+        elif "secfile" in config:
+            sf = open(config["secfile"])
             self.secret = sf.read()
             sf.close()
         else:
             raise TypeError(u"No secret or secfile for client %s"
                             % self.name)
-        self.fqdn = fqdn
+        self.fqdn = config.get("fqdn", "")
         self.created = datetime.datetime.now()
         self.last_checked_ok = None
-        self.timeout = string_to_delta(timeout)
-        self.interval = string_to_delta(interval)
+        self.timeout = string_to_delta(config["timeout"])
+        self.interval = string_to_delta(config["interval"])
         self.stop_hook = stop_hook
         self.checker = None
         self.checker_initiator_tag = None
         self.stop_initiator_tag = None
         self.checker_callback_tag = None
-        self.check_command = checker
+        self.check_command = config["checker"]
     def start(self):
         """Start this client's checker and timeout hooks"""
         # Schedule a new checker to be started an 'interval' from now,
@@ -272,7 +271,7 @@ class Client(object):
         but not currently used."""
         # If this client doesn't have a secret, it is already stopped.
         if self.secret:
-            logger.debug(u"Stopping client %s", self.name)
+            logger.info(u"Stopping client %s", self.name)
             self.secret = None
         else:
             return False
@@ -297,8 +296,8 @@ class Client(object):
         self.checker = None
         if os.WIFEXITED(condition) \
                and (os.WEXITSTATUS(condition) == 0):
-            logger.debug(u"Checker for %(name)s succeeded",
-                         vars(self))
+            logger.info(u"Checker for %(name)s succeeded",
+                        vars(self))
             self.last_checked_ok = now
             gobject.source_remove(self.stop_initiator_tag)
             self.stop_initiator_tag = gobject.timeout_add\
@@ -308,8 +307,8 @@ class Client(object):
             logger.warning(u"Checker for %(name)s crashed?",
                            vars(self))
         else:
-            logger.debug(u"Checker for %(name)s failed",
-                         vars(self))
+            logger.info(u"Checker for %(name)s failed",
+                        vars(self))
     def start_checker(self):
         """Start a new checker subprocess if one is not running.
         If a checker already exists, leave it running and do
@@ -338,8 +337,8 @@ class Client(object):
                                  u' %s', self.check_command, error)
                     return True # Try again later
             try:
-                logger.debug(u"Starting checker %r for %s",
-                             command, self.name)
+                logger.info(u"Starting checker %r for %s",
+                            command, self.name)
                 self.checker = subprocess.Popen(command,
                                                 close_fds=True,
                                                 shell=True, cwd="/")
@@ -431,7 +430,7 @@ class tcp_handler(SocketServer.BaseRequestHandler, object):
     Note: This will run in its own forked process."""
     
     def handle(self):
-        logger.debug(u"TCP connection from: %s",
+        logger.info(u"TCP connection from: %s",
                      unicode(self.client_address))
         session = gnutls.connection.ClientSession\
                   (self.request, gnutls.connection.X509Credentials())
@@ -463,14 +462,14 @@ class tcp_handler(SocketServer.BaseRequestHandler, object):
         try:
             session.handshake()
         except gnutls.errors.GNUTLSError, error:
-            logger.debug(u"Handshake failed: %s", error)
+            logger.warning(u"Handshake failed: %s", error)
             # Do not run session.bye() here: the session is not
             # established.  Just abandon the request.
             return
         try:
             fpr = fingerprint(peer_certificate(session))
         except (TypeError, gnutls.errors.GNUTLSError), error:
-            logger.debug(u"Bad certificate: %s", error)
+            logger.warning(u"Bad certificate: %s", error)
             session.bye()
             return
         logger.debug(u"Fingerprint: %s", fpr)
@@ -480,14 +479,16 @@ class tcp_handler(SocketServer.BaseRequestHandler, object):
                 client = c
                 break
         if not client:
-            logger.debug(u"Client not found for fingerprint: %s", fpr)
+            logger.warning(u"Client not found for fingerprint: %s",
+                           fpr)
             session.bye()
             return
         # Have to check if client.still_valid(), since it is possible
         # that the client timed out while establishing the GnuTLS
         # session.
         if not client.still_valid():
-            logger.debug(u"Client %(name)s is invalid", vars(client))
+            logger.warning(u"Client %(name)s is invalid",
+                           vars(client))
             session.bye()
             return
         sent_size = 0
@@ -528,9 +529,9 @@ class IPv6_TCPServer(SocketServer.ForkingTCPServer, object):
                                        self.settings["interface"])
             except socket.error, error:
                 if error[0] == errno.EPERM:
-                    logger.warning(u"No permission to"
-                                   u" bind to interface %s",
-                                   self.settings["interface"])
+                    logger.error(u"No permission to"
+                                 u" bind to interface %s",
+                                 self.settings["interface"])
                 else:
                     raise error
         # Only bind(2) the socket if we really need to.
@@ -582,7 +583,7 @@ def string_to_delta(interval):
 def server_state_changed(state):
     """Derived from the Avahi example code"""
     if state == avahi.SERVER_COLLISION:
-        logger.warning(u"Server name collision")
+        logger.error(u"Server name collision")
         service.remove()
     elif state == avahi.SERVER_RUNNING:
         service.add()
@@ -752,13 +753,13 @@ def main():
     def remove_from_clients(client):
         clients.remove(client)
         if not clients:
-            logger.debug(u"No clients left, exiting")
+            logger.critical(u"No clients left, exiting")
             sys.exit()
     
-    clients.update(Set(Client(name=section,
+    clients.update(Set(Client(name = section,
                               stop_hook = remove_from_clients,
-                              **(dict(client_config\
-                                      .items(section))))
+                              config
+                              = dict(client_config.items(section)))
                        for section in client_config.sections()))
     
     if not debug:
@@ -795,8 +796,8 @@ def main():
                                 clients=clients)
     # Find out what port we got
     service.port = tcp_server.socket.getsockname()[1]
-    logger.debug(u"Now listening on address %r, port %d, flowinfo %d,"
-                 u" scope_id %d" % tcp_server.socket.getsockname())
+    logger.info(u"Now listening on address %r, port %d, flowinfo %d,"
+                u" scope_id %d" % tcp_server.socket.getsockname())
     
     #service.interface = tcp_server.socket.getsockname()[3]
     
