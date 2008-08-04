@@ -76,9 +76,9 @@
 
 bool debug = false;
 static const char *keydir = "/conf/conf.d/mandos";
+static const char mandos_protocol_version[] = "1";
 const char *argp_program_version = "mandosclient 0.9";
 const char *argp_program_bug_address = "<mandos@fukt.bsnet.se>";
-static const char mandos_protocol_version[] = "1";
 
 /* Used for passing in values through the Avahi callback functions */
 typedef struct {
@@ -90,9 +90,11 @@ typedef struct {
   const char *priority;
 } mandos_context;
 
-/* Make room in "buffer" for at least BUFFER_SIZE additional bytes.
+/*
+ * Make room in "buffer" for at least BUFFER_SIZE additional bytes.
  * "buffer_capacity" is how much is currently allocated,
- * "buffer_length" is how much is already used. */
+ * "buffer_length" is how much is already used.
+ */
 size_t adjustbuffer(char **buffer, size_t buffer_length,
 		  size_t buffer_capacity){
   if (buffer_length + BUFFER_SIZE > buffer_capacity){
