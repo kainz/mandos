@@ -433,7 +433,9 @@ class tcp_handler(SocketServer.BaseRequestHandler, object):
     def handle(self):
         logger.debug(u"TCP connection from: %s",
                      unicode(self.client_address))
-
+        session = gnutls.connection.ClientSession\
+                  (self.request, gnutls.connection.X509Credentials())
+        
         line = self.request.makefile().readline()
         logger.debug(u"Protocol version: %r", line)
         try:
@@ -443,8 +445,6 @@ class tcp_handler(SocketServer.BaseRequestHandler, object):
             logger.error(u"Unknown protocol version: %s", error)
             return
         
-        session = gnutls.connection.ClientSession\
-                  (self.request, gnutls.connection.X509Credentials())
         # Note: gnutls.connection.X509Credentials is really a generic
         # GnuTLS certificate credentials object so long as no X.509
         # keys are added to it.  Therefore, we can use it here despite
