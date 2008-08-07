@@ -616,7 +616,7 @@ def if_nametoindex(interface):
     return if_nametoindex(interface)
 
 
-def daemon(nochdir, noclose):
+def daemon(nochdir = False, noclose = False):
     """See daemon(3).  Standard BSD Unix function.
     This should really exist as os.daemon, but it doesn't (yet)."""
     if os.fork():
@@ -683,7 +683,7 @@ def main():
     # Parse config file for server-global settings
     server_config = ConfigParser.SafeConfigParser(server_defaults)
     del server_defaults
-    server_config.read(os.path.join(options.configdir, "server.conf"))
+    server_config.read(os.path.join(options.configdir, "mandos.conf"))
     server_section = "server"
     # Convert the SafeConfigParser object to a dict
     server_settings = dict(server_config.items(server_section))
@@ -753,7 +753,7 @@ def main():
                        for section in client_config.sections()))
     
     if not debug:
-        daemon(False, False)
+        daemon()
     
     def cleanup():
         "Cleanup function; run on exit"
