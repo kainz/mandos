@@ -1,0 +1,189 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<?xml-stylesheet type="text/xsl"
+	href="http://docbook.sourceforge.net/release/xsl/current/manpages/docbook.xsl"?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+<!ENTITY VERSION "1.0">
+<!ENTITY CONFNAME "mandos.conf">
+<!ENTITY CONFPATH "<filename>/etc/mandos/mandos.conf</filename>">
+]>
+
+<refentry>
+  <refentryinfo>
+    <title>&CONFNAME;</title>
+    <!-- NWalsh's docbook scripts use this to generate the footer: -->
+    <productname>&CONFNAME;</productname>
+    <productnumber>&VERSION;</productnumber>
+    <authorgroup>
+      <author>
+	<firstname>Björn</firstname>
+	<surname>Påhlsson</surname>
+	<address>
+	  <email>belorn@fukt.bsnet.se</email>
+	</address>
+      </author>
+      <author>
+	<firstname>Teddy</firstname>
+	<surname>Hogeborn</surname>
+	<address>
+	  <email>teddy@fukt.bsnet.se</email>
+	</address>
+      </author>
+    </authorgroup>
+    <copyright>
+      <year>2008</year>
+      <holder>Teddy Hogeborn &amp; Björn Påhlsson</holder>
+    </copyright>
+    <legalnotice>
+      <para>
+	This manual page is free software: you can redistribute it
+	and/or modify it under the terms of the GNU General Public
+	License as published by the Free Software Foundation,
+	either version 3 of the License, or (at your option) any
+	later version.
+      </para>
+
+      <para>
+	This manual page is distributed in the hope that it will
+	be useful, but WITHOUT ANY WARRANTY; without even the
+	implied warranty of MERCHANTABILITY or FITNESS FOR A
+	PARTICULAR PURPOSE.  See the GNU General Public License
+	for more details.
+      </para>
+
+      <para>
+	You should have received a copy of the GNU General Public
+	License along with this program; If not, see
+	<ulink url="http://www.gnu.org/licenses/"/>.
+      </para>
+    </legalnotice>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>&CONFNAME;</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+  
+  <refnamediv>
+    <refname><filename>&CONFNAME;</filename></refname>
+    <refpurpose>
+      Configuration file for Mandos
+    </refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <synopsis>
+      &CONFPATH;
+    </synopsis>
+  </refsynopsisdiv>
+
+  <refsect1 id="description">
+    <title>DESCRIPTION</title>
+    <para>
+      The file &CONFPATH; is a simple configuration file for mandos
+      and is looked on at startup of the service. The configuration
+      file must start with <literal>[server]</literal>. The format for
+      the rest is a simple VAR = VALUE pair. Values may not be empty.
+    </para>
+
+    <para>
+      The paramters are:
+    </para>
+
+    <variablelist>
+      <varlistentry>
+	<term><literal>interface</literal></term>
+	<listitem>
+	  <para>
+	    This option allows you to override the default network
+	    interfaces. By default mandos will not bind to any
+	    specific interface but instead use default avahi-server
+	    behaviour.
+	  </para>
+	</listitem>
+      </varlistentry>
+
+      <varlistentry>
+	<term><literal>address</literal></term>
+	<listitem>
+	  <para>
+	    This option allows you to override the default network
+	    address. By default mandos will not bind to any
+	    specific address but instead use default avahi-server
+	    behaviour.
+	  </para>
+	</listitem>
+      </varlistentry>      
+
+      <varlistentry>
+	<term><literal>port</literal></term>
+	<listitem>
+	  <para>
+	    This option allows you to override the default port to
+	    listen on. By default mandos will not specify any specific
+	    port and instead use a random port given by the OS from
+	    the use of INADDR_ANY.
+	  </para>
+	</listitem>
+      </varlistentry>
+
+      <varlistentry>
+	<term><literal>debug</literal></term>
+	<listitem>
+	  <para>
+	    This option allows you to modify debug mode with a true/false
+	    boolean value. By default is debug set to <literal>false</literal>.
+	  </para>
+	</listitem>
+      </varlistentry>      
+
+      <varlistentry>
+	<term><literal>priority</literal></term>
+	<listitem>
+	  <para>
+	    This option allows you to override the default gnutls
+	    priority that will be used in gnutls session. See
+	    <citerefentry><refentrytitle>gnutls_priority_init
+	    </refentrytitle><manvolnum>3</manvolnum></citerefentry>for
+	    more information on gnutls priority strings.
+	  </para>	  
+	</listitem>
+      </varlistentry>
+
+      <varlistentry>
+	<term><literal>servicename</literal></term>
+	<listitem>
+	  <para>
+	    This option allows you to override the default Zeroconf
+	    service name use to announce mandos as a avahi service. By
+	    default mandos will use "Mandos".
+	  </para>
+	</listitem>
+      </varlistentry>
+      
+    </variablelist>
+  </refsect1>
+
+  <refsect1 id="examples">
+    <title>EXAMPLES</title>
+    <informalexample>
+      <programlisting>
+	[server]
+	# A configuration example
+	interface = eth0 
+	address = 2001:DB8:
+	port = 1025 
+	debug = true 
+	priority = SECURE256:!CTYPE-X.509:+CTYPE-OPENPGP
+	servicename = Mandos
+      </programlisting>
+    </informalexample>
+  </refsect1>  
+  
+  <refsect1 id="files">
+    <title>FILES</title>
+    <para>
+      The file described here is &CONFPATH;
+    </para>
+  </refsect1>
+</refentry>
