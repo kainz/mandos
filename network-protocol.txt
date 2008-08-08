@@ -1,0 +1,18 @@
+The Mandos server announces itself as a Zeroconf service of type
+"_mandos._tcp". The Mandos client sends a line of text where the first
+whitespace-separated field is the protocol version, which currently is
+"1".  The client and server then start a TLS protocol handshake with a
+slight quirk: the Mandos server program acts as a TLS "client" while
+the connecting Mandos client acts as a TLS "server".  The Mandos
+client must supply an OpenPGP certificate, and the fingerprint of this
+certificate is used by the Mandos server to look up (in a list read
+from a file at start time) which binary blob to give the client.  No
+other authentication or authorization is done by the server.
+
+| Mandos server   |     | Mandos client                              |
+|                 |     | <Connect>                                  |
+|                 | <-  | "1\r\n"                                    |
+| <TLS handshake> | <-> | <TLS handshake>                            |
+|                 | <-  | OpenPGP public key (part of TLS handshake) |
+| <Binary blob>   | ->  |                                            |
+| <Close>         |     |                                            |
