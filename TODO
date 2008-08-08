@@ -55,6 +55,8 @@
 * Installer
 ** [#A] Change initrd.img file to not be publically readable
 ** [#A] Create GPG key ring files in initrd
+** [#A] Create mandos user and group for server
+** [#A] Create /var/run/mandos directory with perm and ownership
 
 
 #+STARTUP: showall
