@@ -528,9 +528,16 @@ class IPv6_TCPServer(SocketServer.ForkingTCPServer, object):
                 in6addr_any = "::"
                 self.server_address = (in6addr_any,
                                        self.server_address[1])
-            elif self.server_address[1] is None:
+            elif not self.server_address[1]:
                 self.server_address = (self.server_address[0],
                                        0)
+#                 if self.settings["interface"]:
+#                     self.server_address = (self.server_address[0],
+#                                            0, # port
+#                                            0, # flowinfo
+#                                            if_nametoindex
+#                                            (self.settings
+#                                             ["interface"]))
             return super(type(self), self).server_bind()
 
 
@@ -652,7 +659,7 @@ def main():
                       help="Port number to receive requests on")
     parser.add_option("--check", action="store_true", default=False,
                       help="Run self-test")
-    parser.add_option("--debug", action="store_true", default=False,
+    parser.add_option("--debug", action="store_true",
                       help="Debug mode; run in foreground and log to"
                       " terminal")
     parser.add_option("--priority", type="string", help="GnuTLS"
