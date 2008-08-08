@@ -761,6 +761,17 @@ def main():
     
     if not debug:
         daemon()
+
+    pidfilename = "/var/run/mandos/mandos.pid"
+    pid = os.getpid()
+    try:
+        pidfile = open(pidfilename, "w")
+        pidfile.write(str(pid) + "\n")
+        pidfile.close()
+        del pidfile
+    except IOError, err:
+        logger.error("Could not write %s file with PID %d",
+                     pidfilename, os.getpid())
     
     def cleanup():
         "Cleanup function; run on exit"
