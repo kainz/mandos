@@ -11,21 +11,35 @@ LANGUAGE=-std=gnu99
 CFLAGS=$(WARN) $(DEBUG) $(FORTIFY) $(COVERAGE) $(OPTIMIZE) $(LANGUAGE)
 LDFLAGS=$(COVERAGE)
 
-PROGS=plugbasedclient plugins.d/mandosclient plugins.d/passprompt
+PROGS=mandos-client plugins.d/password-request plugins.d/password-prompt
 
 objects=$(shell for p in $(PROGS); do echo $${p}.o; done)
 
 all: $(PROGS)
 
-plugbasedclient: plugbasedclient.o
+mandos-client: mandos-client.o
 	$(LINK.o) -lgnutls $(COMMON) $^ $(LOADLIBES) $(LDLIBS) -o $@
 
-plugins.d/mandosclient: plugins.d/mandosclient.o
+plugins.d/password-request: plugins.d/password-request.o
 	$(LINK.o) -lgnutls -lavahi-core -lgpgme $(COMMON) $^ $(LOADLIBES) $(LDLIBS) -o $@
 
-plugins.d/passprompt: plugins.d/passprompt.o
+plugins.d/password-prompt: plugins.d/password-prompt.o
 	$(LINK.o) $(COMMON) $^ $(LOADLIBES) $(LDLIBS) -o $@
 
-.PHONY : clean
+.PHONY : all clean distclean run-client run-server
+
 clean:
-	-rm -f $(PROGS) $(objects) core
+	-rm --force $(PROGS) $(objects) core
+
+distclean: clean
+mostlyclean: clean
+maintainer-clean: clean
+
+check: all
+	./mandos --check
+
+run-client: all
+	./mandos-client --plugin-dir=plugins.d --options-for=password-request:--keydir=keydir
+
+run-server: all
+	./mandos --debug --configdir=.

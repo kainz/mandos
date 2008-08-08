@@ -2,29 +2,36 @@
 
 * README file
 
-* Mandos client
-** [#A] Man page
-** [#A] check exit codes of all system calls
-** [#B] header files/symbols tally
-** IPv4 support
-** use strsep instead of strtok?
-** Do not depend on GPG key rings on disk
-   This would mean creating new GPG key rings with GPGME by importing
-   the key files from scratch every time we start the program.
+* COPYING file
+  [[file:/usr/share/common-licenses/GPL-3][GPLv3]]
 
-* Passprompt
-** [#A] Man page
-
-* Pluginbasedclient
-** [#A] Man page
-** [#A] check exit codes of all system calls
+* Mandos-client
+** [#A] Man page: man8/mandos-client.8mandos
+** [#A] check return codes of all system calls
 ** [#B] header files/symbols tally
 ** use strsep instead of strtok?
 ** use config file in addition to arguments
 ** pass things in environment, like device name, etc
 
+* Password-request
+** [#A] Man page: man8/password-request.8mandos
+** [#A] check return codes of all system calls
+** [#B] header files/symbols tally
+** IPv4 support
+** use strsep instead of strtok?
+** Do not depend on GPG key rings on disk
+   This would mean creating new GPG key rings with GPGME by importing
+   the key files from scratch on every program start.
+
+* Password-prompt
+** [#A] Man page: man8/password-prompt.8mandos
+** Use getpass(3)?
+   [[info:libc:getpass][GNU LibC Manual: Reading Passwords]]
+
 * Server
-** [#A] Man page
+** [#A] Command man page: man8/mandos.8
+** [#A] Config file man page: man5/mandos.conf (mandos.conf)
+** [#A] Config file man page: man5/mandos-clients.conf (clients.conf)
 ** [#A] write PID file
 ** [#A] /etc/init.d/mandos-server
 ** Better comments in config files
@@ -34,6 +41,10 @@
 ** config for TXT record
 ** Run-time communication with server
    probably using D-Bus
+** Implement --foreground
+   [[info:standards:Option%20Table][Table of Long Options]]
+** Implement --socket
+   [[info:standards:Option%20Table][Table of Long Options]]
 
 * Mandos-tools/utilities
   All of this probably using D-Bus
@@ -42,8 +53,8 @@
 ** Disable client
 
 * Installer
-** Change initrd.img file to not be publically readable
-** Create GPG key ring files in initrd
+** [#A] Change initrd.img file to not be publically readable
+** [#A] Create GPG key ring files in initrd
 
 
 #+STARTUP: showall
