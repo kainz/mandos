@@ -60,6 +60,15 @@
 ** [#A] Create mandos user and group for server
 ** [#A] Create /var/run/mandos directory with perm and ownership
 
+* INSTALL file
+
+* Website
+
+* Mailing list
+
+* Announce project on news
+  news:comp.os.linux.announce
+
 * [[http://en.tldp.org/HOWTO/Software-Release-Practice-HOWTO/][Software Release Practice HOWTO]]
 
 
