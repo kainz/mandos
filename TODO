@@ -7,13 +7,69 @@
 
 * Mandos-client
 ** [#A] Man page: man8/mandos-client.8mandos
+*** SYNOPSIS
+    Needs options listed, not just "[OPTION...]"
+*** DESCRIPTION
+    Move options to new OPTIONS section.
+    State that this command is not meant to be invoked directly, but
+    is meant to be run by cryptsetup by being specified in
+    /etc/crypttab and only run in the initrd environment, not the real
+    system.
+*** EXIT STATUS
+    Create this section
+*** USAGE
+    Describe the plus sign syntax for passing options from crypttab
+*** EXAMPLES
+    Examples of normal usage, debug usage, debugging single or all
+    plugins, examples of crypttab lines with plus syntax, etc.
+*** FILES
+    Describe plugin directory
+*** DIAGNOSTICS
+    Create this section
+*** SECURITY
+    Create this section
+*** NOTES
+    Create this section (if needed)
+*** BUGS
+    Create this section
+*** SEE ALSO
+    Refer to mandos(8), password-request(8mandos), and
+    password-prompt(8mandos)
 ** [#B] Fix %d format strings to use [[https://secure.wikimedia.org/wikipedia/en/wiki/Inttypes.h][<inttypes.h>]]
 ** use strsep instead of strtok?
 ** use config file in addition to arguments
 ** pass things in environment, like device name, etc
+** Fallback
+   As a fallback, if no plugins can be found or if all of them failed,
+   run getpass(3) itself.
 
 * Password-request
 ** [#A] Man page: man8/password-request.8mandos
+*** SYNOPSIS
+    Needs options listed, not just "[OPTION...]"
+*** DESCRIPTION
+    Move options to new OPTIONS section.
+    State that this command is not meant to be invoked directly, but
+    is run as a plugin from mandos-client(8) and only run in the
+    initrd environment, not the real system.
+*** EXIT STATUS
+    Create this section
+*** EXAMPLES
+    Examples of normal usage, debug usage, debugging by connecting
+    directly, etc.
+*** FILES
+    Describe the key files and the key ring files.  Also note that
+    they should normally have been automatically created.
+*** DIAGNOSTICS
+    Create this section
+*** SECURITY
+    Create this section
+*** NOTES
+    Create this section (if needed)
+*** BUGS
+    Create this section
+*** SEE ALSO
+    Refer to mandos-client(8mandos) and password-prompt(8mandos)
 ** [#B] Fix %d format strings to use [[https://secure.wikimedia.org/wikipedia/en/wiki/Inttypes.h][<inttypes.h>]]
 ** start_mandos_communication: loop around gnutls_handshake
    [[info:gnutls.info.gz:Core%20functions][gnutls_handshake]]
@@ -25,14 +81,57 @@
 
 * Password-prompt
 ** [#A] Man page: man8/password-prompt.8mandos
+*** SYNOPSIS
+    Needs options listed, not just "[OPTION...]"
+*** DESCRIPTION
+    Move options to new OPTIONS section.
+*** EXIT STATUS
+    Create this section
+*** EXAMPLES
+    Examples of normal usage, debug usage, with a prefix, etc.
+*** DIAGNOSTICS
+    Create this section
+*** SECURITY
+    Create this section
+    Not much to do here but it is noteworthy to state the danger of
+    not having a fallback option.
+*** NOTES
+    Note that this is more or less a simple getpass(3) wrapper, even
+    though actual use of getpass(3) is not guaranteed.
+*** BUGS
+    Create this section
+*** SEE ALSO
+    Refer to mandos-client(8mandos) and password-request(8mandos)
 ** Use getpass(3)?
    Man page says "obsolete", but [[info:libc:getpass][GNU LibC Manual: Reading Passwords]]
    does not.  See also [[http://sources.redhat.com/ml/libc-alpha/2003-05/msg00251.html][Marcus Brinkmann: Re: getpass obsolete?]] and
    [[http://article.gmane.org/gmane.comp.lib.glibc.alpha/4906][Petter Reinholdtsen: Re: getpass obsolete?]], and especially also
    [[http://www.steve.org.uk/Reference/Unix/faq_4.html#SEC48][Unix Programming FAQ 3.1 How can I make my program not echo input?]]
 
-* Server
+* Mandos (server)
 ** [#A] Command man page: man8/mandos.8
+*** SYNOPSIS
+    Needs options listed, not just "[OPTION...]"
+*** DESCRIPTION
+    Move options to new OPTIONS section
+*** EXIT STATUS
+    Create this section
+*** EXAMPLES
+    Create this section
+*** FILES
+    Describe briefly that the server gets global settings from
+    mandos.conf and clients from clients.conf, but refer to their man
+    pages for more details.
+*** DIAGNOSTICS
+    Create this section
+*** SECURITY
+    Create this section
+*** NOTES
+    Create this section (if needed)
+*** BUGS
+    Create this section
+*** SEE ALSO
+    Refer to the client man page
 ** [#A] Config file man page: man5/mandos.conf (mandos.conf)
 ** [#A] Config file man page: man5/mandos-clients.conf (clients.conf)
 ** [#A] /etc/init.d/mandos-server		:teddy:
@@ -55,7 +154,7 @@
 ** Enable client
 
 * Installer
-** [#A] Change initrd.img file to not be publically readable
+** DONE [#A] Change initrd.img file to not be publically readable
    /etc/initramfs-tools/conf.d/mandos
    UMASK=027
 ** [#A] Create /etc/initramfs-tools/hooks/mandos
@@ -63,6 +162,9 @@
 ** [#A] Create GPG key ring files in initrd
 ** [#A] Create mandos user and group for server
 ** [#A] Create /var/run/mandos directory with perm and ownership
+
+* Package
+** /etc/bash_completion.d/mandos
 
 * [[http://en.tldp.org/HOWTO/Software-Release-Practice-HOWTO/][Software Release Practice HOWTO]]
 
