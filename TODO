@@ -166,7 +166,14 @@
 * Package
 ** /etc/bash_completion.d/mandos
 
-* [[http://en.tldp.org/HOWTO/Software-Release-Practice-HOWTO/][Software Release Practice HOWTO]]
+* INSTALL file
+
+* Web site
+
+* Mailing list
+
+* Announce project on news
+  [[news:comp.os.linux.announce]]
 
 
 #+STARTUP: showall
