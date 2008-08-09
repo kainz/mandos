@@ -33,7 +33,7 @@
 				   sigaction, sigemptyset(),
 				   sigaction(), sigaddset(), SIGINT,
 				   SIGQUIT, SIGHUP, SIGTERM */
-#include <stddef.h>		/* NULL, size_t */
+#include <stddef.h>		/* NULL, size_t, ssize_t */
 #include <sys/types.h>		/* ssize_t */
 #include <stdlib.h>		/* EXIT_SUCCESS, EXIT_FAILURE,
 				   getopt_long */
@@ -44,9 +44,11 @@
 #include <iso646.h>		/* or, not */
 #include <stdbool.h>		/* bool, false, true */
 #include <string.h> 		/* strlen, rindex, strncmp, strcmp */
-#include <argp.h>		/* struct argp_option,
-				   struct argp_state, struct argp,
-				   argp_parse() */
+#include <argp.h>		/* struct argp_option, struct
+				   argp_state, struct argp,
+				   argp_parse(), error_t,
+				   ARGP_KEY_ARG, ARGP_KEY_END,
+				   ARGP_ERR_UNKNOWN */
 
 volatile bool quit_now = false;
 bool debug = false;
@@ -101,7 +103,11 @@ int main(int argc, char **argv){
     struct argp argp = { .options = options, .parser = parse_opt,
 			 .args_doc = "",
 			 .doc = "Mandos Passprompt -- Provides a passprompt" };
-    argp_parse (&argp, argc, argv, 0, 0, NULL);
+    ret = argp_parse (&argp, argc, argv, 0, 0, NULL);
+    if (ret == ARGP_ERR_UNKNOWN){
+      perror("argp_parse");
+      return EXIT_FAILURE;
+    }
   }
     
   if (debug){
@@ -119,16 +125,43 @@ int main(int argc, char **argv){
   sigaddset(&new_action.sa_mask, SIGINT);
   sigaddset(&new_action.sa_mask, SIGHUP);
   sigaddset(&new_action.sa_mask, SIGTERM);
-  sigaction(SIGINT, NULL, &old_action);
-  if (old_action.sa_handler != SIG_IGN)
-    sigaction(SIGINT, &new_action, NULL);
-  sigaction(SIGHUP, NULL, &old_action);
-  if (old_action.sa_handler != SIG_IGN)
-    sigaction(SIGHUP, &new_action, NULL);
-  sigaction(SIGTERM, NULL, &old_action);
-  if (old_action.sa_handler != SIG_IGN)
-    sigaction(SIGTERM, &new_action, NULL);
-
+  ret = sigaction(SIGINT, NULL, &old_action);
+  if(ret == -1){
+    perror("sigaction");
+    return EXIT_FAILURE;
+  }
+  if (old_action.sa_handler != SIG_IGN){
+    ret = sigaction(SIGINT, &new_action, NULL);
+    if(ret == -1){
+      perror("sigaction");
+      return EXIT_FAILURE;
+    }
+  }
+  ret = sigaction(SIGHUP, NULL, &old_action);
+  if(ret == -1){
+    perror("sigaction");
+    return EXIT_FAILURE;
+  }
+  if (old_action.sa_handler != SIG_IGN){
+    ret = sigaction(SIGHUP, &new_action, NULL);
+    if(ret == -1){
+      perror("sigaction");
+      return EXIT_FAILURE;
+    }
+  }
+  ret = sigaction(SIGTERM, NULL, &old_action);
+  if(ret == -1){
+    perror("sigaction");
+    return EXIT_FAILURE;
+  }
+  if (old_action.sa_handler != SIG_IGN){
+    ret = sigaction(SIGTERM, &new_action, NULL);
+    if(ret == -1){
+      perror("sigaction");
+      return EXIT_FAILURE;
+    }
+  }
+  
   
   if (debug){
     fprintf(stderr, "Removing echo flag from terminal attributes\n");

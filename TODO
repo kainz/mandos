@@ -7,8 +7,6 @@
 
 * Mandos-client
 ** [#A] Man page: man8/mandos-client.8mandos
-** [#A] check return codes of all system calls
-** [#B] header files/symbols tally
 ** use strsep instead of strtok?
 ** use config file in addition to arguments
 ** pass things in environment, like device name, etc
