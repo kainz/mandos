@@ -64,11 +64,11 @@ import ctypes
 
 logger = logging.Logger('mandos')
 syslogger = logging.handlers.SysLogHandler\
-            (facility = logging.handlers.SysLogHandler.LOG_DAEMON)
+            (facility = logging.handlers.SysLogHandler.LOG_DAEMON,
+             address = "/dev/log")
 syslogger.setFormatter(logging.Formatter\
-                        ('%(levelname)s: %(message)s'))
+                        ('Mandos: %(levelname)s: %(message)s'))
 logger.addHandler(syslogger)
-del syslogger
 
 
 class AvahiError(Exception):
@@ -102,7 +102,7 @@ class AvahiService(object):
     """
     def __init__(self, interface = avahi.IF_UNSPEC, name = None,
                  type = None, port = None, TXT = None, domain = "",
-                 host = "", max_renames = 12):
+                 host = "", max_renames = 32768):
         self.interface = interface
         self.name = name
         self.type = type
@@ -122,6 +122,9 @@ class AvahiService(object):
             raise AvahiServiceError("Too many renames")
         name = server.GetAlternativeServiceName(name)
         logger.error(u"Changing name to %r ...", name)
+        syslogger.setFormatter(logging.Formatter\
+                               ('Mandos (%s): %%(levelname)s:'
+                               ' %%(message)s' % name))
         self.remove()
         self.add()
         self.rename_count += 1
@@ -709,6 +712,17 @@ def main():
     del options
     # Now we have our good server settings in "server_settings"
     
+    debug = server_settings["debug"]
+    
+    if not debug:
+        syslogger.setLevel(logging.WARNING)
+    
+    if server_settings["servicename"] != "Mandos":
+        syslogger.setFormatter(logging.Formatter\
+                               ('Mandos (%s): %%(levelname)s:'
+                                ' %%(message)s'
+                                % server_settings["servicename"]))
+    
     # Parse config file with clients
     client_defaults = { "timeout": "1h",
                         "interval": "5m",
@@ -735,8 +749,6 @@ def main():
             bus.get_object( avahi.DBUS_NAME, avahi.DBUS_PATH_SERVER ),
             avahi.DBUS_INTERFACE_SERVER )
     # End of Avahi example code
-    
-    debug = server_settings["debug"]
     
     if debug:
         console = logging.StreamHandler()
