@@ -21,14 +21,13 @@ objects=$(shell for p in $(PROGS); do echo $${p}.o; done)
 all: $(PROGS) $(DOCS)
 
 %.5: %.xml
-	$(DOCBOOKTOMAN) $^
+	cd $(shell dirname $^); $(DOCBOOKTOMAN) $(shell basename $^)
 
 %.8: %.xml
-	$(DOCBOOKTOMAN) $^
+	cd $(shell dirname $^); $(DOCBOOKTOMAN) $(shell basename $^)
 
 %.8mandos: %.xml
-	$(DOCBOOKTOMAN) $^
-	-mv ./$(shell basename $@) $@ 2>/dev/null
+	cd $(shell dirname $^); $(DOCBOOKTOMAN) $(shell basename $^)
 
 mandos-client: mandos-client.o
 	$(LINK.o) -lgnutls $(COMMON) $^ $(LOADLIBES) $(LDLIBS) -o $@

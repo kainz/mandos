@@ -64,11 +64,11 @@ import ctypes
 
 logger = logging.Logger('mandos')
 syslogger = logging.handlers.SysLogHandler\
-            (facility = logging.handlers.SysLogHandler.LOG_DAEMON)
+            (facility = logging.handlers.SysLogHandler.LOG_DAEMON,
+             address = "/dev/log")
 syslogger.setFormatter(logging.Formatter\
-                        ('%(levelname)s: %(message)s'))
+                        ('Mandos: %(levelname)s: %(message)s'))
 logger.addHandler(syslogger)
-del syslogger
 
 
 class AvahiError(Exception):
@@ -102,7 +102,7 @@ class AvahiService(object):
     """
     def __init__(self, interface = avahi.IF_UNSPEC, name = None,
                  type = None, port = None, TXT = None, domain = "",
-                 host = "", max_renames = 12):
+                 host = "", max_renames = 32768):
         self.interface = interface
         self.name = name
         self.type = type
@@ -122,6 +122,9 @@ class AvahiService(object):
             raise AvahiServiceError("Too many renames")
         name = server.GetAlternativeServiceName(name)
         logger.error(u"Changing name to %r ...", name)
+        syslogger.setFormatter(logging.Formatter\
+                               ('Mandos (%s): %%(levelname)s:'
+                               ' %%(message)s' % name))
         self.remove()
         self.add()
         self.rename_count += 1
@@ -163,7 +166,7 @@ class Client(object):
     fingerprint: string (40 or 32 hexadecimal digits); used to
                  uniquely identify the client
     secret:    bytestring; sent verbatim (over TLS) to client
-    fqdn:      string (FQDN); available for use by the checker command
+    host:      string; available for use by the checker command
     created:   datetime.datetime(); object creation, not client host
     last_checked_ok: datetime.datetime() or None if not yet checked OK
     timeout:   datetime.timedelta(); How long from last_checked_ok
@@ -230,7 +233,7 @@ class Client(object):
         else:
             raise TypeError(u"No secret or secfile for client %s"
                             % self.name)
-        self.fqdn = config.get("fqdn", "")
+        self.host = config.get("host", "")
         self.created = datetime.datetime.now()
         self.last_checked_ok = None
         self.timeout = string_to_delta(config["timeout"])
@@ -259,7 +262,7 @@ class Client(object):
         The possibility that a client might be restarted is left open,
         but not currently used."""
         # If this client doesn't have a secret, it is already stopped.
-        if self.secret:
+        if hasattr(self, "secret") and self.secret:
             logger.info(u"Stopping client %s", self.name)
             self.secret = None
         else:
@@ -313,7 +316,7 @@ class Client(object):
         if self.checker is None:
             try:
                 # In case check_command has exactly one % operator
-                command = self.check_command % self.fqdn
+                command = self.check_command % self.host
             except TypeError:
                 # Escape attributes for the shell
                 escaped_attrs = dict((key, re.escape(str(val)))
@@ -346,7 +349,7 @@ class Client(object):
             self.checker_callback_tag = None
         if getattr(self, "checker", None) is None:
             return
-        logger.debug("Stopping checker for %(name)s", vars(self))
+        logger.debug(u"Stopping checker for %(name)s", vars(self))
         try:
             os.kill(self.checker.pid, signal.SIGTERM)
             #os.sleep(0.5)
@@ -709,10 +712,21 @@ def main():
     del options
     # Now we have our good server settings in "server_settings"
     
+    debug = server_settings["debug"]
+    
+    if not debug:
+        syslogger.setLevel(logging.WARNING)
+    
+    if server_settings["servicename"] != "Mandos":
+        syslogger.setFormatter(logging.Formatter\
+                               ('Mandos (%s): %%(levelname)s:'
+                                ' %%(message)s'
+                                % server_settings["servicename"]))
+    
     # Parse config file with clients
     client_defaults = { "timeout": "1h",
                         "interval": "5m",
-                        "checker": "fping -q -- %%(fqdn)s",
+                        "checker": "fping -q -- %%(host)s",
                         }
     client_config = ConfigParser.SafeConfigParser(client_defaults)
     client_config.read(os.path.join(server_settings["configdir"],
@@ -736,8 +750,6 @@ def main():
             avahi.DBUS_INTERFACE_SERVER )
     # End of Avahi example code
     
-    debug = server_settings["debug"]
-    
     if debug:
         console = logging.StreamHandler()
         # console.setLevel(logging.DEBUG)
@@ -758,9 +770,23 @@ def main():
                               config
                               = dict(client_config.items(section)))
                        for section in client_config.sections()))
+    if not clients:
+        logger.critical(u"No clients defined")
+        sys.exit(1)
     
     if not debug:
         daemon()
+    
+    pidfilename = "/var/run/mandos/mandos.pid"
+    pid = os.getpid()
+    try:
+        pidfile = open(pidfilename, "w")
+        pidfile.write(str(pid) + "\n")
+        pidfile.close()
+        del pidfile
+    except IOError, err:
+        logger.error(u"Could not write %s file with PID %d",
+                     pidfilename, os.getpid())
     
     def cleanup():
         "Cleanup function; run on exit"
@@ -813,7 +839,7 @@ def main():
                              tcp_server.handle_request\
                              (*args[2:], **kwargs) or True)
         
-        logger.debug("Starting main loop")
+        logger.debug(u"Starting main loop")
         main_loop_started = True
         main_loop.run()
     except AvahiError, error:
