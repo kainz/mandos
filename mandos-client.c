@@ -292,7 +292,7 @@ int main(int argc, char *argv[]){
   
   ret = argp_parse (&argp, argc, argv, 0, 0, &plugin_list);
   if (ret == ARGP_ERR_UNKNOWN){
-    perror("argp_parse");
+    fprintf(stderr, "Unkown error while parsing arguments\n");
     exitstatus = EXIT_FAILURE;
     goto end;
   }
@@ -329,7 +329,7 @@ int main(int argc, char *argv[]){
     }
     ret = argp_parse (&argp, new_argc, plus_argv, 0, 0, &plugin_list);
     if (ret == ARGP_ERR_UNKNOWN){
-      perror("argp_parse");
+      fprintf(stderr, "Unkown error while parsing arguments\n");
       exitstatus = EXIT_FAILURE;
       goto end;
     }

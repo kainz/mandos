@@ -14,8 +14,6 @@
 
 * Password-request
 ** [#A] Man page: man8/password-request.8mandos
-** [#A] check return codes of all system calls
-** [#B] header files/symbols tally
 ** [#B] Fix %d format strings to use [[https://secure.wikimedia.org/wikipedia/en/wiki/Inttypes.h][<inttypes.h>]]
 ** IPv4 support
 ** use strsep instead of strtok?
