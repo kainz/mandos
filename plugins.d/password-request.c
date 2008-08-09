@@ -34,99 +34,66 @@
 
 #define _GNU_SOURCE		/* TEMP_FAILURE_RETRY() */
 
-#include <stdio.h>		/* fprintf(), stderr, fwrite(), stdout, ferror() */
+#include <stdio.h>		/* fprintf(), stderr, fwrite(), stdout,
+				   ferror() */
 #include <stdint.h> 		/* uint16_t, uint32_t */
 #include <stddef.h>		/* NULL, size_t, ssize_t */
-#include <stdlib.h> 		/* free() */
+#include <stdlib.h> 		/* free(), EXIT_SUCCESS, EXIT_FAILURE,
+				   srand() */
 #include <stdbool.h>		/* bool, true */
-#include <string.h>		/* memset(), strcmp(), strlen, strerror() */
-#include <sys/ioctl.h>          /* ioctl, ifreq, SIOCGIFFLAGS, IFF_UP,
-				   SIOCSIFFLAGS */
+#include <string.h>		/* memset(), strcmp(), strlen(),
+				   strerror(), memcpy(), strcpy() */
+#include <sys/ioctl.h>          /* ioctl */
+#include <net/if.h>		/* ifreq, SIOCGIFFLAGS, SIOCSIFFLAGS,
+				   IFF_UP */
 #include <sys/types.h>		/* socket(), inet_pton(), sockaddr,
-				   sockaddr_in6, PF_INET6, SOCK_STREAM, INET6_ADDRSTRLEN */
+				   sockaddr_in6, PF_INET6,
+				   SOCK_STREAM, INET6_ADDRSTRLEN,
+				   uid_t, gid_t */
 #include <sys/socket.h>		/* socket(), struct sockaddr_in6,
 				   struct in6_addr, inet_pton(),
 				   connect() */
-#include <assert.h>
-#include <errno.h>		/* perror() */
-#include <time.h>
+#include <assert.h>		/* assert() */
+#include <errno.h>		/* perror(), errno */
+#include <time.h>		/* time() */
 #include <net/if.h>		/* ioctl, ifreq, SIOCGIFFLAGS, IFF_UP,
 				   SIOCSIFFLAGS, if_indextoname(),
 				   if_nametoindex(), IF_NAMESIZE */
-#include <unistd.h>		/* close(), SEEK_SET, off_t, write()*/
+#include <unistd.h>		/* close(), SEEK_SET, off_t, write(),
+				   getuid(), getgid(), setuid(),
+				   setgid() */
 #include <netinet/in.h>
 #include <arpa/inet.h>		/* inet_pton(), htons */
-#include <iso646.h>		/* not */
-#include <argp.h>		/* struct argp_option,
-				   struct argp_state, struct argp,
-				   argp_parse() */
+#include <iso646.h>		/* not, and */
+#include <argp.h>		/* struct argp_option, error_t, struct
+				   argp_state, struct argp,
+				   argp_parse(), ARGP_KEY_ARG,
+				   ARGP_KEY_END, ARGP_ERR_UNKNOWN */
 
 /* Avahi */
-#include <avahi-core/core.h> 	/* AvahiSimplePoll, AvahiServer,
-				   AvahiIfIndex */
+/* All Avahi types, constants and functions
+ Avahi*, avahi_*,
+ AVAHI_* */
+#include <avahi-core/core.h>
 #include <avahi-core/lookup.h>
-#include <avahi-core/log.h> 	/* AvahiLogLevel */
+#include <avahi-core/log.h>
 #include <avahi-common/simple-watch.h>
 #include <avahi-common/malloc.h>
 #include <avahi-common/error.h>
 
 /* GnuTLS */
-#include <gnutls/gnutls.h>	/* gnutls_certificate_credentials_t,
-				   gnutls_dh_params_t,
-				   gnutls_strerror(),
-				   gnutls_global_init(),
-				   gnutls_global_set_log_level(),
-				   gnutls_global_set_log_function(),
-				   gnutls_certificate_allocate_credentials(),
-				   gnutls_global_deinit(),
-				   gnutls_dh_params_init(),
-				   gnutls_dh_params_generate(),
-				   gnutls_certificate_set_dh_params(),
-				   gnutls_certificate_free_credentials(),
-				   gnutls_session_t, gnutls_init(),
-				   gnutls_priority_set_direct(),
-				   gnutls_deinit(),
-				   gnutls_credentials_set(),
-				   gnutls_certificate_server_set_request(),
-				   gnutls_dh_set_prime_bits(),
-				   gnutls_transport_set_ptr(),
-				   gnutls_transport_ptr_t,
-				   gnutls_handshake(),
-				   gnutls_record_recv()
-				   gnutls_perror(), gnutls_bye(),
+#include <gnutls/gnutls.h>	/* All GnuTLS types, constants and functions
+				   gnutls_*
 				   init_gnutls_session(),
-				   GNUTLS_E_SUCCESS,
-				   GNUTLS_CRD_CERTIFICATE,
-				   GNUTLS_CERT_IGNORE,
-				   GNUTLS_E_INTERRUPTED,
-				   GNUTLS_E_AGAIN,
-				   GNUTLS_E_REHANDSHAKE,
-				   GNUTLS_SHUT_RDWR, */
-#include <gnutls/openpgp.h> /* gnutls_certificate_set_openpgp_key_file(),
-			       GNUTLS_OPENPGP_FMT_BASE64 */
+				   GNUTLS_* */
+#include <gnutls/openpgp.h>     /* gnutls_certificate_set_openpgp_key_file(),
+				   GNUTLS_OPENPGP_FMT_BASE64 */
 
 /* GPGME */
-#include <gpgme.h> 		/* gpgme_data_t, gpgme_ctx_t,
-				   gpgme_error_t, gpgme_engine_info_t,
-				   gpgme_check_version(),
-				   gpgme_engine_check_version(),
-				   gpgme_strsource(),
-				   gpgme_strerror(),
-				   gpgme_get_engine_info(),
-				   gpgme_set_engine_info(),
-				   gpgme_data_new_from_mem(),
-				   gpgme_data_new(), gpgme_new(),
-				   gpgme_op_decrypt(),
-				   gpgme_decrypt_result_t,
-				   gpgme_op_decrypt_result(),
-				   gpgme_recipient_t,
-				   gpgme_pubkey_algo_name(),
-				   gpgme_data_seek(),
-				   gpgme_data_read(),
-				   gpgme_data_release()
+#include <gpgme.h> 		/* All GPGME types, constants and functions
+				   gpgme_*
 				   GPGME_PROTOCOL_OpenPGP,
-				   GPG_ERR_NO_ERROR,
-				   GPG_ERR_NO_SECKEY, */
+				   GPG_ERR_NO_* */
 
 #define BUFFER_SIZE 256
 
@@ -354,9 +321,9 @@ static int init_gnutls_global(mandos_context *mc,
   if(debug){
     fprintf(stderr, "Initializing GnuTLS\n");
   }
-
-  if ((ret = gnutls_global_init ())
-      != GNUTLS_E_SUCCESS) {
+  
+  ret = gnutls_global_init();
+  if (ret != GNUTLS_E_SUCCESS) {
     fprintf (stderr, "GnuTLS global_init: %s\n",
 	     safer_gnutls_strerror(ret));
     return -1;
@@ -371,8 +338,8 @@ static int init_gnutls_global(mandos_context *mc,
   }
   
   /* OpenPGP credentials */
-  if ((ret = gnutls_certificate_allocate_credentials (&mc->cred))
-      != GNUTLS_E_SUCCESS) {
+  gnutls_certificate_allocate_credentials(&mc->cred);
+  if (ret != GNUTLS_E_SUCCESS){
     fprintf (stderr, "GnuTLS memory error: %s\n",
 	     safer_gnutls_strerror(ret));
     gnutls_global_deinit ();
@@ -571,8 +538,10 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   }
   
   gnutls_transport_set_ptr (session, (gnutls_transport_ptr_t) tcp_sd);
-  
-  ret = gnutls_handshake (session);
+
+  do{
+    ret = gnutls_handshake (session);
+  } while(ret == GNUTLS_E_AGAIN or ret == GNUTLS_E_INTERRUPTED);
   
   if (ret != GNUTLS_E_SUCCESS){
     if(debug){
@@ -610,7 +579,9 @@ static int start_mandos_communication(const char *ip, uint16_t port,
       case GNUTLS_E_AGAIN:
 	break;
       case GNUTLS_E_REHANDSHAKE:
-	ret = gnutls_handshake (session);
+	do{
+	  ret = gnutls_handshake (session);
+	} while(ret == GNUTLS_E_AGAIN or ret == GNUTLS_E_INTERRUPTED);
 	if (ret < 0){
 	  fprintf(stderr, "*** GnuTLS Re-handshake failed ***\n");
 	  gnutls_perror (ret);
@@ -891,7 +862,12 @@ int main(int argc, char *argv[]){
 			   .args_doc = "",
 			   .doc = "Mandos client -- Get and decrypt"
 			   " passwords from mandos server" };
-      argp_parse (&argp, argc, argv, 0, 0, NULL);
+      ret = argp_parse (&argp, argc, argv, 0, 0, NULL);
+      if (ret == ARGP_ERR_UNKNOWN){
+	fprintf(stderr, "Unkown error while parsing arguments\n");
+	exitcode = EXIT_FAILURE;
+	goto end;
+      }
     }
       
     pubkeyfile = combinepath(keydir, pubkeyfile);
@@ -1069,7 +1045,7 @@ int main(int argc, char *argv[]){
     free(seckeyfile);
 
     if (gnutls_initalized){
-      gnutls_certificate_free_credentials (mc.cred);
+      gnutls_certificate_free_credentials(mc.cred);
       gnutls_global_deinit ();
     }
     
