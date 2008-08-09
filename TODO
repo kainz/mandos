@@ -7,6 +7,7 @@
 
 * Mandos-client
 ** [#A] Man page: man8/mandos-client.8mandos
+** [#B] Fix %d format strings to use [[https://secure.wikimedia.org/wikipedia/en/wiki/Inttypes.h][<inttypes.h>]]
 ** use strsep instead of strtok?
 ** use config file in addition to arguments
 ** pass things in environment, like device name, etc
@@ -15,6 +16,7 @@
 ** [#A] Man page: man8/password-request.8mandos
 ** [#A] check return codes of all system calls
 ** [#B] header files/symbols tally
+** [#B] Fix %d format strings to use [[https://secure.wikimedia.org/wikipedia/en/wiki/Inttypes.h][<inttypes.h>]]
 ** IPv4 support
 ** use strsep instead of strtok?
 ** Do not depend on GPG key rings on disk
@@ -24,19 +26,23 @@
 * Password-prompt
 ** [#A] Man page: man8/password-prompt.8mandos
 ** Use getpass(3)?
-   [[info:libc:getpass][GNU LibC Manual: Reading Passwords]]
+   Man page says "obsolete", but [[info:libc:getpass][GNU LibC Manual: Reading Passwords]]
+   does not.  See also [[http://sources.redhat.com/ml/libc-alpha/2003-05/msg00251.html][Marcus Brinkmann: Re: getpass obsolete?]] and
+   [[http://article.gmane.org/gmane.comp.lib.glibc.alpha/4906][Petter Reinholdtsen: Re: getpass obsolete?]], and especially also
+   [[http://www.steve.org.uk/Reference/Unix/faq_4.html#SEC48][Unix Programming FAQ 3.1 How can I make my program not echo input?]]
 
 * Server
 ** [#A] Command man page: man8/mandos.8
 ** [#A] Config file man page: man5/mandos.conf (mandos.conf)
 ** [#A] Config file man page: man5/mandos-clients.conf (clients.conf)
-** [#A] /etc/init.d/mandos-server
+** [#A] /etc/init.d/mandos-server		:teddy:
 ** Log level
 ** /etc/mandos/clients.d/*.conf
    Watch this directory and add/remove/update clients?
 ** config for TXT record
 ** Run-time communication with server
-   probably using D-Bus
+   Probably using D-Bus
+   See also [[*Mandos-tools]]
 ** Implement --foreground
    [[info:standards:Option%20Table][Table of Long Options]]
 ** Implement --socket
@@ -45,14 +51,18 @@
 * Mandos-tools/utilities
   All of this probably using D-Bus
 ** List clients
-** Enable client
 ** Disable client
+** Enable client
 
 * Installer
 ** [#A] Change initrd.img file to not be publically readable
+** [#A] Create /etc/initramfs-tools/hooks/mandos
+   [[file:/usr/share/doc/initramfs-tools/examples/example_hook][Example initramfs-tools hook script]]
 ** [#A] Create GPG key ring files in initrd
 ** [#A] Create mandos user and group for server
 ** [#A] Create /var/run/mandos directory with perm and ownership
+
+* [[http://en.tldp.org/HOWTO/Software-Release-Practice-HOWTO/][Software Release Practice HOWTO]]
 
 
 #+STARTUP: showall
