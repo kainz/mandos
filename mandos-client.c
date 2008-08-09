@@ -23,32 +23,46 @@
 
 #define _GNU_SOURCE		/* TEMP_FAILURE_RETRY() */
 
-#include <stdio.h>		/* popen(), fileno(), fprintf(),
-				   stderr, STDOUT_FILENO */
-#include <iso646.h>		/* and, or, not */
-#include <sys/types.h>	        /* DIR, opendir(), stat(),
-				   struct stat, waitpid(),
-				   WIFEXITED(), WEXITSTATUS(),
-				   wait() */
-#include <sys/wait.h>		/* wait() */
-#include <dirent.h>		/* DIR, struct dirent, opendir(),
-				   readdir(), closedir() */
-#include <sys/stat.h>		/* struct stat, stat(), S_ISREG() */
-#include <unistd.h>		/* struct stat, stat(), S_ISREG(),
-				   fcntl() */
-#include <fcntl.h>		/* fcntl() */
-#include <stddef.h>		/* NULL */
-#include <stdlib.h>		/* EXIT_FAILURE */
+#include <stddef.h>		/* size_t, NULL */
+#include <stdlib.h>		/* malloc(), exit(), EXIT_FAILURE,
+				   EXIT_SUCCESS, realloc() */
+#include <stdbool.h>		/* bool, true, false */
+#include <stdio.h>		/* perror, popen(), fileno(),
+				   fprintf(), stderr, STDOUT_FILENO */
+#include <sys/types.h>	        /* DIR, opendir(), stat(), struct
+				   stat, waitpid(), WIFEXITED(),
+				   WEXITSTATUS(), wait(), pid_t,
+				   uid_t, gid_t, getuid(), getgid(),
+				   dirfd() */
 #include <sys/select.h>		/* fd_set, select(), FD_ZERO(),
-				   FD_SET(), FD_ISSET() */
-#include <string.h>		/* strlen(), strcpy(), strcat() */
-#include <stdbool.h>		/* true */
-#include <sys/wait.h>		/* waitpid(), WIFEXITED(),
+				   FD_SET(), FD_ISSET(), FD_CLR */
+#include <sys/wait.h>		/* wait(), waitpid(), WIFEXITED(),
 				   WEXITSTATUS() */
+#include <sys/stat.h>		/* struct stat, stat(), S_ISREG() */
+#include <iso646.h>		/* and, or, not */
+#include <dirent.h>		/* DIR, struct dirent, opendir(),
+				   readdir(), closedir(), dirfd() */
+#include <unistd.h>		/* struct stat, stat(), S_ISREG(),
+				   fcntl(), setuid(), setgid(),
+				   F_GETFD, F_SETFD, FD_CLOEXEC,
+				   access(), pipe(), fork(), close()
+				   dup2, STDOUT_FILENO, _exit(),
+				   execv(), write(), read(),
+				   close() */
+#include <fcntl.h>		/* fcntl(), F_GETFD, F_SETFD,
+				   FD_CLOEXEC */
+#include <string.h>		/* strtok, strlen(), strcpy(),
+				   strcat() */
 #include <errno.h>		/* errno */
-#include <argp.h>		/* struct argp_option,
-				   struct argp_state, struct argp,
-				   argp_parse() */
+#include <argp.h>		/* struct argp_option, struct
+				   argp_state, struct argp,
+				   argp_parse(), ARGP_ERR_UNKNOWN,
+				   ARGP_KEY_END, ARGP_KEY_ARG, error_t */
+#include <signal.h> 		/* struct sigaction, sigemptyset(),
+				   sigaddset(), sigaction(),
+				   sigprocmask(), SIG_BLOCK, SIGCHLD,
+				   SIG_UNBLOCK, kill() */
+#include <errno.h>		/* errno, EBADF */
 
 #define BUFFER_SIZE 256
 
@@ -141,6 +155,10 @@ void handle_sigchld(__attribute__((unused)) int sig){
   process *proc = process_list;
   int status;
   pid_t pid = wait(&status);
+  if(pid == -1){
+    perror("wait");
+    return;
+  }
   while(proc != NULL and proc->pid != pid){
     proc = proc->next;
   }
@@ -272,7 +290,12 @@ int main(int argc, char *argv[]){
 		       .args_doc = "[+PLUS_SEPARATED_OPTIONS]",
 		       .doc = "Mandos plugin runner -- Run plugins" };
   
-  argp_parse (&argp, argc, argv, 0, 0, &plugin_list);  
+  ret = argp_parse (&argp, argc, argv, 0, 0, &plugin_list);
+  if (ret == ARGP_ERR_UNKNOWN){
+    perror("argp_parse");
+    exitstatus = EXIT_FAILURE;
+    goto end;
+  }
   
   if(plus_options){
     /* This is a mangled argument in the form of
@@ -296,7 +319,7 @@ int main(int argc, char *argv[]){
       plus_argv = realloc(plus_argv, sizeof(char *)
 			 * ((unsigned int) new_argc + 1));
       if(plus_argv == NULL){
-	perror("malloc");
+	perror("realloc");
 	exitstatus = EXIT_FAILURE;
 	goto end;
       }
@@ -304,7 +327,12 @@ int main(int argc, char *argv[]){
       plus_argv[new_argc] = NULL;
       arg = strtok(NULL, delims); /* Get next argument */
     }
-    argp_parse (&argp, new_argc, plus_argv, 0, 0, &plugin_list);  
+    ret = argp_parse (&argp, new_argc, plus_argv, 0, 0, &plugin_list);
+    if (ret == ARGP_ERR_UNKNOWN){
+      perror("argp_parse");
+      exitstatus = EXIT_FAILURE;
+      goto end;
+    }
   }
   
   if(debug){
@@ -354,6 +382,11 @@ int main(int argc, char *argv[]){
     
     // All directory entries have been processed
     if(dirst == NULL){
+      if (errno == EBADF){
+	perror("readdir");
+	exitstatus = EXIT_FAILURE;
+	goto end;
+      }
       break;
     }
     
@@ -414,7 +447,12 @@ int main(int argc, char *argv[]){
     strcat(filename, "/");	/* Spurious warning */
     strcat(filename, dirst->d_name); /* Spurious warning */
     
-    stat(filename, &st);
+    ret = stat(filename, &st);
+    if (ret == -1){
+      perror("stat");
+      exitstatus = EXIT_FAILURE;
+      goto end;
+    }
     
     if (not S_ISREG(st.st_mode)	or (access(filename, X_OK) != 0)){
       if(debug){
@@ -480,7 +518,12 @@ int main(int argc, char *argv[]){
 	perror("sigprocmask");
 	_exit(EXIT_FAILURE);
       }
-      dup2(pipefd[1], STDOUT_FILENO); /* replace our stdout */
+
+      ret = dup2(pipefd[1], STDOUT_FILENO); /* replace our stdout */
+      if(ret == -1){
+	perror("dup2");
+	_exit(EXIT_FAILURE);
+      }
       
       if(dirfd(dir) < 0){
 	/* If dir has no file descriptor, we could not set FD_CLOEXEC
@@ -538,7 +581,7 @@ int main(int argc, char *argv[]){
   
   closedir(dir);
   dir = NULL;
-  
+    
   if (process_list == NULL){
     fprintf(stderr, "No plugin processes started, exiting\n");
     exitstatus = EXIT_FAILURE;
@@ -679,7 +722,11 @@ int main(int argc, char *argv[]){
   for(process *next; process_list != NULL; process_list = next){
     next = process_list->next;
     close(process_list->fd);
-    kill(process_list->pid, SIGTERM);
+    ret = kill(process_list->pid, SIGTERM);
+    if(ret == -1 and errno != ESRCH){
+      /* set-uid proccesses migth not get closed */
+      perror("kill");
+    }
     free(process_list->buffer);
     free(process_list);
   }
