@@ -32,9 +32,7 @@
 ** [#A] Command man page: man8/mandos.8
 ** [#A] Config file man page: man5/mandos.conf (mandos.conf)
 ** [#A] Config file man page: man5/mandos-clients.conf (clients.conf)
-** [#A] write PID file
 ** [#A] /etc/init.d/mandos-server
-** Better comments in config files
 ** Log level
 ** /etc/mandos/clients.d/*.conf
    Watch this directory and add/remove/update clients?

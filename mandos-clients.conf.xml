@@ -126,7 +126,7 @@
 	  <para>
 	    This option allows you to override the default shell
 	    command that the server will use to check up if the client
-	    is still up. By default mandos will "fping -q -- %%(fqdn)s"
+	    is still up. By default mandos will "fping -q -- %%(host)s"
 	  </para>
 	</listitem>
       </varlistentry>
@@ -174,10 +174,10 @@
       </varlistentry>
 
       <varlistentry>
-	<term><literal>fqdn</literal></term>
+	<term><literal>host</literal></term>
 	<listitem>
 	  <para>
-	    FQDN, that can be used in for checking that the client is up.
+	    Host name that can be used in for checking that the client is up.
 	  </para>
 	</listitem>
       </varlistentry>
@@ -212,7 +212,7 @@
 [DEFAULT]
 timeout = 1h
 interval = 5m
-checker = fping -q -- %%(fqdn)s
+checker = fping -q -- %%(host)s
 
 [example_client]
 fingerprint =  7788 2722 5BA7 DE53 9C5A  7CFA 59CF F7CD BD9A 5920
@@ -235,7 +235,7 @@ secret =
         QlnHIvPzEArRQLo=
         =iHhv
 
-fqdn = localhost
+host = localhost
 interval = 5m
       </programlisting>
     </informalexample>

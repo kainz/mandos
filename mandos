@@ -163,7 +163,7 @@ class Client(object):
     fingerprint: string (40 or 32 hexadecimal digits); used to
                  uniquely identify the client
     secret:    bytestring; sent verbatim (over TLS) to client
-    fqdn:      string (FQDN); available for use by the checker command
+    host:      string; available for use by the checker command
     created:   datetime.datetime(); object creation, not client host
     last_checked_ok: datetime.datetime() or None if not yet checked OK
     timeout:   datetime.timedelta(); How long from last_checked_ok
@@ -230,7 +230,7 @@ class Client(object):
         else:
             raise TypeError(u"No secret or secfile for client %s"
                             % self.name)
-        self.fqdn = config.get("fqdn", "")
+        self.host = config.get("host", "")
         self.created = datetime.datetime.now()
         self.last_checked_ok = None
         self.timeout = string_to_delta(config["timeout"])
@@ -259,7 +259,7 @@ class Client(object):
         The possibility that a client might be restarted is left open,
         but not currently used."""
         # If this client doesn't have a secret, it is already stopped.
-        if self.secret:
+        if hasattr(self, "secret") and self.secret:
             logger.info(u"Stopping client %s", self.name)
             self.secret = None
         else:
@@ -313,7 +313,7 @@ class Client(object):
         if self.checker is None:
             try:
                 # In case check_command has exactly one % operator
-                command = self.check_command % self.fqdn
+                command = self.check_command % self.host
             except TypeError:
                 # Escape attributes for the shell
                 escaped_attrs = dict((key, re.escape(str(val)))
@@ -346,7 +346,7 @@ class Client(object):
             self.checker_callback_tag = None
         if getattr(self, "checker", None) is None:
             return
-        logger.debug("Stopping checker for %(name)s", vars(self))
+        logger.debug(u"Stopping checker for %(name)s", vars(self))
         try:
             os.kill(self.checker.pid, signal.SIGTERM)
             #os.sleep(0.5)
@@ -712,7 +712,7 @@ def main():
     # Parse config file with clients
     client_defaults = { "timeout": "1h",
                         "interval": "5m",
-                        "checker": "fping -q -- %%(fqdn)s",
+                        "checker": "fping -q -- %%(host)s",
                         }
     client_config = ConfigParser.SafeConfigParser(client_defaults)
     client_config.read(os.path.join(server_settings["configdir"],
@@ -758,10 +758,13 @@ def main():
                               config
                               = dict(client_config.items(section)))
                        for section in client_config.sections()))
+    if not clients:
+        logger.critical(u"No clients defined")
+        sys.exit(1)
     
     if not debug:
         daemon()
-
+    
     pidfilename = "/var/run/mandos/mandos.pid"
     pid = os.getpid()
     try:
@@ -770,7 +773,7 @@ def main():
         pidfile.close()
         del pidfile
     except IOError, err:
-        logger.error("Could not write %s file with PID %d",
+        logger.error(u"Could not write %s file with PID %d",
                      pidfilename, os.getpid())
     
     def cleanup():
@@ -824,7 +827,7 @@ def main():
                              tcp_server.handle_request\
                              (*args[2:], **kwargs) or True)
         
-        logger.debug("Starting main loop")
+        logger.debug(u"Starting main loop")
         main_loop_started = True
         main_loop.run()
     except AvahiError, error:
