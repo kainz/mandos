@@ -34,43 +34,99 @@
 
 #define _GNU_SOURCE		/* TEMP_FAILURE_RETRY() */
 
-#include <stdio.h>
-#include <assert.h>
-#include <stdlib.h>
-#include <time.h>
-#include <net/if.h>		/* if_nametoindex */
+#include <stdio.h>		/* fprintf(), stderr, fwrite(), stdout, ferror() */
+#include <stdint.h> 		/* uint16_t, uint32_t */
+#include <stddef.h>		/* NULL, size_t, ssize_t */
+#include <stdlib.h> 		/* free() */
+#include <stdbool.h>		/* bool, true */
+#include <string.h>		/* memset(), strcmp(), strlen, strerror() */
 #include <sys/ioctl.h>          /* ioctl, ifreq, SIOCGIFFLAGS, IFF_UP,
 				   SIOCSIFFLAGS */
+#include <sys/types.h>		/* socket(), inet_pton(), sockaddr,
+				   sockaddr_in6, PF_INET6, SOCK_STREAM, INET6_ADDRSTRLEN */
+#include <sys/socket.h>		/* socket(), struct sockaddr_in6,
+				   struct in6_addr, inet_pton(),
+				   connect() */
+#include <assert.h>
+#include <errno.h>		/* perror() */
+#include <time.h>
 #include <net/if.h>		/* ioctl, ifreq, SIOCGIFFLAGS, IFF_UP,
-				   SIOCSIFFLAGS */
+				   SIOCSIFFLAGS, if_indextoname(),
+				   if_nametoindex(), IF_NAMESIZE */
+#include <unistd.h>		/* close(), SEEK_SET, off_t, write()*/
+#include <netinet/in.h>
+#include <arpa/inet.h>		/* inet_pton(), htons */
+#include <iso646.h>		/* not */
+#include <argp.h>		/* struct argp_option,
+				   struct argp_state, struct argp,
+				   argp_parse() */
 
-#include <avahi-core/core.h>
+/* Avahi */
+#include <avahi-core/core.h> 	/* AvahiSimplePoll, AvahiServer,
+				   AvahiIfIndex */
 #include <avahi-core/lookup.h>
-#include <avahi-core/log.h>
+#include <avahi-core/log.h> 	/* AvahiLogLevel */
 #include <avahi-common/simple-watch.h>
 #include <avahi-common/malloc.h>
 #include <avahi-common/error.h>
 
-/* Mandos client part */
-#include <sys/types.h>		/* socket(), inet_pton() */
-#include <sys/socket.h>		/* socket(), struct sockaddr_in6,
-				   struct in6_addr, inet_pton() */
-#include <gnutls/gnutls.h>	/* All GnuTLS stuff */
-#include <gnutls/openpgp.h>	/* GnuTLS with openpgp stuff */
+/* GnuTLS */
+#include <gnutls/gnutls.h>	/* gnutls_certificate_credentials_t,
+				   gnutls_dh_params_t,
+				   gnutls_strerror(),
+				   gnutls_global_init(),
+				   gnutls_global_set_log_level(),
+				   gnutls_global_set_log_function(),
+				   gnutls_certificate_allocate_credentials(),
+				   gnutls_global_deinit(),
+				   gnutls_dh_params_init(),
+				   gnutls_dh_params_generate(),
+				   gnutls_certificate_set_dh_params(),
+				   gnutls_certificate_free_credentials(),
+				   gnutls_session_t, gnutls_init(),
+				   gnutls_priority_set_direct(),
+				   gnutls_deinit(),
+				   gnutls_credentials_set(),
+				   gnutls_certificate_server_set_request(),
+				   gnutls_dh_set_prime_bits(),
+				   gnutls_transport_set_ptr(),
+				   gnutls_transport_ptr_t,
+				   gnutls_handshake(),
+				   gnutls_record_recv()
+				   gnutls_perror(), gnutls_bye(),
+				   init_gnutls_session(),
+				   GNUTLS_E_SUCCESS,
+				   GNUTLS_CRD_CERTIFICATE,
+				   GNUTLS_CERT_IGNORE,
+				   GNUTLS_E_INTERRUPTED,
+				   GNUTLS_E_AGAIN,
+				   GNUTLS_E_REHANDSHAKE,
+				   GNUTLS_SHUT_RDWR, */
+#include <gnutls/openpgp.h> /* gnutls_certificate_set_openpgp_key_file(),
+			       GNUTLS_OPENPGP_FMT_BASE64 */
 
-#include <unistd.h>		/* close() */
-#include <netinet/in.h>
-#include <stdbool.h>		/* true */
-#include <string.h>		/* memset */
-#include <arpa/inet.h>		/* inet_pton() */
-#include <iso646.h>		/* not */
-#include <net/if.h>		/* IF_NAMESIZE */
-#include <argp.h>		/* struct argp_option,
-				   struct argp_state, struct argp,
-				   argp_parse() */
 /* GPGME */
-#include <errno.h>		/* perror() */
-#include <gpgme.h>
+#include <gpgme.h> 		/* gpgme_data_t, gpgme_ctx_t,
+				   gpgme_error_t, gpgme_engine_info_t,
+				   gpgme_check_version(),
+				   gpgme_engine_check_version(),
+				   gpgme_strsource(),
+				   gpgme_strerror(),
+				   gpgme_get_engine_info(),
+				   gpgme_set_engine_info(),
+				   gpgme_data_new_from_mem(),
+				   gpgme_data_new(), gpgme_new(),
+				   gpgme_op_decrypt(),
+				   gpgme_decrypt_result_t,
+				   gpgme_op_decrypt_result(),
+				   gpgme_recipient_t,
+				   gpgme_pubkey_algo_name(),
+				   gpgme_data_seek(),
+				   gpgme_data_read(),
+				   gpgme_data_release()
+				   GPGME_PROTOCOL_OpenPGP,
+				   GPG_ERR_NO_ERROR,
+				   GPG_ERR_NO_SECKEY, */
 
 #define BUFFER_SIZE 256
 
@@ -360,8 +416,8 @@ static int init_gnutls_global(mandos_context *mc,
 
  globalfail:
 
-  gnutls_certificate_free_credentials (mc->cred);
-  gnutls_global_deinit ();
+  gnutls_certificate_free_credentials(mc->cred);
+  gnutls_global_deinit();
   return -1;
 
 }
