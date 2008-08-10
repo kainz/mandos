@@ -77,7 +77,7 @@
       <arg choice='opt'>--options-for<arg choice='plain'>PLUGIN:OPTIONS</arg></arg>
       <arg choice='opt'>--disable<arg choice='plain'>PLUGIN</arg></arg>
       <arg choice='opt'>--groupid<arg choice='plain'>ID</arg></arg>
-      <arg choice='opt'>--userpid<arg choice='plain'>ID</arg></arg>
+      <arg choice='opt'>--userid<arg choice='plain'>ID</arg></arg>
       <arg choice='opt'>--plugin-dir<arg choice='plain'>DIRECTORY</arg></arg>
       <arg choice='opt'>--debug</arg>
     </cmdsynopsis>

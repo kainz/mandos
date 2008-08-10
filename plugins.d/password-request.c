@@ -100,7 +100,7 @@
 bool debug = false;
 static const char *keydir = "/conf/conf.d/mandos";
 static const char mandos_protocol_version[] = "1";
-const char *argp_program_version = "mandosclient 0.9";
+const char *argp_program_version = "mandosclient 1.0";
 const char *argp_program_bug_address = "<mandos@fukt.bsnet.se>";
 
 /* Used for passing in values through the Avahi callback functions */
