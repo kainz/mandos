@@ -71,6 +71,10 @@ syslogger.setFormatter(logging.Formatter\
                         ('Mandos: %(levelname)s: %(message)s'))
 logger.addHandler(syslogger)
 
+console = logging.StreamHandler()
+console.setFormatter(logging.Formatter('%(name)s: %(levelname)s:'
+                                       ' %(message)s'))
+logger.addHandler(console)
 
 class AvahiError(Exception):
     def __init__(self, value):
@@ -654,7 +658,7 @@ def main():
     global main_loop_started
     main_loop_started = False
     
-    parser = OptionParser(version = "Mandos server %s" % version)
+    parser = OptionParser(version = "%%prog %s" % version)
     parser.add_option("-i", "--interface", type="string",
                       metavar="IF", help="Bind to interface IF")
     parser.add_option("-a", "--address", type="string",
@@ -717,6 +721,7 @@ def main():
     
     if not debug:
         syslogger.setLevel(logging.WARNING)
+        console.setLevel(logging.WARNING)
     
     if server_settings["servicename"] != "Mandos":
         syslogger.setFormatter(logging.Formatter\
@@ -751,14 +756,6 @@ def main():
             avahi.DBUS_INTERFACE_SERVER )
     # End of Avahi example code
     
-    if debug:
-        console = logging.StreamHandler()
-        # console.setLevel(logging.DEBUG)
-        console.setFormatter(logging.Formatter\
-                             ('%(levelname)s: %(message)s'))
-        logger.addHandler(console)
-        del console
-    
     clients = Set()
     def remove_from_clients(client):
         clients.remove(client)
@@ -776,6 +773,7 @@ def main():
         sys.exit(1)
     
     if not debug:
+        logger.removeHandler(console)
         daemon()
     
     pidfilename = "/var/run/mandos/mandos.pid"
