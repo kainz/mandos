@@ -220,4 +220,47 @@
       </varlistentry>            
     </variablelist>
   </refsect1>
+
+  <refsect1 id="exit_status">
+    <title>EXIT STATUS</title>
+    <para>
+    </para>
+  </refsect1>
+
+  <refsect1 id="file">
+    <title>FILES</title>
+    <para>
+      </para>
+  </refsect1>  
+
+  <refsect1 id="notes">
+    <title>NOTES</title>
+    <para>
+      </para>
+  </refsect1>
+  
+  <refsect1 id="bugs">
+    <title>BUGS</title>
+    <para>
+      </para>
+  </refsect1>  
+
+  <refsect1 id="examples">
+    <title>EXAMPLES</title>
+    <para>
+      </para>
+  </refsect1>
+
+  <refsect1 id="security">
+    <title>SECURITY</title>
+    <para>
+      </para>
+  </refsect1>
+
+  <refsect1 id="see_also">
+    <title>SEE ALSO</title>
+    <para>
+      </para>
+  </refsect1>
+
 </refentry>
