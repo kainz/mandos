@@ -66,7 +66,7 @@
 
 #define BUFFER_SIZE 256
 
-const char *argp_program_version = "plugbasedclient 1.0";
+const char *argp_program_version = "mandos-client 1.0";
 const char *argp_program_bug_address = "<mandos@fukt.bsnet.se>";
 
 struct process;
