@@ -73,8 +73,26 @@
   <refsynopsisdiv>
     <cmdsynopsis>
       <command>&COMMANDNAME;</command>
-      <arg choice='opt' rep='repeat'>OPTION</arg>
+      <arg choice='opt'>--global-options<arg choice='plain'>OPTIONS</arg></arg>
+      <arg choice='opt'>--options-for<arg choice='plain'>PLUGIN:OPTIONS</arg></arg>
+      <arg choice='opt'>--disable<arg choice='plain'>PLUGIN</arg></arg>
+      <arg choice='opt'>--groupid<arg choice='plain'>ID</arg></arg>
+      <arg choice='opt'>--userpid<arg choice='plain'>ID</arg></arg>
+      <arg choice='opt'>--plugin-dir<arg choice='plain'>DIRECTORY</arg></arg>
+      <arg choice='opt'>--debug</arg>
     </cmdsynopsis>
+    <cmdsynopsis>
+      <command>&COMMANDNAME;</command>
+      <arg choice='plain'>--help</arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>&COMMANDNAME;</command>
+      <arg choice='plain'>--usage</arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>&COMMANDNAME;</command>
+      <arg choice='plain'>--version</arg>
+    </cmdsynopsis>    
   </refsynopsisdiv>
 
   <refsect1 id="description">
