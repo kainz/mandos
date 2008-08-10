@@ -50,6 +50,7 @@
 				   sockaddr_in6, PF_INET6,
 				   SOCK_STREAM, INET6_ADDRSTRLEN,
 				   uid_t, gid_t */
+#include <inttypes.h>		/* PRIu16 */
 #include <sys/socket.h>		/* socket(), struct sockaddr_in6,
 				   struct in6_addr, inet_pton(),
 				   connect() */
@@ -228,7 +229,7 @@ static ssize_t pgp_packet_decrypt (const char *cryptotext,
     } else {
       fprintf(stderr, "Unsupported algorithm: %s\n",
 	      result->unsupported_algorithm);
-      fprintf(stderr, "Wrong key usage: %d\n",
+      fprintf(stderr, "Wrong key usage: %u\n",
 	      result->wrong_key_usage);
       if(result->file_name != NULL){
 	fprintf(stderr, "File name: %s\n", result->file_name);
@@ -455,8 +456,8 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   }
   
   if(debug){
-    fprintf(stderr, "Setting up a tcp connection to %s, port %d\n",
-	    ip, port);
+    fprintf(stderr, "Setting up a tcp connection to %s, port %" PRIu16
+	    "\n", ip, port);
   }
   
   tcp_sd = socket(PF_INET6, SOCK_STREAM, 0);
@@ -491,7 +492,8 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   to.in6.sin6_scope_id = (uint32_t)if_index;
   
   if(debug){
-    fprintf(stderr, "Connection to: %s, port %d\n", ip, port);
+    fprintf(stderr, "Connection to: %s, port %" PRIu16 "\n", ip,
+	    port);
     char addrstr[INET6_ADDRSTRLEN] = "";
     if(inet_ntop(to.in6.sin6_family, &(to.in6.sin6_addr), addrstr,
 		 sizeof(addrstr)) == NULL){
@@ -676,8 +678,9 @@ static void resolve_callback(AvahiSServiceResolver *r,
       char ip[AVAHI_ADDRESS_STR_MAX];
       avahi_address_snprint(ip, sizeof(ip), address);
       if(debug){
-	fprintf(stderr, "Mandos server \"%s\" found on %s (%s, %d) on"
-		" port %d\n", name, host_name, ip, interface, port);
+	fprintf(stderr, "Mandos server \"%s\" found on %s (%s, %"
+		PRIu16 ") on port %d\n", name, host_name, ip,
+		interface, port);
       }
       int ret = start_mandos_communication(ip, port, interface, mc);
       if (ret == 0){

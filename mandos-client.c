@@ -606,13 +606,16 @@ int main(int argc, char *argv[]){
 	  /* Bad exit by plugin */
 	  if(debug){
 	    if(WIFEXITED(proc->status)){
-	      fprintf(stderr, "Plugin %d exited with status %d\n",
-		      proc->pid, WEXITSTATUS(proc->status));
+	      fprintf(stderr, "Plugin %u exited with status %d\n",
+		      (unsigned int) (proc->pid),
+		      WEXITSTATUS(proc->status));
 	    } else if(WIFSIGNALED(proc->status)) {
-	      fprintf(stderr, "Plugin %d killed by signal %d\n",
-		      proc->pid, WTERMSIG(proc->status));
+	      fprintf(stderr, "Plugin %u killed by signal %d\n",
+		      (unsigned int) (proc->pid),
+		      WTERMSIG(proc->status));
 	    } else if(WCOREDUMP(proc->status)){
-	      fprintf(stderr, "Plugin %d dumped core\n", proc->pid);
+	      fprintf(stderr, "Plugin %d dumped core\n",
+		      (unsigned int) (proc->pid));
 	    }
 	  }
 	  /* Remove the plugin */
