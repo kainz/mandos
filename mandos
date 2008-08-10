@@ -61,6 +61,7 @@ import avahi
 from dbus.mainloop.glib import DBusGMainLoop
 import ctypes
 
+version = "1.0"
 
 logger = logging.Logger('mandos')
 syslogger = logging.handlers.SysLogHandler\
@@ -653,7 +654,7 @@ def main():
     global main_loop_started
     main_loop_started = False
     
-    parser = OptionParser()
+    parser = OptionParser(version = "Mandos server %s" % version)
     parser.add_option("-i", "--interface", type="string",
                       metavar="IF", help="Bind to interface IF")
     parser.add_option("-a", "--address", type="string",
