@@ -260,7 +260,13 @@
   <refsect1 id="see_also">
     <title>SEE ALSO</title>
     <para>
-      </para>
+      <citerefentry><refentrytitle>mandos</refentrytitle>
+      <manvolnum>8</manvolnum></citerefentry>, <citerefentry>
+      <refentrytitle>password-request</refentrytitle>
+      <manvolnum>8mandos</manvolnum></citerefentry> and <citerefentry>
+      <refentrytitle>password-prompt</refentrytitle>
+      <manvolnum>8mandos</manvolnum></citerefentry>
+    </para>
   </refsect1>
 
 </refentry>

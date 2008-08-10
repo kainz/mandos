@@ -7,26 +7,23 @@
 
 * Mandos-client
 ** [#A] Man page: man8/mandos-client.8mandos
-*** EXIT STATUS
-    Create this section
-*** USAGE
+*** DESCRIPTION
     Describe the plus sign syntax for passing options from crypttab
+*** EXIT STATUS
+    Text needed
 *** EXAMPLES
     Examples of normal usage, debug usage, debugging single or all
     plugins, examples of crypttab lines with plus syntax, etc.
 *** FILES
-    Describe plugin directory
-*** DIAGNOSTICS
-    Create this section
+    Text needed
 *** SECURITY
-    Create this section
+    Text needed
 *** NOTES
-    Create this section (if needed)
+    Text needed
 *** BUGS
-    Create this section
+    Text needed
 *** SEE ALSO
-    Refer to mandos(8), password-request(8mandos), and
-    password-prompt(8mandos)
+    Explaining test on what you can read
 ** Use asprintf instead of malloc and strcat?
 ** use strsep instead of strtok?
 ** use config file in addition to arguments
