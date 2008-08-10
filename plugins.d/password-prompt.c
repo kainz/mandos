@@ -52,7 +52,7 @@
 
 volatile bool quit_now = false;
 bool debug = false;
-const char *argp_program_version = "passprompt 1.0";
+const char *argp_program_version = "password-prompt 1.0";
 const char *argp_program_bug_address = "<mandos@fukt.bsnet.se>";
 
 static void termination_handler(__attribute__((unused))int signum){
