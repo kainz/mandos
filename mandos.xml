@@ -73,8 +73,26 @@
   <refsynopsisdiv>
     <cmdsynopsis>
       <command>&COMMANDNAME;</command>
-      <arg choice='opt' rep='repeat'>OPTION</arg>
+      <arg choice='opt'>--interface<arg choice='plain'>IF</arg></arg>
+      <arg choice='opt'>--address<arg choice='plain'>ADDRESS</arg></arg>
+      <arg choice='opt'>--port<arg choice='plain'>PORT</arg></arg>
+      <arg choice='opt'>--priority<arg choice='plain'>PRIORITY</arg></arg>
+      <arg choice='opt'>--servicename<arg choice='plain'>NAME</arg></arg>
+      <arg choice='opt'>--configdir<arg choice='plain'>DIRECTORY</arg></arg>
+      <arg choice='opt'>--debug</arg>
     </cmdsynopsis>
+    <cmdsynopsis>
+      <command>&COMMANDNAME;</command>
+      <arg choice='plain'>--help</arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>&COMMANDNAME;</command>
+      <arg choice='plain'>--check</arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>&COMMANDNAME;</command>
+      <arg choice='plain'>--version</arg>
+    </cmdsynopsis>    
   </refsynopsisdiv>
 
   <refsect1 id="description">
