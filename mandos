@@ -654,7 +654,7 @@ def main():
     global main_loop_started
     main_loop_started = False
     
-    parser = OptionParser(version = "Mandos server %s" % version)
+    parser = OptionParser(version = "%%prog %s" % version)
     parser.add_option("-i", "--interface", type="string",
                       metavar="IF", help="Bind to interface IF")
     parser.add_option("-a", "--address", type="string",
