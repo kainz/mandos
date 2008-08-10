@@ -66,6 +66,9 @@
 
 #define BUFFER_SIZE 256
 
+const char *argp_program_version = "plugbasedclient 1.0";
+const char *argp_program_bug_address = "<mandos@fukt.bsnet.se>";
+
 struct process;
 
 typedef struct process{
@@ -143,9 +146,6 @@ static int set_cloexec_flag(int fd)
   /* Store modified flag word in the descriptor. */
   return fcntl(fd, F_SETFD, ret | FD_CLOEXEC);
 }
-
-const char *argp_program_version = "plugbasedclient 0.9";
-const char *argp_program_bug_address = "<mandos@fukt.bsnet.se>";
 
 process *process_list = NULL;
 
