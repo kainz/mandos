@@ -7,14 +7,6 @@
 
 * Mandos-client
 ** [#A] Man page: man8/mandos-client.8mandos
-*** SYNOPSIS
-    Needs options listed, not just "[OPTION...]"
-*** DESCRIPTION
-    Move options to new OPTIONS section.
-    State that this command is not meant to be invoked directly, but
-    is meant to be run by cryptsetup by being specified in
-    /etc/crypttab and only run in the initrd environment, not the real
-    system.
 *** EXIT STATUS
     Create this section
 *** USAGE
@@ -45,8 +37,6 @@
 
 * Password-request
 ** [#A] Man page: man8/password-request.8mandos
-*** SYNOPSIS
-    Needs options listed, not just "[OPTION...]"
 *** DESCRIPTION
     Move options to new OPTIONS section.
     State that this command is not meant to be invoked directly, but
@@ -81,8 +71,6 @@
 
 * Password-prompt
 ** [#A] Man page: man8/password-prompt.8mandos
-*** SYNOPSIS
-    Needs options listed, not just "[OPTION...]"
 *** DESCRIPTION
     Move options to new OPTIONS section.
 *** EXIT STATUS
@@ -110,8 +98,6 @@
 
 * Mandos (server)
 ** [#A] Command man page: man8/mandos.8
-*** SYNOPSIS
-    Needs options listed, not just "[OPTION...]"
 *** DESCRIPTION
     Move options to new OPTIONS section
 *** EXIT STATUS

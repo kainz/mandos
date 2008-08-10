@@ -87,11 +87,11 @@
     </cmdsynopsis>
     <cmdsynopsis>
       <command>&COMMANDNAME;</command>
-      <arg choice='plain'>--check</arg>
+      <arg choice='plain'>--version</arg>
     </cmdsynopsis>
     <cmdsynopsis>
       <command>&COMMANDNAME;</command>
-      <arg choice='plain'>--version</arg>
+      <arg choice='plain'>--check</arg>
     </cmdsynopsis>    
   </refsynopsisdiv>
 
@@ -194,6 +194,15 @@
 	  </para>
 	</listitem>
       </varlistentry>
+
+      <varlistentry>
+	<term><literal>--version</literal></term>
+	<listitem>
+	  <para>
+	    Prints the program version
+	  </para>
+	</listitem>
+      </varlistentry>      
       
     </variablelist>
   </refsect1>

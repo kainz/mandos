@@ -77,7 +77,7 @@
       <arg choice='opt'>--options-for<arg choice='plain'>PLUGIN:OPTIONS</arg></arg>
       <arg choice='opt'>--disable<arg choice='plain'>PLUGIN</arg></arg>
       <arg choice='opt'>--groupid<arg choice='plain'>ID</arg></arg>
-      <arg choice='opt'>--userpid<arg choice='plain'>ID</arg></arg>
+      <arg choice='opt'>--userid<arg choice='plain'>ID</arg></arg>
       <arg choice='opt'>--plugin-dir<arg choice='plain'>DIRECTORY</arg></arg>
       <arg choice='opt'>--debug</arg>
     </cmdsynopsis>
@@ -100,11 +100,22 @@
     <para>
       <command>&COMMANDNAME;</command> is a plugin runner that waits
       for any of its plugins to return sucessfull with a password, and
-      passes it to cryptsetup. plugins is defined as any executables
-      in the plugins directory will by default will be
-      /conf/conf.d/mandos/plugins.d.  to stdout.
+      passes it to cryptsetup as stdout message. This command is not
+      meant to be invoked directly, but is instead meant to be run by
+      cryptsetup by being specified in /etc/crypttab as a keyscript
+      and subsequlently started in the initrd environment. See
+      <citerefentry><refentrytitle>crypttab</refentrytitle>
+      <manvolnum>5</manvolnum></citerefentry> for more information on
+      keyscripts.    
     </para>
 
+    <para>
+      plugins is looked for in the plugins directory which by default will be
+      /conf/conf.d/mandos/plugins.d if not changed by option --plugin-dir.
+    </para>
+  </refsect1>
+  <refsect1>
+    <title>OPTIONS</title>
     <variablelist>
       <varlistentry>
 	<term><literal>-g</literal>,<literal>--global-options
