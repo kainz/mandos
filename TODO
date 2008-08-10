@@ -28,9 +28,6 @@
 ** use strsep instead of strtok?
 ** use config file in addition to arguments
 ** pass things in environment, like device name, etc
-** Fallback
-   As a fallback, if no plugins can be found or if all of them failed,
-   run getpass(3) itself.
 
 * Password-request
 ** [#A] Man page: man8/password-request.8mandos

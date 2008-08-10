@@ -170,6 +170,18 @@ void handle_sigchld(__attribute__((unused)) int sig){
   proc->completed = true;
 }
 
+bool print_out_password(const char *buffer, size_t length){
+  size_t ret;
+  for(size_t written = 0; written < length; written += ret){
+    ret = TEMP_FAILURE_RETRY(write(STDOUT_FILENO, buffer + written,
+				   length - written));
+    if(ret < 0){
+      return false;
+    }
+  }
+  return true;
+}
+
 int main(int argc, char *argv[]){
   const char *plugindir = "/conf/conf.d/mandos/plugins.d";
   size_t d_name_len;
@@ -583,9 +595,9 @@ int main(int argc, char *argv[]){
   dir = NULL;
     
   if (process_list == NULL){
-    fprintf(stderr, "No plugin processes started, exiting\n");
-    exitstatus = EXIT_FAILURE;
-    goto end;
+    fprintf(stderr, "No plugin processes started. Incorrect plugin"
+	    " directory?\n");
+    process_list = NULL;
   }
   while(process_list){
     fd_set rfds = rfds_all;
@@ -654,17 +666,11 @@ int main(int argc, char *argv[]){
 	  break;
 	}
 	/* This process exited nicely, so print its buffer */
-	for(size_t written = 0; written < proc->buffer_length;
-	    written += (size_t)ret){
-	  ret = TEMP_FAILURE_RETRY(write(STDOUT_FILENO,
-					 proc->buffer + written,
-					 proc->buffer_length
-					 - written));
-	  if(ret < 0){
-	    perror("write");
-	    exitstatus = EXIT_FAILURE;
-	    goto end;
-	  }
+
+	bool bret = print_out_password(proc->buffer, proc->buffer_length);
+	if(not bret){
+	  perror("print_out_password");
+	  exitstatus = EXIT_FAILURE;
 	}
 	goto end;
       }
@@ -699,12 +705,26 @@ int main(int argc, char *argv[]){
       }
     }
   }
-  if(process_list == NULL){
-    fprintf(stderr, "All plugin processes failed, exiting\n");
-    exitstatus = EXIT_FAILURE;
-  }
   
+  if(process_list == NULL){
+    bool bret;
+    fprintf(stderr, "Going to fallback mode using getpass(3)\n");
+    char *passwordbuffer = getpass("Password: ");
+    bret = print_out_password(passwordbuffer, strlen(passwordbuffer));
+    if(not bret){
+      perror("print_out_password");
+      exitstatus = EXIT_FAILURE;
+      goto end;
+    }
+    bret = print_out_password("\n", 1);
+    if(not bret){
+      perror("print_out_password");
+      exitstatus = EXIT_FAILURE;
+    }
+  }
+
  end:
+  
   /* Restore old signal handler */
   sigaction(SIGCHLD, &old_sigchld_action, NULL);
   
