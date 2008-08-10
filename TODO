@@ -150,6 +150,8 @@
 ** /etc/initramfs-tools/hooks/mandos
    [[file:/usr/share/doc/initramfs-tools/examples/example_hook][Example initramfs-tools hook script]]
 *** Create GPG key ring files in initrd
+** unperish
+** bzr-builddeb
 
 * INSTALL file
 
