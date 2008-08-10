@@ -27,7 +27,7 @@
 *** SEE ALSO
     Refer to mandos(8), password-request(8mandos), and
     password-prompt(8mandos)
-** [#B] Fix %d format strings to use [[https://secure.wikimedia.org/wikipedia/en/wiki/Inttypes.h][<inttypes.h>]]
+** Use asprintf instead of malloc and strcat?
 ** use strsep instead of strtok?
 ** use config file in addition to arguments
 ** pass things in environment, like device name, etc
@@ -60,9 +60,7 @@
     Create this section
 *** SEE ALSO
     Refer to mandos-client(8mandos) and password-prompt(8mandos)
-** [#B] Fix %d format strings to use [[https://secure.wikimedia.org/wikipedia/en/wiki/Inttypes.h][<inttypes.h>]]
-** start_mandos_communication: loop around gnutls_handshake
-   [[info:gnutls.info.gz:Core%20functions][gnutls_handshake]]
+** Use asprintf instead of malloc and memcpy?
 ** IPv4 support
 ** use strsep instead of strtok?
 ** Do not depend on GPG key rings on disk
@@ -152,6 +150,8 @@
 ** /etc/initramfs-tools/hooks/mandos
    [[file:/usr/share/doc/initramfs-tools/examples/example_hook][Example initramfs-tools hook script]]
 *** Create GPG key ring files in initrd
+** unperish
+** bzr-builddeb
 
 * INSTALL file
 
