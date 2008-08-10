@@ -157,14 +157,15 @@
 ** DONE [#A] Change initrd.img file to not be publically readable
    /etc/initramfs-tools/conf.d/mandos
    UMASK=027
-** [#A] Create /etc/initramfs-tools/hooks/mandos
-   [[file:/usr/share/doc/initramfs-tools/examples/example_hook][Example initramfs-tools hook script]]
-** [#A] Create GPG key ring files in initrd
+** Update initrd.img after installation
 ** [#A] Create mandos user and group for server
 ** [#A] Create /var/run/mandos directory with perm and ownership
 
-* Package
+* [#A] Package
 ** /etc/bash_completion.d/mandos
+** /etc/initramfs-tools/hooks/mandos
+   [[file:/usr/share/doc/initramfs-tools/examples/example_hook][Example initramfs-tools hook script]]
+*** Create GPG key ring files in initrd
 
 * INSTALL file
 
