@@ -44,8 +44,6 @@
 #include <string.h>		/* memset(), strcmp(), strlen(),
 				   strerror(), memcpy(), strcpy() */
 #include <sys/ioctl.h>          /* ioctl */
-#include <net/if.h>		/* ifreq, SIOCGIFFLAGS, SIOCSIFFLAGS,
-				   IFF_UP */
 #include <sys/types.h>		/* socket(), inet_pton(), sockaddr,
 				   sockaddr_in6, PF_INET6,
 				   SOCK_STREAM, INET6_ADDRSTRLEN,
@@ -487,7 +485,7 @@ static int start_mandos_communication(const char *ip, uint16_t port,
     fprintf(stderr, "Bad address: %s\n", ip);
     return -1;
   }
-  to.in6.sin6_port = htons(port);	/* Spurious warning */
+  to.in6.sin6_port = htons(port); /* Spurious warning */
   
   to.in6.sin6_scope_id = (uint32_t)if_index;
   
@@ -867,7 +865,7 @@ int main(int argc, char *argv[]){
 			   " passwords from mandos server" };
       ret = argp_parse (&argp, argc, argv, 0, 0, NULL);
       if (ret == ARGP_ERR_UNKNOWN){
-	fprintf(stderr, "Unkown error while parsing arguments\n");
+	fprintf(stderr, "Unknown error while parsing arguments\n");
 	exitcode = EXIT_FAILURE;
 	goto end;
       }
@@ -893,10 +891,37 @@ int main(int argc, char *argv[]){
     } else {
       gnutls_initalized = true;
     }
-
+    
+    /* If the interface is down, bring it up */
+    {
+      sd = socket(PF_INET6, SOCK_DGRAM, IPPROTO_IP);
+      if(sd < 0) {
+	perror("socket");
+	exitcode = EXIT_FAILURE;
+	goto end;
+      }
+      strcpy(network.ifr_name, interface); /* Spurious warning */
+      ret = ioctl(sd, SIOCGIFFLAGS, &network);
+      if(ret == -1){
+	perror("ioctl SIOCGIFFLAGS");
+	exitcode = EXIT_FAILURE;
+	goto end;
+      }
+      if((network.ifr_flags & IFF_UP) == 0){
+	network.ifr_flags |= IFF_UP;
+	ret = ioctl(sd, SIOCSIFFLAGS, &network);
+	if(ret == -1){
+	  perror("ioctl SIOCSIFFLAGS");
+	  exitcode = EXIT_FAILURE;
+	  goto end;
+	}
+      }
+      close(sd);
+    }
+    
     uid = getuid();
     gid = getgid();
-
+    
     ret = setuid(uid);
     if (ret == -1){
       perror("setuid");
@@ -938,33 +963,6 @@ int main(int argc, char *argv[]){
 	exitcode = EXIT_SUCCESS;
       }
       goto end;
-    }
-    
-    /* If the interface is down, bring it up */
-    {
-      sd = socket(PF_INET6, SOCK_DGRAM, IPPROTO_IP);
-      if(sd < 0) {
-	perror("socket");
-	exitcode = EXIT_FAILURE;
-	goto end;
-      }
-      strcpy(network.ifr_name, interface); /* Spurious warning */
-      ret = ioctl(sd, SIOCGIFFLAGS, &network);
-      if(ret == -1){
-	perror("ioctl SIOCGIFFLAGS");
-	exitcode = EXIT_FAILURE;
-	goto end;
-      }
-      if((network.ifr_flags & IFF_UP) == 0){
-	network.ifr_flags |= IFF_UP;
-	ret = ioctl(sd, SIOCSIFFLAGS, &network);
-	if(ret == -1){
-	  perror("ioctl SIOCSIFFLAGS");
-	  exitcode = EXIT_FAILURE;
-	  goto end;
-	}
-      }
-      close(sd);
     }
     
     if (not debug){
