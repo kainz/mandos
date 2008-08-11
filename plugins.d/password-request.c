@@ -865,7 +865,7 @@ int main(int argc, char *argv[]){
 			   " passwords from mandos server" };
       ret = argp_parse (&argp, argc, argv, 0, 0, NULL);
       if (ret == ARGP_ERR_UNKNOWN){
-	fprintf(stderr, "Unkown error while parsing arguments\n");
+	fprintf(stderr, "Unknown error while parsing arguments\n");
 	exitcode = EXIT_FAILURE;
 	goto end;
       }
@@ -881,12 +881,14 @@ int main(int argc, char *argv[]){
     seckeyfile = combinepath(keydir, seckeyfile);
     if (seckeyfile == NULL){
       perror("combinepath");
+      exitcode = EXIT_FAILURE;
       goto end;
     }
 
     ret = init_gnutls_global(&mc, pubkeyfile, seckeyfile);
     if (ret == -1){
-      fprintf(stderr, "init_gnutls_global\n");
+      fprintf(stderr, "init_gnutls_global failed\n");
+      exitcode = EXIT_FAILURE;
       goto end;
     } else {
       gnutls_initalized = true;
