@@ -25,7 +25,6 @@
     Text needed
 *** SEE ALSO
     Explaining test on what you can read
-** [#A] Fallback on error
 ** Use asprintf instead of malloc and strcat?
 ** use strsep instead of strtok?
 ** use config file in addition to arguments
