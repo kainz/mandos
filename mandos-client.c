@@ -171,8 +171,11 @@ void handle_sigchld(__attribute__((unused)) int sig){
 }
 
 bool print_out_password(const char *buffer, size_t length){
-  size_t ret;
-  for(size_t written = 0; written < length; written += ret){
+  ssize_t ret;
+  if(length>0 and buffer[length-1] == '\n'){
+    length--;
+  }
+  for(size_t written = 0; written < length; written += (size_t)ret){
     ret = TEMP_FAILURE_RETRY(write(STDOUT_FILENO, buffer + written,
 				   length - written));
     if(ret < 0){
@@ -304,7 +307,7 @@ int main(int argc, char *argv[]){
   
   ret = argp_parse (&argp, argc, argv, 0, 0, &plugin_list);
   if (ret == ARGP_ERR_UNKNOWN){
-    fprintf(stderr, "Unkown error while parsing arguments\n");
+    fprintf(stderr, "Unknown error while parsing arguments\n");
     exitstatus = EXIT_FAILURE;
     goto end;
   }
@@ -341,7 +344,7 @@ int main(int argc, char *argv[]){
     }
     ret = argp_parse (&argp, new_argc, plus_argv, 0, 0, &plugin_list);
     if (ret == ARGP_ERR_UNKNOWN){
-      fprintf(stderr, "Unkown error while parsing arguments\n");
+      fprintf(stderr, "Unknown error while parsing arguments\n");
       exitstatus = EXIT_FAILURE;
       goto end;
     }
@@ -715,11 +718,6 @@ int main(int argc, char *argv[]){
       perror("print_out_password");
       exitstatus = EXIT_FAILURE;
       goto end;
-    }
-    bret = print_out_password("\n", 1);
-    if(not bret){
-      perror("print_out_password");
-      exitstatus = EXIT_FAILURE;
     }
   }
 

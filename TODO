@@ -87,6 +87,7 @@
    does not.  See also [[http://sources.redhat.com/ml/libc-alpha/2003-05/msg00251.html][Marcus Brinkmann: Re: getpass obsolete?]] and
    [[http://article.gmane.org/gmane.comp.lib.glibc.alpha/4906][Petter Reinholdtsen: Re: getpass obsolete?]], and especially also
    [[http://www.steve.org.uk/Reference/Unix/faq_4.html#SEC48][Unix Programming FAQ 3.1 How can I make my program not echo input?]]
+** Replace completely with "/lib/cryptsetup/askpass"?
 
 * Mandos (server)
 ** [#A] Command man page: man8/mandos.8
@@ -124,6 +125,8 @@
    [[info:standards:Option%20Table][Table of Long Options]]
 ** Implement --socket
    [[info:standards:Option%20Table][Table of Long Options]]
+** Date+time on console log messages
+   Is this the default?
 
 * Mandos-tools/utilities
   All of this probably using D-Bus
@@ -141,7 +144,7 @@
 
 * [#A] Package
 ** /etc/bash_completion.d/mandos
-** /etc/initramfs-tools/hooks/mandos
+** /usr/share/initramfs-tools/hooks/mandos
    [[file:/usr/share/doc/initramfs-tools/examples/example_hook][Example initramfs-tools hook script]]
 *** Create GPG key ring files in initrd
 ** unperish
