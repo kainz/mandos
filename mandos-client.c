@@ -202,6 +202,8 @@ int main(int argc, char *argv[]){
 				      .sa_flags = SA_NOCLDSTOP };
   char *plus_options = NULL;
   char **plus_argv = NULL;
+
+  errno = 0;
   
   /* Establish a signal handler */
   sigemptyset(&sigchld_action.sa_mask);
@@ -708,8 +710,12 @@ int main(int argc, char *argv[]){
       }
     }
   }
+
+
+ end:
   
-  if(process_list == NULL){
+  if(process_list == NULL or exitstatus != EXIT_SUCCESS){
+    /* Fallback if all plugins failed or an error occured */
     bool bret;
     fprintf(stderr, "Going to fallback mode using getpass(3)\n");
     char *passwordbuffer = getpass("Password: ");
@@ -720,8 +726,6 @@ int main(int argc, char *argv[]){
       goto end;
     }
   }
-
- end:
   
   /* Restore old signal handler */
   sigaction(SIGCHLD, &old_sigchld_action, NULL);
