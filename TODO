@@ -6,6 +6,7 @@
   [[file:/usr/share/common-licenses/GPL-3][GPLv3]]
 
 * Mandos-client
+** [#A] Change syntaxt for arguments
 ** [#A] Man page: man8/mandos-client.8mandos
 *** DESCRIPTION
     Describe the plus sign syntax for passing options from crypttab

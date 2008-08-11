@@ -105,7 +105,7 @@ int main(int argc, char **argv){
 			 .doc = "Mandos Passprompt -- Provides a passprompt" };
     ret = argp_parse (&argp, argc, argv, 0, 0, NULL);
     if (ret == ARGP_ERR_UNKNOWN){
-      fprintf(stderr, "Unkown error while parsing arguments\n");
+      fprintf(stderr, "Unknown error while parsing arguments\n");
       return EXIT_FAILURE;
     }
   }
