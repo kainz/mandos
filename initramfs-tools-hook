@@ -1,0 +1,150 @@
+#!/bin/sh
+
+#
+# This is an example hook script.  It will be run by 'mkinitramfs'
+# when it creates the image.  It's job is to decide which files to
+# install, then install them into the staging area, where the
+# initramfs is being created.  This happens when a new 'linux-image'
+# package is installed, or when the administrator runs 'mkinitramfs'
+# by hand to update an initramfs image.
+#
+# TODO: What about the case where you install something that should be
+#	added to the initramfs, but the linux-image it relates to has
+#	already been installed previously?  Does this happen often
+#	enough that it needs to be handled?  How can it be handled?
+#
+#	* Think about the 'usplash'.  The initramfs will need to be
+#	 updated if a theme change or update is desired.  Maybe it
+#	 should not be totally automatic, but offered on upgrade
+#	 predicated on a user response to a debconf question?  That
+#	 issue needs to be explored and a solution specified.
+#
+#  * Do not assume that any needed subdirectories have been created
+#	yet, but don't bail out if they are already there.
+#
+#  * All of the standard system tools are available, of course, since
+#	this hook is running in the real system, not the initramfs.
+#
+#  * TODO: ... ?  Anything else to tell them in this bullet-list?
+#
+
+#
+# The environment contains at least:
+#
+#  CONFDIR -- usually /etc/mkinitramfs, can be set on mkinitramfs
+#		 command line.
+#
+#  DESTDIR -- The staging directory where we are building the image.
+#
+# TODO: Decide what environment variables are meaningful and defined
+#	in this context, then document them as part of the interface.
+#
+# TODO: May need a version_compare function for comparison of VERSION?
+
+
+#
+# List the soft prerequisites here.  This is a space separated list of
+# names, of scripts that are in the same directory as this one, that
+# must be run before this one can be.
+#
+PREREQ="cryptroot"
+
+prereqs()
+{
+	echo "$PREREQ"
+}
+
+case $1 in
+# get pre-requisites
+prereqs)
+	prereqs
+	exit 0
+	;;
+esac
+
+
+# You can do anything you need to from here on.
+#
+
+# Source the optional 'hook-functions' scriptlet, if you need the
+# functions defined within it.  Read it to see what is available to
+# you.  It contains functions for copying dynamically linked program
+# binaries, and kernel modules into the DESTDIR.
+#
+. /usr/share/initramfs-tools/hook-functions
+
+auto_add_modules net
+# force_load tg3
+force_load ipv6
+
+CONFDIR="/conf/conf.d/mandos"
+DESTCONFDIR="${DESTDIR}${CONFDIR}"
+mkdir --parents "${DESTCONFDIR}"
+PLUGINDIR="${CONFDIR}/plugins.d"
+mkdir --parents "${DESTDIR}${PLUGINDIR}"
+
+# We don't need to copy_exec mandos-client, hooks/cryptroot will do
+# that.  That will not copy the plugins, however, so we do that here.
+
+# The standard plugins
+for file in /usr/lib/mandos/plugins.d/*; do
+    base="`basename \"$file\"`"
+    # Is this plugin overridden?
+    if [ -e "/etc/mandos/plugins.d/$base" ]; then
+	continue
+    fi
+    case "$base" in
+	*~|.*|\#*\#|*.dpkg-old|*.dpkg-new|*.dpkg-divert) : ;;
+	*) copy_exec "$file" "${PLUGINDIR}";;
+    esac
+done
+
+# Any user-supplied plugins
+for file in /etc/mandos/plugins.d/*; do
+    base="`basename \"$file\"`"
+    case "$base" in
+	*~|.*|*.dpkg-old|*.dpkg-new|*.dpkg-divert) : ;;
+	*) copy_exec "$file" "${PLUGINDIR}";;
+    esac
+done
+
+# GPGME needs /usr/bin/gpg
+if [ -n "`ls \"${DESTDIR}\"/usr/lib/libgpgme.so* 2>/dev/null`" ]; then
+    copy_exec /usr/bin/gpg
+fi
+
+# Key files
+for file in /etc/mandos/*; do
+    if [ -d "$file" ]; then
+	continue
+    fi
+    cp --archive --sparse=always "$file" "${DESTCONFDIR}"
+done
+# Create key ring files
+gpg --no-random-seed-file --quiet --batch --no-tty \
+    --no-default-keyring --no-options --homedir "${DESTCONFDIR}" \
+    --no-permission-warning --import-options import-minimal \
+    --import "${DESTCONFDIR}/seckey.txt"
+chown nobody "${DESTCONFDIR}/secring.gpg"
+
+# /keyscripts/mandos-client will drop priviliges, but needs access to
+# its plugin directory.  However, since almost all files in initrd
+# have been created with umask 027, this opening of permissions is needed.
+# 
+# (The umask is not really intended to affect the files inside the
+# initrd, but the initrd.img file itself, since it now contains secret
+# key files.  There is, however, no other way to set the permission of
+# the initrd.img file without a race condition. This umask is set by
+# "/usr/share/initramfs-tools/conf-hooks.d/mandos".)
+# 
+full="${PLUGINDIR}"
+while [ "$full" != "/" ]; do
+    chmod a+rX "${DESTDIR}$full"
+    full="`dirname \"$full\"`"
+done
+for dir in / /bin /etc /keyscripts /sbin /scripts /usr /usr/bin; do
+    chmod a+rX "${DESTDIR}$dir"
+done
+for dir in /lib /usr/lib; do
+    chmod --recursive a+rX "${DESTDIR}$dir"
+done

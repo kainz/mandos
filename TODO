@@ -2,9 +2,6 @@
 
 * [#A] README file
 
-* [#A] COPYING file
-  [[file:/usr/share/common-licenses/GPL-3][GPLv3]]
-
 * Mandos-client
 ** [#A] Change syntax for arguments
 ** [#A] Man page: man8/mandos-client.8mandos
