@@ -98,7 +98,7 @@ install-server: doc
 
 install-client: all doc /usr/share/initramfs-tools/hooks/.
 	mkdir --mode=0755 --parents /usr/lib/mandos /etc/mandos
-	mkdir --mode=0700 /usr/lib/mandos/plugins.d
+	-mkdir --mode=0700 /usr/lib/mandos/plugins.d
 	chmod u=rwx,g=,o= /usr/lib/mandos/plugins.d
 	install --mode=0755 --target-directory=/usr/lib/mandos \
 		mandos-client
@@ -121,7 +121,7 @@ install-client: all doc /usr/share/initramfs-tools/hooks/.
 		> /usr/share/man/man8/password-prompt.8mandos.gz
 	gzip --best --to-stdout plugins.d/password-request.8mandos \
 		> /usr/share/man/man8/password-request.8mandos.gz
-	/usr/sbin/mandos-keygen
+	-/usr/sbin/mandos-keygen
 	update-initramfs -k all -u
 
 uninstall: uninstall-server uninstall-client
@@ -130,7 +130,7 @@ uninstall-server: /usr/sbin/mandos
 	-rm --force /usr/sbin/mandos /usr/share/man/man8/mandos.8.gz \
 		/usr/share/man/man5/mandos.conf.5.gz \
 		/usr/share/man/man5/mandos-clients.conf.5.gz
-	-rmdir --force /etc/mandos
+	-rmdir /etc/mandos
 
 uninstall-client:
 	-rm --force /usr/sbin/mandos-keygen \
@@ -143,15 +143,15 @@ uninstall-client:
 		/usr/share/man/man8/mandos-keygen.8.gz \
 		/usr/share/man/man8/password-prompt.8mandos.gz \
 		/usr/share/man/man8/password-request.8mandos.gz
-	-rmdir --force /usr/lib/mandos/plugins.d /usr/lib/mandos \
+	-rmdir /usr/lib/mandos/plugins.d /usr/lib/mandos \
 		/etc/mandos/plugins.d /etc/mandos
 
 purge: purge-server purge-client
 
 purge-server: uninstall-server
-	-rm --force /etc/mandos/server.conf /etc/mandos/clients.conf
-	-rmdir --force /etc/mandos
+	-rm --force /etc/mandos/mandos.conf /etc/mandos/clients.conf
+	-rmdir /etc/mandos
 
 purge-client: uninstall-client
 	-rm --force /etc/mandos/seckey.txt /etc/mandos/pubkey.txt
-	-rmdir --force /etc/mandos
+	-rmdir /etc/mandos /etc/mandos/plugins.d
