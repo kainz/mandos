@@ -2,9 +2,6 @@
 
 * [#A] README file
 
-* [#A] COPYING file
-  [[file:/usr/share/common-licenses/GPL-3][GPLv3]]
-
 * Mandos-client
 ** [#A] Change syntax for arguments
 ** [#A] Man page: man8/mandos-client.8mandos
@@ -60,9 +57,9 @@
 ** Use asprintf instead of malloc and memcpy?
 ** IPv4 support
 ** use strsep instead of strtok?
-** Do not depend on GPG key rings on disk
-   This would mean creating new GPG key rings with GPGME by importing
-   the key files from scratch on every program start.
+** Do not depend on GnuPG key rings on disk
+   This would mean creating new GnuPG key rings with GPGME by
+   importing the key files from scratch on every program start.
 
 * Password-prompt
 ** [#A] Man page: man8/password-prompt.8mandos
