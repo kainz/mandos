@@ -121,10 +121,10 @@ for file in /etc/mandos/*; do
     cp --archive --sparse=always "$file" "${DESTCONFDIR}"
 done
 # Create key ring files
-LANG=C gpg --quiet --batch --no-tty --no-options \
-    --homedir "${DESTCONFDIR}" --no-permission-warning \
-    --import "${DESTCONFDIR}/seckey.txt" \
-    --import-options import-minimal
+gpg --no-random-seed-file --quiet --batch --no-tty \
+    --no-default-keyring --no-options --homedir "${DESTCONFDIR}" \
+    --no-permission-warning --import-options import-minimal \
+    --import "${DESTCONFDIR}/seckey.txt"
 chown nobody "${DESTCONFDIR}/secring.gpg"
 
 # /keyscripts/mandos-client will drop priviliges, but needs access to
