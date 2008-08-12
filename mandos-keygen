@@ -1,0 +1,165 @@
+#!/bin/sh
+# 
+# Mandos key generator - create new OpenPGP keys for Mandos clients
+# 
+# Copyright © 2007-2008 Teddy Hogeborn & Björn Påhlsson
+# 
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+#     This program is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+# 
+# Contact the authors at <mandos@fukt.bsnet.se>.
+# 
+
+KEYDIR="/etc/mandos"
+KEYTYPE=DSA
+KEYLENGTH=1024
+KEYNAME="`hostname --fqdn`"
+KEYEMAIL=""
+KEYCOMMENT="Mandos client key"
+KEYEXPIRE=0
+FORCE=no
+KEYCOMMENT_ORIG="$KEYCOMMENT"
+
+# Parse options
+TEMP=`getopt --options d:t:l:n:e:c:x:f \
+    --longoptions dir:,type:,length:,name:,email:,comment:,expire:,force \
+    --name "$0" -- "$@"`
+
+eval set -- "$TEMP"
+while :; do
+    case "$1" in
+	-d|--dir) KEYDIR="$2"; shift 2;;
+	-t|--type) KEYTYPE="$2"; shift 2;;
+	-l|--length) KEYLENGTH="$2"; shift 2;;
+	-n|--name) KEYNAME="$2"; shift 2;;
+	-e|--email) KEYEMAIL="$2"; shift 2;;
+	-c|--comment) KEYCOMMENT="$2"; shift 2;;
+	-x|--expire) KEYCOMMENT="$2"; shift 2;;
+	-f|--force) FORCE=yes; shift;;
+	--) shift; break;;
+	*) echo "Internal error" >&2; exit 1;;
+    esac
+done
+if [ "$#" -gt 0 ]; then
+    echo "Unknown arguments: '$@'" >&2
+    exit 1
+fi
+
+SECKEYFILE="$KEYDIR/seckey.txt"
+PUBKEYFILE="$KEYDIR/pubkey.txt"
+
+# Check for some invalid values
+if [ -d "$KEYDIR" ]; then :; else
+    echo "$KEYDIR not a directory" >&2
+    exit 1
+fi
+if [ -w "$KEYDIR" ]; then :; else
+    echo "Directory $KEYDIR not writeable" >&2
+    exit 1
+fi
+
+if [ -z "$KEYTYPE" ]; then
+    echo "Empty key type" >&2
+    exit 1
+fi
+
+if [ -z "$KEYNAME" ]; then
+    echo "Empty key name" >&2
+    exit 1
+fi
+
+if [ -z "$KEYLENGTH" ] || [ "$KEYLENGTH" -lt 512 ]; then
+    echo "Invalid key length" >&2
+    exit 1
+fi
+
+if [ -z "$KEYEXPIRE" ]; then
+    echo "Empty key expiration" >&2
+    exit 1
+fi
+
+# Make FORCE be 0 or 1
+case "$FORCE" in
+    [Yy][Ee][Ss]|[Tt][Rr][Uu][Ee]) FORCE=1;;
+    [Nn][Oo]|[Ff][Aa][Ll][Ss][Ee]|*) FORCE=0;;
+esac
+
+if { [ -e "$SECKEYFILE" ] || [ -e "$PUBKEYFILE" ]; } \
+    && [ "$FORCE" -eq 0 ]; then
+    echo "Refusing to overwrite old key files; use --force" >&2
+    exit 1
+fi
+
+# Set lines for GPG batch file
+if [ -n "$KEYCOMMENT" ]; then
+    KEYCOMMENTLINE="Name-Comment: $KEYCOMMENT"
+fi
+if [ -n "$KEYEMAIL" ]; then
+    KEYEMAILLINE="Name-Email: $KEYEMAIL"
+fi
+
+# Create temp files
+BATCHFILE="`mktemp -t mandos-gpg-batch.XXXXXXXXXX`"
+SECRING="`mktemp -t mandos-gpg-secring.XXXXXXXXXX`"
+PUBRING="`mktemp -t mandos-gpg-pubring.XXXXXXXXXX`"
+
+trap "rm --force $PUBRING $BATCHFILE; shred --remove $SECRING" EXIT
+
+# Create batch file for GPG
+cat >"$BATCHFILE" <<EOF
+Key-Type: $KEYTYPE
+Key-Length: $KEYLENGTH
+#Key-Usage: encrypt,sign,auth
+Name-Real: $KEYNAME
+$KEYCOMMENTLINE
+$KEYEMAILLINE
+Expire-Date: $KEYEXPIRE
+%pubring $PUBRING
+%secring $SECRING
+%commit
+EOF
+
+umask 027
+gpg --no-random-seed-file --quiet --batch --no-tty \
+    --no-default-keyring --batch --secret-keyring "$SECRING" \
+    --keyring "$PUBRING" --gen-key "$BATCHFILE"
+rm --force "$BATCHFILE"
+
+if cp --backup=numbered --force "$SECKEYFILE" "$SECKEYFILE" \
+    2>/dev/null; then
+    shred --remove "$SECKEYFILE"
+fi
+if cp --backup=numbered --force "$PUBKEYFILE" "$PUBKEYFILE" \
+    2>/dev/null; then
+    rm --force "$PUBKEYFILE"
+fi
+
+FILECOMMENT="Mandos client key for $KEYNAME"
+if [ "$KEYCOMMENT" != "$KEYCOMMENT_ORIG" ]; then
+    FILECOMMENT="$FILECOMMENT ($KEYCOMMENT)"
+fi
+
+if [ -n "$KEYEMAIL" ]; then
+    FILECOMMENT="$FILECOMMENT <$KEYEMAIL>"
+fi
+
+gpg --no-random-seed-file --quiet --batch --no-tty --armor \
+    --no-default-keyring --secret-keyring "$SECRING" \
+    --keyring "$PUBRING" --export-options export-minimal \
+    --comment "$FILECOMMENT" --output "$SECKEYFILE" \
+    --export-secret-keys
+gpg --no-random-seed-file --quiet --batch --no-tty --armor \
+    --no-default-keyring --secret-keyring "$SECRING" \
+    --keyring "$PUBRING" --export-options export-minimal \
+    --comment "$FILECOMMENT" --output "$PUBKEYFILE" \
+    --export
