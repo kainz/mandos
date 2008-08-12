@@ -682,7 +682,7 @@ static void resolve_callback(AvahiSServiceResolver *r,
       }
       int ret = start_mandos_communication(ip, port, interface, mc);
       if (ret == 0){
-	exit(EXIT_SUCCESS);
+	avahi_simple_poll_quit(mc->simple_poll);
       }
     }
   }
@@ -850,9 +850,8 @@ int main(int argc, char *argv[]){
 	  break;
 	case ARGP_KEY_ARG:
 	  argp_usage (state);
+	case ARGP_KEY_END:
 	  break;
-	  case ARGP_KEY_END:
-	    break;
 	default:
 	  return ARGP_ERR_UNKNOWN;
 	}

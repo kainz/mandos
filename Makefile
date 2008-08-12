@@ -3,7 +3,7 @@ DEBUG=-ggdb3
 # For info about _FORTIFY_SOURCE, see
 # <http://gcc.gnu.org/ml/gcc-patches/2004-09/msg02055.html>
 FORTIFY=-D_FORTIFY_SOURCE=2 # -fstack-protector-all
-#COVERAGE=--coverage
+#COVERAGE=-fprofile-arcs -ftest-coverage
 OPTIMIZE=-Os
 LANGUAGE=-std=gnu99
 

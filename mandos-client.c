@@ -457,8 +457,7 @@ int main(int argc, char *argv[]){
     char *filename = malloc(d_name_len + strlen(plugindir) + 2);
     if (filename == NULL){
       perror("malloc");
-      exitstatus = EXIT_FAILURE;
-      goto end;
+      continue;
     }
     strcpy(filename, plugindir); /* Spurious warning */
     strcat(filename, "/");	/* Spurious warning */
@@ -467,8 +466,8 @@ int main(int argc, char *argv[]){
     ret = stat(filename, &st);
     if (ret == -1){
       perror("stat");
-      exitstatus = EXIT_FAILURE;
-      goto end;
+      free(filename);
+      continue;
     }
     
     if (not S_ISREG(st.st_mode)	or (access(filename, X_OK) != 0)){
@@ -523,6 +522,11 @@ int main(int argc, char *argv[]){
     }
     // Starting a new process to be watched
     pid_t pid = fork();
+    if(pid == -1){
+      perror("fork");
+      exitstatus = EXIT_FAILURE;
+      goto end;
+    }
     if(pid == 0){
       /* this is the child process */
       ret = sigaction(SIGCHLD, &old_sigchld_action, NULL);
@@ -715,7 +719,7 @@ int main(int argc, char *argv[]){
  end:
   
   if(process_list == NULL or exitstatus != EXIT_SUCCESS){
-    /* Fallback if all plugins failed or an error occured */
+    /* Fallback if all plugins failed, none are found or an error occured */
     bool bret;
     fprintf(stderr, "Going to fallback mode using getpass(3)\n");
     char *passwordbuffer = getpass("Password: ");
