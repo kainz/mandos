@@ -10,7 +10,7 @@ DEBUG=-ggdb3
 # For info about _FORTIFY_SOURCE, see
 # <http://gcc.gnu.org/ml/gcc-patches/2004-09/msg02055.html>
 FORTIFY=-D_FORTIFY_SOURCE=2 # -fstack-protector-all
-#COVERAGE=--coverage
+#COVERAGE=-fprofile-arcs -ftest-coverage
 OPTIMIZE=-Os
 LANGUAGE=-std=gnu99
 
@@ -111,8 +111,6 @@ install-client: all doc /usr/share/initramfs-tools/hooks/.
 		plugins.d/password-request
 	install initramfs-tools-hook \
 		/usr/share/initramfs-tools/hooks/mandos
-	install initramfs-tools-hook-conf \
-		/usr/share/initramfs-tools/conf-hooks.d/mandos
 	install initramfs-tools-hook-conf \
 		/usr/share/initramfs-tools/conf-hooks.d/mandos
 	gzip --best --to-stdout mandos-keygen.8 \
