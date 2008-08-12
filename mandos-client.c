@@ -203,8 +203,6 @@ int main(int argc, char *argv[]){
   char *plus_options = NULL;
   char **plus_argv = NULL;
 
-  errno = 0;
-  
   /* Establish a signal handler */
   sigemptyset(&sigchld_action.sa_mask);
   ret = sigaddset(&sigchld_action.sa_mask, SIGCHLD);
