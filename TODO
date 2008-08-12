@@ -6,7 +6,7 @@
   [[file:/usr/share/common-licenses/GPL-3][GPLv3]]
 
 * Mandos-client
-** [#A] Change syntaxt for arguments
+** [#A] Change syntax for arguments
 ** [#A] Man page: man8/mandos-client.8mandos
 *** DESCRIPTION
     Describe the plus sign syntax for passing options from crypttab
@@ -138,18 +138,26 @@
 ** Enable client
 
 * Installer
-** DONE [#A] Change initrd.img file to not be publically readable
-   /etc/initramfs-tools/conf.d/mandos
-   UMASK=027
-** Update initrd.img after installation
-** [#A] Create mandos user and group for server
-** [#A] Create /var/run/mandos directory with perm and ownership
+** Client
+*** DONE [#A] Change initrd.img file to not be publically readable
+    /usr/share/initramfs-tools/conf-hooks.d/mandos
+    UMASK=027
+*** Update initrd.img after installation
+** Server
+*** [#A] Create mandos user and group for server
+*** [#A] Create /var/run/mandos directory with perm and ownership
+
+** mandos-keygen
+*** [#A] Command man page: man8/mandos-keygen.8
+*** [#A] Output cut-and-paste ready snippet for clients.conf.
 
 * [#A] Package
-** /etc/bash_completion.d/mandos
 ** /usr/share/initramfs-tools/hooks/mandos
-   [[file:/usr/share/doc/initramfs-tools/examples/example_hook][Example initramfs-tools hook script]]
-*** Create GPG key ring files in initrd
+*** Do not install in initrd.img if configured not to
+    Use "/etc/initramfs-tools/conf.d/mandos"?  Definitely a debconf
+    question.
+** /etc/bash_completion.d/mandos
+*** From xml sources directly?
 ** unperish
 ** bzr-builddeb
 
