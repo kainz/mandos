@@ -133,6 +133,9 @@ uninstall-server: /usr/sbin/mandos
 	-rmdir /etc/mandos
 
 uninstall-client:
+# Refuse to uninstall client if /etc/crypttab is configured to use it
+	! grep --regexp='^ *[^ #].*keyscript=/usr/lib/mandos/mandos-client' \
+		/etc/crypttab
 	-rm --force /usr/sbin/mandos-keygen \
 		/usr/lib/mandos/mandos-client \
 		/usr/lib/mandos/plugins.d/password-prompt \
