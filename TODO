@@ -32,6 +32,8 @@
 
 * Password-request
 ** [#A] Man page: man8/password-request.8mandos
+** [#B] Temporarily lower kernel log level
+   for less printouts during sucessfull boot.
 *** DESCRIPTION
     Move options to new OPTIONS section.
     State that this command is not meant to be invoked directly, but
