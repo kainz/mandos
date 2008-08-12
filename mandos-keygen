@@ -131,8 +131,9 @@ EOF
 
 umask 027
 gpg --no-random-seed-file --quiet --batch --no-tty \
-    --no-default-keyring --batch --secret-keyring "$SECRING" \
-    --keyring "$PUBRING" --gen-key "$BATCHFILE"
+    --no-default-keyring --no-options --batch \
+    --secret-keyring "$SECRING" --keyring "$PUBRING" \
+    --gen-key "$BATCHFILE"
 rm --force "$BATCHFILE"
 
 if cp --backup=numbered --force "$SECKEYFILE" "$SECKEYFILE" \
