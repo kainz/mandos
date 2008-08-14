@@ -11,7 +11,7 @@ DEBUG=-ggdb3
 # <http://gcc.gnu.org/ml/gcc-patches/2004-09/msg02055.html>
 FORTIFY=-D_FORTIFY_SOURCE=2 # -fstack-protector-all
 #COVERAGE=--coverage
-OPTIMIZE=-Os
+#OPTIMIZE=-Os
 LANGUAGE=-std=gnu99
 
 # Do not change these two
