@@ -119,17 +119,18 @@ class AvahiService(object):
         self.domain = domain
         self.host = host
         self.rename_count = 0
+        self.max_renames = max_renames
     def rename(self):
         """Derived from the Avahi example code"""
         if self.rename_count >= self.max_renames:
             logger.critical(u"No suitable service name found after %i"
                             u" retries, exiting.", rename_count)
             raise AvahiServiceError("Too many renames")
-        name = server.GetAlternativeServiceName(name)
-        logger.error(u"Changing name to %r ...", name)
+        self.name = server.GetAlternativeServiceName(self.name)
+        logger.info(u"Changing name to %r ...", str(self.name))
         syslogger.setFormatter(logging.Formatter\
                                ('Mandos (%s): %%(levelname)s:'
-                               ' %%(message)s' % name))
+                               ' %%(message)s' % self.name))
         self.remove()
         self.add()
         self.rename_count += 1
