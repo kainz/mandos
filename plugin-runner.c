@@ -66,7 +66,7 @@
 
 #define BUFFER_SIZE 256
 
-const char *argp_program_version = "mandos-client 1.0";
+const char *argp_program_version = "plugin-runner 1.0";
 const char *argp_program_bug_address = "<mandos@fukt.bsnet.se>";
 
 struct process;
@@ -186,7 +186,7 @@ bool print_out_password(const char *buffer, size_t length){
 }
 
 int main(int argc, char *argv[]){
-  const char *plugindir = "/conf/conf.d/mandos/plugins.d";
+  const char *plugindir = "/lib/mandos/plugins.d";
   size_t d_name_len;
   DIR *dir = NULL;
   struct dirent *dirst;
