@@ -26,6 +26,8 @@
 ** use strsep instead of strtok?
 ** use config file in addition to arguments
 ** pass things in environment, like device name, etc
+** Keydir move: /etc/mandos -> /etc/keys/mandos
+   Must create in preinst if not pre-depending on cryptsetup
 
 * Password-request
 ** [#A] Man page: man8/password-request.8mandos
@@ -63,6 +65,9 @@
 
 * Password-prompt
 ** [#A] Man page: man8/password-prompt.8mandos
+** Show getenv("cryptsource") and getenv("crypttarget") if set
+   cryptsource will be the device, like "/dev/sda3", and crypttarget
+   will be the device mapper name, like "sda3_crypt".
 *** DESCRIPTION
     Move options to new OPTIONS section.
 *** EXIT STATUS
