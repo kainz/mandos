@@ -32,17 +32,17 @@
 #define _LARGEFILE_SOURCE
 #define _FILE_OFFSET_BITS 64
 
-#define _GNU_SOURCE		/* TEMP_FAILURE_RETRY() */
+#define _GNU_SOURCE		/* TEMP_FAILURE_RETRY(), asprintf() */
 
-#include <stdio.h>		/* fprintf(), stderr, fwrite(), stdout,
-				   ferror() */
+#include <stdio.h>		/* fprintf(), stderr, fwrite(),
+				   stdout, ferror() */
 #include <stdint.h> 		/* uint16_t, uint32_t */
 #include <stddef.h>		/* NULL, size_t, ssize_t */
 #include <stdlib.h> 		/* free(), EXIT_SUCCESS, EXIT_FAILURE,
 				   srand() */
 #include <stdbool.h>		/* bool, true */
 #include <string.h>		/* memset(), strcmp(), strlen(),
-				   strerror(), memcpy(), strcpy() */
+				   strerror(), asprintf(), strcpy() */
 #include <sys/ioctl.h>          /* ioctl */
 #include <sys/types.h>		/* socket(), inet_pton(), sockaddr,
 				   sockaddr_in6, PF_INET6,
@@ -81,7 +81,8 @@
 #include <avahi-common/error.h>
 
 /* GnuTLS */
-#include <gnutls/gnutls.h>	/* All GnuTLS types, constants and functions
+#include <gnutls/gnutls.h>	/* All GnuTLS types, constants and
+				   functions:
 				   gnutls_*
 				   init_gnutls_session(),
 				   GNUTLS_* */
@@ -89,7 +90,8 @@
 				   GNUTLS_OPENPGP_FMT_BASE64 */
 
 /* GPGME */
-#include <gpgme.h> 		/* All GPGME types, constants and functions
+#include <gpgme.h> 		/* All GPGME types, constants and
+				   functions:
 				   gpgme_*
 				   GPGME_PROTOCOL_OpenPGP,
 				   GPG_ERR_NO_* */
@@ -313,8 +315,8 @@ static void debuggnutls(__attribute__((unused)) int level,
 }
 
 static int init_gnutls_global(mandos_context *mc,
-			      const char *pubkeyfile,
-			      const char *seckeyfile){
+			      const char *pubkeyfilename,
+			      const char *seckeyfilename){
   int ret;
   
   if(debug){
@@ -347,16 +349,17 @@ static int init_gnutls_global(mandos_context *mc,
   
   if(debug){
     fprintf(stderr, "Attempting to use OpenPGP certificate %s"
-	    " and keyfile %s as GnuTLS credentials\n", pubkeyfile,
-	    seckeyfile);
+	    " and keyfile %s as GnuTLS credentials\n", pubkeyfilename,
+	    seckeyfilename);
   }
   
   ret = gnutls_certificate_set_openpgp_key_file
-    (mc->cred, pubkeyfile, seckeyfile, GNUTLS_OPENPGP_FMT_BASE64);
+    (mc->cred, pubkeyfilename, seckeyfilename,
+     GNUTLS_OPENPGP_FMT_BASE64);
   if (ret != GNUTLS_E_SUCCESS) {
     fprintf(stderr,
 	    "Error[%d] while reading the OpenPGP key pair ('%s',"
-	    " '%s')\n", ret, pubkeyfile, seckeyfile);
+	    " '%s')\n", ret, pubkeyfilename, seckeyfilename);
     fprintf(stdout, "The GnuTLS error is: %s\n",
 	    safer_gnutls_strerror(ret));
     goto globalfail;
@@ -472,7 +475,7 @@ static int start_mandos_communication(const char *ip, uint16_t port,
     fprintf(stderr, "Binding to interface %s\n", interface);
   }
   
-  memset(&to,0,sizeof(to));	/* Spurious warning */
+  memset(&to, 0, sizeof(to));	/* Spurious warning */
   to.in6.sin6_family = AF_INET6;
   /* It would be nice to have a way to detect if we were passed an
      IPv4 address here.   Now we assume an IPv6 address. */
@@ -742,21 +745,12 @@ static void browse_callback( AvahiSServiceBrowser *b,
 
 /* Combines file name and path and returns the malloced new
    string. some sane checks could/should be added */
-static const char *combinepath(const char *first, const char *second){
-  size_t f_len = strlen(first);
-  size_t s_len = strlen(second);
-  char *tmp = malloc(f_len + s_len + 2);
-  if (tmp == NULL){
+static char *combinepath(const char *first, const char *second){
+  char *tmp;
+  int ret = asprintf(&tmp, "%s/%s", first, second);
+  if(ret < 0){
     return NULL;
   }
-  if(f_len > 0){
-    memcpy(tmp, first, f_len);	/* Spurious warning */
-  }
-  tmp[f_len] = '/';
-  if(s_len > 0){
-    memcpy(tmp + f_len + 1, second, s_len); /* Spurious warning */
-  }
-  tmp[f_len + 1 + s_len] = '\0';
   return tmp;
 }
 
@@ -773,8 +767,10 @@ int main(int argc, char *argv[]){
     gid_t gid;
     char *connect_to = NULL;
     AvahiIfIndex if_index = AVAHI_IF_UNSPEC;
-    const char *pubkeyfile = "pubkey.txt";
-    const char *seckeyfile = "seckey.txt";
+    char *pubkeyfilename = NULL;
+    char *seckeyfilename = NULL;
+    const char *pubkeyname = "pubkey.txt";
+    const char *seckeyname = "seckey.txt";
     mandos_context mc = { .simple_poll = NULL, .server = NULL,
 			  .dh_bits = 1024, .priority = "SECURE256"};
     bool gnutls_initalized = false;
@@ -832,10 +828,10 @@ int main(int argc, char *argv[]){
 	  keydir = arg;
 	  break;
 	case 's':
-	  seckeyfile = arg;
+	  seckeyname = arg;
 	  break;
 	case 'p':
-	  pubkeyfile = arg;
+	  pubkeyname = arg;
 	  break;
 	case 129:
 	  errno = 0;
@@ -870,21 +866,21 @@ int main(int argc, char *argv[]){
       }
     }
       
-    pubkeyfile = combinepath(keydir, pubkeyfile);
-    if (pubkeyfile == NULL){
+    pubkeyfilename = combinepath(keydir, pubkeyname);
+    if (pubkeyfilename == NULL){
       perror("combinepath");
       exitcode = EXIT_FAILURE;
       goto end;
     }
     
-    seckeyfile = combinepath(keydir, seckeyfile);
-    if (seckeyfile == NULL){
+    seckeyfilename = combinepath(keydir, seckeyname);
+    if (seckeyfilename == NULL){
       perror("combinepath");
       exitcode = EXIT_FAILURE;
       goto end;
     }
 
-    ret = init_gnutls_global(&mc, pubkeyfile, seckeyfile);
+    ret = init_gnutls_global(&mc, pubkeyfilename, seckeyfilename);
     if (ret == -1){
       fprintf(stderr, "init_gnutls_global failed\n");
       exitcode = EXIT_FAILURE;
@@ -1043,8 +1039,8 @@ int main(int argc, char *argv[]){
 
     if (mc.simple_poll != NULL)
         avahi_simple_poll_free(mc.simple_poll);
-    free(pubkeyfile);
-    free(seckeyfile);
+    free(pubkeyfilename);
+    free(seckeyfilename);
 
     if (gnutls_initalized){
       gnutls_certificate_free_credentials(mc.cred);

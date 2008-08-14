@@ -56,7 +56,6 @@
     Create this section
 *** SEE ALSO
     Refer to mandos-client(8mandos) and password-prompt(8mandos)
-** Use asprintf instead of malloc and memcpy?
 ** IPv4 support
 ** use strsep instead of strtok?
 ** Do not depend on GnuPG key rings on disk
