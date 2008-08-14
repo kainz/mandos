@@ -51,7 +51,7 @@
 				   close() */
 #include <fcntl.h>		/* fcntl(), F_GETFD, F_SETFD,
 				   FD_CLOEXEC */
-#include <string.h>		/* strtok, strlen(), strcpy(),
+#include <string.h>		/* strsep, strlen(), strcpy(),
 				   strcat() */
 #include <errno.h>		/* errno */
 #include <argp.h>		/* struct argp_option, struct
@@ -248,23 +248,33 @@ int main(int argc, char *argv[]){
     switch (key) {
     case 'g':
       if (arg != NULL){
-	char *p = strtok(arg, ",");
-	do{
+	char *p;
+	while((p = strsep(&arg, ",")) != NULL){
+	  if(strcmp(p, "") == 0){
+	    continue;
+	  }
 	  addargument(getplugin(NULL, plugins), p);
-	  p = strtok(NULL, ",");
-	} while (p != NULL);
+	}
       }
       break;
     case 'o':
       if (arg != NULL){
-	char *name = strtok(arg, ":");
-	char *p = strtok(NULL, ":");
-	if(p != NULL){
-	  p = strtok(p, ",");
-	  do{
+	char *name = strsep(&arg, ":");
+	if(strcmp(name, "") == 0){
+	  break;
+	}
+	char *opt = strsep(&arg, ":");
+	if(strcmp(opt, "") == 0){
+	  break;
+	}
+	if(opt != NULL){
+	  char *p;
+	  while((p = strsep(&opt, ",")) != NULL){
+	    if(strcmp(p, "") == 0){
+	      continue;
+	    }
 	    addargument(getplugin(name, plugins), p);
-	    p = strtok(NULL, ",");
-	  } while (p != NULL);
+	  }
 	}
       }
       break;
@@ -328,8 +338,8 @@ int main(int argc, char *argv[]){
     }
     plus_argv[0] = argv[0];
     plus_argv[1] = NULL;
-    arg = strtok(plus_options, delims); /* Get first argument */
-    while(arg != NULL){
+
+    while((arg = strsep(&plus_options, delims)) != NULL){
       new_argc++;
       plus_argv = realloc(plus_argv, sizeof(char *)
 			 * ((unsigned int) new_argc + 1));
@@ -340,8 +350,8 @@ int main(int argc, char *argv[]){
       }
       plus_argv[new_argc-1] = arg;
       plus_argv[new_argc] = NULL;
-      arg = strtok(NULL, delims); /* Get next argument */
     }
+    
     ret = argp_parse (&argp, new_argc, plus_argv, 0, 0, &plugin_list);
     if (ret == ARGP_ERR_UNKNOWN){
       fprintf(stderr, "Unknown error while parsing arguments\n");
