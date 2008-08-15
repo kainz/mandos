@@ -65,6 +65,7 @@
 #include <errno.h>		/* errno, EBADF */
 
 #define BUFFER_SIZE 256
+#define CONFFILE "/conf/conf.d/mandos/client.conf"
 
 const char *argp_program_version = "mandos-client 1.0";
 const char *argp_program_bug_address = "<mandos@fukt.bsnet.se>";
@@ -185,8 +186,32 @@ bool print_out_password(const char *buffer, size_t length){
   return true;
 }
 
+char ** addcustomargument(char **argv, int *argc, char *arg){
+
+  if (argv == NULL){
+    *argc = 1;
+    argv = malloc(sizeof(char*) * 2);
+    if(argv == NULL){
+      return NULL;
+    }
+    argv[0] = NULL; 	/* Will be set to argv[0] in main before parsing */
+    argv[1] = NULL;
+  }
+  *argc += 1;
+  argv = realloc(argv, sizeof(char *)
+		  * ((unsigned int) *argc + 1));
+  if(argv == NULL){
+    return NULL;
+  }
+  argv[*argc-1] = arg;
+  argv[*argc] = NULL;   
+  return argv;
+}
+
 int main(int argc, char *argv[]){
   const char *plugindir = "/conf/conf.d/mandos/plugins.d";
+  const char *conffile = CONFFILE;
+  FILE *conffp;
   size_t d_name_len;
   DIR *dir = NULL;
   struct dirent *dirst;
@@ -200,9 +225,9 @@ int main(int argc, char *argv[]){
   struct sigaction old_sigchld_action;
   struct sigaction sigchld_action = { .sa_handler = handle_sigchld,
 				      .sa_flags = SA_NOCLDSTOP };
-  char *plus_options = NULL;
-  char **plus_argv = NULL;
-
+  char **custom_argv = NULL;
+  int custom_argc = 0;
+  
   /* Establish a signal handler */
   sigemptyset(&sigchld_action.sa_mask);
   ret = sigaddset(&sigchld_action.sa_mask, SIGCHLD);
@@ -250,7 +275,7 @@ int main(int argc, char *argv[]){
       if (arg != NULL){
 	char *p;
 	while((p = strsep(&arg, ",")) != NULL){
-	  if(strcmp(p, "") == 0){
+	  if(p[0] == '\0'){
 	    continue;
 	  }
 	  addargument(getplugin(NULL, plugins), p);
@@ -260,17 +285,17 @@ int main(int argc, char *argv[]){
     case 'o':
       if (arg != NULL){
 	char *name = strsep(&arg, ":");
-	if(strcmp(name, "") == 0){
+	if(name[0] == '\0'){
 	  break;
 	}
 	char *opt = strsep(&arg, ":");
-	if(strcmp(opt, "") == 0){
+	if(opt[0] == '\0'){
 	  break;
 	}
 	if(opt != NULL){
 	  char *p;
 	  while((p = strsep(&opt, ",")) != NULL){
-	    if(strcmp(p, "") == 0){
+	    if(p[0] == '\0'){
 	      continue;
 	    }
 	    addargument(getplugin(name, plugins), p);
@@ -296,10 +321,7 @@ int main(int argc, char *argv[]){
       debug = true;
       break;
     case ARGP_KEY_ARG:
-      if(plus_options != NULL or arg == NULL or arg[0] != '+'){
-	argp_usage (state);
-      }
-      plus_options = arg;
+      fprintf(stderr, "Ignoring unknown argument \"%s\"\n", arg); 
       break;
     case ARGP_KEY_END:
       break;
@@ -321,38 +343,50 @@ int main(int argc, char *argv[]){
     exitstatus = EXIT_FAILURE;
     goto end;
   }
-  
-  if(plus_options){
-    /* This is a mangled argument in the form of
-     "+--option+--other-option=parameter+--yet-another-option", etc */
-    /* Make new argc and argv vars, and call argp_parse() again. */
-    plus_options++;		/* skip the first '+' character */
-    const char delims[] = "+";
-    char *arg;
-    int new_argc = 1;
-    plus_argv = malloc(sizeof(char*) * 2);
-    if(plus_argv == NULL){
-      perror("malloc");
+
+  conffp = fopen(conffile, "r");
+  if(conffp != NULL){
+    char *org_line = NULL;
+    size_t size = 0;
+    ssize_t sret;
+    char *p, *arg, *new_arg, *line;
+    const char whitespace_delims[] = " \r\t\f\v\n";
+    const char comment_delim[] = "#";
+
+    while(true){
+      sret = getline(&org_line, &size, conffp);
+      if(sret == -1){
+	break;
+      }
+
+      line = org_line;
+      arg = strsep(&line, comment_delim);
+      while((p = strsep(&arg, whitespace_delims)) != NULL){
+	if(p[0] == '\0'){
+	  continue;
+	}
+	new_arg = strdup(p);
+	custom_argv = addcustomargument(custom_argv, &custom_argc, new_arg);
+	if (custom_argv == NULL){
+	  perror("addcustomargument");
+	  exitstatus = EXIT_FAILURE;
+	  goto end;
+	}
+      }
+    }
+    free(org_line);
+  } else{
+    /* check for harmfull errors */
+    if (errno == EMFILE or errno == ENFILE or errno == ENOMEM){
+      perror("fopen");
       exitstatus = EXIT_FAILURE;
       goto end;
     }
-    plus_argv[0] = argv[0];
-    plus_argv[1] = NULL;
+  }
 
-    while((arg = strsep(&plus_options, delims)) != NULL){
-      new_argc++;
-      plus_argv = realloc(plus_argv, sizeof(char *)
-			 * ((unsigned int) new_argc + 1));
-      if(plus_argv == NULL){
-	perror("realloc");
-	exitstatus = EXIT_FAILURE;
-	goto end;
-      }
-      plus_argv[new_argc-1] = arg;
-      plus_argv[new_argc] = NULL;
-    }
-
-    ret = argp_parse (&argp, new_argc, plus_argv, 0, 0, &plugin_list);
+  if(custom_argv != NULL){
+    custom_argv[0] = argv[0];
+    ret = argp_parse (&argp, custom_argc, custom_argv, 0, 0, &plugin_list);
     if (ret == ARGP_ERR_UNKNOWN){
       fprintf(stderr, "Unknown error while parsing arguments\n");
       exitstatus = EXIT_FAILURE;
@@ -742,7 +776,7 @@ int main(int argc, char *argv[]){
   /* Restore old signal handler */
   sigaction(SIGCHLD, &old_sigchld_action, NULL);
   
-  free(plus_argv);
+  free(custom_argv);
   
   /* Free the plugin list */
   for(plugin *next; plugin_list != NULL; plugin_list = next){
