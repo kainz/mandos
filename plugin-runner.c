@@ -65,9 +65,9 @@
 #include <errno.h>		/* errno, EBADF */
 
 #define BUFFER_SIZE 256
-#define CONFFILE "/conf/conf.d/mandos/client.conf"
+#define ARGFILE "/conf/conf.d/mandos/plugins.conf"
 
-const char *argp_program_version = "mandos-client 1.0";
+const char *argp_program_version = "plugin-runner 1.0";
 const char *argp_program_bug_address = "<mandos@fukt.bsnet.se>";
 
 struct process;
@@ -209,8 +209,8 @@ char ** addcustomargument(char **argv, int *argc, char *arg){
 }
 
 int main(int argc, char *argv[]){
-  const char *plugindir = "/conf/conf.d/mandos/plugins.d";
-  const char *conffile = CONFFILE;
+  const char *plugindir = "/lib/mandos/plugins.d";
+  const char *argfile = ARGFILE;
   FILE *conffp;
   size_t d_name_len;
   DIR *dir = NULL;
@@ -344,7 +344,7 @@ int main(int argc, char *argv[]){
     goto end;
   }
 
-  conffp = fopen(conffile, "r");
+  conffp = fopen(argfile, "r");
   if(conffp != NULL){
     char *org_line = NULL;
     size_t size = 0;
@@ -376,7 +376,8 @@ int main(int argc, char *argv[]){
     }
     free(org_line);
   } else{
-    /* check for harmfull errors */
+    /* Check for harmful errors and go to fallback. Other errors might
+       not affect opening plugins */
     if (errno == EMFILE or errno == ENFILE or errno == ENOMEM){
       perror("fopen");
       exitstatus = EXIT_FAILURE;

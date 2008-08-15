@@ -2,9 +2,12 @@
 
 * [#A] README file
 
-* Mandos-client
+* Plugin-runner
 ** [#A] Change syntax for arguments
-** [#A] Man page: man8/mandos-client.8mandos
+** [#B] Add more comments to code
+** [#B] Add more if(debug) calls
+** [#B] Seperate more code to function for more readability
+** [#A] Man page: man8/plugin-runner.8mandos
 *** DESCRIPTION
     Describe the plus sign syntax for passing options from crypttab
 *** EXIT STATUS
@@ -23,9 +26,9 @@
 *** SEE ALSO
     Explaining test on what you can read
 ** Use asprintf instead of malloc and strcat?
-** use strsep instead of strtok?
-** use config file in addition to arguments
-** pass things in environment, like device name, etc
+** Support in configuration file for environment variables
+** Keydir move: /etc/mandos -> /etc/keys/mandos
+   Must create in preinst if not pre-depending on cryptsetup
 
 * Password-request
 ** [#A] Man page: man8/password-request.8mandos
@@ -54,7 +57,6 @@
     Create this section
 *** SEE ALSO
     Refer to mandos-client(8mandos) and password-prompt(8mandos)
-** Use asprintf instead of malloc and memcpy?
 ** IPv4 support
 ** use strsep instead of strtok?
 ** Do not depend on GnuPG key rings on disk
@@ -63,6 +65,9 @@
 
 * Password-prompt
 ** [#A] Man page: man8/password-prompt.8mandos
+** Show getenv("cryptsource") and getenv("crypttarget") if set
+   cryptsource will be the device, like "/dev/sda3", and crypttarget
+   will be the device mapper name, like "sda3_crypt".
 *** DESCRIPTION
     Move options to new OPTIONS section.
 *** EXIT STATUS
