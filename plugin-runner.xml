@@ -230,31 +230,31 @@
   <refsect1 id="file">
     <title>FILES</title>
     <para>
-      </para>
+    </para>
   </refsect1>  
 
   <refsect1 id="notes">
     <title>NOTES</title>
     <para>
-      </para>
+    </para>
   </refsect1>
   
   <refsect1 id="bugs">
     <title>BUGS</title>
     <para>
-      </para>
+    </para>
   </refsect1>  
 
   <refsect1 id="examples">
     <title>EXAMPLES</title>
     <para>
-      </para>
+    </para>
   </refsect1>
 
   <refsect1 id="security">
     <title>SECURITY</title>
     <para>
-      </para>
+    </para>
   </refsect1>
 
   <refsect1 id="see_also">
@@ -263,9 +263,11 @@
       <citerefentry><refentrytitle>mandos</refentrytitle>
       <manvolnum>8</manvolnum></citerefentry>, <citerefentry>
       <refentrytitle>password-request</refentrytitle>
-      <manvolnum>8mandos</manvolnum></citerefentry> and <citerefentry>
+      <manvolnum>8mandos</manvolnum></citerefentry>, <citerefentry>
       <refentrytitle>password-prompt</refentrytitle>
-      <manvolnum>8mandos</manvolnum></citerefentry>
+      <manvolnum>8mandos</manvolnum></citerefentry>, and
+      <citerefentry><refentrytitle>cryptsetup</refentrytitle>
+      <manvolnum>8</manvolnum></citerefentry>
     </para>
   </refsect1>
 
