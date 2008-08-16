@@ -21,8 +21,8 @@
  * Contact the authors at <mandos@fukt.bsnet.se>.
  */
 
-#define _GNU_SOURCE		/* TEMP_FAILURE_RETRY(), getline() */
-
+#define _GNU_SOURCE		/* TEMP_FAILURE_RETRY(), getline(),
+				   asprintf() */
 #include <stddef.h>		/* size_t, NULL */
 #include <stdlib.h>		/* malloc(), exit(), EXIT_FAILURE,
 				   EXIT_SUCCESS, realloc() */
@@ -51,8 +51,7 @@
 				   close() */
 #include <fcntl.h>		/* fcntl(), F_GETFD, F_SETFD,
 				   FD_CLOEXEC */
-#include <string.h>		/* strsep, strlen(), strcpy(),
-				   strcat() */
+#include <string.h>		/* strsep, strlen(), asprintf() */
 #include <errno.h>		/* errno */
 #include <argp.h>		/* struct argp_option, struct
 				   argp_state, struct argp,
@@ -88,6 +87,8 @@ typedef struct plugin{
   char *name;			/* can be NULL or any plugin name */
   char **argv;
   int argc;
+  char **environ;
+  int envc;
   bool disabled;
   struct plugin *next;
 } plugin;
@@ -102,35 +103,73 @@ static plugin *getplugin(char *name, plugin **plugin_list){
   /* Create a new plugin */
   plugin *new_plugin = malloc(sizeof(plugin));
   if (new_plugin == NULL){
-    perror("malloc");
-    exit(EXIT_FAILURE);
+    return NULL;
   }
-  new_plugin->name = name;
+  *new_plugin = (plugin) { .name = name,
+			   .argc = 1,
+			   .envc = 0,
+			   .disabled = false,
+			   .next = *plugin_list };
+  
   new_plugin->argv = malloc(sizeof(char *) * 2);
   if (new_plugin->argv == NULL){
-    perror("malloc");
-    exit(EXIT_FAILURE);
+    free(new_plugin);
+    return NULL;
   }
   new_plugin->argv[0] = name;
   new_plugin->argv[1] = NULL;
-  new_plugin->argc = 1;
-  new_plugin->disabled = false;
-  new_plugin->next = *plugin_list;
+
+  new_plugin->environ = malloc(sizeof(char *));
+  if(new_plugin->environ == NULL){
+    free(new_plugin->argv);
+    free(new_plugin);
+    return NULL;
+  }
+  new_plugin->environ[0] = NULL;
   /* Append the new plugin to the list */
   *plugin_list = new_plugin;
   return new_plugin;
 }
 
-static void addargument(plugin *p, char *arg){
-  p->argv[p->argc] = arg;
-  p->argv = realloc(p->argv, sizeof(char *) * (size_t)(p->argc + 2));
-  if (p->argv == NULL){
-    perror("malloc");
-    exit(EXIT_FAILURE);
+/* Helper function for add_argument and add_environment */
+static bool add_to_char_array(const char *new, char ***array,
+			      int *len){
+  /* Resize the pointed-to array to hold one more pointer */
+  *array = realloc(*array, sizeof(char *)
+		   * (size_t) ((*len) + 2));
+  /* Malloc check */
+  if(*array == NULL){
+    return false;
   }
-  p->argc++;
-  p->argv[p->argc] = NULL;
+  /* Make a copy of the new string */
+  char *copy = strdup(new);
+  if(copy == NULL){
+    return false;
+  }
+  /* Insert the copy */
+  (*array)[*len] = copy;
+  (*len)++;
+  /* Add a new terminating NULL pointer to the last element */
+  (*array)[*len] = NULL;
+  return true;
 }
+
+/* Add to a plugin's argument vector */
+static bool add_argument(plugin *p, const char *arg){
+  if(p == NULL){
+    return false;
+  }
+  return add_to_char_array(arg, &(p->argv), &(p->argc));
+}
+
+/* Add to a plugin's environment */
+static bool add_environment(plugin *p, const char *def){
+  if(p == NULL){
+    return false;
+  }
+  return add_to_char_array(def, &(p->environ), &(p->envc));
+}
+
 
 /*
  * Based on the example in the GNU LibC manual chapter 13.13 "File
@@ -186,8 +225,7 @@ bool print_out_password(const char *buffer, size_t length){
   return true;
 }
 
-char ** addcustomargument(char **argv, int *argc, char *arg){
-
+char **add_to_argv(char **argv, int *argc, char *arg){
   if (argv == NULL){
     *argc = 1;
     argv = malloc(sizeof(char*) * 2);
@@ -246,9 +284,15 @@ int main(int argc, char *argv[]){
     { .name = "global-options", .key = 'g',
       .arg = "OPTION[,OPTION[,...]]",
       .doc = "Options passed to all plugins" },
+    { .name = "global-envs", .key = 'e',
+      .arg = "VAR=value",
+      .doc = "Environment variable passed to all plugins" },
     { .name = "options-for", .key = 'o',
       .arg = "PLUGIN:OPTION[,OPTION[,...]]",
       .doc = "Options passed only to specified plugin" },
+    { .name = "envs-for", .key = 'f',
+      .arg = "PLUGIN:ENV=value",
+      .doc = "Environment variable passed to specified plugin" },
     { .name = "disable", .key = 'd',
       .arg = "PLUGIN",
       .doc = "Disable a specific plugin", .group = 1 },
@@ -278,14 +322,31 @@ int main(int argc, char *argv[]){
 	  if(p[0] == '\0'){
 	    continue;
 	  }
-	  addargument(getplugin(NULL, plugins), p);
+	  if(not add_argument(getplugin(NULL, plugins), p)){
+	    perror("add_argument");
+	    return ARGP_ERR_UNKNOWN;
+	  }
+	}
+      }
+      break;
+    case 'e':
+      if(arg == NULL){
+	break;
+      }
+      {
+	char *envdef = strdup(arg);
+	if(envdef == NULL){
+	  break;
+	}
+	if(not add_environment(getplugin(NULL, plugins), envdef)){
+	  perror("add_environment");
 	}
       }
       break;
     case 'o':
       if (arg != NULL){
-	char *name = strsep(&arg, ":");
-	if(name[0] == '\0'){
+	char *p_name = strsep(&arg, ":");
+	if(p_name[0] == '\0'){
 	  break;
 	}
 	char *opt = strsep(&arg, ":");
@@ -298,14 +359,40 @@ int main(int argc, char *argv[]){
 	    if(p[0] == '\0'){
 	      continue;
 	    }
-	    addargument(getplugin(name, plugins), p);
+	    if(not add_argument(getplugin(p_name, plugins), p)){
+	      perror("add_argument");
+	      return ARGP_ERR_UNKNOWN;
+	    }
 	  }
+	}
+      }
+      break;
+    case 'f':
+      if(arg == NULL){
+	break;
+      }
+      {
+	char *envdef = strchr(arg, ':');
+	if(envdef == NULL){
+	  break;
+	}
+	char *p_name = strndup(arg, (size_t) (envdef-arg));
+	if(p_name == NULL){
+	  break;
+	}
+	envdef++;
+	if(not add_environment(getplugin(p_name, plugins), envdef)){
+	  perror("add_environment");
 	}
       }
       break;
     case 'd':
       if (arg != NULL){
-	getplugin(arg, plugins)->disabled = true;
+	plugin *p = getplugin(arg, plugins);
+	if(p == NULL){
+	  return ARGP_ERR_UNKNOWN;
+	}
+	p->disabled = true;
       }
       break;
     case 128:
@@ -321,7 +408,7 @@ int main(int argc, char *argv[]){
       debug = true;
       break;
     case ARGP_KEY_ARG:
-      fprintf(stderr, "Ignoring unknown argument \"%s\"\n", arg); 
+      fprintf(stderr, "Ignoring unknown argument \"%s\"\n", arg);
       break;
     case ARGP_KEY_END:
       break;
@@ -366,9 +453,9 @@ int main(int argc, char *argv[]){
 	  continue;
 	}
 	new_arg = strdup(p);
-	custom_argv = addcustomargument(custom_argv, &custom_argc, new_arg);
+	custom_argv = add_to_argv(custom_argv, &custom_argc, new_arg);
 	if (custom_argv == NULL){
-	  perror("addcustomargument");
+	  perror("add_to_argv");
 	  exitstatus = EXIT_FAILURE;
 	  goto end;
 	}
@@ -401,6 +488,10 @@ int main(int argc, char *argv[]){
 	      p->name ? p->name : "Global", p->argc - 1);
       for(char **a = p->argv; *a != NULL; a++){
 	fprintf(stderr, "\tArg: %s\n", *a);
+      }
+      fprintf(stderr, "...and %u environment variables\n", p->envc);
+      for(char **a = p->environ; *a != NULL; a++){
+	fprintf(stderr, "\t%s\n", *a);
       }
     }
   }
@@ -496,15 +587,13 @@ int main(int argc, char *argv[]){
 	continue;
       }
     }
-    
-    char *filename = malloc(d_name_len + strlen(plugindir) + 2);
-    if (filename == NULL){
-      perror("malloc");
+
+    char *filename;
+    ret = asprintf(&filename, "%s/%s", plugindir, dirst->d_name);
+    if(ret < 0){
+      perror("asprintf");
       continue;
     }
-    strcpy(filename, plugindir); /* Spurious warning */
-    strcat(filename, "/");	/* Spurious warning */
-    strcat(filename, dirst->d_name); /* Spurious warning */
     
     ret = stat(filename, &st);
     if (ret == -1){
@@ -521,7 +610,13 @@ int main(int argc, char *argv[]){
       free(filename);
       continue;
     }
-    if(getplugin(dirst->d_name, &plugin_list)->disabled){
+    plugin *p = getplugin(dirst->d_name, &plugin_list);
+    if(p == NULL){
+      perror("getplugin");
+      free(filename);
+      continue;
+    }
+    if(p->disabled){
       if(debug){
 	fprintf(stderr, "Ignoring disabled plugin \"%s\"\n",
 		dirst->d_name);
@@ -529,14 +624,39 @@ int main(int argc, char *argv[]){
       free(filename);
       continue;
     }
-    plugin *p = getplugin(dirst->d_name, &plugin_list);
     {
       /* Add global arguments to argument list for this plugin */
       plugin *g = getplugin(NULL, &plugin_list);
-      for(char **a = g->argv + 1; *a != NULL; a++){
-	addargument(p, *a);
+      if(g != NULL){
+	for(char **a = g->argv + 1; *a != NULL; a++){
+	  if(not add_argument(p, *a)){
+	    perror("add_argument");
+	  }
+	}
+	/* Add global environment variables */
+	for(char **e = g->environ; *e != NULL; e++){
+	  if(not add_environment(p, *e)){
+	    perror("add_environment");
+	  }
+	}
       }
     }
+    /* If this plugin has any environment variables, we will call
+       using execve and need to duplicate the environment from this
+       process, too. */
+    if(p->environ[0] != NULL){
+      for(char **e = environ; *e != NULL; e++){
+	char *copy = strdup(*e);
+	if(copy == NULL){
+	  perror("strdup");
+	  continue;
+	}
+	if(not add_environment(p, copy)){
+	  perror("add_environment");
+	}
+      }
+    }
+    
     int pipefd[2]; 
     ret = pipe(pipefd);
     if (ret == -1){
@@ -594,9 +714,16 @@ int main(int argc, char *argv[]){
 	   above and must now close it manually here. */
 	closedir(dir);
       }
-      if(execv(filename, p->argv) < 0){
-	perror("execv");
-	_exit(EXIT_FAILURE);
+      if(p->environ[0] == NULL){
+	if(execv(filename, p->argv) < 0){
+	  perror("execv");
+	  _exit(EXIT_FAILURE);
+	}
+      } else {
+	if(execve(filename, p->argv, p->environ) < 0){
+	  perror("execve");
+	  _exit(EXIT_FAILURE);
+	}
       }
       /* no return */
     }
@@ -640,6 +767,11 @@ int main(int argc, char *argv[]){
   for(plugin *next; plugin_list != NULL; plugin_list = next){
     next = plugin_list->next;
     free(plugin_list->argv);
+    if(plugin_list->environ[0] != NULL){
+      for(char **e = plugin_list->environ; *e != NULL; e++){
+	free(*e);
+      }
+    }
     free(plugin_list);
   }
   
@@ -783,6 +915,12 @@ int main(int argc, char *argv[]){
   for(plugin *next; plugin_list != NULL; plugin_list = next){
     next = plugin_list->next;
     free(plugin_list->argv);
+    if(plugin_list->environ[0] != NULL){
+      for(char **e = plugin_list->environ; *e != NULL; e++){
+	free(*e);
+      }
+    }
+    free(plugin_list->environ);
     free(plugin_list);
   }
   
