@@ -3,10 +3,13 @@
 * [#A] README file
 
 * Plugin-runner
+** [#A] Free plugin name and args
+   [[file:plugin-runner.c::free%20plugin_list][file:plugin-runner.c::free plugin_list]] (both places)
 ** [#A] Change syntax for arguments
 ** [#B] Add more comments to code
 ** [#B] Add more if(debug) calls
 ** [#B] Seperate more code to function for more readability
+** [#B] Make free_plugin_list() function
 ** [#A] Man page: man8/plugin-runner.8mandos
 *** DESCRIPTION
     Describe the plus sign syntax for passing options from crypttab
@@ -25,8 +28,6 @@
     Text needed
 *** SEE ALSO
     Explaining test on what you can read
-** Use asprintf instead of malloc and strcat?
-** Support in configuration file for environment variables
 ** Keydir move: /etc/mandos -> /etc/keys/mandos
    Must create in preinst if not pre-depending on cryptsetup
 
@@ -57,6 +58,8 @@
     Create this section
 *** SEE ALSO
     Refer to mandos-client(8mandos) and password-prompt(8mandos)
+*** ENVIRONMENT
+    Document use of "cryptsource" and "crypttarget".
 ** IPv4 support
 ** use strsep instead of strtok?
 ** Do not depend on GnuPG key rings on disk
