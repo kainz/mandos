@@ -3,13 +3,9 @@
 * [#A] README file
 
 * Plugin-runner
-** [#A] Free plugin name and args
-   [[file:plugin-runner.c::free%20plugin_list][file:plugin-runner.c::free plugin_list]] (both places)
-** [#A] Change syntax for arguments
 ** [#B] Add more comments to code
 ** [#B] Add more if(debug) calls
 ** [#B] Seperate more code to function for more readability
-** [#B] Make free_plugin_list() function
 ** [#A] Man page: man8/plugin-runner.8mandos
 *** DESCRIPTION
     Describe the plus sign syntax for passing options from crypttab
@@ -68,9 +64,6 @@
 
 * Password-prompt
 ** [#A] Man page: man8/password-prompt.8mandos
-** Show getenv("cryptsource") and getenv("crypttarget") if set
-   cryptsource will be the device, like "/dev/sda3", and crypttarget
-   will be the device mapper name, like "sda3_crypt".
 *** DESCRIPTION
     Move options to new OPTIONS section.
 *** EXIT STATUS
@@ -95,7 +88,6 @@
    does not.  See also [[http://sources.redhat.com/ml/libc-alpha/2003-05/msg00251.html][Marcus Brinkmann: Re: getpass obsolete?]] and
    [[http://article.gmane.org/gmane.comp.lib.glibc.alpha/4906][Petter Reinholdtsen: Re: getpass obsolete?]], and especially also
    [[http://www.steve.org.uk/Reference/Unix/faq_4.html#SEC48][Unix Programming FAQ 3.1 How can I make my program not echo input?]]
-** Replace completely with "/lib/cryptsetup/askpass"?
 
 * Mandos (server)
 ** [#A] Command man page: man8/mandos.8
