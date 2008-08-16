@@ -36,7 +36,7 @@
 #include <stddef.h>		/* NULL, size_t, ssize_t */
 #include <sys/types.h>		/* ssize_t */
 #include <stdlib.h>		/* EXIT_SUCCESS, EXIT_FAILURE,
-				   getopt_long */
+				   getopt_long, getenv() */
 #include <stdio.h>		/* fprintf(), stderr, getline(),
 				   stdin, feof(), perror(), fputc(),
 				   stdout, getopt_long */
@@ -184,10 +184,28 @@ int main(int argc, char **argv){
     }
 
     if(prefix){
-      fprintf(stderr, "%s Password: ", prefix);
-    } else {
-      fprintf(stderr, "Password: ");
-    }      
+      fprintf(stderr, "%s ", prefix);
+    }
+    {
+      const char *cryptsource = getenv("cryptsource");
+      const char *crypttarget = getenv("crypttarget");
+      const char *const prompt
+	= "Enter passphrase to unlock the disk";
+      if(cryptsource == NULL){
+	if(crypttarget == NULL){
+	  fprintf(stderr, "%s: ", prompt);
+	} else {
+	  fprintf(stderr, "%s (%s): ", prompt, crypttarget);
+	}
+      } else {
+	if(crypttarget == NULL){
+	  fprintf(stderr, "%s %s: ", prompt, cryptsource);
+	} else {
+	  fprintf(stderr, "%s %s (%s): ", prompt, cryptsource,
+		  crypttarget);
+	}
+      }
+    }
     ret = getline(&buffer, &n, stdin);
     if (ret > 0){
       fprintf(stdout, "%s", buffer);

@@ -28,16 +28,11 @@
     Text needed
 *** SEE ALSO
     Explaining test on what you can read
-** Support in configuration file for environment variables
 ** Keydir move: /etc/mandos -> /etc/keys/mandos
    Must create in preinst if not pre-depending on cryptsetup
 
 * Password-request
 ** [#A] Man page: man8/password-request.8mandos
-** Make prompt exactly like the normal prompt
-   Use environment variables:
-   "Enter passphrase to unlock the disk $cryptsource ($crypttarget): "
-   [[file:plugins.d/password-prompt.c::fprintf%20stderr%20s%20Password%20prefix][Here]]
 ** [#B] Temporarily lower kernel log level
    for less printouts during sucessfull boot.
 *** DESCRIPTION
@@ -63,6 +58,8 @@
     Create this section
 *** SEE ALSO
     Refer to mandos-client(8mandos) and password-prompt(8mandos)
+*** ENVIRONMENT
+    Document use of "cryptsource" and "crypttarget".
 ** IPv4 support
 ** use strsep instead of strtok?
 ** Do not depend on GnuPG key rings on disk
