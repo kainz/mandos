@@ -105,7 +105,12 @@ static plugin *getplugin(char *name, plugin **plugin_list){
   if (new_plugin == NULL){
     return NULL;
   }
-  *new_plugin = (plugin) { .name = name,
+  char *copy_name = strdup(name);
+  if(copy_name == NULL){
+    return NULL;
+  }
+  
+  *new_plugin = (plugin) { .name = copy_name,
 			   .argc = 1,
 			   .envc = 0,
 			   .disabled = false,
@@ -116,7 +121,7 @@ static plugin *getplugin(char *name, plugin **plugin_list){
     free(new_plugin);
     return NULL;
   }
-  new_plugin->argv[0] = name;
+  new_plugin->argv[0] = copy_name;
   new_plugin->argv[1] = NULL;
 
   new_plugin->environ = malloc(sizeof(char *));
@@ -246,6 +251,22 @@ char **add_to_argv(char **argv, int *argc, char *arg){
   return argv;
 }
 
+static void free_plugin_list(plugin *plugin_list){
+  for(plugin *next = plugin_list; plugin_list != NULL; plugin_list = next){
+    next = plugin_list->next;
+    free(plugin_list->name);
+    for(char **arg = plugin_list->argv; *arg != NULL; arg++){
+      free(*arg);
+    }    
+    free(plugin_list->argv);
+    for(char **env = plugin_list->environ; *env != NULL; env++){
+      free(*env);
+    }
+    free(plugin_list->environ);
+    free(plugin_list);
+  }  
+}
+
 int main(int argc, char *argv[]){
   const char *plugindir = "/lib/mandos/plugins.d";
   const char *argfile = ARGFILE;
@@ -269,14 +290,16 @@ int main(int argc, char *argv[]){
   /* Establish a signal handler */
   sigemptyset(&sigchld_action.sa_mask);
   ret = sigaddset(&sigchld_action.sa_mask, SIGCHLD);
-  if(ret < 0){
+  if(ret == -1){
     perror("sigaddset");
-    exit(EXIT_FAILURE);
+    exitstatus = EXIT_FAILURE;
+    goto fallback;
   }
   ret = sigaction(SIGCHLD, &sigchld_action, &old_sigchld_action);
-  if(ret < 0){
+  if(ret == -1){
     perror("sigaction");
-    exit(EXIT_FAILURE);
+    exitstatus = EXIT_FAILURE;    
+    goto fallback;
   }
   
   /* The options we understand. */
@@ -428,15 +451,15 @@ int main(int argc, char *argv[]){
   if (ret == ARGP_ERR_UNKNOWN){
     fprintf(stderr, "Unknown error while parsing arguments\n");
     exitstatus = EXIT_FAILURE;
-    goto end;
+    goto fallback;
   }
 
   conffp = fopen(argfile, "r");
   if(conffp != NULL){
     char *org_line = NULL;
+    char *p, *arg, *new_arg, *line;
     size_t size = 0;
     ssize_t sret;
-    char *p, *arg, *new_arg, *line;
     const char whitespace_delims[] = " \r\t\f\v\n";
     const char comment_delim[] = "#";
 
@@ -457,7 +480,7 @@ int main(int argc, char *argv[]){
 	if (custom_argv == NULL){
 	  perror("add_to_argv");
 	  exitstatus = EXIT_FAILURE;
-	  goto end;
+	  goto fallback;
 	}
       }
     }
@@ -468,7 +491,7 @@ int main(int argc, char *argv[]){
     if (errno == EMFILE or errno == ENFILE or errno == ENOMEM){
       perror("fopen");
       exitstatus = EXIT_FAILURE;
-      goto end;
+      goto fallback;
     }
   }
 
@@ -478,7 +501,7 @@ int main(int argc, char *argv[]){
     if (ret == ARGP_ERR_UNKNOWN){
       fprintf(stderr, "Unknown error while parsing arguments\n");
       exitstatus = EXIT_FAILURE;
-      goto end;
+      goto fallback;
     }
   }
   
@@ -510,7 +533,7 @@ int main(int argc, char *argv[]){
   if(dir == NULL){
     perror("Could not open plugin dir");
     exitstatus = EXIT_FAILURE;
-    goto end;
+    goto fallback;
   }
   
   /* Set the FD_CLOEXEC flag on the directory, if possible */
@@ -521,7 +544,7 @@ int main(int argc, char *argv[]){
       if(ret < 0){
 	perror("set_cloexec_flag");
 	exitstatus = EXIT_FAILURE;
-	goto end;
+	goto fallback;
       }
     }
   }
@@ -536,7 +559,7 @@ int main(int argc, char *argv[]){
       if (errno == EBADF){
 	perror("readdir");
 	exitstatus = EXIT_FAILURE;
-	goto end;
+	goto fallback;
       }
       break;
     }
@@ -662,33 +685,33 @@ int main(int argc, char *argv[]){
     if (ret == -1){
       perror("pipe");
       exitstatus = EXIT_FAILURE;
-      goto end;
+      goto fallback;
     }
     ret = set_cloexec_flag(pipefd[0]);
     if(ret < 0){
       perror("set_cloexec_flag");
       exitstatus = EXIT_FAILURE;
-      goto end;
+      goto fallback;
     }
     ret = set_cloexec_flag(pipefd[1]);
     if(ret < 0){
       perror("set_cloexec_flag");
       exitstatus = EXIT_FAILURE;
-      goto end;
+      goto fallback;
     }
     /* Block SIGCHLD until process is safely in process list */
     ret = sigprocmask (SIG_BLOCK, &sigchld_action.sa_mask, NULL);
     if(ret < 0){
       perror("sigprocmask");
       exitstatus = EXIT_FAILURE;
-      goto end;
+      goto fallback;
     }
     // Starting a new process to be watched
     pid_t pid = fork();
     if(pid == -1){
       perror("fork");
       exitstatus = EXIT_FAILURE;
-      goto end;
+      goto fallback;
     }
     if(pid == 0){
       /* this is the child process */
@@ -738,7 +761,7 @@ int main(int argc, char *argv[]){
 	perror("sigprocmask");
       }
       exitstatus = EXIT_FAILURE;
-      goto end;
+      goto fallback;
     }
     
     *new_process = (struct process){ .pid = pid,
@@ -752,7 +775,7 @@ int main(int argc, char *argv[]){
     if(ret < 0){
       perror("sigprocmask");
       exitstatus = EXIT_FAILURE;
-      goto end;
+      goto fallback;
     }
     
     FD_SET(new_process->fd, &rfds_all);
@@ -763,17 +786,7 @@ int main(int argc, char *argv[]){
     
   }
   
-  /* Free the plugin list */
-  for(plugin *next; plugin_list != NULL; plugin_list = next){
-    next = plugin_list->next;
-    free(plugin_list->argv);
-    if(plugin_list->environ[0] != NULL){
-      for(char **e = plugin_list->environ; *e != NULL; e++){
-	free(*e);
-      }
-    }
-    free(plugin_list);
-  }
+  free_plugin_list(plugin_list);
   
   closedir(dir);
   dir = NULL;
@@ -789,7 +802,7 @@ int main(int argc, char *argv[]){
     if (select_ret == -1){
       perror("select");
       exitstatus = EXIT_FAILURE;
-      goto end;
+      goto fallback;
     }
     /* OK, now either a process completed, or something can be read
        from one of them */
@@ -821,7 +834,7 @@ int main(int argc, char *argv[]){
 	  if(ret < 0){
 	    perror("sigprocmask");
 	    exitstatus = EXIT_FAILURE;
-	    goto end;
+	    goto fallback;
 	  }
 	  /* Delete this process entry from the list */
 	  if(process_list == proc){
@@ -856,7 +869,7 @@ int main(int argc, char *argv[]){
 	  perror("print_out_password");
 	  exitstatus = EXIT_FAILURE;
 	}
-	goto end;
+	goto fallback;
       }
       /* This process has not completed.  Does it have any output? */
       if(proc->eof or not FD_ISSET(proc->fd, &rfds)){
@@ -870,7 +883,7 @@ int main(int argc, char *argv[]){
 	if (proc->buffer == NULL){
 	  perror("malloc");
 	  exitstatus = EXIT_FAILURE;
-	  goto end;
+	  goto fallback;
 	}
 	proc->buffer_size += BUFFER_SIZE;
       }
@@ -891,7 +904,7 @@ int main(int argc, char *argv[]){
   }
 
 
- end:
+ fallback:
   
   if(process_list == NULL or exitstatus != EXIT_SUCCESS){
     /* Fallback if all plugins failed, none are found or an error occured */
@@ -902,27 +915,23 @@ int main(int argc, char *argv[]){
     if(not bret){
       perror("print_out_password");
       exitstatus = EXIT_FAILURE;
-      goto end;
     }
   }
   
   /* Restore old signal handler */
-  sigaction(SIGCHLD, &old_sigchld_action, NULL);
-  
-  free(custom_argv);
-  
-  /* Free the plugin list */
-  for(plugin *next; plugin_list != NULL; plugin_list = next){
-    next = plugin_list->next;
-    free(plugin_list->argv);
-    if(plugin_list->environ[0] != NULL){
-      for(char **e = plugin_list->environ; *e != NULL; e++){
-	free(*e);
-      }
-    }
-    free(plugin_list->environ);
-    free(plugin_list);
+  ret = sigaction(SIGCHLD, &old_sigchld_action, NULL);
+  if(ret == -1){
+    perror("sigaction");
+    exitstatus = EXIT_FAILURE;
   }
+
+  if(custom_argv != NULL){
+    for(char **arg = custom_argv; *arg != NULL; arg++){
+      free(*arg);
+    }
+    free(custom_argv);
+  }
+  free_plugin_list(plugin_list);
   
   if(dir != NULL){
     closedir(dir);
