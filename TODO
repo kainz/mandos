@@ -3,10 +3,13 @@
 * [#A] README file
 
 * Plugin-runner
+** [#A] Free plugin name and args
+   [[file:plugin-runner.c::free%20plugin_list][file:plugin-runner.c::free plugin_list]] (both places)
 ** [#A] Change syntax for arguments
 ** [#B] Add more comments to code
 ** [#B] Add more if(debug) calls
 ** [#B] Seperate more code to function for more readability
+** [#B] Make free_plugin_list() function
 ** [#A] Man page: man8/plugin-runner.8mandos
 *** DESCRIPTION
     Describe the plus sign syntax for passing options from crypttab
@@ -25,13 +28,16 @@
     Text needed
 *** SEE ALSO
     Explaining test on what you can read
-** Use asprintf instead of malloc and strcat?
 ** Support in configuration file for environment variables
 ** Keydir move: /etc/mandos -> /etc/keys/mandos
    Must create in preinst if not pre-depending on cryptsetup
 
 * Password-request
 ** [#A] Man page: man8/password-request.8mandos
+** Make prompt exactly like the normal prompt
+   Use environment variables:
+   "Enter passphrase to unlock the disk $cryptsource ($crypttarget): "
+   [[file:plugins.d/password-prompt.c::fprintf%20stderr%20s%20Password%20prefix][Here]]
 ** [#B] Temporarily lower kernel log level
    for less printouts during sucessfull boot.
 *** DESCRIPTION
