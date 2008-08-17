@@ -11,7 +11,7 @@
     Text needed
 *** EXAMPLES
     Examples of normal usage, debug usage, debugging single or all
-    plugins, examples of crypttab lines with plus syntax, etc.
+    plugins, etc.
 *** FILES
     Text needed
 *** SECURITY
@@ -84,18 +84,6 @@
 
 * Mandos (server)
 ** [#A] Command man page: man8/mandos.8
-*** EXAMPLES
-    Create this section
-*** FILES
-    Describe briefly that the server gets global settings from
-    mandos.conf and clients from clients.conf, but refer to their man
-    pages for more details.
-*** DIAGNOSTICS
-    Create this section
-*** SECURITY
-    Create this section
-*** BUGS
-    Create this section
 ** [#A] Config file man page: man5/mandos.conf (mandos.conf)
 ** [#A] Config file man page: man5/mandos-clients.conf (clients.conf)
 ** [#A] /etc/init.d/mandos-server		:teddy:

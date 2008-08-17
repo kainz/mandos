@@ -39,7 +39,7 @@ DOCBOOKTOMAN=xsltproc --nonet \
 	--param man.output.quietly		1 \
 	--param man.authors.section.enabled	0
 # DocBook-to-man post-processing to fix a \n escape bug
-MANPOST=sed --in-place --expression='s,\\en,\en,g;s,\een,\en,g'
+MANPOST=sed --in-place --expression='s,\\en,\en,g;s,\\een,\\en,g'
 
 PLUGINS=plugins.d/password-prompt plugins.d/password-request
 PROGS=plugin-runner $(PLUGINS)
