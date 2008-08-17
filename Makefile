@@ -37,7 +37,8 @@ DOCBOOKTOMAN=xsltproc --nonet \
 	--param make.year.ranges		1 \
 	--param make.single.year.ranges		1 \
 	--param man.output.quietly		1 \
-	--param man.authors.section.enabled	0
+	--param man.authors.section.enabled	0 \
+	 /usr/share/xml/docbook/stylesheet/nwalsh/manpages/docbook.xsl
 # DocBook-to-man post-processing to fix a \n escape bug
 MANPOST=sed --in-place --expression='s,\\en,\en,g;s,\\een,\\en,g'
 
