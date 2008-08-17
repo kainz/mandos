@@ -302,7 +302,7 @@ static ssize_t pgp_packet_decrypt (const char *cryptotext,
 }
 
 static const char * safer_gnutls_strerror (int value) {
-  const char *ret = gnutls_strerror (value);
+  const char *ret = gnutls_strerror (value); /* Spurious warning */
   if (ret == NULL)
     ret = "(unknown)";
   return ret;
@@ -341,7 +341,8 @@ static int init_gnutls_global(mandos_context *mc,
   /* OpenPGP credentials */
   gnutls_certificate_allocate_credentials(&mc->cred);
   if (ret != GNUTLS_E_SUCCESS){
-    fprintf (stderr, "GnuTLS memory error: %s\n",
+    fprintf (stderr, "GnuTLS memory error: %s\n", /* Spurious
+						     warning */
 	     safer_gnutls_strerror(ret));
     gnutls_global_deinit ();
     return -1;
@@ -475,7 +476,7 @@ static int start_mandos_communication(const char *ip, uint16_t port,
     fprintf(stderr, "Binding to interface %s\n", interface);
   }
   
-  memset(&to, 0, sizeof(to));	/* Spurious warning */
+  memset(&to, 0, sizeof(to));
   to.in6.sin6_family = AF_INET6;
   /* It would be nice to have a way to detect if we were passed an
      IPv4 address here.   Now we assume an IPv6 address. */
@@ -661,7 +662,7 @@ static void resolve_callback(AvahiSServiceResolver *r,
 			     flags,
 			     void* userdata) {
   mandos_context *mc = userdata;
-  assert(r);			/* Spurious warning */
+  assert(r);
   
   /* Called whenever a service has been resolved successfully or
      timed out */
@@ -703,7 +704,7 @@ static void browse_callback( AvahiSServiceBrowser *b,
 			     flags,
 			     void* userdata) {
   mandos_context *mc = userdata;
-  assert(b);			/* Spurious warning */
+  assert(b);
   
   /* Called whenever a new services becomes available on the LAN or
      is removed from the LAN */
@@ -897,7 +898,7 @@ int main(int argc, char *argv[]){
 	exitcode = EXIT_FAILURE;
 	goto end;
       }
-      strcpy(network.ifr_name, interface); /* Spurious warning */
+      strcpy(network.ifr_name, interface);
       ret = ioctl(sd, SIOCGIFFLAGS, &network);
       if(ret == -1){
 	perror("ioctl SIOCGIFFLAGS");

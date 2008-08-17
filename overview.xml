@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<para>
+  This is part of the Mandos system for allowing host computers to
+  have encrypted root file systems and also be capable of remote and
+  unattended reboots.  The host computers run a small client program
+  in the initial RAM disk environment which will communicate with a
+  server over a network.  The clients are identified by the server
+  using a OpenPGP key; each client has one unique to it.  The server
+  sends the clients an encrypted password.  The encrypted password is
+  decrypted by the clients using the same OpenPGP key, and the
+  password is then used to unlock the root file system, whereupon the
+  host computers can continue booting normally.
+</para>

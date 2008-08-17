@@ -1,16 +1,15 @@
-<?xml version='1.0' encoding='UTF-8'?>
-<?xml-stylesheet type="text/xsl"
-	href="http://docbook.sourceforge.net/release/xsl/current/manpages/docbook.xsl"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
-	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY VERSION "1.0">
 <!ENTITY COMMANDNAME "mandos">
+<!ENTITY OVERVIEW SYSTEM "overview.xml">
 ]>
 
 <refentry>
   <refentryinfo>
     <title>&COMMANDNAME;</title>
-    <!-- NWalsh's docbook scripts use this to generate the footer: -->
+    <!-- NWalsh’s docbook scripts use this to generate the footer: -->
     <productname>&COMMANDNAME;</productname>
     <productnumber>&VERSION;</productnumber>
     <authorgroup>
@@ -74,35 +73,35 @@
   <refsynopsisdiv>
     <cmdsynopsis>
       <command>&COMMANDNAME;</command>
-      <arg choice='opt'>--interface<arg choice='plain'>IF</arg></arg>
-      <arg choice='opt'>--address<arg choice='plain'>ADDRESS</arg></arg>
-      <arg choice='opt'>--port<arg choice='plain'>PORT</arg></arg>
-      <arg choice='opt'>--priority<arg choice='plain'>PRIORITY</arg></arg>
-      <arg choice='opt'>--servicename<arg choice='plain'>NAME</arg></arg>
-      <arg choice='opt'>--configdir<arg choice='plain'>DIRECTORY</arg></arg>
-      <arg choice='opt'>--debug</arg>
+      <arg choice="opt">--interface<arg choice="plain">IF</arg></arg>
+      <arg choice="opt">--address<arg choice="plain">ADDRESS</arg></arg>
+      <arg choice="opt">--port<arg choice="plain">PORT</arg></arg>
+      <arg choice="opt">--priority<arg choice="plain">PRIORITY</arg></arg>
+      <arg choice="opt">--servicename<arg choice="plain">NAME</arg></arg>
+      <arg choice="opt">--configdir<arg choice="plain">DIRECTORY</arg></arg>
+      <arg choice="opt">--debug</arg>
     </cmdsynopsis>
     <cmdsynopsis>
       <command>&COMMANDNAME;</command>
-      <arg choice='opt'>-i<arg choice='plain'>IF</arg></arg>
-      <arg choice='opt'>-a<arg choice='plain'>ADDRESS</arg></arg>
-      <arg choice='opt'>-p<arg choice='plain'>PORT</arg></arg>
-      <arg choice='opt'>--priority<arg choice='plain'>PRIORITY</arg></arg>
-      <arg choice='opt'>--servicename<arg choice='plain'>NAME</arg></arg>
-      <arg choice='opt'>--configdir<arg choice='plain'>DIRECTORY</arg></arg>
-      <arg choice='opt'>--debug</arg>
+      <arg choice="opt">-i<arg choice="plain">IF</arg></arg>
+      <arg choice="opt">-a<arg choice="plain">ADDRESS</arg></arg>
+      <arg choice="opt">-p<arg choice="plain">PORT</arg></arg>
+      <arg choice="opt">--priority<arg choice="plain">PRIORITY</arg></arg>
+      <arg choice="opt">--servicename<arg choice="plain">NAME</arg></arg>
+      <arg choice="opt">--configdir<arg choice="plain">DIRECTORY</arg></arg>
+      <arg choice="opt">--debug</arg>
     </cmdsynopsis>
     <cmdsynopsis>
       <command>&COMMANDNAME;</command>
-      <arg choice='plain'>--help</arg>
+      <arg choice="plain">--help</arg>
     </cmdsynopsis>
     <cmdsynopsis>
       <command>&COMMANDNAME;</command>
-      <arg choice='plain'>--version</arg>
+      <arg choice="plain">--version</arg>
     </cmdsynopsis>
     <cmdsynopsis>
       <command>&COMMANDNAME;</command>
-      <arg choice='plain'>--check</arg>
+      <arg choice="plain">--check</arg>
     </cmdsynopsis>
   </refsynopsisdiv>
 
@@ -112,12 +111,13 @@
       <command>&COMMANDNAME;</command> is a server daemon which
       handles incoming request for passwords for a pre-defined list of
       client host computers.  The Mandos server uses Zeroconf to
-      announce itself on the local network, and uses GnuTLS to
-      communicate securely with and to authenticate the clients.
-      Mandos uses IPv6 link-local addresses, since the clients are
-      assumed to not have any other addresses configured.  Any
-      authenticated client is then given the pre-encrypted password
-      for that specific client.
+      announce itself on the local network, and uses TLS to
+      communicate securely with and to authenticate the clients.  The
+      Mandos server uses IPv6 to allow Mandos clients to use IPv6
+      link-local addresses, since the clients will probably not have
+      any other addresses configured (see <xref linkend="overview"/>).
+      Any authenticated client is then given the stored pre-encrypted
+      password for that specific client.
     </para>
 
   </refsect1>
@@ -127,14 +127,9 @@
 
     <para>
       The purpose of this is to enable <emphasis>remote and unattended
-      rebooting</emphasis> of any client host computer with an
-      <emphasis>encrypted root file system</emphasis>.  The client
-      host computer should start a Mandos client in the initial RAM
-      disk environment, the Mandos client program communicates with
-      this server program to get an encrypted password, which is then
-      decrypted and used to unlock the encrypted root file system.
-      The client host computer can then continue its boot sequence
-      normally.
+      rebooting</emphasis> of client host computer with an
+      <emphasis>encrypted root file system</emphasis>.  See <xref
+      linkend="overview"/> for details.
     </para>
 
   </refsect1>
@@ -197,7 +192,7 @@
 	<term><literal>--check</literal></term>
 	<listitem>
 	  <para>
-	    Run the server's self-tests.  This includes any unit
+	    Run the server’s self-tests.  This includes any unit
 	    tests, etc.
 	  </para>
 	</listitem>
@@ -220,14 +215,13 @@
 	<listitem>
 	  <para>
 	    GnuTLS priority string for the TLS handshake with the
-	    clients.  See
-	    <citerefentry><refentrytitle>gnutls_priority_init
-	    </refentrytitle><manvolnum>3</manvolnum></citerefentry>
-	    for the syntax.  The default is
+	    clients.  The default is
 	    <quote><literal>SECURE256:!CTYPE-X.509:+CTYPE-OPENPGP</literal></quote>.
-	    <emphasis>Warning</emphasis>: changing this may make the
-	    TLS handshake fail, making communication with clients
-	    impossible.
+	    See <citerefentry><refentrytitle>gnutls_priority_init
+	    </refentrytitle><manvolnum>3</manvolnum></citerefentry>
+	    for the syntax.  <emphasis>Warning</emphasis>: changing
+	    this may make the TLS handshake fail, making communication
+	    with clients impossible.
 	  </para>
 	</listitem>
       </varlistentry>
@@ -244,8 +238,8 @@
 	    which would not normally be useful.  If there are name
 	    collisions on the same <emphasis>network</emphasis>, the
 	    newer server will automatically rename itself to
-	    <quote><literal>Mandos #2</literal></quote>, and so on,
-	    therefore this option is not needed in that case.
+	    <quote><literal>Mandos #2</literal></quote>, and so on;
+	    therefore, this option is not needed in that case.
 	  </para>
 	</listitem>
       </varlistentry>
@@ -274,6 +268,16 @@
 	</listitem>
       </varlistentry>
     </variablelist>
+  </refsect1>
+
+  <refsect1 id="overview">
+    <title>OVERVIEW</title>
+    &OVERVIEW;
+    <para>
+      This program is the server part.  It is a normal server program
+      and will run in a normal system environment, not in an initial
+      RAM disk environment.
+    </para>
   </refsect1>
 
   <refsect1 id="protocol">
@@ -341,7 +345,7 @@
       are still up.  If a client has not been confirmed as being up
       for some time, the client is assumed to be compromised and is no
       longer eligible to receive the encrypted password.  The timeout,
-      checker program and interval between checks can be configured
+      checker program, and interval between checks can be configured
       both globally and per client; see <citerefentry>
       <refentrytitle>mandos.conf</refentrytitle>
       <manvolnum>5</manvolnum></citerefentry> and <citerefentry>
@@ -437,8 +441,10 @@
     </informalexample>
     <informalexample>
       <para>
-	Run the server in debug mode and read configuration files from
-	the <filename>~/mandos</filename> directory:
+	Run the server in debug mode, read configuration files from
+	the <filename>~/mandos</filename> directory, and use the
+	Zeroconf service name <quote>Test</quote> to not collide with
+	any other official Mandos server on this host:
       </para>
       <para>
 
@@ -466,8 +472,10 @@
     <refsect2>
       <title>SERVER</title>
       <para>
-	Running the server should not in itself present any security
-	risk to the host computer running it.
+	Running this &COMMANDNAME; server program should not in itself
+	present any security risk to the host computer running it.
+	The program does not need any special privileges to run, and
+	is designed to run as a non-root user.
       </para>
     </refsect2>
     <refsect2>
@@ -481,8 +489,14 @@
 	itself and looks up the fingerprint in its list of
 	clients. The <filename>clients.conf</filename> file (see
 	<citerefentry><refentrytitle>mandos-clients.conf</refentrytitle>
-	<manvolnum>5</manvolnum></citerefentry>) must be non-readable
-	by anyone except the user running the server.
+	<manvolnum>5</manvolnum></citerefentry>)
+	<emphasis>must</emphasis> be made non-readable by anyone
+	except the user running the server.
+      </para>
+      <para>
+	As detailed in <xref linkend="checking"/>, the status of all
+	client computers will continually be checked and be assumed
+	compromised if they are gone for too long.
       </para>
       <para>
 	For more details on client-side security, see
@@ -494,45 +508,107 @@
 
   <refsect1 id="see_also">
     <title>SEE ALSO</title>
-    <itemizedlist spacing="compact">
-      <listitem><para>
-	<citerefentry><refentrytitle>password-request</refentrytitle>
-	<manvolnum>8mandos</manvolnum></citerefentry>
-      </para></listitem>
-      
-      <listitem><para>
-	<citerefentry><refentrytitle>plugin-runner</refentrytitle>
-	<manvolnum>8mandos</manvolnum></citerefentry>
-      </para></listitem>
-      
-      <listitem><para>
-	<ulink url="http://www.zeroconf.org/">Zeroconf</ulink>
-      </para></listitem>
-      
-      <listitem><para>
-	<ulink url="http://www.avahi.org/">Avahi</ulink>
-      </para></listitem>
-      
-      <listitem><para>
-	<ulink
-	    url="http://www.gnu.org/software/gnutls/">GnuTLS</ulink>
-      </para></listitem>
-      
-      <listitem><para>
-	<citation>RFC 4880: <citetitle>OpenPGP Message
-	Format</citetitle></citation>
-      </para></listitem>
-      
-      <listitem><para>
-	<citation>RFC 5081: <citetitle>Using OpenPGP Keys for
-	Transport Layer Security</citetitle></citation>
-      </para></listitem>
-      
-      <listitem><para>
-	<citation>RFC 4291: <citetitle>IP Version 6 Addressing
-	Architecture</citetitle>, section 2.5.6, Link-Local IPv6
-	Unicast Addresses</citation>
-      </para></listitem>
-    </itemizedlist>
+    <variablelist>
+      <varlistentry>
+	<term>
+	  <citerefentry>
+	    <refentrytitle>password-request</refentrytitle>
+	    <manvolnum>8mandos</manvolnum>
+	  </citerefentry>
+	</term>
+	<listitem>
+	  <para>
+	    This is the actual program which talks to this server.
+	    Note that it is normally not invoked directly, and is only
+	    run in the initial RAM disk environment, and not on a
+	    fully started system.
+	  </para>
+	</listitem>
+      </varlistentry>
+      <varlistentry>
+	<term>
+	  <ulink url="http://www.zeroconf.org/">Zeroconf</ulink>
+	</term>
+	<listitem>
+	  <para>
+	    Zeroconf is the network protocol standard used by clients
+	    for finding this Mandos server on the local network.
+	  </para>
+	</listitem>
+      </varlistentry>
+      <varlistentry>
+	<term>
+	  <ulink url="http://www.avahi.org/">Avahi</ulink>
+	</term>
+      <listitem>
+	<para>
+	  Avahi is the library this server calls to implement
+	  Zeroconf service announcements.
+	</para>
+      </listitem>
+      </varlistentry>
+      <varlistentry>
+	<term>
+	  <ulink
+	      url="http://www.gnu.org/software/gnutls/">GnuTLS</ulink>
+	</term>
+      <listitem>
+	<para>
+	  GnuTLS is the library this server uses to implement TLS for
+	  communicating securely with the client, and at the same time
+	  confidently get the client’s public OpenPGP key.
+	</para>
+      </listitem>
+      </varlistentry>
+      <varlistentry>
+	<term>
+	  <citation>RFC 4291: <citetitle>IP Version 6 Addressing
+	  Architecture</citetitle>, section 2.5.6, Link-Local IPv6
+	  Unicast Addresses</citation>
+	</term>
+	<listitem>
+	  <para>
+	    The clients use IPv6 link-local addresses, which are
+	    immediately usable since a link-local addresses is
+	    automatically assigned to a network interfaces when it is
+	    brought up.
+	  </para>
+	</listitem>
+      </varlistentry>
+      <varlistentry>
+	<term>
+	  <citation>RFC 4346: <citetitle>The Transport Layer Security
+	  (TLS) Protocol Version 1.1</citetitle></citation>
+	</term>
+      <listitem>
+	<para>
+	  TLS 1.1 is the protocol implemented by GnuTLS.
+	</para>
+      </listitem>
+      </varlistentry>
+      <varlistentry>
+	<term>
+	  <citation>RFC 4880: <citetitle>OpenPGP Message
+	  Format</citetitle></citation>
+	</term>
+      <listitem>
+	<para>
+	  The data sent to clients is binary encrypted OpenPGP data.
+	</para>
+      </listitem>
+      </varlistentry>
+      <varlistentry>
+	<term>
+	  <citation>RFC 5081: <citetitle>Using OpenPGP Keys for
+	  Transport Layer Security</citetitle></citation>
+	</term>
+      <listitem>
+	<para>
+	  This is implemented by GnuTLS and used by this server so
+	  that OpenPGP keys can be used.
+	</para>
+      </listitem>
+      </varlistentry>
+    </variablelist>
   </refsect1>
 </refentry>
