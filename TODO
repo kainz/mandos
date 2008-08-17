@@ -7,8 +7,6 @@
 ** [#B] Add more if(debug) calls
 ** [#B] Seperate more code to function for more readability
 ** [#A] Man page: man8/plugin-runner.8mandos
-*** DESCRIPTION
-    Describe the plus sign syntax for passing options from crypttab
 *** EXIT STATUS
     Text needed
 *** EXAMPLES
@@ -18,12 +16,10 @@
     Text needed
 *** SECURITY
     Text needed
-*** NOTES
-    Text needed
 *** BUGS
     Text needed
 *** SEE ALSO
-    Explaining test on what you can read
+    Explaining text on what you can read
 ** Keydir move: /etc/mandos -> /etc/keys/mandos
    Must create in preinst if not pre-depending on cryptsetup
 
@@ -48,8 +44,6 @@
     Create this section
 *** SECURITY
     Create this section
-*** NOTES
-    Create this section (if needed)
 *** BUGS
     Create this section
 *** SEE ALSO
@@ -66,6 +60,8 @@
 ** [#A] Man page: man8/password-prompt.8mandos
 *** DESCRIPTION
     Move options to new OPTIONS section.
+    Note that this is more or less a simple getpass(3) wrapper, even
+    though actual use of getpass(3) is not guaranteed.
 *** EXIT STATUS
     Create this section
 *** EXAMPLES
@@ -76,9 +72,6 @@
     Create this section
     Not much to do here but it is noteworthy to state the danger of
     not having a fallback option.
-*** NOTES
-    Note that this is more or less a simple getpass(3) wrapper, even
-    though actual use of getpass(3) is not guaranteed.
 *** BUGS
     Create this section
 *** SEE ALSO
@@ -91,10 +84,6 @@
 
 * Mandos (server)
 ** [#A] Command man page: man8/mandos.8
-*** DESCRIPTION
-    Move options to new OPTIONS section
-*** EXIT STATUS
-    Create this section
 *** EXAMPLES
     Create this section
 *** FILES
@@ -105,12 +94,8 @@
     Create this section
 *** SECURITY
     Create this section
-*** NOTES
-    Create this section (if needed)
 *** BUGS
     Create this section
-*** SEE ALSO
-    Refer to the client man page
 ** [#A] Config file man page: man5/mandos.conf (mandos.conf)
 ** [#A] Config file man page: man5/mandos-clients.conf (clients.conf)
 ** [#A] /etc/init.d/mandos-server		:teddy:
@@ -146,15 +131,20 @@
 
 ** mandos-keygen
 *** [#A] Command man page: man8/mandos-keygen.8
+**** EXIT STATUS
+**** FILES
+**** BUGS
+**** EXAMPLES
+**** SECURITY
 *** [#A] Output cut-and-paste ready snippet for clients.conf.
 
 * [#A] Package
 ** /usr/share/initramfs-tools/hooks/mandos
-*** Do not install in initrd.img if configured not to
+*** Do not install in initrd.img if configured not to.
     Use "/etc/initramfs-tools/conf.d/mandos"?  Definitely a debconf
     question.
 ** /etc/bash_completion.d/mandos
-*** From xml sources directly?
+*** From XML sources directly?
 ** unperish
 ** bzr-builddeb
 
