@@ -73,27 +73,30 @@
   <refsynopsisdiv>
     <cmdsynopsis>
       <command>&COMMANDNAME;</command>
-      <arg choice="opt">--interface<arg choice="plain">IF</arg></arg>
-      <arg choice="opt">--address<arg choice="plain">ADDRESS</arg></arg>
-      <arg choice="opt">--port<arg choice="plain">PORT</arg></arg>
-      <arg choice="opt">--priority<arg choice="plain">PRIORITY</arg></arg>
-      <arg choice="opt">--servicename<arg choice="plain">NAME</arg></arg>
-      <arg choice="opt">--configdir<arg choice="plain">DIRECTORY</arg></arg>
-      <arg choice="opt">--debug</arg>
+      <arg>--interface<arg choice="plain">IF</arg></arg>
+      <arg>--address<arg choice="plain">ADDRESS</arg></arg>
+      <arg>--port<arg choice="plain">PORT</arg></arg>
+      <arg>--priority<arg choice="plain">PRIORITY</arg></arg>
+      <arg>--servicename<arg choice="plain">NAME</arg></arg>
+      <arg>--configdir<arg choice="plain">DIRECTORY</arg></arg>
+      <arg>--debug</arg>
     </cmdsynopsis>
     <cmdsynopsis>
       <command>&COMMANDNAME;</command>
-      <arg choice="opt">-i<arg choice="plain">IF</arg></arg>
-      <arg choice="opt">-a<arg choice="plain">ADDRESS</arg></arg>
-      <arg choice="opt">-p<arg choice="plain">PORT</arg></arg>
-      <arg choice="opt">--priority<arg choice="plain">PRIORITY</arg></arg>
-      <arg choice="opt">--servicename<arg choice="plain">NAME</arg></arg>
-      <arg choice="opt">--configdir<arg choice="plain">DIRECTORY</arg></arg>
-      <arg choice="opt">--debug</arg>
+      <arg>-i<arg choice="plain">IF</arg></arg>
+      <arg>-a<arg choice="plain">ADDRESS</arg></arg>
+      <arg>-p<arg choice="plain">PORT</arg></arg>
+      <arg>--priority<arg choice="plain">PRIORITY</arg></arg>
+      <arg>--servicename<arg choice="plain">NAME</arg></arg>
+      <arg>--configdir<arg choice="plain">DIRECTORY</arg></arg>
+      <arg>--debug</arg>
     </cmdsynopsis>
     <cmdsynopsis>
       <command>&COMMANDNAME;</command>
-      <arg choice="plain">--help</arg>
+      <group choice="req">
+	<arg choice="plain">-h</arg>
+	<arg choice="plain">--help</arg>
+      </group>
     </cmdsynopsis>
     <cmdsynopsis>
       <command>&COMMANDNAME;</command>
@@ -154,7 +157,9 @@
 	  <para>
 	    Only announce the server and listen to requests on network
 	    interface <replaceable>IF</replaceable>.  Default is to
-	    use all available interfaces.
+	    use all available interfaces.  <emphasis>Note:</emphasis>
+	    a failure to bind to the specified interface is not
+	    considered critical, and the server does not exit.
 	  </para>
 	</listitem>
       </varlistentry>
@@ -372,6 +377,26 @@
     </para>
   </refsect1>
 
+  <refsect1 id="environment">
+    <title>ENVIRONMENT</title>
+    <variablelist>
+      <varlistentry>
+	<term><varname>PATH</varname></term>
+	<listitem>
+	  <para>
+	    To start the configured checker (see <xref
+	    linkend="checking"/>), the server uses
+	    <filename>/bin/sh</filename>, which in turn uses
+	    <varname>PATH</varname> to search for matching commands if
+	    an absolute path is not given.  See <citerefentry>
+	    <refentrytitle>sh</refentrytitle><manvolnum>1</manvolnum>
+	  </citerefentry>
+	  </para>
+	</listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
   <refsect1 id="file">
     <title>FILES</title>
     <para>
@@ -418,19 +443,50 @@
 	  </para>
 	</listitem>
       </varlistentry>
+      <varlistentry>
+	<term><filename>/bin/sh</filename></term>
+	<listitem>
+	  <para>
+	    This is used to start the configured checker command for
+	    each client.  See <citerefentry>
+	    <refentrytitle>mandos-clients.conf</refentrytitle>
+	    <manvolnum>5</manvolnum></citerefentry> for details.
+	  </para>
+	</listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
-
+  
   <refsect1 id="bugs">
     <title>BUGS</title>
     <para>
       This server might, on especially fatal errors, emit a Python
       backtrace.  This could be considered a feature.
     </para>
+    <para>
+      Currently, if a client is declared <quote>invalid</quote> due to
+      having timed out, the server does not record this fact onto
+      permanent storage.  This has some security implications, see
+      <xref linkend="CLIENTS"/>.
+    </para>
+    <para>
+      There is currently no way of querying the server of the current
+      status of clients, other than analyzing its <systemitem
+      class="service">syslog</systemitem> output.
+    </para>
+    <para>
+      There is no fine-grained control over logging and debug output.
+    </para>
+    <para>
+      Debug mode is conflated with running in the foreground.
+    </para>
+    <para>
+      The console log messages does not show a timestamp.
+    </para>
   </refsect1>
-
-  <refsect1 id="examples">
-    <title>EXAMPLES</title>
+  
+  <refsect1 id="example">
+    <title>EXAMPLE</title>
     <informalexample>
       <para>
 	Normal invocation needs no options:
@@ -469,16 +525,16 @@
 
   <refsect1 id="security">
     <title>SECURITY</title>
-    <refsect2>
+    <refsect2 id="SERVER">
       <title>SERVER</title>
       <para>
-	Running this &COMMANDNAME; server program should not in itself
-	present any security risk to the host computer running it.
-	The program does not need any special privileges to run, and
-	is designed to run as a non-root user.
+	Running this <command>&COMMANDNAME;</command> server program
+	should not in itself present any security risk to the host
+	computer running it.  The program does not need any special
+	privileges to run, and is designed to run as a non-root user.
       </para>
     </refsect2>
-    <refsect2>
+    <refsect2 id="CLIENTS">
       <title>CLIENTS</title>
       <para>
 	The server only gives out its stored data to clients which
@@ -497,6 +553,21 @@
 	As detailed in <xref linkend="checking"/>, the status of all
 	client computers will continually be checked and be assumed
 	compromised if they are gone for too long.
+      </para>
+      <para>
+	If a client is compromised, its downtime should be duly noted
+	by the server which would therefore declare the client
+	invalid.  But if the server was ever restarted, it would
+	re-read its client list from its configuration file and again
+	regard all clients therein as valid, and hence eligible to
+	receive their passwords.  Therefore, be careful when
+	restarting servers if you suspect that a client has, in fact,
+	been compromised by parties who may now be running a fake
+	Mandos client with the keys from the non-encrypted initial RAM
+	image of the client host.  What should be done in that case
+	(if restarting the server program really is necessary) is to
+	stop the server program, edit the configuration file to omit
+	any suspect clients, and restart the server program.
       </para>
       <para>
 	For more details on client-side security, see
