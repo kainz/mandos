@@ -13,11 +13,13 @@
     plugins, etc.
 *** FILES
 *** SECURITY
+    Note the danger of using this program, since you might lock
+    yourself out of your system without any means of entering the root
+    file system password.  This is, however, very unlikely considering
+    the fallback to getpass(3).
 *** BUGS
 *** SEE ALSO
     Explaining text on what you can read
-** Keydir move: /etc/mandos -> /etc/keys/mandos
-   Must create in preinst if not pre-depending on cryptsetup
 
 * password-request
 ** [#A] Man page: man8/password-request.8mandos
@@ -51,6 +53,8 @@
 ** Do not depend on GnuPG key rings on disk
    This would mean creating new GnuPG key rings with GPGME by
    importing the key files from scratch on every program start.
+** Keydir move: /etc/mandos -> /etc/keys/mandos
+   Must create in preinst if not pre-depending on cryptsetup
 
 * password-prompt
 ** [#A] Man page: man8/password-prompt.8mandos
@@ -103,15 +107,16 @@
 ** Enable client
 
 * Installer
-** Client
+** Client-side
 *** Update initrd.img after installation
     This seems to use some kind of "trigger" system
-** Server
+*** Keydir move: /etc/mandos -> /etc/keys/mandos
+    Must create in preinst if not pre-depending on cryptsetup
+*** mandos-keygen
+**** [#A] Output cut-and-paste ready snippet for clients.conf.
+** Server-side
 *** [#A] Create mandos user and group for server
 *** [#A] Create /var/run/mandos directory with perm and ownership
-
-** mandos-keygen
-*** [#A] Output cut-and-paste ready snippet for clients.conf.
 
 * [#A] Package
 ** /usr/share/initramfs-tools/hooks/mandos
@@ -119,7 +124,7 @@
     Use "/etc/initramfs-tools/conf.d/mandos"?  Definitely a debconf
     question.
 ** /etc/bash_completion.d/mandos
-*** From XML sources directly?
+   From XML sources directly?
 ** unperish
 ** bzr-builddeb
 
