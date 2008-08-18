@@ -237,14 +237,15 @@
 	<listitem>
 	  <para>
 	    Zeroconf service name.  The default is
-	    <quote><literal>Mandos</literal></quote>.  You only need
-	    to change this if you for some reason want to run more
-	    than one server on the same <emphasis>host</emphasis>,
-	    which would not normally be useful.  If there are name
-	    collisions on the same <emphasis>network</emphasis>, the
-	    newer server will automatically rename itself to
-	    <quote><literal>Mandos #2</literal></quote>, and so on;
-	    therefore, this option is not needed in that case.
+	    <quote><literal>Mandos</literal></quote>.  This only needs
+	    to be changed this if it, for some reason, is necessary to
+	    run more than one server on the same
+	    <emphasis>host</emphasis>, which would not normally be
+	    useful.  If there are name collisions on the same
+	    <emphasis>network</emphasis>, the newer server will
+	    automatically rename itself to <quote><literal>Mandos
+	    #2</literal></quote>, and so on; therefore, this option is
+	    not needed in that case.
 	  </para>
 	</listitem>
       </varlistentry>
@@ -561,13 +562,14 @@
 	re-read its client list from its configuration file and again
 	regard all clients therein as valid, and hence eligible to
 	receive their passwords.  Therefore, be careful when
-	restarting servers if you suspect that a client has, in fact,
-	been compromised by parties who may now be running a fake
-	Mandos client with the keys from the non-encrypted initial RAM
-	image of the client host.  What should be done in that case
-	(if restarting the server program really is necessary) is to
-	stop the server program, edit the configuration file to omit
-	any suspect clients, and restart the server program.
+	restarting servers if it is suspected that a client has, in
+	fact, been compromised by parties who may now be running a
+	fake Mandos client with the keys from the non-encrypted
+	initial RAM image of the client host.  What should be done in
+	that case (if restarting the server program really is
+	necessary) is to stop the server program, edit the
+	configuration file to omit any suspect clients, and restart
+	the server program.
       </para>
       <para>
 	For more details on client-side security, see
