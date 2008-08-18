@@ -87,18 +87,18 @@
 ** [#A] Config file man page: man5/mandos.conf (mandos.conf)
 ** [#A] Config file man page: man5/mandos-clients.conf (clients.conf)
 ** [#A] /etc/init.d/mandos-server		:teddy:
-** Log level
+** [#B] Log level				:bugs:
 ** /etc/mandos/clients.d/*.conf
    Watch this directory and add/remove/update clients?
 ** config for TXT record
-** Run-time communication with server
+** [#B] Run-time communication with server	:bugs:
    Probably using D-Bus
    See also [[*Mandos-tools]]
-** Implement --foreground
+** Implement --foreground			:bugs:
    [[info:standards:Option%20Table][Table of Long Options]]
 ** Implement --socket
    [[info:standards:Option%20Table][Table of Long Options]]
-** Date+time on console log messages
+** Date+time on console log messages		:bugs:
    Is this the default?
 
 * Mandos-tools/utilities
