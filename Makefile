@@ -20,8 +20,16 @@ CONFDIR=/etc/mandos
 # MANDIR=/usr/local/man
 MANDIR=/usr/share/man
 
+GNUTLS_CFLAGS=$(shell libgnutls-config --cflags)
+GNUTLS_LIBS=$(shell libgnutls-config --libs)
+AVAHI_CFLAGS=$(shell pkg-config --cflags-only-I avahi-core)
+AVAHI_LIBS=$(shell pkg-config --libs avahi-core)
+GPGME_CFLAGS=$(shell gpgme-config --cflags)
+GPGME_LIBS=$(shell gpgme-config --libs)
+
 # Do not change these two
-CFLAGS=$(WARN) $(DEBUG) $(FORTIFY) $(COVERAGE) $(OPTIMIZE) $(LANGUAGE)
+CFLAGS=$(WARN) $(DEBUG) $(FORTIFY) $(COVERAGE) $(OPTIMIZE) \
+	$(LANGUAGE) $(GNUTLS_CFLAGS) $(AVAHI_CFLAGS) $(GPGME_CFLAGS)
 LDFLAGS=$(COVERAGE)
 
 DOCBOOKTOMAN=xsltproc --nonet \
@@ -29,7 +37,10 @@ DOCBOOKTOMAN=xsltproc --nonet \
 	--param make.year.ranges		1 \
 	--param make.single.year.ranges		1 \
 	--param man.output.quietly		1 \
-	--param man.authors.section.enabled	0
+	--param man.authors.section.enabled	0 \
+	 /usr/share/xml/docbook/stylesheet/nwalsh/manpages/docbook.xsl
+# DocBook-to-man post-processing to fix a \n escape bug
+MANPOST=sed --in-place --expression='s,\\en,\en,g;s,\\een,\\en,g'
 
 PLUGINS=plugins.d/password-prompt plugins.d/password-request
 PROGS=plugin-runner $(PLUGINS)
@@ -38,32 +49,26 @@ DOCS=mandos.8 plugin-runner.8mandos mandos-keygen.8 \
 	plugins.d/password-prompt.8mandos mandos.conf.5 \
 	mandos-clients.conf.5
 
-objects=$(shell for p in $(PROGS); do echo $${p}.o; done)
+objects=$(addsuffix .o,$(PROGS))
 
 all: $(PROGS)
 
 doc: $(DOCS)
 
 %.5: %.xml
-	cd $(dir $^); $(DOCBOOKTOMAN) $(notdir $^)
+	cd $(dir $^); $(DOCBOOKTOMAN) $(notdir $^) $(MANPOST) $(notdir $@)
 
 %.8: %.xml
-	cd $(dir $^); $(DOCBOOKTOMAN) $(notdir $^)
+	cd $(dir $^); $(DOCBOOKTOMAN) $(notdir $^); $(MANPOST) $(notdir $@)
 
 %.8mandos: %.xml
-	cd $(dir $^); $(DOCBOOKTOMAN) $(notdir $^)
-
-plugin-runner: plugin-runner.o
-	$(LINK.o) -lgnutls $(COMMON) $^ $(LOADLIBES) $(LDLIBS) -o $@
+	cd $(dir $^); $(DOCBOOKTOMAN) $(notdir $^); $(MANPOST) $(notdir $@)
 
 plugins.d/password-request: plugins.d/password-request.o
-	$(LINK.o) -lgnutls -lavahi-core -lgpgme $(COMMON) $^ \
-		$(LOADLIBES) $(LDLIBS) -o $@
+	$(LINK.o) $(GNUTLS_LIBS) $(AVAHI_LIBS) $(GPGME_LIBS) \
+		$(COMMON) $^ $(LOADLIBES) $(LDLIBS) -o $@
 
-plugins.d/password-prompt: plugins.d/password-prompt.o
-	$(LINK.o) $(COMMON) $^ $(LOADLIBES) $(LDLIBS) -o $@
-
-.PHONY : all clean distclean run-client run-server install \
+.PHONY : all doc clean distclean run-client run-server install \
 	install-server install-client uninstall uninstall-server \
 	uninstall-client purge purge-server purge-client
 
