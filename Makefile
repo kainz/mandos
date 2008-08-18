@@ -56,13 +56,13 @@ all: $(PROGS)
 doc: $(DOCS)
 
 %.5: %.xml
-	cd $(dir $^); $(DOCBOOKTOMAN) $(notdir $^) $(MANPOST) $@
+	cd $(dir $^); $(DOCBOOKTOMAN) $(notdir $^) $(MANPOST) $(notdir $@)
 
 %.8: %.xml
-	cd $(dir $^); $(DOCBOOKTOMAN) $(notdir $^); $(MANPOST) $@
+	cd $(dir $^); $(DOCBOOKTOMAN) $(notdir $^); $(MANPOST) $(notdir $@)
 
 %.8mandos: %.xml
-	cd $(dir $^); $(DOCBOOKTOMAN) $(notdir $^) $(MANPOST) $@
+	cd $(dir $^); $(DOCBOOKTOMAN) $(notdir $^); $(MANPOST) $(notdir $@)
 
 plugins.d/password-request: plugins.d/password-request.o
 	$(LINK.o) $(GNUTLS_LIBS) $(AVAHI_LIBS) $(GPGME_LIBS) \

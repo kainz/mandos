@@ -70,7 +70,7 @@ while :; do
 	-n|--name) KEYNAME="$2"; shift 2;;
 	-e|--email) KEYEMAIL="$2"; shift 2;;
 	-c|--comment) KEYCOMMENT="$2"; shift 2;;
-	-x|--expire) KEYCOMMENT="$2"; shift 2;;
+	-x|--expire) KEYEXPIRE="$2"; shift 2;;
 	-f|--force) FORCE=yes; shift;;
 	-v|--version) echo "$0 $VERSION"; exit;;
 	-h|--help) help; exit;;
@@ -188,12 +188,12 @@ fi
 
 # Export keys from key rings to key files
 gpg --no-random-seed-file --quiet --batch --no-tty --armor \
-    --no-default-keyring --secret-keyring "$SECRING" \
+    --no-default-keyring --no-options --secret-keyring "$SECRING" \
     --keyring "$PUBRING" --export-options export-minimal \
     --comment "$FILECOMMENT" --output "$SECKEYFILE" \
     --export-secret-keys
 gpg --no-random-seed-file --quiet --batch --no-tty --armor \
-    --no-default-keyring --secret-keyring "$SECRING" \
+    --no-default-keyring --no-options --secret-keyring "$SECRING" \
     --keyring "$PUBRING" --export-options export-minimal \
     --comment "$FILECOMMENT" --output "$PUBKEYFILE" \
     --export

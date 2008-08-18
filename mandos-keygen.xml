@@ -279,30 +279,107 @@
   <refsect1 id="exit_status">
     <title>EXIT STATUS</title>
     <para>
+      The exit status will be 0 if new keys were successfully created,
+      otherwise not.
     </para>
+  </refsect1>
+  
+  <refsect1 id="environment">
+    <title>ENVIRONMENT</title>
+    <variablelist>
+      <varlistentry>
+	<term><varname>TMPDIR</varname></term>
+	<listitem>
+	  <para>
+	    If set, temporary files will be created here. See
+	    <citerefentry><refentrytitle>mktemp</refentrytitle>
+	    <manvolnum>1</manvolnum></citerefentry>.
+	  </para>
+	</listitem>
+      </varlistentry>
+    </variablelist>
   </refsect1>
   
   <refsect1 id="file">
     <title>FILES</title>
     <para>
+      Use the <option>--dir</option> option to change where
+      <command>&COMMANDNAME;</command> will write the key files.  The
+      default file names are shown here.
     </para>
+    <variablelist>
+      <varlistentry>
+	<term><filename>/etc/mandos/seckey.txt</filename></term>
+	<listitem>
+	  <para>
+	    OpenPGP secret key file which will be created or
+	    overwritten.
+	  </para>
+	</listitem>
+      </varlistentry>
+      <varlistentry>
+	<term><filename>/etc/mandos/pubkey.txt</filename></term>
+	<listitem>
+	  <para>
+	    OpenPGP public key file which will be created or
+	    overwritten.
+	  </para>
+	</listitem>
+      </varlistentry>
+      <varlistentry>
+	<term><filename>/tmp</filename></term>
+	<listitem>
+	  <para>
+	    Temporary files will be written here if
+	    <varname>TMPDIR</varname> is not set.
+	  </para>
+	</listitem>
+      </varlistentry>
+    </variablelist>
   </refsect1>
 
   <refsect1 id="bugs">
     <title>BUGS</title>
     <para>
+      None are known at this time.
     </para>
   </refsect1>
 
   <refsect1 id="example">
     <title>EXAMPLE</title>
-    <para>
-    </para>
+    <informalexample>
+      <para>
+	Normal invocation needs no options:
+      </para>
+      <para>
+	<userinput>mandos-keygen</userinput>
+      </para>
+    </informalexample>
+    <informalexample>
+      <para>
+	Create keys in another directory and of another type.  Force
+	overwriting old key files:
+      </para>
+      <para>
+
+<!-- do not wrap this line -->
+<userinput>mandos-keygen --dir ~/keydir --type RSA --force</userinput>
+
+      </para>
+    </informalexample>
   </refsect1>
 
   <refsect1 id="security">
     <title>SECURITY</title>
     <para>
+      The <option>--type</option> and <option>--length</option>
+      options can be used to create keys of insufficient security.  If
+      in doubt, leave them to the default values.
+    </para>
+    <para>
+      The key expire time is not guaranteed to be honored by
+      <citerefentry><refentrytitle>mandos</refentrytitle>
+      <manvolnum>8</manvolnum></citerefentry>.
     </para>
   </refsect1>
 

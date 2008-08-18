@@ -2,87 +2,83 @@
 
 * [#A] README file
 
-* Plugin-runner
+* plugin-runner
 ** [#B] Add more comments to code
 ** [#B] Add more if(debug) calls
 ** [#B] Seperate more code to function for more readability
 ** [#A] Man page: man8/plugin-runner.8mandos
 *** EXIT STATUS
-    Text needed
 *** EXAMPLES
     Examples of normal usage, debug usage, debugging single or all
     plugins, etc.
 *** FILES
-    Text needed
 *** SECURITY
-    Text needed
 *** BUGS
-    Text needed
 *** SEE ALSO
     Explaining text on what you can read
 ** Keydir move: /etc/mandos -> /etc/keys/mandos
    Must create in preinst if not pre-depending on cryptsetup
 
-* Password-request
+* password-request
 ** [#A] Man page: man8/password-request.8mandos
-** [#B] Temporarily lower kernel log level
-   for less printouts during sucessfull boot.
+*** SYNOPSIS
+    Document short options
 *** DESCRIPTION
-    Move options to new OPTIONS section.
     State that this command is not meant to be invoked directly, but
     is run as a plugin from mandos-client(8) and only run in the
     initrd environment, not the real system.
+*** PURPOSE
+    As in mandos.xml
+*** OVERVIEW
+    As in mandos.xml
 *** EXIT STATUS
-    Create this section
-*** EXAMPLES
-    Examples of normal usage, debug usage, debugging by connecting
-    directly, etc.
+*** ENVIRONMENT
+    Note that it does *not* currently use cryptsource or crypttarget.
 *** FILES
     Describe the key files and the key ring files.  Also note that
     they should normally have been automatically created.
-*** DIAGNOSTICS
-    Create this section
-*** SECURITY
-    Create this section
 *** BUGS
-    Create this section
+*** EXAMPLE
+    Examples of normal usage, debug usage, debugging by connecting
+    directly, etc.
+*** SECURITY
 *** SEE ALSO
-    Refer to mandos-client(8mandos) and password-prompt(8mandos)
-*** ENVIRONMENT
-    Document use of "cryptsource" and "crypttarget".
+    Update from mandos.xml
+** [#B] Temporarily lower kernel log level
+   for less printouts during sucessfull boot.
 ** IPv4 support
 ** use strsep instead of strtok?
 ** Do not depend on GnuPG key rings on disk
    This would mean creating new GnuPG key rings with GPGME by
    importing the key files from scratch on every program start.
 
-* Password-prompt
+* password-prompt
 ** [#A] Man page: man8/password-prompt.8mandos
+*** SYNOPSIS
+    Document short options
 *** DESCRIPTION
-    Move options to new OPTIONS section.
     Note that this is more or less a simple getpass(3) wrapper, even
     though actual use of getpass(3) is not guaranteed.
 *** EXIT STATUS
-    Create this section
-*** EXAMPLES
+*** ENVIRONMENT
+    Document use of "cryptsource" and "crypttarget".
+*** FILES
+*** BUGS
+*** EXAMPLE
     Examples of normal usage, debug usage, with a prefix, etc.
-*** DIAGNOSTICS
-    Create this section
 *** SECURITY
-    Create this section
     Not much to do here but it is noteworthy to state the danger of
     not having a fallback option.
-*** BUGS
-    Create this section
 *** SEE ALSO
     Refer to mandos-client(8mandos) and password-request(8mandos)
+    and also, perhaps, to cryptsetup(8)?
 ** Use getpass(3)?
    Man page says "obsolete", but [[info:libc:getpass][GNU LibC Manual: Reading Passwords]]
    does not.  See also [[http://sources.redhat.com/ml/libc-alpha/2003-05/msg00251.html][Marcus Brinkmann: Re: getpass obsolete?]] and
    [[http://article.gmane.org/gmane.comp.lib.glibc.alpha/4906][Petter Reinholdtsen: Re: getpass obsolete?]], and especially also
    [[http://www.steve.org.uk/Reference/Unix/faq_4.html#SEC48][Unix Programming FAQ 3.1 How can I make my program not echo input?]]
 
-* Mandos (server)
+* mandos (server)
 ** [#A] Config file man page: man5/mandos.conf (mandos.conf)
 ** [#A] Config file man page: man5/mandos-clients.conf (clients.conf)
 ** [#A] /etc/init.d/mandos-server		:teddy:
@@ -115,12 +111,6 @@
 *** [#A] Create /var/run/mandos directory with perm and ownership
 
 ** mandos-keygen
-*** [#A] Command man page: man8/mandos-keygen.8
-**** EXIT STATUS
-**** FILES
-**** BUGS
-**** EXAMPLES
-**** SECURITY
 *** [#A] Output cut-and-paste ready snippet for clients.conf.
 
 * [#A] Package
