@@ -32,7 +32,7 @@ CFLAGS=$(WARN) $(DEBUG) $(FORTIFY) $(COVERAGE) $(OPTIMIZE) \
 	$(LANGUAGE) $(GNUTLS_CFLAGS) $(AVAHI_CFLAGS) $(GPGME_CFLAGS)
 LDFLAGS=$(COVERAGE)
 
-DOCBOOKTOMAN=xsltproc --nonet \
+DOCBOOKTOMAN=xsltproc --nonet --xinclude \
 	--param man.charmap.use.subset		0 \
 	--param make.year.ranges		1 \
 	--param make.single.year.ranges		1 \

@@ -7,7 +7,7 @@
 <!ENTITY OVERVIEW SYSTEM "overview.xml">
 ]>
 
-<refentry>
+<refentry xmlns:xi="http://www.w3.org/2001/XInclude">
   <refentryinfo>
     <title>&CONFNAME;</title>
     <!-- NWalsh’s docbook scripts use this to generate the footer: -->
@@ -95,104 +95,112 @@
       used to provide comments.
     </para>
 
-    <para>
-      The options are:
-    </para>
-
+  </refsect1>
+  <refsect1>
+    <title>OPTIONS</title>
+    
     <variablelist>
       <varlistentry>
-	<term><literal><varname>interface</varname></literal></term>
+	<term><varname>interface</varname></term>
 	<listitem>
-	  <para>
-	    This option allows you to override the default network
-	    interfaces. By default mandos will not bind to any
-	    specific interface but instead use default avahi-server
-	    behaviour.
-	  </para>
+	  <synopsis><literal>interface = </literal><arg
+	  choice="plain"><replaceable>IF</replaceable></arg>
+	  </synopsis>
+	  <xi:include href="mandos-options.xml" xpointer="interface"/>
 	</listitem>
       </varlistentry>
 
       <varlistentry>
-	<term><literal><varname>address</varname></literal></term>
+	<term><varname>address</varname></term>
 	<listitem>
-	  <para>
-	    This option allows you to override the default network
-	    address. By default mandos will not bind to any
-	    specific address but instead use default avahi-server
-	    behaviour.
-	  </para>
-	</listitem>
-      </varlistentry>      
-
-      <varlistentry>
-	<term><literal><varname>port</varname></literal></term>
-	<listitem>
-	  <para>
-	    This option allows you to override the default port to
-	    listen on. By default mandos will not specify any specific
-	    port and instead use a random port given by the OS from
-	    the use of INADDR_ANY.
-	  </para>
+	  <synopsis><literal>address = </literal><arg
+	  choice="plain"><replaceable>ADDRESS</replaceable></arg>
+	  </synopsis>
+	  <xi:include href="mandos-options.xml" xpointer="address"/>
 	</listitem>
       </varlistentry>
 
       <varlistentry>
-	<term><literal><varname>debug</varname></literal></term>
+	<term><varname>port</varname></term>
 	<listitem>
-	  <para>
-	    This option allows you to modify debug mode with a true/false
-	    boolean value. By default is debug set to <literal>false</literal>.
-	  </para>
-	</listitem>
-      </varlistentry>      
-
-      <varlistentry>
-	<term><literal><varname>priority</varname></literal></term>
-	<listitem>
-	  <para>
-	    This option allows you to override the default gnutls
-	    priority that will be used in gnutls session. See
-	    <citerefentry><refentrytitle>gnutls_priority_init
-	    </refentrytitle><manvolnum>3</manvolnum></citerefentry>for
-	    more information on gnutls priority strings.
-	  </para>	  
+	  <synopsis><literal>port = </literal><arg
+	  choice="plain"><replaceable>PORT</replaceable></arg>
+	  </synopsis>
+	  <xi:include href="mandos-options.xml" xpointer="port"/>
 	</listitem>
       </varlistentry>
 
       <varlistentry>
-	<term><literal><varname>servicename</varname></literal></term>
+	<term><varname>debug</varname></term>
 	<listitem>
-	  <para>
-	    This option allows you to override the default Zeroconf
-	    service name use to announce mandos as a avahi service. By
-	    default mandos will use "Mandos".
-	  </para>
+	  <synopsis><literal>debug =</literal><group choice="req">
+	    <arg choice="plain">1</arg>
+	    <arg choice="plain">yes</arg>
+	    <arg choice="plain">true</arg>
+	    <arg choice="plain">on</arg>
+	    <arg choice="plain">0</arg>
+	    <arg choice="plain">no</arg>
+	    <arg choice="plain">false</arg>
+	    <arg choice="plain">off</arg>
+	  </group>
+	  </synopsis>
+	  <xi:include href="mandos-options.xml" xpointer="debug"/>
+	</listitem>
+      </varlistentry>
+
+      <varlistentry>
+	<term><varname>priority</varname></term>
+	<listitem>
+	  <synopsis><literal>priority = </literal><arg
+	  choice="plain"><replaceable>PRIORITY</replaceable></arg>
+	  </synopsis>
+	  <xi:include href="mandos-options.xml" xpointer="priority"/>
+	</listitem>
+      </varlistentry>
+
+      <varlistentry>
+	<term><varname>servicename</varname></term>
+	  <synopsis><literal>servicename = </literal><arg
+	  choice="plain"><replaceable>NAME</replaceable></arg>
+	  </synopsis>
+	<listitem>
+	  <xi:include href="mandos-options.xml"
+		      xpointer="servicename"/>
 	</listitem>
       </varlistentry>
       
     </variablelist>
   </refsect1>
-
-  <refsect1 id="examples">
-    <title>EXAMPLES</title>
-    <informalexample>
-      <programlisting>
-	[server]
-	# A configuration example
-	interface = eth0 
-	address = 2001:DB8:
-	port = 1025 
-	debug = true 
-	priority = SECURE256:!CTYPE-X.509:+CTYPE-OPENPGP
-	servicename = Mandos
-      </programlisting>
-    </informalexample>
-  </refsect1>  
   
   <refsect1 id="files">
     <title>FILES</title>
     <para>
       The file described here is &CONFPATH;
     </para>
+  </refsect1>
+  
+  <refsect1 id="bugs">
+    <title>BUGS</title>
+    <para>
+      The <literal>[DEFAULT]</literal> is necessary because the Python
+      module <systemitem class="library">ConfigParser</systemitem>
+      requres it.
+    </para>
+  </refsect1>
+  
+  <refsect1 id="example">
+    <title>EXAMPLE</title>
+    <informalexample>
+      <programlisting>
+[DEFAULT]
+# A configuration example
+interface = eth0
+address = 2001:db8:f983:bd0b:30de:ae4a:71f2:f672
+port = 1025
+debug = true
+priority = SECURE256:!CTYPE-X.509:+CTYPE-OPENPGP
+servicename = Mandos
+      </programlisting>
+    </informalexample>
   </refsect1>
 </refentry>
