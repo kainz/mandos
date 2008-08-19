@@ -56,7 +56,7 @@ all: $(PROGS)
 doc: $(DOCS)
 
 %.5: %.xml
-	cd $(dir $^); $(DOCBOOKTOMAN) $(notdir $^) $(MANPOST) $(notdir $@)
+	cd $(dir $^); $(DOCBOOKTOMAN) $(notdir $^); $(MANPOST) $(notdir $@)
 
 %.8: %.xml
 	cd $(dir $^); $(DOCBOOKTOMAN) $(notdir $^); $(MANPOST) $(notdir $@)

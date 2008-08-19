@@ -700,12 +700,11 @@ def main():
     server_config = ConfigParser.SafeConfigParser(server_defaults)
     del server_defaults
     server_config.read(os.path.join(options.configdir, "mandos.conf"))
-    server_section = "server"
     # Convert the SafeConfigParser object to a dict
-    server_settings = dict(server_config.items(server_section))
+    server_settings = server_config.defaults()
     # Use getboolean on the boolean config option
     server_settings["debug"] = server_config.getboolean\
-                               (server_section, "debug")
+                               ("DEFAULT", "debug")
     del server_config
     
     # Override the settings from the config file with command line
