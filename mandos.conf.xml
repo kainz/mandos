@@ -1,17 +1,16 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<?xml-stylesheet type="text/xsl"
-	href="http://docbook.sourceforge.net/release/xsl/current/manpages/docbook.xsl"?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY VERSION "1.0">
 <!ENTITY CONFNAME "mandos.conf">
 <!ENTITY CONFPATH "<filename>/etc/mandos/mandos.conf</filename>">
+<!ENTITY OVERVIEW SYSTEM "overview.xml">
 ]>
 
 <refentry>
   <refentryinfo>
     <title>&CONFNAME;</title>
-    <!-- NWalsh's docbook scripts use this to generate the footer: -->
+    <!-- NWalsh’s docbook scripts use this to generate the footer: -->
     <productname>&CONFNAME;</productname>
     <productnumber>&VERSION;</productnumber>
     <authorgroup>
@@ -32,7 +31,8 @@
     </authorgroup>
     <copyright>
       <year>2008</year>
-      <holder>Teddy Hogeborn &amp; Björn Påhlsson</holder>
+      <holder>Teddy Hogeborn</holder>
+      <holder>Björn Påhlsson</holder>
     </copyright>
     <legalnotice>
       <para>
@@ -67,7 +67,7 @@
   <refnamediv>
     <refname><filename>&CONFNAME;</filename></refname>
     <refpurpose>
-      Configuration file for Mandos
+      Configuration file for the Mandos server
     </refpurpose>
   </refnamediv>
 
@@ -80,19 +80,28 @@
   <refsect1 id="description">
     <title>DESCRIPTION</title>
     <para>
-      The file &CONFPATH; is a simple configuration file for mandos
-      and is looked on at startup of the service. The configuration
-      file must start with <literal>[server]</literal>. The format for
-      the rest is a simple VAR = VALUE pair. Values may not be empty.
+      The file &CONFPATH; is a simple configuration file for
+      <citerefentry><refentrytitle>mandos</refentrytitle>
+      <manvolnum>8</manvolnum></citerefentry>, and is read by it at
+      startup.  The configuration file starts with
+      <quote><literal>[DEFAULT]</literal></quote> on a line by itself,
+      followed by any number of
+      <quote><varname><replaceable>option</replaceable></varname>=<replaceable>value</replaceable></quote>
+      entries, with continuations in the style of RFC 822.
+      <quote><varname><replaceable>option</replaceable></varname>:
+      <replaceable>value</replaceable></quote> is also accepted.  Note
+      that leading whitespace is removed from values.  Lines beginning
+      with <quote>#</quote> or <quote>;</quote> are ignored and may be
+      used to provide comments.
     </para>
 
     <para>
-      The paramters are:
+      The options are:
     </para>
 
     <variablelist>
       <varlistentry>
-	<term><literal>interface</literal></term>
+	<term><literal><varname>interface</varname></literal></term>
 	<listitem>
 	  <para>
 	    This option allows you to override the default network
@@ -104,7 +113,7 @@
       </varlistentry>
 
       <varlistentry>
-	<term><literal>address</literal></term>
+	<term><literal><varname>address</varname></literal></term>
 	<listitem>
 	  <para>
 	    This option allows you to override the default network
@@ -116,7 +125,7 @@
       </varlistentry>      
 
       <varlistentry>
-	<term><literal>port</literal></term>
+	<term><literal><varname>port</varname></literal></term>
 	<listitem>
 	  <para>
 	    This option allows you to override the default port to
@@ -128,7 +137,7 @@
       </varlistentry>
 
       <varlistentry>
-	<term><literal>debug</literal></term>
+	<term><literal><varname>debug</varname></literal></term>
 	<listitem>
 	  <para>
 	    This option allows you to modify debug mode with a true/false
@@ -138,7 +147,7 @@
       </varlistentry>      
 
       <varlistentry>
-	<term><literal>priority</literal></term>
+	<term><literal><varname>priority</varname></literal></term>
 	<listitem>
 	  <para>
 	    This option allows you to override the default gnutls
@@ -151,7 +160,7 @@
       </varlistentry>
 
       <varlistentry>
-	<term><literal>servicename</literal></term>
+	<term><literal><varname>servicename</varname></literal></term>
 	<listitem>
 	  <para>
 	    This option allows you to override the default Zeroconf
