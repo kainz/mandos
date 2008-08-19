@@ -7,7 +7,7 @@ This file is used by both mandos(8) and mandos.conf(5), since these
 options can be used both on the command line and in the config file.
 -->
 
-<simplesect>
+<section>
   <title/>
   
   <para id="interface">
@@ -21,13 +21,13 @@ options can be used both on the command line and in the config file.
   
   <para id="address">
     If this option is used, the server will only listen to a specific
-    address.  This must currently be an IPv6 address; an IPv4 address
-    can only be specified using the <quote><systemitem
-    class="ipaddress">::FFFF:192.0.2.3</systemitem></quote> format.
-    Also, if a link-local address is specified, an interface should be
-    set, since a link-local address is only valid on a single
-    interface.  By default, the server will listen to all available
-    addresses.
+    address.  If a link-local address is specified, an interface
+    should be set, since a link-local address is only valid on a
+    single interface.  By default, the server will listen to all
+    available addresses.  Also, this must currently be an IPv6
+    address; an IPv4 address can only be specified using the
+    <quote><systemitem class="ipaddress">::FFFF:192.0.2.3</systemitem
+    ></quote> format.
   </para>
   
   <para id="port">
@@ -63,4 +63,4 @@ options can be used both on the command line and in the config file.
     so on; therefore, this option is not needed in that case.
   </para>
   
-</simplesect>
+</section>
