@@ -103,8 +103,8 @@
       <varlistentry>
 	<term><varname>interface</varname></term>
 	<listitem>
-	  <synopsis><literal>interface = </literal><arg
-	  choice="plain"><replaceable>IF</replaceable></arg>
+	  <synopsis><literal>interface = </literal><replaceable
+	  >IF</replaceable>
 	  </synopsis>
 	  <xi:include href="mandos-options.xml" xpointer="interface"/>
 	</listitem>
@@ -113,8 +113,8 @@
       <varlistentry>
 	<term><varname>address</varname></term>
 	<listitem>
-	  <synopsis><literal>address = </literal><arg
-	  choice="plain"><replaceable>ADDRESS</replaceable></arg>
+	  <synopsis><literal>address = </literal><replaceable
+	  >ADDRESS</replaceable>
 	  </synopsis>
 	  <xi:include href="mandos-options.xml" xpointer="address"/>
 	</listitem>
@@ -123,8 +123,8 @@
       <varlistentry>
 	<term><varname>port</varname></term>
 	<listitem>
-	  <synopsis><literal>port = </literal><arg
-	  choice="plain"><replaceable>PORT</replaceable></arg>
+	  <synopsis><literal>port = </literal><replaceable
+	  >PORT</replaceable>
 	  </synopsis>
 	  <xi:include href="mandos-options.xml" xpointer="port"/>
 	</listitem>
@@ -133,16 +133,11 @@
       <varlistentry>
 	<term><varname>debug</varname></term>
 	<listitem>
-	  <synopsis><literal>debug =</literal><group choice="req">
-	    <arg choice="plain">1</arg>
-	    <arg choice="plain">yes</arg>
-	    <arg choice="plain">true</arg>
-	    <arg choice="plain">on</arg>
-	    <arg choice="plain">0</arg>
-	    <arg choice="plain">no</arg>
-	    <arg choice="plain">false</arg>
-	    <arg choice="plain">off</arg>
-	  </group>
+	  <synopsis><literal>debug = </literal>{ <literal
+	  >1</literal> | <literal>yes</literal> | <literal
+	  >true</literal> | <literal>on</literal> | <literal
+	  >0</literal> | <literal>no</literal> | <literal
+	  >false</literal> | <literal>off</literal> }
 	  </synopsis>
 	  <xi:include href="mandos-options.xml" xpointer="debug"/>
 	</listitem>
@@ -151,8 +146,8 @@
       <varlistentry>
 	<term><varname>priority</varname></term>
 	<listitem>
-	  <synopsis><literal>priority = </literal><arg
-	  choice="plain"><replaceable>PRIORITY</replaceable></arg>
+	  <synopsis><literal>priority = </literal><replaceable
+	  >PRIORITY</replaceable>
 	  </synopsis>
 	  <xi:include href="mandos-options.xml" xpointer="priority"/>
 	</listitem>
@@ -160,10 +155,10 @@
 
       <varlistentry>
 	<term><varname>servicename</varname></term>
-	  <synopsis><literal>servicename = </literal><arg
-	  choice="plain"><replaceable>NAME</replaceable></arg>
-	  </synopsis>
 	<listitem>
+	  <synopsis><literal>servicename = </literal><replaceable
+	  >NAME</replaceable>
+	  </synopsis>
 	  <xi:include href="mandos-options.xml"
 		      xpointer="servicename"/>
 	</listitem>
@@ -183,7 +178,7 @@
     <title>BUGS</title>
     <para>
       The <literal>[DEFAULT]</literal> is necessary because the Python
-      module <systemitem class="library">ConfigParser</systemitem>
+      built-in module <systemitem class="library">ConfigParser</systemitem>
       requres it.
     </para>
   </refsect1>
@@ -191,6 +186,17 @@
   <refsect1 id="example">
     <title>EXAMPLE</title>
     <informalexample>
+      <para>
+	No options are actually required:
+      </para>
+      <programlisting>
+[DEFAULT]
+      </programlisting>
+    </informalexample>
+    <informalexample>
+      <para>
+	An example using all the options:
+      </para>
       <programlisting>
 [DEFAULT]
 # A configuration example
@@ -199,7 +205,7 @@ address = 2001:db8:f983:bd0b:30de:ae4a:71f2:f672
 port = 1025
 debug = true
 priority = SECURE256:!CTYPE-X.509:+CTYPE-OPENPGP
-servicename = Mandos
+servicename = Daena
       </programlisting>
     </informalexample>
   </refsect1>

@@ -274,7 +274,7 @@
 	<entry>-><!-- &rarr; --></entry>
       </row>
       <row>
-	<entry><quote><literal>1\r\en</literal></quote></entry>
+	<entry><quote><literal>1\r\n</literal></quote></entry>
 	<entry>-><!-- &rarr; --></entry>
       </row>
       <row>
@@ -310,8 +310,6 @@
       longer eligible to receive the encrypted password.  The timeout,
       checker program, and interval between checks can be configured
       both globally and per client; see <citerefentry>
-      <refentrytitle>mandos.conf</refentrytitle>
-      <manvolnum>5</manvolnum></citerefentry> and <citerefentry>
       <refentrytitle>mandos-clients.conf</refentrytitle>
       <manvolnum>5</manvolnum></citerefentry>.
     </para>
@@ -320,8 +318,8 @@
   <refsect1 id="logging">
     <title>LOGGING</title>
     <para>
-      The server will send log messaged with various severity levels
-      to <filename>/dev/log</filename>.  With the
+      The server will send log message with various severity levels to
+      <filename>/dev/log</filename>.  With the
       <option>--debug</option> option, it will log even more messages,
       and also show them on the console.
     </para>
@@ -348,7 +346,7 @@
 	    <varname>PATH</varname> to search for matching commands if
 	    an absolute path is not given.  See <citerefentry>
 	    <refentrytitle>sh</refentrytitle><manvolnum>1</manvolnum>
-	  </citerefentry>
+	    </citerefentry>.
 	  </para>
 	</listitem>
       </varlistentry>
