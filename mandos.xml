@@ -536,23 +536,18 @@
 
   <refsect1 id="see_also">
     <title>SEE ALSO</title>
+    <para>
+      <citerefentry>
+	<refentrytitle>mandos.conf</refentrytitle>
+	<manvolnum>5</manvolnum></citerefentry>, <citerefentry>
+	<refentrytitle>mandos-clients.conf</refentrytitle>
+	<manvolnum>5</manvolnum></citerefentry>, <citerefentry>
+	<refentrytitle>password-request</refentrytitle>
+	<manvolnum>8mandos</manvolnum></citerefentry>, <citerefentry>
+	<refentrytitle>sh</refentrytitle><manvolnum>1</manvolnum>
+      </citerefentry>
+    </para>
     <variablelist>
-      <varlistentry>
-	<term>
-	  <citerefentry>
-	    <refentrytitle>password-request</refentrytitle>
-	    <manvolnum>8mandos</manvolnum>
-	  </citerefentry>
-	</term>
-	<listitem>
-	  <para>
-	    This is the actual program which talks to this server.
-	    Note that it is normally not invoked directly, and is only
-	    run in the initial RAM disk environment, and not on a
-	    fully started system.
-	  </para>
-	</listitem>
-      </varlistentry>
       <varlistentry>
 	<term>
 	  <ulink url="http://www.zeroconf.org/">Zeroconf</ulink>
