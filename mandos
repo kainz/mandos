@@ -563,25 +563,30 @@ def string_to_delta(interval):
     datetime.timedelta(1)
     >>> string_to_delta(u'1w')
     datetime.timedelta(7)
+    >>> string_to_delta('5m 30s')
+    datetime.timedelta(0, 330)
     """
-    try:
-        suffix=unicode(interval[-1])
-        value=int(interval[:-1])
-        if suffix == u"d":
-            delta = datetime.timedelta(value)
-        elif suffix == u"s":
-            delta = datetime.timedelta(0, value)
-        elif suffix == u"m":
-            delta = datetime.timedelta(0, 0, 0, 0, value)
-        elif suffix == u"h":
-            delta = datetime.timedelta(0, 0, 0, 0, 0, value)
-        elif suffix == u"w":
-            delta = datetime.timedelta(0, 0, 0, 0, 0, 0, value)
-        else:
+    timevalue = datetime.timedelta(0)
+    for s in interval.split():
+        try:
+            suffix=unicode(s[-1])
+            value=int(s[:-1])
+            if suffix == u"d":
+                delta = datetime.timedelta(value)
+            elif suffix == u"s":
+                delta = datetime.timedelta(0, value)
+            elif suffix == u"m":
+                delta = datetime.timedelta(0, 0, 0, 0, value)
+            elif suffix == u"h":
+                delta = datetime.timedelta(0, 0, 0, 0, 0, value)
+            elif suffix == u"w":
+                delta = datetime.timedelta(0, 0, 0, 0, 0, 0, value)
+            else:
+                raise ValueError
+        except (ValueError, IndexError):
             raise ValueError
-    except (ValueError, IndexError):
-        raise ValueError
-    return delta
+        timevalue += delta
+    return timevalue
 
 
 def server_state_changed(state):
@@ -733,6 +738,7 @@ def main():
     client_defaults = { "timeout": "1h",
                         "interval": "5m",
                         "checker": "fping -q -- %%(host)s",
+                        "host": "",
                         }
     client_config = ConfigParser.SafeConfigParser(client_defaults)
     client_config.read(os.path.join(server_settings["configdir"],
