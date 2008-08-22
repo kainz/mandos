@@ -88,19 +88,23 @@
       server.
     </para>
     <para>
-      The format starts with a section under [] which is either
+      The format starts with a <literal>[<replaceable>section
+      header</replaceable>]</literal> which is either
       <literal>[DEFAULT]</literal> or <literal>[<replaceable>client
-      name</replaceable>]</literal>.  Following the section is any
-      number of <quote><varname><replaceable>option</replaceable
+      name</replaceable>]</literal>.  The <replaceable>client
+      name</replaceable> can be anything, and is not tied to a host
+      name.  Following the section header is any number of
+      <quote><varname><replaceable>option</replaceable
       ></varname>=<replaceable>value</replaceable></quote> entries,
       with continuations in the style of RFC 822.  <quote><varname
       ><replaceable>option</replaceable></varname>: <replaceable
       >value</replaceable></quote> is also accepted.  Note that
       leading whitespace is removed from values.  Values can contain
       format strings which refer to other values in the same section,
-      or values in the <quote>DEFAULT</quote> section.  Lines
-      beginning with <quote>#</quote> or <quote>;</quote> are ignored
-      and may be used to provide comments.
+      or values in the <quote>DEFAULT</quote> section (see <xref
+      linkend="expansion"/>).  Lines beginning with <quote>#</quote>
+      or <quote>;</quote> are ignored and may be used to provide
+      comments.
     </para>
   </refsect1>
   
@@ -165,10 +169,24 @@
       <varlistentry>
 	<term><literal>checker</literal></term>
 	<listitem>
+	  <synopsis><literal>checker = </literal><replaceable
+	  >COMMAND</replaceable>
+	  </synopsis>
 	  <para>
 	    This option allows you to override the default shell
-	    command that the server will use to check up if the client
-	    is still up. By default mandos will "fping -q -- %%(host)s"
+	    command that the server will use to check if the client is
+	    still up.  The output of the command will be ignored, only
+	    the exit code is checked.  The command will be run using
+	    <quote><command><filename>/bin/sh</filename>
+	    <option>-c</option></command></quote>.  The default
+	    command is <quote><literal><command>fping</command>
+	    <option>-q</option> <option>--</option>
+	    %(host)s</literal></quote>.
+	  </para>
+	  <para>
+	    In addition to normal start time expansion, this option
+	    will also be subject to runtime expansion; see <xref
+	    linkend="expansion"/>.
 	  </para>
 	</listitem>
       </varlistentry>
@@ -176,10 +194,14 @@
       <varlistentry>
 	<term><literal>fingerprint</literal></term>
 	<listitem>
+	  <synopsis><literal>fingerprint = </literal><replaceable
+	  >HEXSTRING</replaceable>
+	  </synopsis>
 	  <para>
-	    This option sets the openpgp fingerprint that identifies
-	    the public certificate that clients authenticates themself
-	    through gnutls. The string need to be in hex-decimal form.
+	    This option sets the OpenPGP fingerprint that identifies
+	    the public key that clients authenticate themselves with
+	    through TLS.  The string needs to be in hexidecimal form,
+	    but spaces or upper/lower case are not significant.
 	  </para>
 	</listitem>
       </varlistentry>
@@ -187,9 +209,25 @@
       <varlistentry>
 	<term><literal>secret</literal></term>
 	<listitem>
+	  <synopsis><literal>secret = </literal><replaceable
+	  >BASE64_ENCODED_DATA</replaceable>
+	  </synopsis>
 	  <para>
-	    Base 64 encoded OpenPGP encrypted password encrypted by
-	    the clients openpgp certificate.
+	    If present, this option must be set to a string of
+	    base64-encoded binary data.  It will be decoded and sent
+	    to the client matching the above
+	    <option>fingerprint</option>.  This should, of course, be
+	    OpenPGP encrypted data, decryptable only by the client.
+<!-- 	    The program <citerefentry><refentrytitle><command -->
+<!-- 	    >mandos-keygen</command></refentrytitle><manvolnum -->
+<!-- 	    >8</manvolnum></citerefentry> can be used to generate it, -->
+<!-- 	    if desired. -->
+	  </para>
+	  <para>
+	    Note: this value of this option will probably run over
+	    many lines, and will then have to use the fact that a line
+	    beginning with white space adds to the value of the
+	    previous line, RFC 822-style.
 	  </para>
 	</listitem>
       </varlistentry>
@@ -242,7 +280,7 @@
       There are two forms of expansion: Start time expansion and
       runtime expansion.
     </para>
-    <refsect2>
+    <refsect2 id="start_time_expansion">
       <title>START TIME EXPANSION</title>
       <para>
 	Any string in an option value of the form
@@ -260,7 +298,7 @@
 	entered.
       </para>
     </refsect2>
-    <refsect2>
+    <refsect2 id="runtime_expansion">
       <title>RUNTIME EXPANSION</title>
       <para>
 	This is currently only done for the <varname>checker</varname>
@@ -317,7 +355,7 @@
 [DEFAULT]
 timeout = 1h
 interval = 5m
-checker = fping -q -- %%(host)s
+checker = fping -q -- %(host)s
 
 # Client "foo"
 [foo]

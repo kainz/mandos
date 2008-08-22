@@ -84,6 +84,7 @@
 
 * mandos (server)
 ** [#A] Config file man page: man5/mandos-clients.conf (clients.conf)
+*** For option "secret", document which program can help generate it.
 ** [#A] /etc/init.d/mandos-server		:teddy:
 ** [#B] Log level				:bugs:
 ** /etc/mandos/clients.d/*.conf
