@@ -142,7 +142,12 @@ SECRING="`mktemp -t mandos-gpg-secring.XXXXXXXXXX`"
 PUBRING="`mktemp -t mandos-gpg-pubring.XXXXXXXXXX`"
 
 # Remove temporary files on exit
-trap "rm --force $PUBRING $BATCHFILE; shred --remove $SECRING" EXIT
+trap "
+set +e
+rm --force $PUBRING $BATCHFILE;
+shred --remove $SECRING;
+stty echo
+" EXIT
 
 # Create batch file for GnuPG
 cat >"$BATCHFILE" <<EOF

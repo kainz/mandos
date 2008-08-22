@@ -337,13 +337,17 @@ class Client(object):
             try:
                 logger.info(u"Starting checker %r for %s",
                             command, self.name)
+                # We don't need to redirect stdout and stderr, since
+                # in normal mode, that is already done by daemon(),
+                # and in debug mode we don't want to.  (Stdin is
+                # always replaced by /dev/null.)
                 self.checker = subprocess.Popen(command,
                                                 close_fds=True,
                                                 shell=True, cwd="/")
                 self.checker_callback_tag = gobject.child_watch_add\
                                             (self.checker.pid,
                                              self.checker_callback)
-            except subprocess.OSError, error:
+            except OSError, error:
                 logger.error(u"Failed to start subprocess: %s",
                              error)
         # Re-run this periodically if run by gobject.timeout_add
@@ -737,7 +741,7 @@ def main():
     # Parse config file with clients
     client_defaults = { "timeout": "1h",
                         "interval": "5m",
-                        "checker": "fping -q -- %%(host)s",
+                        "checker": "fping -q -- %(host)s",
                         "host": "",
                         }
     client_config = ConfigParser.SafeConfigParser(client_defaults)
@@ -778,8 +782,16 @@ def main():
         logger.critical(u"No clients defined")
         sys.exit(1)
     
-    if not debug:
+    if debug:
+        # Redirect stdin so all checkers get /dev/null
+        null = os.open(os.path.devnull, os.O_NOCTTY | os.O_RDWR)
+        os.dup2(null, sys.stdin.fileno())
+        if null > 2:
+            os.close(null)
+    else:
+        # No console logging
         logger.removeHandler(console)
+        # Close all input and output, do double fork, etc.
         daemon()
     
     pidfilename = "/var/run/mandos/mandos.pid"
