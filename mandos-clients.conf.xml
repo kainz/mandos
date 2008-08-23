@@ -1,6 +1,4 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<?xml-stylesheet type="text/xsl"
-	href="http://docbook.sourceforge.net/release/xsl/current/manpages/docbook.xsl"?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY VERSION "1.0">
@@ -11,7 +9,7 @@
 <refentry>
   <refentryinfo>
     <title>&CONFNAME;</title>
-    <!-- NWalsh's docbook scripts use this to generate the footer: -->
+    <!-- NWalsh’s docbook scripts use this to generate the footer: -->
     <productname>&CONFNAME;</productname>
     <productnumber>&VERSION;</productnumber>
     <authorgroup>
@@ -32,7 +30,8 @@
     </authorgroup>
     <copyright>
       <year>2008</year>
-      <holder>Teddy Hogeborn &amp; Björn Påhlsson</holder>
+      <holder>Teddy Hogeborn</holder>
+      <holder>Björn Påhlsson</holder>
     </copyright>
     <legalnotice>
       <para>
@@ -67,7 +66,7 @@
   <refnamediv>
     <refname><filename>&CONFNAME;</filename></refname>
     <refpurpose>
-      Configuration file for Mandos clients
+      Configuration file for the Mandos server
     </refpurpose>
   </refnamediv>
 
@@ -80,42 +79,89 @@
   <refsect1 id="description">
     <title>DESCRIPTION</title>
     <para>
-      The file &CONFPATH; is the configuration file for mandos where
-      each client that will be abel to use the service need to be
-      specified. The configuration file is looked on at the startup of
-      the service, so to reenable timedout clients one need to only
-      restart the server. The format starts with a section under []
-      which is eather <literal>[DEFAULT]</literal> or a client
-      name. Values is set through the use of VAR = VALUE pair. Values
-      may not be empty.
+      The file &CONFPATH; is the configuration file for <citerefentry
+      ><refentrytitle>mandos</refentrytitle>
+      <manvolnum>8</manvolnum></citerefentry>, read by it at startup,
+      where each client that will be able to use the service needs to
+      be listed.  All clients listed will be regarded as valid, even
+      if a client was declared invalid in a previous run of the
+      server.
+    </para>
+    <para>
+      The format starts with a <literal>[<replaceable>section
+      header</replaceable>]</literal> which is either
+      <literal>[DEFAULT]</literal> or <literal>[<replaceable>client
+      name</replaceable>]</literal>.  The <replaceable>client
+      name</replaceable> can be anything, and is not tied to a host
+      name.  Following the section header is any number of
+      <quote><varname><replaceable>option</replaceable
+      ></varname>=<replaceable>value</replaceable></quote> entries,
+      with continuations in the style of RFC 822.  <quote><varname
+      ><replaceable>option</replaceable></varname>: <replaceable
+      >value</replaceable></quote> is also accepted.  Note that
+      leading whitespace is removed from values.  Values can contain
+      format strings which refer to other values in the same section,
+      or values in the <quote>DEFAULT</quote> section (see <xref
+      linkend="expansion"/>).  Lines beginning with <quote>#</quote>
+      or <quote>;</quote> are ignored and may be used to provide
+      comments.
     </para>
   </refsect1>
-
-  <refsect1 id="default">
-    <title>DEFAULTS</title>
+  
+  <refsect1 id="options">
+    <title>OPTIONS</title>
     <para>
-      The paramters for <literal>[DEFAULT]</literal> are:
+      The possible options are:
     </para>
 
     <variablelist>
-      
+
       <varlistentry>
-	<term><literal>timeout</literal></term>
+	<term><literal><varname>timeout</varname></literal></term>
 	<listitem>
+	  <synopsis><literal>timeout = </literal><replaceable
+	  >TIME</replaceable>
+	  </synopsis>
 	  <para>
-	    This option allows you to override the default timeout
-	    that clients will get. By default mandos will use 1hr.
+	    The timeout is how long the server will wait for a
+	    successful checker run until a client is considered
+	    invalid - that is, ineligible to get the data this server
+	    holds.  By default Mandos will use 1 hour.
+	  </para>
+	  <para>
+	    The <replaceable>TIME</replaceable> is specified as a
+	    space-separated number of values, each of which is a
+	    number and a one-character suffix.  The suffix must be one
+	    of <quote>d</quote>, <quote>s</quote>, <quote>m</quote>,
+	    <quote>h</quote>, and <quote>w</quote> for days, seconds,
+	    minutes, hours, and weeks, respectively.  The values are
+	    added together to give the total time value, so all of
+	    <quote><literal>330s</literal></quote>,
+	    <quote><literal>110s 110s 110s</literal></quote>, and
+	    <quote><literal>5m 30s</literal></quote> will give a value
+	    of five minutes and thirty seconds.
 	  </para>
 	</listitem>
       </varlistentry>
 
       <varlistentry>
-	<term><literal>interval</literal></term>
+	<term><literal><varname>interval</varname></literal></term>
 	<listitem>
+	  <synopsis><literal>interval = </literal><replaceable
+	  >TIME</replaceable>
+	  </synopsis>
 	  <para>
-	    This option allows you to override the default interval
-	    used between checkups for disconnected clients. By default
-	    mandos will use 5m.
+	    How often to run the checker to confirm that a client is
+	    still up.  <emphasis>Note:</emphasis> a new checker will
+	    not be started if an old one is still running.  The server
+	    will wait for a checker to complete until the above
+	    <quote><varname>timeout</varname></quote> occurs, at which
+	    time the client will be marked invalid, and any running
+	    checker killed.  The default interval is 5 minutes.
+	  </para>
+	  <para>
+	    The format of <replaceable>TIME</replaceable> is the same
+	    as for <varname>timeout</varname> above.
 	  </para>
 	</listitem>
       </varlistentry>      
@@ -123,32 +169,39 @@
       <varlistentry>
 	<term><literal>checker</literal></term>
 	<listitem>
+	  <synopsis><literal>checker = </literal><replaceable
+	  >COMMAND</replaceable>
+	  </synopsis>
 	  <para>
 	    This option allows you to override the default shell
-	    command that the server will use to check up if the client
-	    is still up. By default mandos will "fping -q -- %%(host)s"
+	    command that the server will use to check if the client is
+	    still up.  The output of the command will be ignored, only
+	    the exit code is checked.  The command will be run using
+	    <quote><command><filename>/bin/sh</filename>
+	    <option>-c</option></command></quote>.  The default
+	    command is <quote><literal><command>fping</command>
+	    <option>-q</option> <option>--</option>
+	    %(host)s</literal></quote>.
+	  </para>
+	  <para>
+	    In addition to normal start time expansion, this option
+	    will also be subject to runtime expansion; see <xref
+	    linkend="expansion"/>.
 	  </para>
 	</listitem>
       </varlistentry>
       
-    </variablelist>
-  </refsect1>
-
-  <refsect1 id="clients">
-    <title>CLIENTS</title>
-    <para>
-      The paramters for clients are:
-    </para>
-
-    <variablelist>
-      
       <varlistentry>
 	<term><literal>fingerprint</literal></term>
 	<listitem>
+	  <synopsis><literal>fingerprint = </literal><replaceable
+	  >HEXSTRING</replaceable>
+	  </synopsis>
 	  <para>
-	    This option sets the openpgp fingerprint that identifies
-	    the public certificate that clients authenticates themself
-	    through gnutls. The string need to be in hex-decimal form.
+	    This option sets the OpenPGP fingerprint that identifies
+	    the public key that clients authenticate themselves with
+	    through TLS.  The string needs to be in hexidecimal form,
+	    but spaces or upper/lower case are not significant.
 	  </para>
 	</listitem>
       </varlistentry>
@@ -156,9 +209,25 @@
       <varlistentry>
 	<term><literal>secret</literal></term>
 	<listitem>
+	  <synopsis><literal>secret = </literal><replaceable
+	  >BASE64_ENCODED_DATA</replaceable>
+	  </synopsis>
 	  <para>
-	    Base 64 encoded OpenPGP encrypted password encrypted by
-	    the clients openpgp certificate.
+	    If present, this option must be set to a string of
+	    base64-encoded binary data.  It will be decoded and sent
+	    to the client matching the above
+	    <option>fingerprint</option>.  This should, of course, be
+	    OpenPGP encrypted data, decryptable only by the client.
+<!-- 	    The program <citerefentry><refentrytitle><command -->
+<!-- 	    >mandos-keygen</command></refentrytitle><manvolnum -->
+<!-- 	    >8</manvolnum></citerefentry> can be used to generate it, -->
+<!-- 	    if desired. -->
+	  </para>
+	  <para>
+	    Note: this value of this option will probably run over
+	    many lines, and will then have to use the fact that a line
+	    beginning with white space adds to the value of the
+	    previous line, RFC 822-style.
 	  </para>
 	</listitem>
       </varlistentry>
@@ -204,19 +273,93 @@
       
     </variablelist>
   </refsect1>  
+  
+  <refsect1 id="expansion">
+    <title>EXPANSION</title>
+    <para>
+      There are two forms of expansion: Start time expansion and
+      runtime expansion.
+    </para>
+    <refsect2 id="start_time_expansion">
+      <title>START TIME EXPANSION</title>
+      <para>
+	Any string in an option value of the form
+	<quote><literal>%(<replaceable>foo</replaceable>)s</literal
+	></quote> will be replaced by the value of the option
+	<varname>foo</varname> either in the same section, or, if it
+	does not exist there, the <literal>[DEFAULT]</literal>
+	section.  This is done at start time, when the configuration
+	file is read.
+      </para>
+      <para>
+	Note that this means that, in order to include an actual
+	percent character (<quote>%</quote>) in an option value, two
+	percent characters in a row (<quote>%%</quote>) must be
+	entered.
+      </para>
+    </refsect2>
+    <refsect2 id="runtime_expansion">
+      <title>RUNTIME EXPANSION</title>
+      <para>
+	This is currently only done for the <varname>checker</varname>
+	option.
+      </para>
+      <para>
+	Any string in an option value of the form
+	<quote><literal>%%(<replaceable>foo</replaceable>)s</literal
+	></quote> will be replaced by the value of the attribute
+	<varname>foo</varname> of the internal
+	<quote><classname>Client</classname></quote> object.  See the
+	source code for details, and let the authors know of any
+	attributes that are useful so they may be preserved to any new
+	versions of this software.
+      </para>
+      <para>
+	Note that this means that, in order to include an actual
+	percent character (<quote>%</quote>) in a
+	<varname>checker</varname> options, <emphasis>four</emphasis>
+	percent characters in a row (<quote>%%%%</quote>) must be
+	entered.  Also, a bad format here will lead to an immediate
+	but <emphasis>silent</emphasis> run-time fatal exit; debug
+	mode is needed to track down an error of this kind.
+      </para>
+    </refsect2>
 
-  <refsect1 id="examples">
-    <title>EXAMPLES</title>
+  </refsect1>  
+  
+  <refsect1 id="files">
+    <title>FILES</title>
+    <para>
+      The file described here is &CONFPATH;
+    </para>
+  </refsect1>
+  
+  <refsect1 id="bugs">
+    <title>BUGS</title>
+    <para>
+      The format for specifying times for <varname>timeout</varname>
+      and <varname>interval</varname> is not very good.
+    </para>
+    <para>
+      The difference between
+      <literal>%%(<replaceable>foo</replaceable>)s</literal> and
+      <literal>%(<replaceable>foo</replaceable>)s</literal> is
+      obscure.
+    </para>
+  </refsect1>
+  
+  <refsect1 id="example">
+    <title>EXAMPLE</title>
     <informalexample>
       <programlisting>
 [DEFAULT]
 timeout = 1h
 interval = 5m
-checker = fping -q -- %%(host)s
+checker = fping -q -- %(host)s
 
-[example_client]
+# Client "foo"
+[foo]
 fingerprint =  7788 2722 5BA7 DE53 9C5A  7CFA 59CF F7CD BD9A 5920
-
 secret =
         hQIOA6QdEjBs2L/HEAf/TCyrDe5Xnm9esa+Pb/vWF9CUqfn4srzVgSu234
         REJMVv7lBSrPE2132Lmd2gqF1HeLKDJRSVxJpt6xoWOChGHg+TMyXDxK+N
@@ -234,17 +377,16 @@ secret =
         4T2zw4dxS5NswXWU0sVEXxjs6PYxuIiCTL7vdpx8QjBkrPWDrAbcMyBr2O
         QlnHIvPzEArRQLo=
         =iHhv
-
-host = localhost
+host = foo.example.org
 interval = 5m
+
+# Client "bar"
+[bar]
+fingerprint = 3e393aeaefb84c7e89e2f547b3a107558fca3a27
+secfile = /etc/mandos/bar-secret.txt.asc
+
       </programlisting>
     </informalexample>
   </refsect1>  
-  
-  <refsect1 id="files">
-    <title>FILES</title>
-    <para>
-      The file described here is &CONFPATH;
-    </para>
-  </refsect1>
+
 </refentry>
