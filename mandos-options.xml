@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE simplesect PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+
+<!--
+This file is used by both mandos(8) and mandos.conf(5), since these
+options can be used both on the command line and in the config file.
+-->
+
+<section>
+  <title/>
+  
+  <para id="interface">
+    If this is specified, the server will only announce the service
+    and listen to requests on network interface
+    <replaceable>IF</replaceable>.  Default is to use all available
+    interfaces.  <emphasis>Note:</emphasis> a failure to bind to the
+    specified interface is not considered critical, and the server
+    does not exit.
+  </para>
+  
+  <para id="address">
+    If this option is used, the server will only listen to a specific
+    address.  If a link-local address is specified, an interface
+    should be set, since a link-local address is only valid on a
+    single interface.  By default, the server will listen to all
+    available addresses.  Also, this must currently be an IPv6
+    address; an IPv4 address can only be specified using the
+    <quote><systemitem class="ipaddress">::FFFF:192.0.2.3</systemitem
+    ></quote> format.
+  </para>
+  
+  <para id="port">
+    If this option is used, the server will bind to that port. By
+    default, the server will listen to an arbitrary port given by the
+    operating system.
+  </para>
+  
+  <para id="debug">
+    If the server is run in debug mode, it will run in the foreground
+    and print a lot of debugging information.  The default is
+    <emphasis>not</emphasis> to run in debug mode.
+  </para>
+  
+  <para id="priority">
+    GnuTLS priority string for the TLS handshake with the clients.
+    The default is
+    <quote><literal>SECURE256:!CTYPE-X.509:+CTYPE-OPENPGP</literal></quote>.
+    See <citerefentry><refentrytitle>gnutls_priority_init
+    </refentrytitle><manvolnum>3</manvolnum></citerefentry> for the
+    syntax.  <emphasis>Warning</emphasis>: changing this may make the
+    TLS handshake fail, making communication with clients impossible.
+  </para>
+  
+  <para id="servicename">
+    Zeroconf service name.  The default is
+    <quote><literal>Mandos</literal></quote>.  This only needs to be
+    changed this if it, for some reason, is necessary to run more than
+    one server on the same <emphasis>host</emphasis>, which would not
+    normally be useful.  If there are name collisions on the same
+    <emphasis>network</emphasis>, the newer server will automatically
+    rename itself to <quote><literal>Mandos #2</literal></quote>, and
+    so on; therefore, this option is not needed in that case.
+  </para>
+  
+</section>
