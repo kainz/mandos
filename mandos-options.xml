@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE simplesect PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+<!DOCTYPE section PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
 
 <!--
@@ -16,18 +16,17 @@ options can be used both on the command line and in the config file.
     <replaceable>IF</replaceable>.  Default is to use all available
     interfaces.  <emphasis>Note:</emphasis> a failure to bind to the
     specified interface is not considered critical, and the server
-    does not exit.
+    does not exit, but will instead continue starting normally.
   </para>
   
   <para id="address">
-    If this option is used, the server will only listen to a specific
-    address.  If a link-local address is specified, an interface
-    should be set, since a link-local address is only valid on a
-    single interface.  By default, the server will listen to all
-    available addresses.  Also, this must currently be an IPv6
-    address; an IPv4 address can only be specified using the
-    <quote><systemitem class="ipaddress">::FFFF:192.0.2.3</systemitem
-    ></quote> format.
+    If this option is used, the server will only listen to the
+    specified IPv6 address.  If a link-local address is specified, an
+    interface should be set, since a link-local address is only valid
+    on a single interface.  By default, the server will listen to all
+    available addresses.  If set, this must be an IPv6 address; an
+    IPv4 address can only be specified using the <quote><systemitem
+    class="ipaddress">::FFFF:192.0.2.3</systemitem ></quote> format.
   </para>
   
   <para id="port">
