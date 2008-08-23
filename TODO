@@ -8,7 +8,9 @@
 ** [#B] Seperate more code to function for more readability
 ** [#A] Man page: man8/plugin-runner.8mandos
 *** EXIT STATUS
-*** EXAMPLES
+*** ENVIRONMENT
+    Environment is modified according to options and passed to plugins
+*** EXAMPLE
     Examples of normal usage, debug usage, debugging single or all
     plugins, etc.
 *** FILES
