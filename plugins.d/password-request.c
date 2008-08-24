@@ -636,6 +636,8 @@ static int start_mandos_communication(const char *ip, uint16_t port,
     } else {
       retval = -1;
     }
+  } else {
+    retval = -1;
   }
   
   /* Shutdown procedure */
