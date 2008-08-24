@@ -85,7 +85,6 @@
    [[http://www.steve.org.uk/Reference/Unix/faq_4.html#SEC48][Unix Programming FAQ 3.1 How can I make my program not echo input?]]
 
 * mandos (server)
-** run gnutls_openpgp_crt_verify_self() and verify clients certificates
 ** [#A] Config file man page: man5/mandos-clients.conf (clients.conf)
 *** For option "secret", document which program can help generate it.
 ** [#A] /etc/init.d/mandos-server		:teddy:

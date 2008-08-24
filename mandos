@@ -414,7 +414,7 @@ def fingerprint(openpgp):
     crtverify = ctypes.c_uint();
     gnutls.library.functions.gnutls_openpgp_crt_verify_self\
         (crt, ctypes.c_uint(0), ctypes.byref(crtverify))
-    if crtverify != 0:
+    if crtverify.value != 0:
         gnutls.library.functions.gnutls_openpgp_crt_deinit(crt)
         raise gnutls.errors.CertificateSecurityError("Verify failed")
     # New buffer for the fingerprint
