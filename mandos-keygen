@@ -33,17 +33,24 @@ KEYCOMMENT="Mandos client key"
 KEYEXPIRE=0
 FORCE=no
 KEYCOMMENT_ORIG="$KEYCOMMENT"
+mode=keygen
 
 # Parse options
 TEMP=`getopt --options vhd:t:l:n:e:c:x:f \
-    --longoptions version,help,dir:,type:,length:,name:,email:,comment:,expire:,force \
+    --longoptions version,help,password,dir:,type:,length:,subtype:,sublength:,name:,email:,comment:,expire:,force \
     --name "$0" -- "$@"`
 
 help(){
+basename="`basename $0`"
 cat <<EOF
-Usage: `basename $0` [options]
+Usage: $basename [ -v | --version ]
+       $basename [ -h | --help ]
+   Key creation:
+       $basename [ OPTIONS ]
+   Encrypted password creation:
+       $basename { -p | --password } [ --name NAME ] [ --dir DIR]
 
-Options:
+Key creation options:
   -v, --version         Show program's version number and exit
   -h, --help            Show this help message and exit
   -d DIR, --dir DIR     Target directory for key files
@@ -55,7 +62,7 @@ Options:
   -L BITS, --sublength BITS
                         Subkey length in bits.  Default is 2048.
   -n NAME, --name NAME  Name of key.  Default is the FQDN.
-  -e EMAIL, --email EMAIL
+  -e ADDRESS, --email ADDRESS
                         Email address of key.  Default is empty.
   -c COMMENT, --comment COMMENT
                         Comment field for key.  The default value is
@@ -64,12 +71,18 @@ Options:
                         Key expire time.  Default is no expiration.
                         See gpg(1) for syntax.
   -f, --force           Force overwriting old keys.
+
+Password creation options:
+  -p, --password        Create an encrypted password using the keys in
+                        the key directory.  All options other than
+                        --keydir and --name are ignored.
 EOF
 }
 
 eval set -- "$TEMP"
 while :; do
     case "$1" in
+	-p|--password) mode=password; shift;;
 	-d|--dir) KEYDIR="$2"; shift 2;;
 	-t|--type) KEYTYPE="$2"; shift 2;;
 	-s|--subtype) SUBKEYTYPE="$2"; shift 2;;
@@ -104,120 +117,205 @@ if [ -w "$KEYDIR" ]; then :; else
     exit 1
 fi
 
-if [ -z "$KEYTYPE" ]; then
-    echo "Empty key type" >&2
+if [ "$mode" = password -a -e "$KEYDIR/trustdb.gpg.lock" ]; then
+    echo "Key directory has locked trustdb; aborting." >&2
     exit 1
 fi
 
-if [ -z "$KEYNAME" ]; then
-    echo "Empty key name" >&2
-    exit 1
+if [ "$mode" = keygen ]; then
+    if [ -z "$KEYTYPE" ]; then
+	echo "Empty key type" >&2
+	exit 1
+    fi
+    
+    if [ -z "$KEYNAME" ]; then
+	echo "Empty key name" >&2
+	exit 1
+    fi
+    
+    if [ -z "$KEYLENGTH" ] || [ "$KEYLENGTH" -lt 512 ]; then
+	echo "Invalid key length" >&2
+	exit 1
+    fi
+
+    if [ -z "$KEYEXPIRE" ]; then
+	echo "Empty key expiration" >&2
+	exit 1
+    fi
+    
+    # Make FORCE be 0 or 1
+    case "$FORCE" in
+	[Yy][Ee][Ss]|[Tt][Rr][Uu][Ee]) FORCE=1;;
+	[Nn][Oo]|[Ff][Aa][Ll][Ss][Ee]|*) FORCE=0;;
+    esac
+    
+    if { [ -e "$SECKEYFILE" ] || [ -e "$PUBKEYFILE" ]; } \
+	&& [ "$FORCE" -eq 0 ]; then
+	echo "Refusing to overwrite old key files; use --force" >&2
+	exit 1
+    fi
+    
+    # Set lines for GnuPG batch file
+    if [ -n "$KEYCOMMENT" ]; then
+	KEYCOMMENTLINE="Name-Comment: $KEYCOMMENT"
+    fi
+    if [ -n "$KEYEMAIL" ]; then
+	KEYEMAILLINE="Name-Email: $KEYEMAIL"
+    fi
+
+    # Create temporary gpg batch file
+    BATCHFILE="`mktemp -t mandos-gpg-batch.XXXXXXXXXX`"
 fi
 
-if [ -z "$KEYLENGTH" ] || [ "$KEYLENGTH" -lt 512 ]; then
-    echo "Invalid key length" >&2
-    exit 1
+if [ "$mode" = password ]; then
+    # Create temporary encrypted password file
+    SECFILE="`mktemp -t mandos-gpg-secfile.XXXXXXXXXX`"
 fi
 
-if [ -z "$KEYEXPIRE" ]; then
-    echo "Empty key expiration" >&2
-    exit 1
-fi
-
-# Make FORCE be 0 or 1
-case "$FORCE" in
-    [Yy][Ee][Ss]|[Tt][Rr][Uu][Ee]) FORCE=1;;
-    [Nn][Oo]|[Ff][Aa][Ll][Ss][Ee]|*) FORCE=0;;
-esac
-
-if { [ -e "$SECKEYFILE" ] || [ -e "$PUBKEYFILE" ]; } \
-    && [ "$FORCE" -eq 0 ]; then
-    echo "Refusing to overwrite old key files; use --force" >&2
-    exit 1
-fi
-
-# Set lines for GnuPG batch file
-if [ -n "$KEYCOMMENT" ]; then
-    KEYCOMMENTLINE="Name-Comment: $KEYCOMMENT"
-fi
-if [ -n "$KEYEMAIL" ]; then
-    KEYEMAILLINE="Name-Email: $KEYEMAIL"
-fi
-
-# Create temp files
-BATCHFILE="`mktemp -t mandos-gpg-batch.XXXXXXXXXX`"
+# Create temporary key rings
 SECRING="`mktemp -t mandos-gpg-secring.XXXXXXXXXX`"
 PUBRING="`mktemp -t mandos-gpg-pubring.XXXXXXXXXX`"
+
+if [ "$mode" = password ]; then
+    # If a trustdb.gpg file does not already exist, schedule it for
+    # deletion when we are done.
+    if ! [ -e "$KEYDIR/trustdb.gpg" ]; then
+	TRUSTDB="$KEYDIR/trustdb.gpg"
+    fi
+fi
 
 # Remove temporary files on exit
 trap "
 set +e; \
-rm --force $PUBRING $BATCHFILE; \
-shred --remove $SECRING; \
+rm --force $PUBRING ${PUBRING}~ $BATCHFILE $TRUSTDB; \
+shred --remove $SECRING $SECFILE; \
 stty echo; \
 " EXIT
 
-# Create batch file for GnuPG
-cat >"$BATCHFILE" <<EOF
-Key-Type: $KEYTYPE
-Key-Length: $KEYLENGTH
-#Key-Usage: encrypt,sign,auth
-Subkey-Type: $SUBKEYTYPE
-Subkey-Length: $SUBKEYLENGTH
-#Subkey-Usage: encrypt,sign,auth
-Name-Real: $KEYNAME
-$KEYCOMMENTLINE
-$KEYEMAILLINE
-Expire-Date: $KEYEXPIRE
-#Preferences: <string>
-#Handle: <no-spaces>
-%pubring $PUBRING
-%secring $SECRING
-%commit
-EOF
-
 umask 027
 
-# Generate a new key in the key rings
-gpg --no-random-seed-file --quiet --batch --no-tty \
-    --no-default-keyring --no-options --enable-dsa2 \
-    --secret-keyring "$SECRING" --keyring "$PUBRING" \
-    --gen-key "$BATCHFILE"
-rm --force "$BATCHFILE"
+if [ "$mode" = keygen ]; then
+    # Create batch file for GnuPG
+    cat >"$BATCHFILE" <<-EOF
+	Key-Type: $KEYTYPE
+	Key-Length: $KEYLENGTH
+	#Key-Usage: encrypt,sign,auth
+	Subkey-Type: $SUBKEYTYPE
+	Subkey-Length: $SUBKEYLENGTH
+	#Subkey-Usage: encrypt,sign,auth
+	Name-Real: $KEYNAME
+	$KEYCOMMENTLINE
+	$KEYEMAILLINE
+	Expire-Date: $KEYEXPIRE
+	#Preferences: <string>
+	#Handle: <no-spaces>
+	%pubring $PUBRING
+	%secring $SECRING
+	%commit
+	EOF
+    
+    # Generate a new key in the key rings
+    gpg --no-random-seed-file --quiet --batch --no-tty \
+	--no-default-keyring --no-options --enable-dsa2 \
+	--secret-keyring "$SECRING" --keyring "$PUBRING" \
+	--gen-key "$BATCHFILE"
+    rm --force "$BATCHFILE"
 
-# Backup any old key files
-if cp --backup=numbered --force "$SECKEYFILE" "$SECKEYFILE" \
-    2>/dev/null; then
-    shred --remove "$SECKEYFILE"
-fi
-if cp --backup=numbered --force "$PUBKEYFILE" "$PUBKEYFILE" \
-    2>/dev/null; then
-    rm --force "$PUBKEYFILE"
+    # Backup any old key files
+    if cp --backup=numbered --force "$SECKEYFILE" "$SECKEYFILE" \
+	2>/dev/null; then
+	shred --remove "$SECKEYFILE"
+    fi
+    if cp --backup=numbered --force "$PUBKEYFILE" "$PUBKEYFILE" \
+	2>/dev/null; then
+	rm --force "$PUBKEYFILE"
+    fi
+    
+    FILECOMMENT="Mandos client key for $KEYNAME"
+    if [ "$KEYCOMMENT" != "$KEYCOMMENT_ORIG" ]; then
+	FILECOMMENT="$FILECOMMENT ($KEYCOMMENT)"
+    fi
+    
+    if [ -n "$KEYEMAIL" ]; then
+	FILECOMMENT="$FILECOMMENT <$KEYEMAIL>"
+    fi
+    
+    # Export keys from key rings to key files
+    gpg --no-random-seed-file --quiet --batch --no-tty --armor \
+	--no-default-keyring --no-options --enable-dsa2 \
+	--secret-keyring "$SECRING" --keyring "$PUBRING" \
+	--export-options export-minimal --comment "$FILECOMMENT" \
+	--output "$SECKEYFILE" --export-secret-keys
+    gpg --no-random-seed-file --quiet --batch --no-tty --armor \
+	--no-default-keyring --no-options --enable-dsa2 \
+	--secret-keyring "$SECRING" --keyring "$PUBRING" \
+	--export-options export-minimal --comment "$FILECOMMENT" \
+	--output "$PUBKEYFILE" --export
 fi
 
-FILECOMMENT="Mandos client key for $KEYNAME"
-if [ "$KEYCOMMENT" != "$KEYCOMMENT_ORIG" ]; then
-    FILECOMMENT="$FILECOMMENT ($KEYCOMMENT)"
-fi
+if [ "$mode" = password ]; then
+    # Import keys into temporary key rings
+    gpg --no-random-seed-file --quiet --batch --no-tty --armor \
+	--no-default-keyring --no-options --enable-dsa2 \
+	--homedir "$KEYDIR" --no-permission-warning \
+	--secret-keyring "$SECRING" --keyring "$PUBRING" \
+	--trust-model always --import "$SECKEYFILE"
+    gpg --no-random-seed-file --quiet --batch --no-tty --armor \
+	--no-default-keyring --no-options --enable-dsa2 \
+	--homedir "$KEYDIR" --no-permission-warning \
+	--secret-keyring "$SECRING" --keyring "$PUBRING" \
+	--trust-model always --import "$PUBKEYFILE"
 
-if [ -n "$KEYEMAIL" ]; then
-    FILECOMMENT="$FILECOMMENT <$KEYEMAIL>"
+    # Get fingerprint of key
+    FINGERPRINT="`gpg --no-random-seed-file --quiet --batch --no-tty \
+	--armor --no-default-keyring --no-options --enable-dsa2 \
+	--homedir \"$KEYDIR\" --no-permission-warning \
+	--secret-keyring \"$SECRING\" --keyring \"$PUBRING\" \
+	--trust-model always --fingerprint --with-colons \
+	| sed -n -e '/^fpr:/{s/^fpr:.*:\\([0-9A-Z]*\\):\$/\\1/p;q}'`"
+    
+    test -n "$FINGERPRINT"
+    
+    FILECOMMENT="Encrypted password for a Mandos client"
+    
+    stty -echo
+    echo -n "Enter passphrase: " >&2
+    sed -e '1q' \
+	| gpg --no-random-seed-file --batch --no-tty --armor \
+	--no-default-keyring --no-options --enable-dsa2 \
+	--homedir "$KEYDIR" --no-permission-warning \
+	--secret-keyring "$SECRING" --keyring "$PUBRING" \
+	--trust-model always --encrypt --recipient "$FINGERPRINT" \
+	--comment "$FILECOMMENT" \
+	> "$SECFILE"
+    echo >&2
+    stty echo
+    
+    cat <<-EOF
+	[$KEYNAME]
+	fingerprint = $FINGERPRINT
+	secret =
+EOF
+    sed -n -e '
+	/^-----BEGIN PGP MESSAGE-----$/,/^-----END PGP MESSAGE-----$/{
+	    /^$/,${
+		# Indent four spaces
+		/^[^-]/s/^/    /p
+	    }
+	}' < "$SECFILE"
 fi
-
-# Export keys from key rings to key files
-gpg --no-random-seed-file --quiet --batch --no-tty --armor \
-    --no-default-keyring --no-options --enable-dsa2 \
-    --secret-keyring "$SECRING" --keyring "$PUBRING" \
-    --export-options export-minimal --comment "$FILECOMMENT" \
-    --output "$SECKEYFILE" --export-secret-keys
-gpg --no-random-seed-file --quiet --batch --no-tty --armor \
-    --no-default-keyring --no-options --enable-dsa2 \
-    --secret-keyring "$SECRING" --keyring "$PUBRING" \
-    --export-options export-minimal --comment "$FILECOMMENT" \
-    --output "$PUBKEYFILE" --export
 
 trap - EXIT
 
+set +e
+# Remove the password file, if any
+if [ -n "$SECFILE" ]; then
+    shred --remove "$SECFILE"
+fi
 # Remove the key rings
 shred --remove "$SECRING"
-rm --force "$PUBRING"
+rm --force "$PUBRING" "${PUBRING}~"
+# Remove the trustdb, if one did not exist when we started
+if [ -n "$TRUSTDB" ]; then
+    rm --force "$TRUSTDB"
+fi
