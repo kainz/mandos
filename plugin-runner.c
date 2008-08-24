@@ -105,9 +105,12 @@ static plugin *getplugin(char *name, plugin **plugin_list){
   if (new_plugin == NULL){
     return NULL;
   }
-  char *copy_name = strdup(name);
-  if(copy_name == NULL){
-    return NULL;
+  char *copy_name = NULL;
+  if(name != NULL){
+    copy_name = strdup(name);
+    if(copy_name == NULL){
+      return NULL;
+    }
   }
   
   *new_plugin = (plugin) { .name = copy_name,
@@ -118,6 +121,7 @@ static plugin *getplugin(char *name, plugin **plugin_list){
   
   new_plugin->argv = malloc(sizeof(char *) * 2);
   if (new_plugin->argv == NULL){
+    free(copy_name);
     free(new_plugin);
     return NULL;
   }
@@ -126,6 +130,7 @@ static plugin *getplugin(char *name, plugin **plugin_list){
 
   new_plugin->environ = malloc(sizeof(char *));
   if(new_plugin->environ == NULL){
+    free(copy_name);
     free(new_plugin->argv);
     free(new_plugin);
     return NULL;
@@ -247,24 +252,23 @@ char **add_to_argv(char **argv, int *argc, char *arg){
     return NULL;
   }
   argv[*argc-1] = arg;
-  argv[*argc] = NULL;   
+  argv[*argc] = NULL;
   return argv;
 }
 
 static void free_plugin_list(plugin *plugin_list){
-  for(plugin *next = plugin_list; plugin_list != NULL; plugin_list = next){
+  for(plugin *next; plugin_list != NULL; plugin_list = next){
     next = plugin_list->next;
-    free(plugin_list->name);
     for(char **arg = plugin_list->argv; *arg != NULL; arg++){
       free(*arg);
-    }    
+    }
     free(plugin_list->argv);
     for(char **env = plugin_list->environ; *env != NULL; env++){
       free(*env);
     }
     free(plugin_list->environ);
     free(plugin_list);
-  }  
+  }
 }
 
 int main(int argc, char *argv[]){
@@ -298,7 +302,7 @@ int main(int argc, char *argv[]){
   ret = sigaction(SIGCHLD, &sigchld_action, &old_sigchld_action);
   if(ret == -1){
     perror("sigaction");
-    exitstatus = EXIT_FAILURE;    
+    exitstatus = EXIT_FAILURE;
     goto fallback;
   }
   
@@ -680,7 +684,7 @@ int main(int argc, char *argv[]){
       }
     }
     
-    int pipefd[2]; 
+    int pipefd[2];
     ret = pipe(pipefd);
     if (ret == -1){
       perror("pipe");
@@ -787,6 +791,7 @@ int main(int argc, char *argv[]){
   }
   
   free_plugin_list(plugin_list);
+  plugin_list = NULL;
   
   closedir(dir);
   dir = NULL;
