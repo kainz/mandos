@@ -158,6 +158,21 @@
     <cmdsynopsis>
       <command>&COMMANDNAME;</command>
       <group choice="req">
+	<arg choice="plain"><option>-p</option></arg>
+	<arg choice="plain"><option>--password</option></arg>
+      </group>
+      <group choice="opt">
+	<arg choice="plain"><option>--dir</option>
+	<replaceable>directory</replaceable></arg>
+      </group>
+      <group choice="opt">
+	<arg choice="plain"><option>--name</option>
+	<replaceable>NAME</replaceable></arg>
+      </group>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>&COMMANDNAME;</command>
+      <group choice="req">
 	<arg choice="plain"><option>-h</option></arg>
 	<arg choice="plain"><option>--help</option></arg>
       </group>
@@ -181,6 +196,12 @@
       normally written to /etc/mandos for later installation into the
       initrd image, but this, like most things, can be changed with
       command line options.
+    </para>
+    <para>
+      It can also be used to generate ready-made sections for
+      <citerefentry><refentrytitle>mandos-clients.conf</refentrytitle>
+      <manvolnum>5</manvolnum></citerefentry> using the
+      <option>--password</option> option.
     </para>
   </refsect1>
   
@@ -214,7 +235,8 @@
 	<replaceable>directory</replaceable></literal></term>
 	<listitem>
 	  <para>
-	    Target directory for key files.
+	    Target directory for key files.  Default is
+	    <filename>/etc/mandos</filename>.
 	  </para>
 	</listitem>
       </varlistentry>
@@ -298,6 +320,24 @@
 	<listitem>
 	  <para>
 	    Force overwriting old keys.
+	  </para>
+	</listitem>
+      </varlistentry>
+      <varlistentry>
+	<term><literal>-p</literal>, <literal>--password</literal
+	></term>
+	<listitem>
+	  <para>
+	    Prompt for a password and encrypt it with the key already
+	    present in either <filename>/etc/mandos</filename> or the
+	    directory specified with the <option>--dir</option>
+	    option.  Outputs, on standard output, a section suitable
+	    for inclusion in <citerefentry><refentrytitle
+	    >mandos-clients.conf</refentrytitle><manvolnum
+	    >8</manvolnum></citerefentry>.  The host name or the name
+	    specified with the <option>--name</option> option is used
+	    for the section header.  All other options are ignored,
+	    and no keys are created.
 	  </para>
 	</listitem>
       </varlistentry>
