@@ -116,7 +116,8 @@
 *** Keydir move: /etc/mandos -> /etc/keys/mandos
     Must create in preinst if not pre-depending on cryptsetup
 *** mandos-keygen
-**** [#A] Output cut-and-paste ready snippet for clients.conf.
+**** [#A] "--test" option
+     For testing decryption before rebooting.
 ** Server-side
 *** [#A] Create mandos user and group for server
 *** [#A] Create /var/run/mandos directory with perm and ownership

@@ -105,7 +105,10 @@ static plugin *getplugin(char *name, plugin **plugin_list){
   if (new_plugin == NULL){
     return NULL;
   }
-  char *copy_name = strdup(name);
+  char *copy_name = NULL;
+  if(name != NULL){
+    copy_name = strdup(name);
+  }
   if(copy_name == NULL){
     return NULL;
   }
@@ -118,6 +121,7 @@ static plugin *getplugin(char *name, plugin **plugin_list){
   
   new_plugin->argv = malloc(sizeof(char *) * 2);
   if (new_plugin->argv == NULL){
+    free(copy_name);
     free(new_plugin);
     return NULL;
   }
@@ -126,6 +130,7 @@ static plugin *getplugin(char *name, plugin **plugin_list){
 
   new_plugin->environ = malloc(sizeof(char *));
   if(new_plugin->environ == NULL){
+    free(copy_name);
     free(new_plugin->argv);
     free(new_plugin);
     return NULL;
