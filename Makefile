@@ -14,11 +14,11 @@ FORTIFY=-D_FORTIFY_SOURCE=2 # -fstack-protector-all
 OPTIMIZE=-Os
 LANGUAGE=-std=gnu99
 # PREFIX=/usr/local
-PREFIX=/usr
+PREFIX=$(DESTDIR)/usr
 # CONFDIR=/usr/local/lib/mandos
-CONFDIR=/etc/mandos
+CONFDIR=$(DESTDIR)/etc/mandos
 # MANDIR=/usr/local/man
-MANDIR=/usr/share/man
+MANDIR=$(DESTDIR)/usr/share/man
 
 GNUTLS_CFLAGS=$(shell libgnutls-config --cflags)
 GNUTLS_LIBS=$(shell libgnutls-config --libs)
@@ -104,7 +104,7 @@ run-server:
 install: install-server install-client
 
 install-server: doc
-	mkdir --mode=0755 --parents $(CONFDIR) $(MANDIR)/man5 \
+	install --directory --parents $(CONFDIR) $(MANDIR)/man5 \
 		$(MANDIR)/man8
 	install --mode=0755 mandos $(PREFIX)/sbin/mandos
 	install --mode=0644 --target-directory=$(CONFDIR) mandos.conf
@@ -118,9 +118,9 @@ install-server: doc
 		> $(MANDIR)/man5/mandos-clients.conf.5.gz
 
 install-client: all doc /usr/share/initramfs-tools/hooks/.
-	mkdir --mode=0755 --parents $(PREFIX)/lib/mandos $(CONFDIR) \
-		$(MANDIR)/man8
-	-mkdir --mode=0700 $(PREFIX)/lib/mandos/plugins.d
+	install --directory --parents $(PREFIX)/lib/mandos \
+		$(CONFDIR) $(MANDIR)/man8
+	install --directory --mode=0700 $(PREFIX)/lib/mandos/plugins.d
 	chmod u=rwx,g=,o= $(PREFIX)/lib/mandos/plugins.d
 	install --mode=0755 --target-directory=$(PREFIX)/lib/mandos \
 		plugin-runner
