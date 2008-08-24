@@ -199,25 +199,33 @@ static int set_cloexec_flag(int fd)
 
 process *process_list = NULL;
 
-/* Mark a process as completed when it exits, and save its exit
+/* Mark processes as completed when it exits, and save its exit
    status. */
 void handle_sigchld(__attribute__((unused)) int sig){
   process *proc = process_list;
-  int status;
-  pid_t pid = wait(&status);
-  if(pid == -1){
-    perror("wait");
-    return;
+  while(true){
+    int status;
+    pid_t pid = waitpid(-1, &status, WNOHANG);
+    if(pid == 0){
+      break;
+    }
+    if(pid == -1){
+      if (errno != ECHILD){
+	perror("waitpid");
+      }
+      return;
+    }
+
+    while(proc != NULL and proc->pid != pid){
+      proc = proc->next;
+    }
+    if(proc == NULL){
+      /* Process not found in process list */
+      continue;
+    }
+    proc->status = status;
+    proc->completed = true;
   }
-  while(proc != NULL and proc->pid != pid){
-    proc = proc->next;
-  }
-  if(proc == NULL){
-    /* Process not found in process list */
-    return;
-  }
-  proc->status = status;
-  proc->completed = true;
 }
 
 bool print_out_password(const char *buffer, size_t length){
