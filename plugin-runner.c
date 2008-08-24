@@ -56,7 +56,8 @@
 #include <argp.h>		/* struct argp_option, struct
 				   argp_state, struct argp,
 				   argp_parse(), ARGP_ERR_UNKNOWN,
-				   ARGP_KEY_END, ARGP_KEY_ARG, error_t */
+				   ARGP_KEY_END, ARGP_KEY_ARG,
+				   error_t */
 #include <signal.h> 		/* struct sigaction, sigemptyset(),
 				   sigaddset(), sigaction(),
 				   sigprocmask(), SIG_BLOCK, SIGCHLD,
@@ -78,8 +79,8 @@ typedef struct process{
   size_t buffer_size;
   size_t buffer_length;
   bool eof;
-  bool completed;
-  int status;
+  volatile bool completed;
+  volatile int status;
   struct process *next;
 } process;
 
@@ -199,23 +200,26 @@ static int set_cloexec_flag(int fd)
 
 process *process_list = NULL;
 
-/* Mark processes as completed when it exits, and save its exit
+/* Mark processes as completed when they exit, and save their exit
    status. */
 void handle_sigchld(__attribute__((unused)) int sig){
-  process *proc = process_list;
   while(true){
+    process *proc = process_list;
     int status;
     pid_t pid = waitpid(-1, &status, WNOHANG);
     if(pid == 0){
+      /* Only still running child processes */
       break;
     }
     if(pid == -1){
       if (errno != ECHILD){
 	perror("waitpid");
       }
-      return;
+      /* No child processes */
+      break;
     }
 
+    /* A child exited, find it in process_list */
     while(proc != NULL and proc->pid != pid){
       proc = proc->next;
     }
@@ -843,7 +847,7 @@ int main(int argc, char *argv[]){
 	  /* Remove the plugin */
 	  FD_CLR(proc->fd, &rfds_all);
 	  /* Block signal while modifying process_list */
-	  ret = sigprocmask (SIG_BLOCK, &sigchld_action.sa_mask, NULL);
+	  ret = sigprocmask(SIG_BLOCK, &sigchld_action.sa_mask, NULL);
 	  if(ret < 0){
 	    perror("sigprocmask");
 	    exitstatus = EXIT_FAILURE;
@@ -877,7 +881,8 @@ int main(int argc, char *argv[]){
 	}
 	/* This process exited nicely, so print its buffer */
 
-	bool bret = print_out_password(proc->buffer, proc->buffer_length);
+	bool bret = print_out_password(proc->buffer,
+				       proc->buffer_length);
 	if(not bret){
 	  perror("print_out_password");
 	  exitstatus = EXIT_FAILURE;
@@ -920,7 +925,8 @@ int main(int argc, char *argv[]){
  fallback:
   
   if(process_list == NULL or exitstatus != EXIT_SUCCESS){
-    /* Fallback if all plugins failed, none are found or an error occured */
+    /* Fallback if all plugins failed, none are found or an error
+       occured */
     bool bret;
     fprintf(stderr, "Going to fallback mode using getpass(3)\n");
     char *passwordbuffer = getpass("Password: ");
