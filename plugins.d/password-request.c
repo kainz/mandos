@@ -214,40 +214,39 @@ static ssize_t pgp_packet_decrypt (const char *cryptotext,
     fprintf(stderr, "bad gpgme_op_decrypt: %s: %s\n",
 	    gpgme_strsource(rc), gpgme_strerror(rc));
     plaintext_length = -1;
+    if (debug){
+      gpgme_decrypt_result_t result;
+      result = gpgme_op_decrypt_result(ctx);
+      if (result == NULL){
+	fprintf(stderr, "gpgme_op_decrypt_result failed\n");
+      } else {
+	fprintf(stderr, "Unsupported algorithm: %s\n",
+		result->unsupported_algorithm);
+	fprintf(stderr, "Wrong key usage: %u\n",
+		result->wrong_key_usage);
+	if(result->file_name != NULL){
+	  fprintf(stderr, "File name: %s\n", result->file_name);
+	}
+	gpgme_recipient_t recipient;
+	recipient = result->recipients;
+	if(recipient){
+	  while(recipient != NULL){
+	    fprintf(stderr, "Public key algorithm: %s\n",
+		    gpgme_pubkey_algo_name(recipient->pubkey_algo));
+	    fprintf(stderr, "Key ID: %s\n", recipient->keyid);
+	    fprintf(stderr, "Secret key available: %s\n",
+		    recipient->status == GPG_ERR_NO_SECKEY
+		    ? "No" : "Yes");
+	    recipient = recipient->next;
+	  }
+	}
+      }
+    }
     goto decrypt_end;
   }
   
   if(debug){
     fprintf(stderr, "Decryption of OpenPGP data succeeded\n");
-  }
-  
-  if (debug){
-    gpgme_decrypt_result_t result;
-    result = gpgme_op_decrypt_result(ctx);
-    if (result == NULL){
-      fprintf(stderr, "gpgme_op_decrypt_result failed\n");
-    } else {
-      fprintf(stderr, "Unsupported algorithm: %s\n",
-	      result->unsupported_algorithm);
-      fprintf(stderr, "Wrong key usage: %u\n",
-	      result->wrong_key_usage);
-      if(result->file_name != NULL){
-	fprintf(stderr, "File name: %s\n", result->file_name);
-      }
-      gpgme_recipient_t recipient;
-      recipient = result->recipients;
-      if(recipient){
-	while(recipient != NULL){
-	  fprintf(stderr, "Public key algorithm: %s\n",
-		  gpgme_pubkey_algo_name(recipient->pubkey_algo));
-	  fprintf(stderr, "Key ID: %s\n", recipient->keyid);
-	  fprintf(stderr, "Secret key available: %s\n",
-		  recipient->status == GPG_ERR_NO_SECKEY
-		  ? "No" : "Yes");
-	  recipient = recipient->next;
-	}
-      }
-    }
   }
   
   /* Seek back to the beginning of the GPGME plaintext data buffer */
@@ -636,6 +635,8 @@ static int start_mandos_communication(const char *ip, uint16_t port,
     } else {
       retval = -1;
     }
+  } else {
+    retval = -1;
   }
   
   /* Shutdown procedure */
