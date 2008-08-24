@@ -93,10 +93,10 @@ for file in /etc/mandos/*; do
     cp --archive --sparse=always "$file" "${DESTDIR}${CONFDIR}"
 done
 # Create key ring files
-gpg --no-random-seed-file --quiet --batch --no-tty \
-    --no-default-keyring --no-options \
+gpg --no-random-seed-file --quiet --batch --no-tty --armor \
+    --no-default-keyring --no-options --enable-dsa2 \
     --homedir "${DESTDIR}${CONFDIR}" --no-permission-warning \
-    --import-options import-minimal \
+    --trust-model always --import-options import-minimal \
     --import "${DESTDIR}${CONFDIR}/seckey.txt"
 chown nobody "${DESTDIR}${CONFDIR}/secring.gpg"
 
