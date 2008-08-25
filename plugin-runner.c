@@ -247,27 +247,6 @@ bool print_out_password(const char *buffer, size_t length){
   return true;
 }
 
-char **add_to_argv(char **argv, int *argc, char *arg){
-  if (argv == NULL){
-    *argc = 1;
-    argv = malloc(sizeof(char*) * 2);
-    if(argv == NULL){
-      return NULL;
-    }
-    argv[0] = NULL; 	/* Will be set to argv[0] in main before parsing */
-    argv[1] = NULL;
-  }
-  *argc += 1;
-  argv = realloc(argv, sizeof(char *)
-		  * ((unsigned int) *argc + 1));
-  if(argv == NULL){
-    return NULL;
-  }
-  argv[*argc-1] = arg;
-  argv[*argc] = NULL;
-  return argv;
-}
-
 static void free_plugin_list(plugin *plugin_list){
   for(plugin *next; plugin_list != NULL; plugin_list = next){
     next = plugin_list->next;
@@ -479,6 +458,16 @@ int main(int argc, char *argv[]){
     const char whitespace_delims[] = " \r\t\f\v\n";
     const char comment_delim[] = "#";
 
+    custom_argc = 1;
+    custom_argv = malloc(sizeof(char*) * 2);
+    if(custom_argv == NULL){
+      perror("malloc");
+      exitstatus = EXIT_FAILURE;
+      goto fallback;
+    }
+    custom_argv[0] = argv[0];
+    custom_argv[1] = NULL;
+    
     while(true){
       sret = getline(&org_line, &size, conffp);
       if(sret == -1){
@@ -492,12 +481,18 @@ int main(int argc, char *argv[]){
 	  continue;
 	}
 	new_arg = strdup(p);
-	custom_argv = add_to_argv(custom_argv, &custom_argc, new_arg);
-	if (custom_argv == NULL){
-	  perror("add_to_argv");
+
+	custom_argc += 1;
+	custom_argv = realloc(custom_argv, sizeof(char *)
+			      * ((unsigned int) custom_argc + 1));
+	if(custom_argv == NULL){
+	  perror("realloc");
 	  exitstatus = EXIT_FAILURE;
+	  free(org_line);
 	  goto fallback;
 	}
+	custom_argv[custom_argc-1] = new_arg;
+	custom_argv[custom_argc] = NULL;	
       }
     }
     free(org_line);
@@ -512,7 +507,6 @@ int main(int argc, char *argv[]){
   }
 
   if(custom_argv != NULL){
-    custom_argv[0] = argv[0];
     ret = argp_parse (&argp, custom_argc, custom_argv, 0, 0, &plugin_list);
     if (ret == ARGP_ERR_UNKNOWN){
       fprintf(stderr, "Unknown error while parsing arguments\n");
@@ -945,7 +939,7 @@ int main(int argc, char *argv[]){
   }
 
   if(custom_argv != NULL){
-    for(char **arg = custom_argv; *arg != NULL; arg++){
+    for(char **arg = custom_argv+1; *arg != NULL; arg++){
       free(*arg);
     }
     free(custom_argv);
