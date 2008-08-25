@@ -65,7 +65,9 @@
 #include <errno.h>		/* errno, EBADF */
 
 #define BUFFER_SIZE 256
-#define ARGFILE "/conf/conf.d/mandos/plugin-runner.conf"
+
+#define PDIR "/lib/mandos/plugins.d"
+#define AFILE "/conf/conf.d/mandos/plugin-runner.conf"
 
 const char *argp_program_version = "plugin-runner 1.0";
 const char *argp_program_bug_address = "<mandos@fukt.bsnet.se>";
@@ -247,28 +249,6 @@ bool print_out_password(const char *buffer, size_t length){
   return true;
 }
 
-char **add_to_argv(char **argv, int *argc, char *arg){
-  if (argv == NULL){
-    *argc = 1;
-    argv = malloc(sizeof(char*) * 2);
-    if(argv == NULL){
-      return NULL;
-    }
-    argv[0] = NULL; 	/* Will be set to argv[0] in main before
-			   parsing */
-    argv[1] = NULL;
-  }
-  *argc += 1;
-  argv = realloc(argv, sizeof(char *)
-		  * ((unsigned int) *argc + 1));
-  if(argv == NULL){
-    return NULL;
-  }
-  argv[*argc-1] = arg;
-  argv[*argc] = NULL;
-  return argv;
-}
-
 static void free_plugin_list(plugin *plugin_list){
   for(plugin *next; plugin_list != NULL; plugin_list = next){
     next = plugin_list->next;
@@ -285,8 +265,8 @@ static void free_plugin_list(plugin *plugin_list){
 }
 
 int main(int argc, char *argv[]){
-  const char *plugindir = "/lib/mandos/plugins.d";
-  const char *argfile = ARGFILE;
+  char *plugindir = NULL;
+  char *argfile = NULL;
   FILE *conffp;
   size_t d_name_len;
   DIR *dir = NULL;
@@ -339,14 +319,17 @@ int main(int argc, char *argv[]){
     { .name = "plugin-dir", .key = 128,
       .arg = "DIRECTORY",
       .doc = "Specify a different plugin directory", .group = 2 },
-    { .name = "userid", .key = 129,
+    { .name = "config-file", .key = 129,
+      .arg = "FILE",
+      .doc = "Specify a different configuration file", .group = 2 },
+    { .name = "userid", .key = 130,
       .arg = "ID", .flags = 0,
-      .doc = "User ID the plugins will run as", .group = 2 },
-    { .name = "groupid", .key = 130,
+      .doc = "User ID the plugins will run as", .group = 3 },
+    { .name = "groupid", .key = 131,
       .arg = "ID", .flags = 0,
-      .doc = "Group ID the plugins will run as", .group = 2 },
-    { .name = "debug", .key = 131,
-      .doc = "Debug mode", .group = 3 },
+      .doc = "Group ID the plugins will run as", .group = 3 },
+    { .name = "debug", .key = 132,
+      .doc = "Debug mode", .group = 4 },
     { .name = NULL }
   };
   
@@ -436,15 +419,24 @@ int main(int argc, char *argv[]){
       }
       break;
     case 128:
-      plugindir = arg;
+      plugindir = strdup(arg);
+      if(plugindir == NULL){
+	perror("strdup");
+      }      
       break;
     case 129:
+      argfile = strdup(arg);
+      if(argfile == NULL){
+	perror("strdup");
+      }
+      break;      
+    case 130:
       uid = (uid_t)strtol(arg, NULL, 10);
       break;
-    case 130:
+    case 131:
       gid = (gid_t)strtol(arg, NULL, 10);
       break;
-    case 131:
+    case 132:
       debug = true;
       break;
     case ARGP_KEY_ARG:
@@ -471,7 +463,12 @@ int main(int argc, char *argv[]){
     goto fallback;
   }
 
-  conffp = fopen(argfile, "r");
+  if (argfile == NULL){
+    conffp = fopen(AFILE, "r");
+  } else {
+    conffp = fopen(argfile, "r");
+  }
+  
   if(conffp != NULL){
     char *org_line = NULL;
     char *p, *arg, *new_arg, *line;
@@ -480,6 +477,16 @@ int main(int argc, char *argv[]){
     const char whitespace_delims[] = " \r\t\f\v\n";
     const char comment_delim[] = "#";
 
+    custom_argc = 1;
+    custom_argv = malloc(sizeof(char*) * 2);
+    if(custom_argv == NULL){
+      perror("malloc");
+      exitstatus = EXIT_FAILURE;
+      goto fallback;
+    }
+    custom_argv[0] = argv[0];
+    custom_argv[1] = NULL;
+    
     while(true){
       sret = getline(&org_line, &size, conffp);
       if(sret == -1){
@@ -493,12 +500,24 @@ int main(int argc, char *argv[]){
 	  continue;
 	}
 	new_arg = strdup(p);
-	custom_argv = add_to_argv(custom_argv, &custom_argc, new_arg);
-	if (custom_argv == NULL){
-	  perror("add_to_argv");
+	if(new_arg == NULL){
+	  perror("strdup");
 	  exitstatus = EXIT_FAILURE;
+	  free(org_line);
 	  goto fallback;
 	}
+	
+	custom_argc += 1;
+	custom_argv = realloc(custom_argv, sizeof(char *)
+			      * ((unsigned int) custom_argc + 1));
+	if(custom_argv == NULL){
+	  perror("realloc");
+	  exitstatus = EXIT_FAILURE;
+	  free(org_line);
+	  goto fallback;
+	}
+	custom_argv[custom_argc-1] = new_arg;
+	custom_argv[custom_argc] = NULL;	
       }
     }
     free(org_line);
@@ -513,9 +532,7 @@ int main(int argc, char *argv[]){
   }
 
   if(custom_argv != NULL){
-    custom_argv[0] = argv[0];
-    ret = argp_parse (&argp, custom_argc, custom_argv, 0, 0,
-		      &plugin_list);
+    ret = argp_parse (&argp, custom_argc, custom_argv, 0, 0, &plugin_list);
     if (ret == ARGP_ERR_UNKNOWN){
       fprintf(stderr, "Unknown error while parsing arguments\n");
       exitstatus = EXIT_FAILURE;
@@ -546,8 +563,13 @@ int main(int argc, char *argv[]){
   if (ret == -1){
     perror("setgid");
   }
+
+  if (plugindir == NULL){
+    dir = opendir(PDIR);
+  } else {
+    dir = opendir(plugindir);
+  }
   
-  dir = opendir(plugindir);
   if(dir == NULL){
     perror("Could not open plugin dir");
     exitstatus = EXIT_FAILURE;
@@ -803,7 +825,7 @@ int main(int argc, char *argv[]){
     }
     
   }
-  
+
   free_plugin_list(plugin_list);
   plugin_list = NULL;
   
@@ -947,7 +969,7 @@ int main(int argc, char *argv[]){
   }
 
   if(custom_argv != NULL){
-    for(char **arg = custom_argv; *arg != NULL; arg++){
+    for(char **arg = custom_argv+1; *arg != NULL; arg++){
       free(*arg);
     }
     free(custom_argv);
@@ -978,6 +1000,9 @@ int main(int argc, char *argv[]){
   if(errno != ECHILD){
     perror("wait");
   }
+
+  free(plugindir);
+  free(argfile);
   
   return exitstatus;
 }
