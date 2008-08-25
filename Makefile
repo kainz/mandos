@@ -33,7 +33,7 @@ CFLAGS=$(WARN) $(DEBUG) $(FORTIFY) $(COVERAGE) $(OPTIMIZE) \
 LDFLAGS=$(COVERAGE)
 
 # Commands to format a DocBook refentry document into a manual page
-DOCBOOKTOMAN=cd $(dir $^); xsltproc --nonet --xinclude \
+DOCBOOKTOMAN=cd $(dir $<); xsltproc --nonet --xinclude \
 	--param man.charmap.use.subset		0 \
 	--param make.year.ranges		1 \
 	--param make.single.year.ranges		1 \
