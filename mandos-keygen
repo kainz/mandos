@@ -300,6 +300,8 @@ EOF
     sed -n -e '
 	/^-----BEGIN PGP MESSAGE-----$/,/^-----END PGP MESSAGE-----$/{
 	    /^$/,${
+		# Remove 24-bit Radix-64 checksum
+		s/=....$//
 		# Indent four spaces
 		/^[^-]/s/^/    /p
 	    }
