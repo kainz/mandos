@@ -85,8 +85,6 @@
    [[http://www.steve.org.uk/Reference/Unix/faq_4.html#SEC48][Unix Programming FAQ 3.1 How can I make my program not echo input?]]
 
 * mandos (server)
-** [#A] Config file man page: man5/mandos-clients.conf (clients.conf)
-*** For option "secret", document which program can help generate it.
 ** [#A] /etc/init.d/mandos-server		:teddy:
 ** [#B] Log level				:bugs:
 ** /etc/mandos/clients.d/*.conf
@@ -115,6 +113,8 @@
 *** Keydir move: /etc/mandos -> /etc/keys/mandos
     Must create in preinst if not pre-depending on cryptsetup
 *** mandos-keygen
+**** "--passfile" option
+     Using the "secfile" option instead of "secret"
 **** [#A] "--test" option
      For testing decryption before rebooting.
 ** Server-side
