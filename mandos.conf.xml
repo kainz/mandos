@@ -216,7 +216,55 @@ servicename = Daena
 	<refentrytitle>mandos</refentrytitle>
 	<manvolnum>8</manvolnum></citerefentry>, <citerefentry>
 	<refentrytitle>mandos-clients.conf</refentrytitle>
-	<manvolnum>5</manvolnum></citerefentry>
+	<manvolnum>5</manvolnum></citerefentry>, <citerefentry>
+	<refentrytitle>gnutls_priority_init</refentrytitle>
+	<manvolnum>3</manvolnum></citerefentry>
     </para>
+
+    <variablelist>
+      <varlistentry>
+	<term>
+	  RFC 4291: <citetitle>IP Version 6 Addressing
+	  Architecture</citetitle>
+	</term>
+	<listitem>
+	  <variablelist>
+	    <varlistentry>
+	      <term>Section 2.2: <citetitle>Text Representation of
+	      Addresses</citetitle></term>
+	      <listitem><para/></listitem>
+	    </varlistentry>
+	    <varlistentry>
+	      <term>Section 2.5.5.2: <citetitle>IPv4-Mapped IPv6
+	      Address</citetitle></term>
+	      <listitem><para/></listitem>
+	    </varlistentry>
+	    <varlistentry>
+	    <term>Section 2.5.6, <citetitle>Link-Local IPv6 Unicast
+	    Addresses</citetitle></term>
+	    <listitem>
+	      <para>
+		The clients use IPv6 link-local addresses, which are
+		immediately usable since a link-local addresses is
+		automatically assigned to a network interfaces when it
+		is brought up.
+	      </para>
+	    </listitem>
+	    </varlistentry>
+	  </variablelist>
+	</listitem>
+      </varlistentry>
+      <varlistentry>
+	<term>
+	  <ulink url="http://www.zeroconf.org/">Zeroconf</ulink>
+	</term>
+	<listitem>
+	  <para>
+	    Zeroconf is the network protocol standard used by clients
+	    for finding the Mandos server on the local network.
+	  </para>
+	</listitem>
+      </varlistentry>
+    </variablelist>
   </refsect1>
 </refentry>

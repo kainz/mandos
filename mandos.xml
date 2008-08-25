@@ -572,8 +572,8 @@
       </varlistentry>
       <varlistentry>
 	<term>
-	  <ulink
-	      url="http://www.gnu.org/software/gnutls/">GnuTLS</ulink>
+	  <ulink url="http://www.gnu.org/software/gnutls/"
+	  >GnuTLS</ulink>
 	</term>
       <listitem>
 	<para>
@@ -585,23 +585,40 @@
       </varlistentry>
       <varlistentry>
 	<term>
-	  <citation>RFC 4291: <citetitle>IP Version 6 Addressing
-	  Architecture</citetitle>, section 2.5.6, Link-Local IPv6
-	  Unicast Addresses</citation>
+	  RFC 4291: <citetitle>IP Version 6 Addressing
+	  Architecture</citetitle>
 	</term>
 	<listitem>
-	  <para>
-	    The clients use IPv6 link-local addresses, which are
-	    immediately usable since a link-local addresses is
-	    automatically assigned to a network interfaces when it is
-	    brought up.
-	  </para>
+	  <variablelist>
+	    <varlistentry>
+	      <term>Section 2.2: <citetitle>Text Representation of
+	      Addresses</citetitle></term>
+	      <listitem><para/></listitem>
+	    </varlistentry>
+	    <varlistentry>
+	      <term>Section 2.5.5.2: <citetitle>IPv4-Mapped IPv6
+	      Address</citetitle></term>
+	      <listitem><para/></listitem>
+	    </varlistentry>
+	    <varlistentry>
+	    <term>Section 2.5.6, <citetitle>Link-Local IPv6 Unicast
+	    Addresses</citetitle></term>
+	    <listitem>
+	      <para>
+		The clients use IPv6 link-local addresses, which are
+		immediately usable since a link-local addresses is
+		automatically assigned to a network interfaces when it
+		is brought up.
+	      </para>
+	    </listitem>
+	    </varlistentry>
+	  </variablelist>
 	</listitem>
       </varlistentry>
       <varlistentry>
 	<term>
-	  <citation>RFC 4346: <citetitle>The Transport Layer Security
-	  (TLS) Protocol Version 1.1</citetitle></citation>
+	  RFC 4346: <citetitle>The Transport Layer Security (TLS)
+	  Protocol Version 1.1</citetitle>
 	</term>
       <listitem>
 	<para>
@@ -611,8 +628,7 @@
       </varlistentry>
       <varlistentry>
 	<term>
-	  <citation>RFC 4880: <citetitle>OpenPGP Message
-	  Format</citetitle></citation>
+	  RFC 4880: <citetitle>OpenPGP Message Format</citetitle>
 	</term>
       <listitem>
 	<para>
@@ -622,8 +638,8 @@
       </varlistentry>
       <varlistentry>
 	<term>
-	  <citation>RFC 5081: <citetitle>Using OpenPGP Keys for
-	  Transport Layer Security</citetitle></citation>
+	  RFC 5081: <citetitle>Using OpenPGP Keys for Transport Layer
+	  Security</citetitle>
 	</term>
       <listitem>
 	<para>
