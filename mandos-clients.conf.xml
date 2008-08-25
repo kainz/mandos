@@ -79,11 +79,11 @@
   <refsect1 id="description">
     <title>DESCRIPTION</title>
     <para>
-      The file &CONFPATH; is the configuration file for <citerefentry
+      The file &CONFPATH; is a configuration file for <citerefentry
       ><refentrytitle>mandos</refentrytitle>
-      <manvolnum>8</manvolnum></citerefentry>, read by it at startup,
-      where each client that will be able to use the service needs to
-      be listed.  All clients listed will be regarded as valid, even
+      <manvolnum>8</manvolnum></citerefentry>, read by it at startup.
+      The file needs to list all clients that should be able to use
+      the service.  All clients listed will be regarded as valid, even
       if a client was declared invalid in a previous run of the
       server.
     </para>
@@ -111,7 +111,11 @@
   <refsect1 id="options">
     <title>OPTIONS</title>
     <para>
-      The possible options are:
+      <emphasis>Note:</emphasis> all option values are subject to
+      start time expansion, see <xref linkend="expansion"/>.
+    </para>
+    <para>
+      Uknown options are ignored.  The used options are as follows:
     </para>
 
     <variablelist>
@@ -175,13 +179,15 @@
 	  <para>
 	    This option allows you to override the default shell
 	    command that the server will use to check if the client is
-	    still up.  The output of the command will be ignored, only
-	    the exit code is checked.  The command will be run using
-	    <quote><command><filename>/bin/sh</filename>
-	    <option>-c</option></command></quote>.  The default
-	    command is <quote><literal><command>fping</command>
-	    <option>-q</option> <option>--</option>
-	    %(host)s</literal></quote>.
+	    still up.  Any output of the command will be ignored, only
+	    the exit code is checked:  If the exit code of the command
+	    is zero, the client is considered up.  The command will be
+	    run using <quote><command><filename>/bin/sh</filename>
+	    <option>-c</option></command></quote>, so
+	    <varname>PATH</varname> will be searched.  The default
+	    value for the checker command is <quote><literal
+	    ><command>fping</command> <option>-q</option> <option
+	    >--</option> %(host)s</literal></quote>.
 	  </para>
 	  <para>
 	    In addition to normal start time expansion, this option
@@ -218,16 +224,22 @@
 	    to the client matching the above
 	    <option>fingerprint</option>.  This should, of course, be
 	    OpenPGP encrypted data, decryptable only by the client.
-<!-- 	    The program <citerefentry><refentrytitle><command -->
-<!-- 	    >mandos-keygen</command></refentrytitle><manvolnum -->
-<!-- 	    >8</manvolnum></citerefentry> can be used to generate it, -->
-<!-- 	    if desired. -->
+	    The program <citerefentry><refentrytitle><command
+	    >mandos-keygen</command></refentrytitle><manvolnum
+	    >8</manvolnum></citerefentry> can, using its
+	    <option>--password</option> option, be used to generate
+	    this, if desired.
 	  </para>
 	  <para>
-	    Note: this value of this option will probably run over
-	    many lines, and will then have to use the fact that a line
-	    beginning with white space adds to the value of the
-	    previous line, RFC 822-style.
+	    Note: this value of this option will probably be very
+	    long.  A useful feature to avoid having unreadably-long
+	    lines is that a line beginning with white space adds to
+	    the value of the previous line, RFC 822-style.
+	  </para>
+	  <para>
+	    If this option is not specified, the <option
+	    >secfile</option> option is used instead, but one of them
+	    <emphasis>must</emphasis> be present.
 	  </para>
 	</listitem>
       </varlistentry>
@@ -235,9 +247,18 @@
       <varlistentry>
 	<term><literal>secfile</literal></term>
 	<listitem>
+	  <synopsis><literal>secfile = </literal><replaceable
+	  >FILENAME</replaceable>
+	  </synopsis>
 	  <para>
-	    Base 64 encoded OpenPGP encrypted password encrypted by
-	    the clients openpgp certificate as a binary file.
+	    The same as <option>secret</option>, but the secret data
+	    is in an external file.  The contents of the file should
+	    <emphasis>not</emphasis> be base64-encoded, but will be
+	    sent to clients verbatim.
+	  </para>
+	  <para>
+	    This option is only used, and <emphasis>must</emphasis> be
+	    present, if <option>secret</option> is not specified.
 	  </para>
 	</listitem>
       </varlistentry>
@@ -245,31 +266,16 @@
       <varlistentry>
 	<term><literal>host</literal></term>
 	<listitem>
+	  <synopsis><literal>host = </literal><replaceable
+	  >STRING</replaceable>
+	  </synopsis>
 	  <para>
-	    Host name that can be used in for checking that the client is up.
+	    Host name for this client.  This is not used by the server
+	    directly, but can be, and is by default, used by the
+	    checker.  See the <option>checker</option> option.
 	  </para>
 	</listitem>
       </varlistentry>
-
-      <varlistentry>
-	<term><literal>checker</literal></term>
-	<listitem>
-	  <para>
-	    Shell command that the server will use to check up if a
-	    client is still up.
-	  </para>
-	</listitem>
-      </varlistentry>      
-
-      <varlistentry>
-	<term><literal>timeout</literal></term>
-	<listitem>
-	  <para>
-	    Duration that a client can be down whitout be removed from
-	    the client list.
-	  </para>
-	</listitem>
-      </varlistentry> 
       
     </variablelist>
   </refsect1>  
@@ -317,7 +323,7 @@
       <para>
 	Note that this means that, in order to include an actual
 	percent character (<quote>%</quote>) in a
-	<varname>checker</varname> options, <emphasis>four</emphasis>
+	<varname>checker</varname> option, <emphasis>four</emphasis>
 	percent characters in a row (<quote>%%%%</quote>) must be
 	entered.  Also, a bad format here will lead to an immediate
 	but <emphasis>silent</emphasis> run-time fatal exit; debug
@@ -376,17 +382,29 @@ secret =
         5MHdW9AYsNJZAQSOpirE4Xi31CSlWAi9KV+cUCmWF5zOFy1x23P6PjdaRm
         4T2zw4dxS5NswXWU0sVEXxjs6PYxuIiCTL7vdpx8QjBkrPWDrAbcMyBr2O
         QlnHIvPzEArRQLo=
-        =iHhv
 host = foo.example.org
-interval = 5m
+interval = 1m
 
 # Client "bar"
 [bar]
 fingerprint = 3e393aeaefb84c7e89e2f547b3a107558fca3a27
-secfile = /etc/mandos/bar-secret.txt.asc
+secfile = /etc/mandos/bar-secret
+timeout = 15m
 
       </programlisting>
     </informalexample>
   </refsect1>  
-
+  
+  <refsect1 id="see_also">
+    <title>SEE ALSO</title>
+    <para>
+      <citerefentry>
+	<refentrytitle>mandos</refentrytitle>
+	<manvolnum>8</manvolnum></citerefentry>, <citerefentry>
+	<refentrytitle>mandos-keygen</refentrytitle>
+	<manvolnum>8</manvolnum></citerefentry>, <citerefentry>
+	<refentrytitle>mandos.conf</refentrytitle>
+	<manvolnum>5</manvolnum></citerefentry>
+    </para>
+  </refsect1>
 </refentry>
