@@ -12,11 +12,11 @@ options can be used both on the command line and in the config file.
   
   <para id="interface">
     If this is specified, the server will only announce the service
-    and listen to requests on network interface
-    <replaceable>IF</replaceable>.  Default is to use all available
-    interfaces.  <emphasis>Note:</emphasis> a failure to bind to the
-    specified interface is not considered critical, and the server
-    does not exit, but will instead continue starting normally.
+    and listen to requests on the specified network interface.
+    Default is to use all available interfaces.  <emphasis
+    >Note:</emphasis> a failure to bind to the specified
+    interface is not considered critical, and the server does not
+    exit, but will instead continue normally.
   </para>
   
   <para id="address">
@@ -37,8 +37,8 @@ options can be used both on the command line and in the config file.
   
   <para id="debug">
     If the server is run in debug mode, it will run in the foreground
-    and print a lot of debugging information.  The default is
-    <emphasis>not</emphasis> to run in debug mode.
+    and print a lot of debugging information.  The default is to
+    <emphasis>not</emphasis> run in debug mode.
   </para>
   
   <para id="priority">

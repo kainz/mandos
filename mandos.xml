@@ -72,7 +72,7 @@
   <refsynopsisdiv>
     <cmdsynopsis>
       <command>&COMMANDNAME;</command>
-      <arg>--interface<arg choice="plain">IF</arg></arg>
+      <arg>--interface<arg choice="plain">NAME</arg></arg>
       <arg>--address<arg choice="plain">ADDRESS</arg></arg>
       <arg>--port<arg choice="plain">PORT</arg></arg>
       <arg>--priority<arg choice="plain">PRIORITY</arg></arg>
@@ -82,7 +82,7 @@
     </cmdsynopsis>
     <cmdsynopsis>
       <command>&COMMANDNAME;</command>
-      <arg>-i<arg choice="plain">IF</arg></arg>
+      <arg>-i<arg choice="plain">NAME</arg></arg>
       <arg>-a<arg choice="plain">ADDRESS</arg></arg>
       <arg>-p<arg choice="plain">PORT</arg></arg>
       <arg>--priority<arg choice="plain">PRIORITY</arg></arg>
@@ -150,8 +150,8 @@
       </varlistentry>
 
       <varlistentry>
-	<term><literal>-i</literal>, <literal>--interface <replaceable>
-	IF</replaceable></literal></term>
+	<term><literal>-i</literal>, <literal>--interface <replaceable
+	>NAME</replaceable></literal></term>
 	<listitem>
 	  <xi:include href="mandos-options.xml" xpointer="interface"/>
 	</listitem>

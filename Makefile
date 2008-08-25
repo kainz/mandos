@@ -33,7 +33,7 @@ CFLAGS=$(WARN) $(DEBUG) $(FORTIFY) $(COVERAGE) $(OPTIMIZE) \
 LDFLAGS=$(COVERAGE)
 
 # Commands to format a DocBook refentry document into a manual page
-DOCBOOKTOMAN=cd $(dir $^); xsltproc --nonet --xinclude \
+DOCBOOKTOMAN=cd $(dir $<); xsltproc --nonet --xinclude \
 	--param man.charmap.use.subset		0 \
 	--param make.year.ranges		1 \
 	--param make.single.year.ranges		1 \
@@ -87,19 +87,39 @@ clean:
 distclean: clean
 mostlyclean: clean
 maintainer-clean: clean
-	-rm --force --recursive keydir
+	-rm --force --recursive keydir confdir
 
 check:
 	./mandos --check
 
-run-client: all
-	-mkdir keydir
-	-./mandos-keygen --dir keydir
+# Run the server with a local key
+run-client: all keydir/seckey.txt keydir/pubkey.txt \
+	keydir/secring.gpg keydir/pubring.gpg
 	./plugin-runner --plugin-dir=plugins.d \
 		--options-for=password-request:--keydir=keydir
 
-run-server:
-	./mandos --debug --configdir=.
+# Used by run-client
+keydir/secring.gpg: keydir/seckey.txt
+	gpg --homedir $(dir $<) --import $^
+keydir/pubring.gpg: keydir/pubkey.txt
+	gpg --homedir $(dir $<) --import $^
+keydir/seckey.txt keydir/pubkey.txt: mandos-keygen
+	install --directory keydir
+	./mandos-keygen --dir keydir --force
+
+# Run the server with a local config
+run-server: confdir/mandos.conf confdir/clients.conf
+	./mandos --debug --configdir=confdir
+
+# Used by run-server
+confdir/mandos.conf: mandos.conf
+	install --directory confdir
+	install $^ $@
+confdir/clients.conf: clients.conf keydir/seckey.txt
+	install --directory confdir
+	install clients.conf $@
+# Add a client password
+	./mandos-keygen --dir keydir --password >> $@
 
 install: install-server install-client
 
