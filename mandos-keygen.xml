@@ -256,7 +256,7 @@
 	<replaceable>bits</replaceable></literal></term>
 	<listitem>
 	  <para>
-	    Key length in bits.  Default is 1024.
+	    Key length in bits.  Default is 2048.
 	  </para>
 	</listitem>
       </varlistentry>
