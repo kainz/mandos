@@ -25,8 +25,9 @@ options can be used both on the command line and in the config file.
     interface should be set, since a link-local address is only valid
     on a single interface.  By default, the server will listen to all
     available addresses.  If set, this must be an IPv6 address; an
-    IPv4 address can only be specified using the <quote><systemitem
-    class="ipaddress">::FFFF:192.0.2.3</systemitem ></quote> format.
+    IPv4 address can only be specified using IPv4-mapped IPv6 address
+    syntax: <quote><systemitem class="ipaddress"
+    >::FFFF:192.0.2.3</systemitem ></quote>.
   </para>
   
   <para id="port">
