@@ -106,10 +106,16 @@
 ** Disable client
 ** Enable client
 
+* Man pages tags
+  Go through all man pages to conform to the style of tags chosen in 
+  [[http://svn.debian.org/wsvn/debian-xml-sgml/packages/docbook-xsl/trunk/debian/examples/foo.1.example_manpage.xml?op=file&rev=0&sc=0][foo.1.example_manpage.xml]].
+
 * Installer
 ** Client-side
 *** Update initrd.img after installation
     This seems to use some kind of "trigger" system
+    [[file:/usr/share/doc/dpkg/triggers.txt.gz]]
+    dpkg-trigger(1), deb-triggers(5)
 *** Keydir move: /etc/mandos -> /etc/keys/mandos
     Must create in preinst if not pre-depending on cryptsetup
 *** mandos-keygen
