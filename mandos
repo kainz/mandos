@@ -24,7 +24,8 @@
 #     GNU General Public License for more details.
 # 
 # You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+# along with this program.  If not, see
+# <http://www.gnu.org/licenses/>.
 # 
 # Contact the authors at <mandos@fukt.bsnet.se>.
 # 
@@ -123,11 +124,13 @@ class AvahiService(object):
     def rename(self):
         """Derived from the Avahi example code"""
         if self.rename_count >= self.max_renames:
-            logger.critical(u"No suitable service name found after %i"
-                            u" retries, exiting.", rename_count)
+            logger.critical(u"No suitable Zeroconf service name found"
+                            u" after %i retries, exiting.",
+                            rename_count)
             raise AvahiServiceError("Too many renames")
         self.name = server.GetAlternativeServiceName(self.name)
-        logger.info(u"Changing name to %r ...", str(self.name))
+        logger.info(u"Changing Zeroconf service name to %r ...",
+                    str(self.name))
         syslogger.setFormatter(logging.Formatter\
                                ('Mandos (%s): %%(levelname)s:'
                                ' %%(message)s' % self.name))
@@ -148,7 +151,7 @@ class AvahiService(object):
                      avahi.DBUS_INTERFACE_ENTRY_GROUP)
             group.connect_to_signal('StateChanged',
                                     entry_group_state_changed)
-        logger.debug(u"Adding service '%s' of type '%s' ...",
+        logger.debug(u"Adding Zeroconf service '%s' of type '%s' ...",
                      service.name, service.type)
         group.AddService(
                 self.interface,         # interface
@@ -413,7 +416,7 @@ def fingerprint(openpgp):
     # Verify the self signature in the key
     crtverify = ctypes.c_uint();
     gnutls.library.functions.gnutls_openpgp_crt_verify_self\
-        (crt, ctypes.c_uint(0), ctypes.byref(crtverify))
+        (crt, 0, ctypes.byref(crtverify))
     if crtverify.value != 0:
         gnutls.library.functions.gnutls_openpgp_crt_deinit(crt)
         raise gnutls.errors.CertificateSecurityError("Verify failed")
@@ -603,7 +606,7 @@ def string_to_delta(interval):
 def server_state_changed(state):
     """Derived from the Avahi example code"""
     if state == avahi.SERVER_COLLISION:
-        logger.error(u"Server name collision")
+        logger.error(u"Zeroconf server name collision")
         service.remove()
     elif state == avahi.SERVER_RUNNING:
         service.add()
@@ -611,15 +614,15 @@ def server_state_changed(state):
 
 def entry_group_state_changed(state, error):
     """Derived from the Avahi example code"""
-    logger.debug(u"state change: %i", state)
+    logger.debug(u"Avahi state change: %i", state)
     
     if state == avahi.ENTRY_GROUP_ESTABLISHED:
-        logger.debug(u"Service established.")
+        logger.debug(u"Zeroconf service established.")
     elif state == avahi.ENTRY_GROUP_COLLISION:
-        logger.warning(u"Service name collision.")
+        logger.warning(u"Zeroconf service name collision.")
         service.rename()
     elif state == avahi.ENTRY_GROUP_FAILURE:
-        logger.critical(u"Error in group state changed %s",
+        logger.critical(u"Avahi: Error in group state changed %s",
                         unicode(error))
         raise AvahiGroupError("State changed: %s", str(error))
 
@@ -759,7 +762,8 @@ def main():
     service = AvahiService(name = server_settings["servicename"],
                            type = "_mandos._tcp", );
     if server_settings["interface"]:
-        service.interface = if_nametoindex(server_settings["interface"])
+        service.interface = if_nametoindex\
+                            (server_settings["interface"])
     
     global main_loop
     global bus
@@ -768,9 +772,9 @@ def main():
     DBusGMainLoop(set_as_default=True )
     main_loop = gobject.MainLoop()
     bus = dbus.SystemBus()
-    server = dbus.Interface(
-            bus.get_object( avahi.DBUS_NAME, avahi.DBUS_PATH_SERVER ),
-            avahi.DBUS_INTERFACE_SERVER )
+    server = dbus.Interface(bus.get_object(avahi.DBUS_NAME,
+                                           avahi.DBUS_PATH_SERVER),
+                            avahi.DBUS_INTERFACE_SERVER)
     # End of Avahi example code
     
     clients = Set()
