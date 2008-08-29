@@ -448,7 +448,7 @@
 	Normal invocation needs no options:
       </para>
       <para>
-	<userinput>mandos</userinput>
+	<userinput>&COMMANDNAME;</userinput>
       </para>
     </informalexample>
     <informalexample>
@@ -461,7 +461,7 @@
       <para>
 
 <!-- do not wrap this line -->
-<userinput>mandos --debug --configdir ~/mandos --servicename Test</userinput>
+<userinput>&COMMANDNAME; --debug --configdir ~/mandos --servicename Test</userinput>
 
       </para>
     </informalexample>
@@ -473,7 +473,7 @@
       <para>
 
 <!-- do not wrap this line -->
-<userinput>mandos --interface eth7 --address fe80::aede:48ff:fe71:f6f2</userinput>
+<userinput>&COMMANDNAME; --interface eth7 --address fe80::aede:48ff:fe71:f6f2</userinput>
 
       </para>
     </informalexample>
