@@ -91,7 +91,10 @@
 ** Tags
    Go through all man pages to conform to the style of tags chosen in
    [[http://svn.debian.org/wsvn/debian-xml-sgml/packages/docbook-xsl/trunk/debian/examples/foo.1.example_manpage.xml?op=file&rev=0&sc=0][foo.1.example_manpage.xml]].  In particular:
-*** Synopsis <arg> and <option> tags
+*** SYNOPSIS
+    <arg> with inner <replaceable> and <option> tags
+*** OPTIONS
+    Separate <term> tags with <option> and <replaceable> tags
 ** Use xinclude for common sections
    Like copyright, authors, etc.
 
