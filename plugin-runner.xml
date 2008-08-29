@@ -248,7 +248,7 @@
   </refsect1>  
 
   <refsect1 id="examples">
-    <title>EXAMPLES</title>
+    <title>EXAMPLE</title>
     <para>
     </para>
   </refsect1>
@@ -267,7 +267,7 @@
       <refentrytitle>password-request</refentrytitle>
       <manvolnum>8mandos</manvolnum></citerefentry>, <citerefentry>
       <refentrytitle>password-prompt</refentrytitle>
-      <manvolnum>8mandos</manvolnum></citerefentry>, and
+      <manvolnum>8mandos</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>cryptsetup</refentrytitle>
       <manvolnum>8</manvolnum></citerefentry>
     </para>

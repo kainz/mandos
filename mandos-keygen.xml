@@ -431,7 +431,7 @@
 	Normal invocation needs no options:
       </para>
       <para>
-	<userinput>mandos-keygen</userinput>
+	<userinput>&COMMANDNAME;</userinput>
       </para>
     </informalexample>
     <informalexample>
@@ -442,7 +442,7 @@
       <para>
 
 <!-- do not wrap this line -->
-<userinput>mandos-keygen --dir ~/keydir --type RSA --force</userinput>
+<userinput>&COMMANDNAME; --dir ~/keydir --type RSA --force</userinput>
 
       </para>
     </informalexample>
