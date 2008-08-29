@@ -4,6 +4,7 @@
 <!ENTITY VERSION "1.0">
 <!ENTITY CONFNAME "mandos.conf">
 <!ENTITY CONFPATH "<filename>/etc/mandos/mandos.conf</filename>">
+<!ENTITY TIMESTAMP "2008-08-29">
 ]>
 
 <refentry xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -12,6 +13,7 @@
     <!-- NWalsh’s docbook scripts use this to generate the footer: -->
     <productname>&CONFNAME;</productname>
     <productnumber>&VERSION;</productnumber>
+    <date>&TIMESTAMP;</date>
     <authorgroup>
       <author>
 	<firstname>Björn</firstname>
@@ -268,3 +270,8 @@ servicename = Daena
     </variablelist>
   </refsect1>
 </refentry>
+<!-- Local Variables: -->
+<!-- time-stamp-start: "<!ENTITY TIMESTAMP [\"']" -->
+<!-- time-stamp-end: "[\"']>" -->
+<!-- time-stamp-format: "%:y-%02m-%02d" -->
+<!-- End: -->
