@@ -400,13 +400,12 @@ timeout = 15m
   <refsect1 id="see_also">
     <title>SEE ALSO</title>
     <para>
-      <citerefentry>
-	<refentrytitle>mandos</refentrytitle>
-	<manvolnum>8</manvolnum></citerefentry>, <citerefentry>
-	<refentrytitle>mandos-keygen</refentrytitle>
-	<manvolnum>8</manvolnum></citerefentry>, <citerefentry>
-	<refentrytitle>mandos.conf</refentrytitle>
-	<manvolnum>5</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>mandos-keygen</refentrytitle>
+      <manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>mandos.conf</refentrytitle>
+      <manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>mandos</refentrytitle>
+      <manvolnum>8</manvolnum></citerefentry>
     </para>
   </refsect1>
 </refentry>

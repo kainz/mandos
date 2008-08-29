@@ -214,13 +214,12 @@ servicename = Daena
   <refsect1 id="see_also">
     <title>SEE ALSO</title>
     <para>
-      <citerefentry>
-	<refentrytitle>mandos</refentrytitle>
-	<manvolnum>8</manvolnum></citerefentry>, <citerefentry>
-	<refentrytitle>mandos-clients.conf</refentrytitle>
-	<manvolnum>5</manvolnum></citerefentry>, <citerefentry>
-	<refentrytitle>gnutls_priority_init</refentrytitle>
-	<manvolnum>3</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>gnutls_priority_init</refentrytitle
+      ><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>mandos</refentrytitle>
+      <manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>mandos-clients.conf</refentrytitle>
+      <manvolnum>5</manvolnum></citerefentry>
     </para>
 
     <variablelist>
