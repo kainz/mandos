@@ -3,14 +3,16 @@
 "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY VERSION "1.0">
 <!ENTITY COMMANDNAME "mandos">
+<!ENTITY TIMESTAMP "2008-08-29">
 ]>
 
 <refentry xmlns:xi="http://www.w3.org/2001/XInclude">
   <refentryinfo>
-    <title>&COMMANDNAME;</title>
+    <title>Mandos Manual</title>
     <!-- NWalsh’s docbook scripts use this to generate the footer: -->
-    <productname>&COMMANDNAME;</productname>
+    <productname>Mandos</productname>
     <productnumber>&VERSION;</productnumber>
+    <date>&TIMESTAMP;</date>
     <authorgroup>
       <author>
 	<firstname>Björn</firstname>
@@ -448,7 +450,7 @@
 	Normal invocation needs no options:
       </para>
       <para>
-	<userinput>mandos</userinput>
+	<userinput>&COMMANDNAME;</userinput>
       </para>
     </informalexample>
     <informalexample>
@@ -461,7 +463,7 @@
       <para>
 
 <!-- do not wrap this line -->
-<userinput>mandos --debug --configdir ~/mandos --servicename Test</userinput>
+<userinput>&COMMANDNAME; --debug --configdir ~/mandos --servicename Test</userinput>
 
       </para>
     </informalexample>
@@ -473,7 +475,7 @@
       <para>
 
 <!-- do not wrap this line -->
-<userinput>mandos --interface eth7 --address fe80::aede:48ff:fe71:f6f2</userinput>
+<userinput>&COMMANDNAME; --interface eth7 --address fe80::aede:48ff:fe71:f6f2</userinput>
 
       </para>
     </informalexample>
@@ -538,9 +540,9 @@
     <title>SEE ALSO</title>
     <para>
       <citerefentry>
-	<refentrytitle>mandos.conf</refentrytitle>
-	<manvolnum>5</manvolnum></citerefentry>, <citerefentry>
 	<refentrytitle>mandos-clients.conf</refentrytitle>
+	<manvolnum>5</manvolnum></citerefentry>, <citerefentry>
+	<refentrytitle>mandos.conf</refentrytitle>
 	<manvolnum>5</manvolnum></citerefentry>, <citerefentry>
 	<refentrytitle>password-request</refentrytitle>
 	<manvolnum>8mandos</manvolnum></citerefentry>, <citerefentry>
@@ -651,3 +653,8 @@
     </variablelist>
   </refsect1>
 </refentry>
+<!-- Local Variables: -->
+<!-- time-stamp-start: "<!ENTITY TIMESTAMP [\"']" -->
+<!-- time-stamp-end: "[\"']>" -->
+<!-- time-stamp-format: "%:y-%02m-%02d" -->
+<!-- End: -->

@@ -73,7 +73,7 @@ int main(int argc, char **argv){
     struct argp_option options[] = {
       { .name = "prefix", .key = 'p',
 	.arg = "PREFIX", .flags = 0,
-	.doc = "Prefix used before the passprompt", .group = 2 },
+	.doc = "Prefix shown before the prompt", .group = 2 },
       { .name = "debug", .key = 128,
 	.doc = "Debug mode", .group = 3 },
       { .name = NULL }
@@ -102,7 +102,8 @@ int main(int argc, char **argv){
   
     struct argp argp = { .options = options, .parser = parse_opt,
 			 .args_doc = "",
-			 .doc = "Mandos Passprompt -- Provides a passprompt" };
+			 .doc = "Mandos password-prompt -- Read and"
+			 " output a password" };
     ret = argp_parse (&argp, argc, argv, 0, 0, NULL);
     if (ret == ARGP_ERR_UNKNOWN){
       fprintf(stderr, "Unknown error while parsing arguments\n");
@@ -118,6 +119,7 @@ int main(int argc, char **argv){
   }
   
   if (tcgetattr(STDIN_FILENO, &t_old) != 0){
+    perror("tcgetattr");
     return EXIT_FAILURE;
   }
   
@@ -179,6 +181,9 @@ int main(int argc, char **argv){
   }
   while(true){
     if (quit_now){
+      if(debug){
+	fprintf(stderr, "Interrupted by signal, exiting.\n");
+      }
       status = EXIT_FAILURE;
       break;
     }
@@ -208,8 +213,19 @@ int main(int argc, char **argv){
     }
     ret = getline(&buffer, &n, stdin);
     if (ret > 0){
-      fprintf(stdout, "%s", buffer);
       status = EXIT_SUCCESS;
+      /* Make n = data size instead of allocated buffer size */
+      n = (size_t)ret;
+      size_t written = 0;
+      while(written < n){
+	ret = write(STDOUT_FILENO, buffer + written, n - written);
+	if(ret < 0){
+	  perror("write");
+	  status = EXIT_FAILURE;
+	  break;
+	}
+	written += (size_t)ret;
+      }
       break;
     }
     if (ret < 0){
@@ -222,6 +238,11 @@ int main(int argc, char **argv){
     /* if(ret == 0), then the only sensible thing to do is to retry to
        read from stdin */
     fputc('\n', stderr);
+    if(debug and not quit_now){
+      /* If quit_now is true, we were interrupted by a signal, and
+	 will print that later, so no need to show this too. */
+      fprintf(stderr, "getline() returned 0, retrying.\n");
+    }
   }
   
   if (debug){
@@ -232,7 +253,8 @@ int main(int argc, char **argv){
   }
   
   if (debug){
-    fprintf(stderr, "%s is exiting\n", argv[0]);
+    fprintf(stderr, "%s is exiting with status %d\n", argv[0],
+	    status);
   }
   
   return status;
