@@ -8,9 +8,9 @@
 
 <refentry xmlns:xi="http://www.w3.org/2001/XInclude">
   <refentryinfo>
-    <title>&COMMANDNAME;</title>
+    <title>Mandos Manual</title>
     <!-- NWalsh’s docbook scripts use this to generate the footer: -->
-    <productname>&COMMANDNAME;</productname>
+    <productname>Mandos</productname>
     <productnumber>&VERSION;</productnumber>
     <date>&TIMESTAMP;</date>
     <authorgroup>
