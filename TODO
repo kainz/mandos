@@ -59,26 +59,7 @@
    Must create in preinst if not pre-depending on cryptsetup
 
 * password-prompt
-** [#A] Man page: man8/password-prompt.8mandos
-*** SYNOPSIS
-    Document short options
-*** DESCRIPTION
-    Note that this is more or less a simple getpass(3) wrapper, even
-    though actual use of getpass(3) is not guaranteed.
-*** EXIT STATUS
-*** ENVIRONMENT
-    Document use of "cryptsource" and "crypttarget".
-*** FILES
-*** BUGS
-*** EXAMPLE
-    Examples of normal usage, debug usage, with a prefix, etc.
-*** SECURITY
-    Not much to do here but it is noteworthy to state the danger of
-    not having a fallback option.
-*** SEE ALSO
-    Refer to mandos-client(8mandos) and password-request(8mandos)
-    and also, perhaps, to cryptsetup(8)?
-** Use getpass(3)?
+** [#C] Use getpass(3)?
    Man page says "obsolete", but [[info:libc:getpass][GNU LibC Manual: Reading Passwords]]
    does not.  See also [[http://sources.redhat.com/ml/libc-alpha/2003-05/msg00251.html][Marcus Brinkmann: Re: getpass obsolete?]] and
    [[http://article.gmane.org/gmane.comp.lib.glibc.alpha/4906][Petter Reinholdtsen: Re: getpass obsolete?]], and especially also
@@ -106,9 +87,14 @@
 ** Disable client
 ** Enable client
 
-* Man pages tags
-  Go through all man pages to conform to the style of tags chosen in 
-  [[http://svn.debian.org/wsvn/debian-xml-sgml/packages/docbook-xsl/trunk/debian/examples/foo.1.example_manpage.xml?op=file&rev=0&sc=0][foo.1.example_manpage.xml]].
+* Man pages
+** Tags
+   Go through all man pages to conform to the style of tags chosen in
+   [[http://svn.debian.org/wsvn/debian-xml-sgml/packages/docbook-xsl/trunk/debian/examples/foo.1.example_manpage.xml?op=file&rev=0&sc=0][foo.1.example_manpage.xml]].  In particular:
+*** Synopsis <arg> and <option> tags
+** Use xinclude for common sections
+   Like copyright, authors, etc.
+
 
 * Installer
 ** Client-side
