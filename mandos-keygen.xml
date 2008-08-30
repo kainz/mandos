@@ -75,87 +75,70 @@
   <refsynopsisdiv>
     <cmdsynopsis>
       <command>&COMMANDNAME;</command>
-      <group choice="opt">
-	<arg choice="plain"><option>--dir</option>
-	<replaceable>directory</replaceable></arg>
+      <group>
+	<arg choice="plain"><option>--dir
+	<replaceable>DIRECTORY</replaceable></option></arg>
+	<arg choice="plain"><option>-d
+	<replaceable>DIRECTORY</replaceable></option></arg>
       </group>
-      <group choice="opt">
-	<arg choice="plain"><option>--type</option>
-	<replaceable>type</replaceable></arg>
+      <sbr/>
+      <group>
+	<arg choice="plain"><option>--type
+	<replaceable>KEYTYPE</replaceable></option></arg>
+	<arg choice="plain"><option>-t
+	<replaceable>KEYTYPE</replaceable></option></arg>
       </group>
-      <group choice="opt">
-	<arg choice="plain"><option>--length</option>
-	<replaceable>bits</replaceable></arg>
+      <sbr/>
+      <group>
+	<arg choice="plain"><option>--length
+	<replaceable>BITS</replaceable></option></arg>
+	<arg choice="plain"><option>-l
+	<replaceable>BITS</replaceable></option></arg>
       </group>
-      <group choice="opt">
-	<arg choice="plain"><option>--subtype</option>
-	<replaceable>type</replaceable></arg>
+      <sbr/>
+      <group>
+	<arg choice="plain"><option>--subtype
+	<replaceable>KEYTYPE</replaceable></option></arg>
+	<arg choice="plain"><option>-s
+	<replaceable>KEYTYPE</replaceable></option></arg>
       </group>
-      <group choice="opt">
-	<arg choice="plain"><option>--sublength</option>
-	<replaceable>bits</replaceable></arg>
+      <sbr/>
+      <group>
+	<arg choice="plain"><option>--sublength
+	<replaceable>BITS</replaceable></option></arg>
+	<arg choice="plain"><option>-L
+	<replaceable>BITS</replaceable></option></arg>
       </group>
-      <group choice="opt">
-	<arg choice="plain"><option>--name</option>
-	<replaceable>NAME</replaceable></arg>
+      <sbr/>
+      <group>
+	<arg choice="plain"><option>--name
+	<replaceable>NAME</replaceable></option></arg>
+	<arg choice="plain"><option>-n
+	<replaceable>NAME</replaceable></option></arg>
       </group>
-      <group choice="opt">
-	<arg choice="plain"><option>--email</option>
-	<replaceable>EMAIL</replaceable></arg>
+      <sbr/>
+      <group>
+	<arg choice="plain"><option>--email
+	<replaceable>ADDRESS</replaceable></option></arg>
+	<arg choice="plain"><option>-e
+	<replaceable>ADDRESS</replaceable></option></arg>
       </group>
-      <group choice="opt">
-	<arg choice="plain"><option>--comment</option>
-	<replaceable>COMMENT</replaceable></arg>
+      <sbr/>
+      <group>
+	<arg choice="plain"><option>--comment
+	<replaceable>TEXT</replaceable></option></arg>
+	<arg choice="plain"><option>-c
+	<replaceable>TEXT</replaceable></option></arg>
       </group>
-      <group choice="opt">
-	<arg choice="plain"><option>--expire</option>
-	<replaceable>TIME</replaceable></arg>
+      <sbr/>
+      <group>
+	<arg choice="plain"><option>--expire
+	<replaceable>TIME</replaceable></option></arg>
+	<arg choice="plain"><option>-x
+	<replaceable>TIME</replaceable></option></arg>
       </group>
-      <group choice="opt">
-	<arg choice="plain"><option>--force</option></arg>
-      </group>
-    </cmdsynopsis>
-    <cmdsynopsis>
-      <command>&COMMANDNAME;</command>
-      <group choice="opt">
-	<arg choice="plain"><option>-d</option>
-	<replaceable>directory</replaceable></arg>
-      </group>
-      <group choice="opt">
-	<arg choice="plain"><option>-t</option>
-	<replaceable>type</replaceable></arg>
-      </group>
-      <group choice="opt">
-	<arg choice="plain"><option>-l</option>
-	<replaceable>bits</replaceable></arg>
-      </group>
-      <group choice="opt">
-	<arg choice="plain"><option>-s</option>
-	<replaceable>type</replaceable></arg>
-      </group>
-      <group choice="opt">
-	<arg choice="plain"><option>-L</option>
-	<replaceable>bits</replaceable></arg>
-      </group>
-      <group choice="opt">
-	<arg choice="plain"><option>-n</option>
-	<replaceable>NAME</replaceable></arg>
-      </group>
-      <group choice="opt">
-	<arg choice="plain"><option>-e</option>
-	<replaceable>EMAIL</replaceable></arg>
-      </group>
-      <group choice="opt">
-	<arg choice="plain"><option>-c</option>
-	<replaceable>COMMENT</replaceable></arg>
-      </group>
-      <group choice="opt">
-	<arg choice="plain"><option>-x</option>
-	<replaceable>TIME</replaceable></arg>
-      </group>
-      <group choice="opt">
-	<arg choice="plain"><option>-f</option></arg>
-      </group>
+      <sbr/>
+      <arg><option>--force</option></arg>
     </cmdsynopsis>
     <cmdsynopsis>
       <command>&COMMANDNAME;</command>
@@ -163,13 +146,19 @@
 	<arg choice="plain"><option>-p</option></arg>
 	<arg choice="plain"><option>--password</option></arg>
       </group>
-      <group choice="opt">
-	<arg choice="plain"><option>--dir</option>
-	<replaceable>directory</replaceable></arg>
+      <sbr/>
+      <group>
+	<arg choice="plain"><option>--dir
+	<replaceable>DIRECTORY</replaceable></option></arg>
+	<arg choice="plain"><option>-d
+	<replaceable>DIRECTORY</replaceable></option></arg>
       </group>
-      <group choice="opt">
-	<arg choice="plain"><option>--name</option>
-	<replaceable>NAME</replaceable></arg>
+      <sbr/>
+      <group>
+	<arg choice="plain"><option>--name
+	<replaceable>NAME</replaceable></option></arg>
+	<arg choice="plain"><option>-n
+	<replaceable>NAME</replaceable></option></arg>
       </group>
     </cmdsynopsis>
     <cmdsynopsis>
