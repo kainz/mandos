@@ -5,7 +5,7 @@
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY VERSION "1.0">
 <!ENTITY COMMANDNAME "plugin-runner">
-<!ENTITY TIMESTAMP "2008-08-29">
+<!ENTITY TIMESTAMP "2008-08-30">
 ]>
 
 <refentry>
@@ -68,33 +68,85 @@
   <refnamediv>
     <refname><command>&COMMANDNAME;</command></refname>
     <refpurpose>
-      get password for encrypted rootdisk
+      Run Mandos plugins.  Pass data from first succesful one.
     </refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
     <cmdsynopsis>
       <command>&COMMANDNAME;</command>
-      <arg choice='opt'>--global-options<arg choice='plain'>OPTIONS</arg></arg>
-      <arg choice='opt'>--options-for<arg choice='plain'>PLUGIN:OPTIONS</arg></arg>
-      <arg choice='opt'>--disable<arg choice='plain'>PLUGIN</arg></arg>
-      <arg choice='opt'>--groupid<arg choice='plain'>ID</arg></arg>
-      <arg choice='opt'>--userid<arg choice='plain'>ID</arg></arg>
-      <arg choice='opt'>--plugin-dir<arg choice='plain'>DIRECTORY</arg></arg>
-      <arg choice='opt'>--debug</arg>
+      <group rep="repeat">
+	<arg choice="plain"><option>--global-envs=<replaceable
+	>VAR</replaceable><literal>=</literal><replaceable
+	>value</replaceable></option></arg>
+	<arg choice="plain"><option>-e
+	<replaceable>VAR</replaceable><literal>=</literal><replaceable
+	>value</replaceable> </option></arg>
+      </group>
+      <sbr/>
+      <group rep="repeat">
+	<arg choice="plain"><option>--envs-for=<replaceable
+	>PLUGIN</replaceable><literal>:</literal><replaceable
+	>ENV</replaceable><literal>=</literal><replaceable
+	>value</replaceable></option></arg>
+	<arg choice="plain"><option>-f<replaceable>
+	PLUGIN</replaceable><literal>:</literal><replaceable
+	>ENV</replaceable><literal>=</literal><replaceable
+	>value</replaceable> </option></arg>
+      </group>
+      <sbr/>
+      <group rep="repeat">
+	<arg choice="plain"><option>--global-options=<replaceable
+	>OPTIONS</replaceable></option></arg>
+	<arg choice="plain"><option>-g<replaceable>
+	OPTIONS</replaceable> </option></arg>
+      </group>
+      <sbr/>
+      <group rep="repeat">
+	<arg choice="plain"><option>--options-for=<replaceable
+	>PLUGIN</replaceable><literal>:</literal><replaceable
+	>OPTIONS</replaceable></option></arg>
+	<arg choice="plain"><option>-f<replaceable>
+	PLUGIN</replaceable><literal>:</literal><replaceable
+	>OPTIONS</replaceable> </option></arg>
+      </group>
+      <sbr/>
+      <group rep="repeat">
+	<arg choice="plain"><option>--disable=<replaceable
+	>PLUGIN</replaceable></option></arg>
+	<arg choice="plain"><option>-d
+	<replaceable>PLUGIN</replaceable> </option></arg>
+      </group>
+      <sbr/>
+      <arg><option>--groupid=<replaceable
+      >ID</replaceable></option></arg>
+      <sbr/>
+      <arg><option>--userid=<replaceable
+      >ID</replaceable></option></arg>
+      <sbr/>
+      <arg><option>--plugin-dir=<replaceable
+      >DIRECTORY</replaceable></option></arg>
+      <sbr/>
+      <arg><option>--debug</option></arg>
     </cmdsynopsis>
     <cmdsynopsis>
       <command>&COMMANDNAME;</command>
-      <arg choice='plain'>--help</arg>
+      <group choice="req">
+	<arg choice='plain'><option>--help</option></arg>
+	<arg choice='plain'><option>-?</option></arg>
+      </group>
     </cmdsynopsis>
     <cmdsynopsis>
       <command>&COMMANDNAME;</command>
-      <arg choice='plain'>--usage</arg>
+      <arg choice='plain'><option>--usage</option></arg>
     </cmdsynopsis>
     <cmdsynopsis>
       <command>&COMMANDNAME;</command>
-      <arg choice='plain'>--version</arg>
-    </cmdsynopsis>    
+      <group choice="req">
+	<arg choice='plain'><option>--version</option></arg>
+	<arg choice='plain'><option>-V</option></arg>
+      </group>
+    </cmdsynopsis>
   </refsynopsisdiv>
 
   <refsect1 id="description">
@@ -108,7 +160,7 @@
       and subsequlently started in the initrd environment. See
       <citerefentry><refentrytitle>crypttab</refentrytitle>
       <manvolnum>5</manvolnum></citerefentry> for more information on
-      keyscripts.    
+      keyscripts.
     </para>
 
     <para>
@@ -127,7 +179,7 @@
 	    Global options given to all plugins as additional start
 	    arguments.  Options are specified with a -o flag followed
 	    by a comma separated string of options.
-	  </para>	  
+	  </para>	
 	</listitem>
       </varlistentry>
 
@@ -140,9 +192,9 @@
 	    Plugin specific options given to the plugin as additional
 	    start arguments.  Options are specified with a -o flag
 	    followed by a comma separated string of options.
-	  </para>	  
+	  </para>	
 	</listitem>
-      </varlistentry>      
+      </varlistentry>
 
       <varlistentry>
 	<term><literal>-d</literal>,<literal> --disable
@@ -151,7 +203,7 @@
 	<listitem>
 	  <para>
 	    Disable a specific plugin
-	  </para>	  
+	  </para>	
 	</listitem>
       </varlistentry>
 
@@ -163,7 +215,7 @@
 	    Group ID the plugins will run as
 	  </para>
 	</listitem>
-      </varlistentry>      
+      </varlistentry>
 
       <varlistentry>
 	<term><literal>--userid <replaceable>ID</replaceable>
@@ -173,7 +225,7 @@
 	    User ID the plugins will run as
 	  </para>
 	</listitem>
-      </varlistentry>      
+      </varlistentry>
 
       <varlistentry>
 	<term><literal>--plugin-dir <replaceable>DIRECTORY</replaceable>
@@ -183,7 +235,7 @@
 	    Specify a different plugin directory
 	  </para>
 	</listitem>
-      </varlistentry>       
+      </varlistentry>
       
       <varlistentry>
 	<term><literal>--debug</literal></term>
@@ -219,7 +271,7 @@
 	    Prints the program version
 	  </para>
 	</listitem>
-      </varlistentry>            
+      </varlistentry>
     </variablelist>
   </refsect1>
 
@@ -233,7 +285,7 @@
     <title>FILES</title>
     <para>
     </para>
-  </refsect1>  
+  </refsect1>
 
   <refsect1 id="notes">
     <title>NOTES</title>
@@ -245,7 +297,7 @@
     <title>BUGS</title>
     <para>
     </para>
-  </refsect1>  
+  </refsect1>
 
   <refsect1 id="examples">
     <title>EXAMPLE</title>

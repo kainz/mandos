@@ -15,8 +15,8 @@ options can be used both on the command line and in the config file.
     and listen to requests on the specified network interface.
     Default is to use all available interfaces.  <emphasis
     >Note:</emphasis> a failure to bind to the specified
-    interface is not considered critical, and the server does not
-    exit, but will instead continue normally.
+    interface is not considered critical, and the server will not
+    exit, but instead continue normally.
   </para>
   
   <para id="address">
@@ -43,13 +43,15 @@ options can be used both on the command line and in the config file.
   </para>
   
   <para id="priority">
-    GnuTLS priority string for the TLS handshake with the clients.
-    The default is
-    <quote><literal>SECURE256:!CTYPE-X.509:+CTYPE-OPENPGP</literal></quote>.
-    See <citerefentry><refentrytitle>gnutls_priority_init
-    </refentrytitle><manvolnum>3</manvolnum></citerefentry> for the
-    syntax.  <emphasis>Warning</emphasis>: changing this may make the
-    TLS handshake fail, making communication with clients impossible.
+    GnuTLS priority string for the <acronym>TLS</acronym> handshake
+    with the clients.  The default is
+    <quote><literal>SECURE256:!CTYPE-X.509:+CTYPE-OPENPGP</literal
+    ></quote>.  See <citerefentry>
+    <refentrytitle>gnutls_priority_init</refentrytitle>
+    <manvolnum>3</manvolnum></citerefentry> for the syntax.
+    <emphasis>Warning</emphasis>: changing this may make the
+    <acronym>TLS</acronym> handshake fail, making communication with
+    clients impossible.
   </para>
   
   <para id="servicename">
