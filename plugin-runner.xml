@@ -68,32 +68,84 @@
   <refnamediv>
     <refname><command>&COMMANDNAME;</command></refname>
     <refpurpose>
-      get password for encrypted rootdisk
+      Run Mandos plugins.  Pass data from first succesful one.
     </refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
     <cmdsynopsis>
       <command>&COMMANDNAME;</command>
-      <arg choice='opt'>--global-options<arg choice='plain'>OPTIONS</arg></arg>
-      <arg choice='opt'>--options-for<arg choice='plain'>PLUGIN:OPTIONS</arg></arg>
-      <arg choice='opt'>--disable<arg choice='plain'>PLUGIN</arg></arg>
-      <arg choice='opt'>--groupid<arg choice='plain'>ID</arg></arg>
-      <arg choice='opt'>--userid<arg choice='plain'>ID</arg></arg>
-      <arg choice='opt'>--plugin-dir<arg choice='plain'>DIRECTORY</arg></arg>
-      <arg choice='opt'>--debug</arg>
+      <group rep="repeat">
+	<arg choice="plain"><option>--global-envs=<replaceable
+	>VAR</replaceable><literal>=</literal><replaceable
+	>value</replaceable></option></arg>
+	<arg choice="plain"><option>-e
+	<replaceable>VAR</replaceable><literal>=</literal><replaceable
+	>value</replaceable> </option></arg>
+      </group>
+      <sbr/>
+      <group rep="repeat">
+	<arg choice="plain"><option>--envs-for=<replaceable
+	>PLUGIN</replaceable><literal>:</literal><replaceable
+	>ENV</replaceable><literal>=</literal><replaceable
+	>value</replaceable></option></arg>
+	<arg choice="plain"><option>-f<replaceable>
+	PLUGIN</replaceable><literal>:</literal><replaceable
+	>ENV</replaceable><literal>=</literal><replaceable
+	>value</replaceable> </option></arg>
+      </group>
+      <sbr/>
+      <group rep="repeat">
+	<arg choice="plain"><option>--global-options=<replaceable
+	>OPTIONS</replaceable></option></arg>
+	<arg choice="plain"><option>-g<replaceable>
+	OPTIONS</replaceable> </option></arg>
+      </group>
+      <sbr/>
+      <group rep="repeat">
+	<arg choice="plain"><option>--options-for=<replaceable
+	>PLUGIN</replaceable><literal>:</literal><replaceable
+	>OPTIONS</replaceable></option></arg>
+	<arg choice="plain"><option>-f<replaceable>
+	PLUGIN</replaceable><literal>:</literal><replaceable
+	>OPTIONS</replaceable> </option></arg>
+      </group>
+      <sbr/>
+      <group rep="repeat">
+	<arg choice="plain"><option>--disable=<replaceable
+	>PLUGIN</replaceable></option></arg>
+	<arg choice="plain"><option>-d
+	<replaceable>PLUGIN</replaceable> </option></arg>
+      </group>
+      <sbr/>
+      <arg><option>--groupid=<replaceable
+      >ID</replaceable></option></arg>
+      <sbr/>
+      <arg><option>--userid=<replaceable
+      >ID</replaceable></option></arg>
+      <sbr/>
+      <arg><option>--plugin-dir=<replaceable
+      >DIRECTORY</replaceable></option></arg>
+      <sbr/>
+      <arg><option>--debug</option></arg>
     </cmdsynopsis>
     <cmdsynopsis>
       <command>&COMMANDNAME;</command>
-      <arg choice='plain'>--help</arg>
+      <group choice="req">
+	<arg choice='plain'><option>--help</option></arg>
+	<arg choice='plain'><option>-?</option></arg>
+      </group>
     </cmdsynopsis>
     <cmdsynopsis>
       <command>&COMMANDNAME;</command>
-      <arg choice='plain'>--usage</arg>
+      <arg choice='plain'><option>--usage</option></arg>
     </cmdsynopsis>
     <cmdsynopsis>
       <command>&COMMANDNAME;</command>
-      <arg choice='plain'>--version</arg>
+      <group choice="req">
+	<arg choice='plain'><option>--version</option></arg>
+	<arg choice='plain'><option>-V</option></arg>
+      </group>
     </cmdsynopsis>
   </refsynopsisdiv>
 
