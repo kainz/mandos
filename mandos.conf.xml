@@ -4,7 +4,7 @@
 <!ENTITY VERSION "1.0">
 <!ENTITY CONFNAME "mandos.conf">
 <!ENTITY CONFPATH "<filename>/etc/mandos/mandos.conf</filename>">
-<!ENTITY TIMESTAMP "2008-08-29">
+<!ENTITY TIMESTAMP "2008-08-30">
 ]>
 
 <refentry xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -73,9 +73,7 @@
   </refnamediv>
 
   <refsynopsisdiv>
-    <synopsis>
-      &CONFPATH;
-    </synopsis>
+    <synopsis>&CONFPATH;</synopsis>
   </refsynopsisdiv>
 
   <refsect1 id="description">
@@ -102,64 +100,52 @@
     
     <variablelist>
       <varlistentry>
-	<term><varname>interface</varname></term>
+	<term><option>interface<literal> = </literal><replaceable
+	>NAME</replaceable></option></term>
 	<listitem>
-	  <synopsis><literal>interface = </literal><replaceable
-	  >NAME</replaceable>
-	  </synopsis>
 	  <xi:include href="mandos-options.xml" xpointer="interface"/>
 	</listitem>
       </varlistentry>
 
       <varlistentry>
-	<term><varname>address</varname></term>
+	<term><option>address<literal> = </literal><replaceable
+	  >ADDRESS</replaceable></option></term>
 	<listitem>
-	  <synopsis><literal>address = </literal><replaceable
-	  >ADDRESS</replaceable>
-	  </synopsis>
 	  <xi:include href="mandos-options.xml" xpointer="address"/>
 	</listitem>
       </varlistentry>
 
       <varlistentry>
-	<term><varname>port</varname></term>
+	<term><option>port<literal> = </literal><replaceable
+	>NUMBER</replaceable></option></term>
 	<listitem>
-	  <synopsis><literal>port = </literal><replaceable
-	  >NUMBER</replaceable>
-	  </synopsis>
 	  <xi:include href="mandos-options.xml" xpointer="port"/>
 	</listitem>
       </varlistentry>
 
       <varlistentry>
-	<term><varname>debug</varname></term>
-	<listitem>
-	  <synopsis><literal>debug = </literal>{ <literal
+	<term><option>debug<literal> = </literal>{ <literal
 	  >1</literal> | <literal>yes</literal> | <literal
 	  >true</literal> | <literal>on</literal> | <literal
 	  >0</literal> | <literal>no</literal> | <literal
-	  >false</literal> | <literal>off</literal> }
-	  </synopsis>
+	  >false</literal> | <literal>off</literal> }</option></term>
+	<listitem>
 	  <xi:include href="mandos-options.xml" xpointer="debug"/>
 	</listitem>
       </varlistentry>
 
       <varlistentry>
-	<term><varname>priority</varname></term>
+	<term><option>priority<literal> = </literal><replaceable
+	>STRING</replaceable></option></term>
 	<listitem>
-	  <synopsis><literal>priority = </literal><replaceable
-	  >STRING</replaceable>
-	  </synopsis>
 	  <xi:include href="mandos-options.xml" xpointer="priority"/>
 	</listitem>
       </varlistentry>
 
       <varlistentry>
-	<term><varname>servicename</varname></term>
+	<term><option>servicename<literal> = </literal
+	><replaceable>NAME</replaceable></option></term>
 	<listitem>
-	  <synopsis><literal>servicename = </literal><replaceable
-	  >NAME</replaceable>
-	  </synopsis>
 	  <xi:include href="mandos-options.xml"
 		      xpointer="servicename"/>
 	</listitem>

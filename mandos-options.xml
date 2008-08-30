@@ -15,8 +15,8 @@ options can be used both on the command line and in the config file.
     and listen to requests on the specified network interface.
     Default is to use all available interfaces.  <emphasis
     >Note:</emphasis> a failure to bind to the specified
-    interface is not considered critical, and the server does not
-    exit, but will instead continue normally.
+    interface is not considered critical, and the server will not
+    exit, but instead continue normally.
   </para>
   
   <para id="address">

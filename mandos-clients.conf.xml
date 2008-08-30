@@ -73,9 +73,7 @@
   </refnamediv>
 
   <refsynopsisdiv>
-    <synopsis>
-      &CONFPATH;
-    </synopsis>
+    <synopsis>&CONFPATH;</synopsis>
   </refsynopsisdiv>
 
   <refsect1 id="description">
@@ -123,11 +121,9 @@
     <variablelist>
 
       <varlistentry>
-	<term><literal><varname>timeout</varname></literal></term>
+	<term><option>timeout<literal> = </literal><replaceable
+	>TIME</replaceable></option></term>
 	<listitem>
-	  <synopsis><literal>timeout = </literal><replaceable
-	  >TIME</replaceable>
-	  </synopsis>
 	  <para>
 	    The timeout is how long the server will wait for a
 	    successful checker run until a client is considered
@@ -151,11 +147,9 @@
       </varlistentry>
 
       <varlistentry>
-	<term><literal><varname>interval</varname></literal></term>
+	<term><option>interval<literal> = </literal><replaceable
+	>TIME</replaceable></option></term>
 	<listitem>
-	  <synopsis><literal>interval = </literal><replaceable
-	  >TIME</replaceable>
-	  </synopsis>
 	  <para>
 	    How often to run the checker to confirm that a client is
 	    still up.  <emphasis>Note:</emphasis> a new checker will
@@ -173,11 +167,9 @@
       </varlistentry>
 
       <varlistentry>
-	<term><literal>checker</literal></term>
+	<term><option>checker<literal> = </literal><replaceable
+	>COMMAND</replaceable></option></term>
 	<listitem>
-	  <synopsis><literal>checker = </literal><replaceable
-	  >COMMAND</replaceable>
-	  </synopsis>
 	  <para>
 	    This option allows you to override the default shell
 	    command that the server will use to check if the client is
@@ -200,11 +192,9 @@
       </varlistentry>
       
       <varlistentry>
-	<term><literal>fingerprint</literal></term>
+	<term><option>fingerprint<literal> = </literal
+	><replaceable>HEXSTRING</replaceable></option></term>
 	<listitem>
-	  <synopsis><literal>fingerprint = </literal><replaceable
-	  >HEXSTRING</replaceable>
-	  </synopsis>
 	  <para>
 	    This option sets the OpenPGP fingerprint that identifies
 	    the public key that clients authenticate themselves with
@@ -215,11 +205,9 @@
       </varlistentry>
       
       <varlistentry>
-	<term><literal>secret</literal></term>
+	<term><option>secret<literal> = </literal><replaceable
+	>BASE64_ENCODED_DATA</replaceable></option></term>
 	<listitem>
-	  <synopsis><literal>secret = </literal><replaceable
-	  >BASE64_ENCODED_DATA</replaceable>
-	  </synopsis>
 	  <para>
 	    If present, this option must be set to a string of
 	    base64-encoded binary data.  It will be decoded and sent
@@ -247,16 +235,14 @@
       </varlistentry>
 
       <varlistentry>
-	<term><literal>secfile</literal></term>
+	<term><option>secfile<literal> = </literal><replaceable
+	>FILENAME</replaceable></option></term>
 	<listitem>
-	  <synopsis><literal>secfile = </literal><replaceable
-	  >FILENAME</replaceable>
-	  </synopsis>
 	  <para>
-	    The same as <option>secret</option>, but the secret data
-	    is in an external file.  The contents of the file should
-	    <emphasis>not</emphasis> be base64-encoded, but will be
-	    sent to clients verbatim.
+	    Similar to the <option>secret</option>, except the secret
+	    data is in an external file.  The contents of the file
+	    should <emphasis>not</emphasis> be base64-encoded, but
+	    will be sent to clients verbatim.
 	  </para>
 	  <para>
 	    This option is only used, and <emphasis>must</emphasis> be
@@ -266,11 +252,9 @@
       </varlistentry>
 
       <varlistentry>
-	<term><literal>host</literal></term>
+	<term><option><literal>host = </literal><replaceable
+	>STRING</replaceable></option></term>
 	<listitem>
-	  <synopsis><literal>host = </literal><replaceable
-	  >STRING</replaceable>
-	  </synopsis>
 	  <para>
 	    Host name for this client.  This is not used by the server
 	    directly, but can be, and is by default, used by the
@@ -329,7 +313,7 @@
 	percent characters in a row (<quote>%%%%</quote>) must be
 	entered.  Also, a bad format here will lead to an immediate
 	but <emphasis>silent</emphasis> run-time fatal exit; debug
-	mode is needed to track down an error of this kind.
+	mode is needed to expose an error of this kind.
       </para>
     </refsect2>
 
