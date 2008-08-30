@@ -342,7 +342,7 @@
     <title>ENVIRONMENT</title>
     <variablelist>
       <varlistentry>
-	<term><varname>PATH</varname></term>
+	<term><envar>PATH</envar></term>
 	<listitem>
 	  <para>
 	    To start the configured checker (see <xref
