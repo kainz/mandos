@@ -64,7 +64,7 @@ Key creation options:
   -n NAME, --name NAME  Name of key.  Default is the FQDN.
   -e ADDRESS, --email ADDRESS
                         Email address of key.  Default is empty.
-  -c COMMENT, --comment COMMENT
+  -c TEXT, --comment TEXT
                         Comment field for key.  The default value is
                         "Mandos client key".
   -x TIME, --expire TIME
@@ -75,7 +75,7 @@ Key creation options:
 Password creation options:
   -p, --password        Create an encrypted password using the keys in
                         the key directory.  All options other than
-                        --keydir and --name are ignored.
+                        --dir and --name are ignored.
 EOF
 }
 

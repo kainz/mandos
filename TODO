@@ -104,7 +104,7 @@
 *** OPTIONS
     Separate <term> tags with <option> and <replaceable> tags.
 **** DONE mandos-clients.conf.xml
-**** TODO mandos-keygen.xml
+**** DONE mandos-keygen.xml
 **** DONE mandos.conf.xml
 **** TODO mandos.xml
 **** TODO plugin-runner.xml
