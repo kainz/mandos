@@ -356,7 +356,8 @@ int main(int argc, char *argv[]){
     { .name = NULL }
   };
   
-  error_t parse_opt (int key, char *arg, __attribute__((unused)) struct argp_state *state) {
+  error_t parse_opt (int key, char *arg, __attribute__((unused))
+		     struct argp_state *state) {
     /* Get the INPUT argument from `argp_parse', which we know is a
        pointer to our plugin list pointer. */
     switch (key) {
@@ -507,7 +508,8 @@ int main(int argc, char *argv[]){
     custom_argv[0] = argv[0];
     custom_argv[1] = NULL;
 
-    /* for each line in the config file, strip whitespace and ignore commented text */
+    /* for each line in the config file, strip whitespace and ignore
+       commented text */
     while(true){
       sret = getline(&org_line, &size, conffp);
       if(sret == -1){
