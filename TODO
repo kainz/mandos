@@ -106,7 +106,7 @@
 **** DONE mandos-clients.conf.xml
 **** DONE mandos-keygen.xml
 **** DONE mandos.conf.xml
-**** TODO mandos.xml
+**** DONE mandos.xml
 **** TODO plugin-runner.xml
 **** TODO plugins.d/password-prompt.xml
 **** TODO plugins.d/password-request.xml
