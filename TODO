@@ -88,28 +88,6 @@
 ** Enable client
 
 * Man pages
-** Tags
-   Go through all man pages to conform to the style of tags chosen in
-   [[http://svn.debian.org/wsvn/debian-xml-sgml/packages/docbook-xsl/trunk/debian/examples/foo.1.example_manpage.xml?op=file&rev=0&sc=0][foo.1.example_manpage.xml]].  In particular:
-*** SYNOPSIS
-    <arg> with inner <option> and <replaceable> tags
-    Unify long and short options.
-**** DONE mandos-clients.conf.xml
-**** DONE mandos-keygen.xml
-**** DONE mandos.conf.xml
-**** DONE mandos.xml
-**** DONE plugin-runner.xml
-**** DONE plugins.d/password-prompt.xml
-**** DONE plugins.d/password-request.xml
-*** OPTIONS
-    Separate <term> tags with <option> and <replaceable> tags.
-**** DONE mandos-clients.conf.xml
-**** DONE mandos-keygen.xml
-**** DONE mandos.conf.xml
-**** DONE mandos.xml
-**** DONE plugin-runner.xml
-**** DONE plugins.d/password-prompt.xml
-**** DONE plugins.d/password-request.xml
 ** Use xinclude for common sections
    Like copyright, authors, etc.
 
