@@ -72,19 +72,7 @@
 const char *argp_program_version = "plugin-runner 1.0";
 const char *argp_program_bug_address = "<mandos@fukt.bsnet.se>";
 
-struct process;
-
-typedef struct process{
-  pid_t pid;
-  int fd;
-  char *buffer;
-  size_t buffer_size;
-  size_t buffer_length;
-  bool eof;
-  volatile bool completed;
-  volatile int status;
-  struct process *next;
-} process;
+struct plugin;
 
 typedef struct plugin{
   char *name;			/* can be NULL or any plugin name */
@@ -93,11 +81,26 @@ typedef struct plugin{
   char **environ;
   int envc;
   bool disabled;
+
+  /* Variables used for running processes*/
+  pid_t pid;
+  int fd;
+  char *buffer;
+  size_t buffer_size;
+  size_t buffer_length;
+  bool eof;
+  volatile bool completed;
+  volatile int status;
   struct plugin *next;
 } plugin;
 
-static plugin *getplugin(char *name, plugin **plugin_list){
-  for (plugin *p = *plugin_list; p != NULL; p = p->next){
+static plugin *plugin_list = NULL;
+
+/* Gets a existing plugin based on name,
+   or if none is found, creates a new one */
+static plugin *getplugin(char *name){
+  /* Check for exiting plugin with that name */
+  for (plugin *p = plugin_list; p != NULL; p = p->next){
     if ((p->name == name)
 	or (p->name and name and (strcmp(p->name, name) == 0))){
       return p;
@@ -115,12 +118,11 @@ static plugin *getplugin(char *name, plugin **plugin_list){
       return NULL;
     }
   }
-  
+
   *new_plugin = (plugin) { .name = copy_name,
 			   .argc = 1,
-			   .envc = 0,
 			   .disabled = false,
-			   .next = *plugin_list };
+			   .next = plugin_list };
   
   new_plugin->argv = malloc(sizeof(char *) * 2);
   if (new_plugin->argv == NULL){
@@ -139,8 +141,9 @@ static plugin *getplugin(char *name, plugin **plugin_list){
     return NULL;
   }
   new_plugin->environ[0] = NULL;
+
   /* Append the new plugin to the list */
-  *plugin_list = new_plugin;
+  plugin_list = new_plugin;
   return new_plugin;
 }
 
@@ -183,7 +186,6 @@ static bool add_environment(plugin *p, const char *def){
   return add_to_char_array(def, &(p->environ), &(p->envc));
 }
 
-
 /*
  * Based on the example in the GNU LibC manual chapter 13.13 "File
  * Descriptor Flags".
@@ -200,13 +202,12 @@ static int set_cloexec_flag(int fd)
   return fcntl(fd, F_SETFD, ret | FD_CLOEXEC);
 }
 
-process *process_list = NULL;
 
 /* Mark processes as completed when they exit, and save their exit
    status. */
 void handle_sigchld(__attribute__((unused)) int sig){
   while(true){
-    process *proc = process_list;
+    plugin *proc = plugin_list;
     int status;
     pid_t pid = waitpid(-1, &status, WNOHANG);
     if(pid == 0){
@@ -234,6 +235,7 @@ void handle_sigchld(__attribute__((unused)) int sig){
   }
 }
 
+/* Prints out a password to stdout */
 bool print_out_password(const char *buffer, size_t length){
   ssize_t ret;
   if(length>0 and buffer[length-1] == '\n'){
@@ -249,18 +251,39 @@ bool print_out_password(const char *buffer, size_t length){
   return true;
 }
 
-static void free_plugin_list(plugin *plugin_list){
-  for(plugin *next; plugin_list != NULL; plugin_list = next){
-    next = plugin_list->next;
-    for(char **arg = plugin_list->argv; *arg != NULL; arg++){
-      free(*arg);
+/* Removes and free a plugin from the plugin list */
+static void free_plugin(plugin *plugin_node){
+  
+  for(char **arg = plugin_node->argv; *arg != NULL; arg++){
+    free(*arg);
+  }
+  free(plugin_node->argv);
+  for(char **env = plugin_node->environ; *env != NULL; env++){
+    free(*env);
+  }
+  free(plugin_node->environ);
+  free(plugin_node->buffer);
+
+  /* Removes the plugin from the singly-linked list */
+  if(plugin_node == plugin_list){
+    /* First one - simple */
+    plugin_list = plugin_list->next;
+  } else {
+    /* Second one or later */
+    for(plugin *p = plugin_list; p != NULL; p = p->next){
+      if(p->next == plugin_node){
+	p->next = plugin_node->next;
+	break;
+      }
     }
-    free(plugin_list->argv);
-    for(char **env = plugin_list->environ; *env != NULL; env++){
-      free(*env);
-    }
-    free(plugin_list->environ);
-    free(plugin_list);
+  }
+  
+  free(plugin_node);
+}
+
+static void free_plugin_list(void){
+  while(plugin_list != NULL){
+    free_plugin(plugin_list);
   }
 }
 
@@ -333,26 +356,25 @@ int main(int argc, char *argv[]){
     { .name = NULL }
   };
   
-  error_t parse_opt (int key, char *arg, struct argp_state *state) {
+  error_t parse_opt (int key, char *arg, __attribute__((unused)) struct argp_state *state) {
     /* Get the INPUT argument from `argp_parse', which we know is a
        pointer to our plugin list pointer. */
-    plugin **plugins = state->input;
     switch (key) {
-    case 'g':
+    case 'g': 			/* --global-options */
       if (arg != NULL){
 	char *p;
 	while((p = strsep(&arg, ",")) != NULL){
 	  if(p[0] == '\0'){
 	    continue;
 	  }
-	  if(not add_argument(getplugin(NULL, plugins), p)){
+	  if(not add_argument(getplugin(NULL), p)){
 	    perror("add_argument");
 	    return ARGP_ERR_UNKNOWN;
 	  }
 	}
       }
       break;
-    case 'e':
+    case 'e':			/* --global-envs */
       if(arg == NULL){
 	break;
       }
@@ -361,12 +383,12 @@ int main(int argc, char *argv[]){
 	if(envdef == NULL){
 	  break;
 	}
-	if(not add_environment(getplugin(NULL, plugins), envdef)){
+	if(not add_environment(getplugin(NULL), envdef)){
 	  perror("add_environment");
 	}
       }
       break;
-    case 'o':
+    case 'o':			/* --options-for */
       if (arg != NULL){
 	char *p_name = strsep(&arg, ":");
 	if(p_name[0] == '\0'){
@@ -382,7 +404,7 @@ int main(int argc, char *argv[]){
 	    if(p[0] == '\0'){
 	      continue;
 	    }
-	    if(not add_argument(getplugin(p_name, plugins), p)){
+	    if(not add_argument(getplugin(p_name), p)){
 	      perror("add_argument");
 	      return ARGP_ERR_UNKNOWN;
 	    }
@@ -390,7 +412,7 @@ int main(int argc, char *argv[]){
 	}
       }
       break;
-    case 'f':
+    case 'f':			/* --envs-for */
       if(arg == NULL){
 	break;
       }
@@ -404,39 +426,39 @@ int main(int argc, char *argv[]){
 	  break;
 	}
 	envdef++;
-	if(not add_environment(getplugin(p_name, plugins), envdef)){
+	if(not add_environment(getplugin(p_name), envdef)){
 	  perror("add_environment");
 	}
       }
       break;
-    case 'd':
+    case 'd':			/* --disable */
       if (arg != NULL){
-	plugin *p = getplugin(arg, plugins);
+	plugin *p = getplugin(arg);
 	if(p == NULL){
 	  return ARGP_ERR_UNKNOWN;
 	}
 	p->disabled = true;
       }
       break;
-    case 128:
+    case 128:			/* --plugin-dir */
       plugindir = strdup(arg);
       if(plugindir == NULL){
 	perror("strdup");
       }      
       break;
-    case 129:
+    case 129:			/* --config-file */
       argfile = strdup(arg);
       if(argfile == NULL){
 	perror("strdup");
       }
       break;      
-    case 130:
+    case 130:			/* --userid */
       uid = (uid_t)strtol(arg, NULL, 10);
       break;
-    case 131:
+    case 131:			/* --groupid */
       gid = (gid_t)strtol(arg, NULL, 10);
       break;
-    case 132:
+    case 132:			/* --debug */
       debug = true;
       break;
     case ARGP_KEY_ARG:
@@ -450,25 +472,23 @@ int main(int argc, char *argv[]){
     return 0;
   }
   
-  plugin *plugin_list = NULL;
-  
   struct argp argp = { .options = options, .parser = parse_opt,
 		       .args_doc = "[+PLUS_SEPARATED_OPTIONS]",
 		       .doc = "Mandos plugin runner -- Run plugins" };
   
-  ret = argp_parse (&argp, argc, argv, 0, 0, &plugin_list);
+  ret = argp_parse (&argp, argc, argv, 0, 0, NULL);
   if (ret == ARGP_ERR_UNKNOWN){
     fprintf(stderr, "Unknown error while parsing arguments\n");
     exitstatus = EXIT_FAILURE;
     goto fallback;
   }
 
+  /* Opens the configfile if aviable */
   if (argfile == NULL){
     conffp = fopen(AFILE, "r");
   } else {
     conffp = fopen(argfile, "r");
-  }
-  
+  }  
   if(conffp != NULL){
     char *org_line = NULL;
     char *p, *arg, *new_arg, *line;
@@ -486,7 +506,8 @@ int main(int argc, char *argv[]){
     }
     custom_argv[0] = argv[0];
     custom_argv[1] = NULL;
-    
+
+    /* for each line in the config file, strip whitespace and ignore commented text */
     while(true){
       sret = getline(&org_line, &size, conffp);
       if(sret == -1){
@@ -530,9 +551,10 @@ int main(int argc, char *argv[]){
       goto fallback;
     }
   }
-
+  /* If there was any arguments from configuration file,
+     pass them to parser as command arguments */
   if(custom_argv != NULL){
-    ret = argp_parse (&argp, custom_argc, custom_argv, 0, 0, &plugin_list);
+    ret = argp_parse (&argp, custom_argc, custom_argv, 0, 0, NULL);
     if (ret == ARGP_ERR_UNKNOWN){
       fprintf(stderr, "Unknown error while parsing arguments\n");
       exitstatus = EXIT_FAILURE;
@@ -553,12 +575,12 @@ int main(int argc, char *argv[]){
       }
     }
   }
-  
+
+  /* Strip permissions down to nobody */
   ret = setuid(uid);
   if (ret == -1){
     perror("setuid");
-  }
-  
+  }  
   setgid(gid);
   if (ret == -1){
     perror("setgid");
@@ -590,7 +612,8 @@ int main(int argc, char *argv[]){
   }
   
   FD_ZERO(&rfds_all);
-  
+
+  /* Read and execute any executable in the plugin directory*/
   while(true){
     dirst = readdir(dir);
     
@@ -627,11 +650,9 @@ int main(int argc, char *argv[]){
 	  break;
 	}
       }
-      
       if(bad_name){
 	continue;
       }
-      
       for(const char **suf = bad_suffixes; *suf != NULL; suf++){
 	size_t suf_len = strlen(*suf);
 	if((d_name_len >= suf_len)
@@ -664,7 +685,8 @@ int main(int argc, char *argv[]){
       free(filename);
       continue;
     }
-    
+
+    /* Ignore non-executable files */
     if (not S_ISREG(st.st_mode)	or (access(filename, X_OK) != 0)){
       if(debug){
 	fprintf(stderr, "Ignoring plugin dir entry \"%s\""
@@ -673,7 +695,8 @@ int main(int argc, char *argv[]){
       free(filename);
       continue;
     }
-    plugin *p = getplugin(dirst->d_name, &plugin_list);
+    
+    plugin *p = getplugin(dirst->d_name);
     if(p == NULL){
       perror("getplugin");
       free(filename);
@@ -689,7 +712,7 @@ int main(int argc, char *argv[]){
     }
     {
       /* Add global arguments to argument list for this plugin */
-      plugin *g = getplugin(NULL, &plugin_list);
+      plugin *g = getplugin(NULL);
       if(g != NULL){
 	for(char **a = g->argv + 1; *a != NULL; a++){
 	  if(not add_argument(p, *a)){
@@ -727,6 +750,7 @@ int main(int argc, char *argv[]){
       exitstatus = EXIT_FAILURE;
       goto fallback;
     }
+    /* Ask OS to automatic close the pipe on exec */
     ret = set_cloexec_flag(pipefd[0]);
     if(ret < 0){
       perror("set_cloexec_flag");
@@ -790,25 +814,23 @@ int main(int argc, char *argv[]){
       }
       /* no return */
     }
-    /* parent process */
+    /* Parent process */
+    close(pipefd[1]);		/* Close unused write end of pipe */
     free(filename);
-    close(pipefd[1]);		/* close unused write end of pipe */
-    process *new_process = malloc(sizeof(process));
-    if (new_process == NULL){
-      perror("malloc");
+    plugin *new_plugin = getplugin(dirst->d_name);
+    if (new_plugin == NULL){
+      perror("getplugin");
       ret = sigprocmask (SIG_UNBLOCK, &sigchld_action.sa_mask, NULL);
       if(ret < 0){
-	perror("sigprocmask");
+        perror("sigprocmask");
       }
       exitstatus = EXIT_FAILURE;
       goto fallback;
     }
     
-    *new_process = (struct process){ .pid = pid,
-				     .fd = pipefd[0],
-				     .next = process_list };
-    // List handling
-    process_list = new_process;
+    new_plugin->pid = pid;
+    new_plugin->fd = pipefd[0];
+    
     /* Unblock SIGCHLD so signal handler can be run if this process
        has already completed */
     ret = sigprocmask (SIG_UNBLOCK, &sigchld_action.sa_mask, NULL);
@@ -818,26 +840,30 @@ int main(int argc, char *argv[]){
       goto fallback;
     }
     
-    FD_SET(new_process->fd, &rfds_all);
+    FD_SET(new_plugin->fd, &rfds_all);
     
-    if (maxfd < new_process->fd){
-      maxfd = new_process->fd;
+    if (maxfd < new_plugin->fd){
+      maxfd = new_plugin->fd;
     }
     
   }
-
-  free_plugin_list(plugin_list);
-  plugin_list = NULL;
   
   closedir(dir);
   dir = NULL;
-    
-  if (process_list == NULL){
-    fprintf(stderr, "No plugin processes started. Incorrect plugin"
-	    " directory?\n");
-    process_list = NULL;
+
+  for(plugin *p = plugin_list; p != NULL; p = p->next){
+    if(p->pid != 0){
+      break;
+    }
+    if(p->next == NULL){
+      fprintf(stderr, "No plugin processes started. Incorrect plugin"
+	      " directory?\n");
+      free_plugin_list();
+    }
   }
-  while(process_list){
+
+  /* Main loop while running plugins exist */
+  while(plugin_list){
     fd_set rfds = rfds_all;
     int select_ret = select(maxfd+1, &rfds, NULL, NULL, NULL);
     if (select_ret == -1){
@@ -847,13 +873,14 @@ int main(int argc, char *argv[]){
     }
     /* OK, now either a process completed, or something can be read
        from one of them */
-    for(process *proc = process_list; proc ; proc = proc->next){
+    for(plugin *proc = plugin_list; proc != NULL; proc = proc->next){
       /* Is this process completely done? */
       if(proc->eof and proc->completed){
 	/* Only accept the plugin output if it exited cleanly */
 	if(not WIFEXITED(proc->status)
 	   or WEXITSTATUS(proc->status) != 0){
 	  /* Bad exit by plugin */
+
 	  if(debug){
 	    if(WIFEXITED(proc->status)){
 	      fprintf(stderr, "Plugin %u exited with status %d\n",
@@ -868,8 +895,10 @@ int main(int argc, char *argv[]){
 		      (unsigned int) (proc->pid));
 	    }
 	  }
+	  
 	  /* Remove the plugin */
 	  FD_CLR(proc->fd, &rfds_all);
+
 	  /* Block signal while modifying process_list */
 	  ret = sigprocmask(SIG_BLOCK, &sigchld_action.sa_mask, NULL);
 	  if(ret < 0){
@@ -877,32 +906,22 @@ int main(int argc, char *argv[]){
 	    exitstatus = EXIT_FAILURE;
 	    goto fallback;
 	  }
-	  /* Delete this process entry from the list */
-	  if(process_list == proc){
-	    /* First one - simple */
-	    process_list = proc->next;
-	  } else {
-	    /* Second one or later */
-	    for(process *p = process_list; p != NULL; p = p->next){
-	      if(p->next == proc){
-		p->next = proc->next;
-		break;
-	      }
-	    }
-	  }
+	  free_plugin(proc);
 	  /* We are done modifying process list, so unblock signal */
 	  ret = sigprocmask (SIG_UNBLOCK, &sigchld_action.sa_mask,
 			     NULL);
 	  if(ret < 0){
 	    perror("sigprocmask");
+	    exitstatus = EXIT_FAILURE;
+	    goto fallback;
 	  }
-	  free(proc->buffer);
-	  free(proc);
-	  /* We deleted this process from the list, so we can't go
-	     proc->next.  Therefore, start over from the beginning of
-	     the process list */
-	  break;
+	  
+	  if(plugin_list == NULL){
+	    break;
+	  }
+	  continue;
 	}
+	
 	/* This process exited nicely, so print its buffer */
 
 	bool bret = print_out_password(proc->buffer,
@@ -913,6 +932,7 @@ int main(int argc, char *argv[]){
 	}
 	goto fallback;
       }
+      
       /* This process has not completed.  Does it have any output? */
       if(proc->eof or not FD_ISSET(proc->fd, &rfds)){
 	/* This process had nothing to say at this time */
@@ -948,7 +968,7 @@ int main(int argc, char *argv[]){
 
  fallback:
   
-  if(process_list == NULL or exitstatus != EXIT_SUCCESS){
+  if(plugin_list == NULL or exitstatus != EXIT_SUCCESS){
     /* Fallback if all plugins failed, none are found or an error
        occured */
     bool bret;
@@ -974,23 +994,21 @@ int main(int argc, char *argv[]){
     }
     free(custom_argv);
   }
-  free_plugin_list(plugin_list);
   
   if(dir != NULL){
     closedir(dir);
   }
   
   /* Free the process list and kill the processes */
-  for(process *next; process_list != NULL; process_list = next){
-    next = process_list->next;
-    close(process_list->fd);
-    ret = kill(process_list->pid, SIGTERM);
-    if(ret == -1 and errno != ESRCH){
-      /* set-uid proccesses migth not get closed */
-      perror("kill");
+  for(plugin *p = plugin_list; p != NULL; p = p->next){
+    if(p->pid != 0){
+      close(p->fd);
+      ret = kill(p->pid, SIGTERM);
+      if(ret == -1 and errno != ESRCH){
+	/* Set-uid proccesses might not get closed */
+	perror("kill");
+      }
     }
-    free(process_list->buffer);
-    free(process_list);
   }
   
   /* Wait for any remaining child processes to terminate */
@@ -1001,6 +1019,8 @@ int main(int argc, char *argv[]){
     perror("wait");
   }
 
+  free_plugin_list();
+  
   free(plugindir);
   free(argfile);
   
