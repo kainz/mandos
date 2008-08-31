@@ -3,7 +3,7 @@
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY VERSION "1.0">
 <!ENTITY COMMANDNAME "mandos-keygen">
-<!ENTITY TIMESTAMP "2008-08-30">
+<!ENTITY TIMESTAMP "2008-08-31">
 ]>
 
 <refentry xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -34,29 +34,7 @@
       <holder>Teddy Hogeborn</holder>
       <holder>Björn Påhlsson</holder>
     </copyright>
-    <legalnotice>
-      <para>
-	This manual page is free software: you can redistribute it
-	and/or modify it under the terms of the GNU General Public
-	License as published by the Free Software Foundation,
-	either version 3 of the License, or (at your option) any
-	later version.
-      </para>
-
-      <para>
-	This manual page is distributed in the hope that it will
-	be useful, but WITHOUT ANY WARRANTY; without even the
-	implied warranty of MERCHANTABILITY or FITNESS FOR A
-	PARTICULAR PURPOSE.  See the GNU General Public License
-	for more details.
-      </para>
-
-      <para>
-	You should have received a copy of the GNU General Public
-	License along with this program; If not, see
-	<ulink url="http://www.gnu.org/licenses/"/>.
-      </para>
-    </legalnotice>
+    <xi:include href="legalnotice.xml"/>
   </refentryinfo>
 
   <refmeta>
@@ -67,8 +45,7 @@
   <refnamediv>
     <refname><command>&COMMANDNAME;</command></refname>
     <refpurpose>
-      Generate keys for <citerefentry><refentrytitle>password-request
-      </refentrytitle><manvolnum>8mandos</manvolnum></citerefentry>
+      Generate key and password for Mandos client and server.
     </refpurpose>
   </refnamediv>
 
@@ -143,8 +120,8 @@
     <cmdsynopsis>
       <command>&COMMANDNAME;</command>
       <group choice="req">
-	<arg choice="plain"><option>-p</option></arg>
 	<arg choice="plain"><option>--password</option></arg>
+	<arg choice="plain"><option>-p</option></arg>
       </group>
       <sbr/>
       <group>
@@ -164,56 +141,56 @@
     <cmdsynopsis>
       <command>&COMMANDNAME;</command>
       <group choice="req">
-	<arg choice="plain"><option>-h</option></arg>
 	<arg choice="plain"><option>--help</option></arg>
+	<arg choice="plain"><option>-h</option></arg>
       </group>
     </cmdsynopsis>
     <cmdsynopsis>
       <command>&COMMANDNAME;</command>
       <group choice="req">
-	<arg choice="plain"><option>-v</option></arg>
 	<arg choice="plain"><option>--version</option></arg>
+	<arg choice="plain"><option>-v</option></arg>
       </group>
     </cmdsynopsis>
   </refsynopsisdiv>
-
+  
   <refsect1 id="description">
     <title>DESCRIPTION</title>
     <para>
       <command>&COMMANDNAME;</command> is a program to generate the
-      OpenPGP keys used by
+      OpenPGP key used by
       <citerefentry><refentrytitle>password-request</refentrytitle>
-      <manvolnum>8mandos</manvolnum></citerefentry>.  The keys are
+      <manvolnum>8mandos</manvolnum></citerefentry>.  The key is
       normally written to /etc/mandos for later installation into the
-      initrd image, but this, like most things, can be changed with
-      command line options.
+      initrd image, but this, and most other things, can be changed
+      with command line options.
     </para>
     <para>
-      It can also be used to generate ready-made sections for
+      This program can also be used with the
+      <option>--password</option> option to generate a ready-made
+      section for <filename>clients.conf</filename> (see
       <citerefentry><refentrytitle>mandos-clients.conf</refentrytitle>
-      <manvolnum>5</manvolnum></citerefentry> using the
-      <option>--password</option> option.
+      <manvolnum>5</manvolnum></citerefentry>).
     </para>
   </refsect1>
   
   <refsect1 id="purpose">
     <title>PURPOSE</title>
-
     <para>
       The purpose of this is to enable <emphasis>remote and unattended
       rebooting</emphasis> of client host computer with an
       <emphasis>encrypted root file system</emphasis>.  See <xref
       linkend="overview"/> for details.
     </para>
-
   </refsect1>
   
   <refsect1 id="options">
     <title>OPTIONS</title>
-
+    
     <variablelist>
       <varlistentry>
-	<term><literal>-h</literal>, <literal>--help</literal></term>
+	<term><option>--help</option></term>
+	<term><option>-h</option></term>
 	<listitem>
 	  <para>
 	    Show a help message and exit
@@ -222,8 +199,10 @@
       </varlistentry>
 
       <varlistentry>
-	<term><literal>-d</literal>, <literal>--dir
-	<replaceable>directory</replaceable></literal></term>
+	<term><option>--dir
+	<replaceable>DIRECTORY</replaceable></option></term>
+	<term><option>-d
+	<replaceable>DIRECTORY</replaceable></option></term>
 	<listitem>
 	  <para>
 	    Target directory for key files.  Default is
@@ -233,8 +212,10 @@
       </varlistentry>
 
       <varlistentry>
-	<term><literal>-t</literal>, <literal>--type
-	<replaceable>type</replaceable></literal></term>
+	<term><option>--type
+	<replaceable>TYPE</replaceable></option></term>
+	<term><option>-t
+	<replaceable>TYPE</replaceable></option></term>
 	<listitem>
 	  <para>
 	    Key type.  Default is <quote>DSA</quote>.
@@ -243,8 +224,10 @@
       </varlistentry>
 
       <varlistentry>
-	<term><literal>-l</literal>, <literal>--length
-	<replaceable>bits</replaceable></literal></term>
+	<term><option>--length
+	<replaceable>BITS</replaceable></option></term>
+	<term><option>-l
+	<replaceable>BITS</replaceable></option></term>
 	<listitem>
 	  <para>
 	    Key length in bits.  Default is 2048.
@@ -253,8 +236,10 @@
       </varlistentry>
 
       <varlistentry>
-	<term><literal>-s</literal>, <literal>--subtype
-	<replaceable>type</replaceable></literal></term>
+	<term><option>--subtype
+	<replaceable>KEYTYPE</replaceable></option></term>
+	<term><option>-s
+	<replaceable>KEYTYPE</replaceable></option></term>
 	<listitem>
 	  <para>
 	    Subkey type.  Default is <quote>ELG-E</quote> (Elgamal
@@ -264,8 +249,10 @@
       </varlistentry>
 
       <varlistentry>
-	<term><literal>-L</literal>, <literal>--sublength
-	<replaceable>bits</replaceable></literal></term>
+	<term><option>--sublength
+	<replaceable>BITS</replaceable></option></term>
+	<term><option>-L
+	<replaceable>BITS</replaceable></option></term>
 	<listitem>
 	  <para>
 	    Subkey length in bits.  Default is 2048.
@@ -274,8 +261,10 @@
       </varlistentry>
 
       <varlistentry>
-	<term><literal>-e</literal>, <literal>--email</literal>
-	<replaceable>address</replaceable></term>
+	<term><option>--email
+	<replaceable>ADDRESS</replaceable></option></term>
+	<term><option>-e
+	<replaceable>ADDRESS</replaceable></option></term>
 	<listitem>
 	  <para>
 	    Email address of key.  Default is empty.
@@ -284,8 +273,10 @@
       </varlistentry>
 
       <varlistentry>
-	<term><literal>-c</literal>, <literal>--comment</literal>
-	<replaceable>comment</replaceable></term>
+	<term><option>--comment
+	<replaceable>TEXT</replaceable></option></term>
+	<term><option>-c
+	<replaceable>TEXT</replaceable></option></term>
 	<listitem>
 	  <para>
 	    Comment field for key.  The default value is
@@ -295,8 +286,10 @@
       </varlistentry>
 
       <varlistentry>
-	<term><literal>-x</literal>, <literal>--expire</literal>
-	<replaceable>time</replaceable></term>
+	<term><option>--expire
+	<replaceable>TIME</replaceable></option></term>
+	<term><option>-x
+	<replaceable>TIME</replaceable></option></term>
 	<listitem>
 	  <para>
 	    Key expire time.  Default is no expiration.  See
@@ -307,16 +300,17 @@
       </varlistentry>
 
       <varlistentry>
-	<term><literal>-f</literal>, <literal>--force</literal></term>
+	<term><option>--force</option></term>
+	<term><option>-f</option></term>
 	<listitem>
 	  <para>
-	    Force overwriting old keys.
+	    Force overwriting old key.
 	  </para>
 	</listitem>
       </varlistentry>
       <varlistentry>
-	<term><literal>-p</literal>, <literal>--password</literal
-	></term>
+	<term><option>--password</option></term>
+	<term><option>-p</option></term>
 	<listitem>
 	  <para>
 	    Prompt for a password and encrypt it with the key already
@@ -328,7 +322,7 @@
 	    >8</manvolnum></citerefentry>.  The host name or the name
 	    specified with the <option>--name</option> option is used
 	    for the section header.  All other options are ignored,
-	    and no keys are created.
+	    and no key is created.
 	  </para>
 	</listitem>
       </varlistentry>
@@ -340,15 +334,17 @@
     <xi:include href="overview.xml"/>
     <para>
       This program is a small utility to generate new OpenPGP keys for
-      new Mandos clients.
+      new Mandos clients, and to generate sections for inclusion in
+      <filename>clients.conf</filename> on the server.
     </para>
   </refsect1>
 
   <refsect1 id="exit_status">
     <title>EXIT STATUS</title>
     <para>
-      The exit status will be 0 if new keys were successfully created,
-      otherwise not.
+      The exit status will be 0 if a new key (or password, if the
+      <option>--password</option> option was used) was successfully
+      created, otherwise not.
     </para>
   </refsect1>
   
@@ -425,13 +421,36 @@
     </informalexample>
     <informalexample>
       <para>
-	Create keys in another directory and of another type.  Force
+	Create key in another directory and of another type.  Force
 	overwriting old key files:
       </para>
       <para>
 
 <!-- do not wrap this line -->
 <userinput>&COMMANDNAME; --dir ~/keydir --type RSA --force</userinput>
+
+      </para>
+    </informalexample>
+    <informalexample>
+      <para>
+	Prompt for a password, encrypt it with the key in
+	<filename>/etc/mandos</filename> and output a section suitable
+	for <filename>clients.conf</filename>.
+      </para>
+      <para>
+	<userinput>&COMMANDNAME; --password</userinput>
+      </para>
+    </informalexample>
+    <informalexample>
+      <para>
+	Prompt for a password, encrypt it with the key in the
+	<filename>client-key</filename> directory and output a section
+	suitable for <filename>clients.conf</filename>.
+      </para>
+      <para>
+
+<!-- do not wrap this line -->
+<userinput>&COMMANDNAME; --password --dir client-key</userinput>
 
       </para>
     </informalexample>
@@ -442,12 +461,12 @@
     <para>
       The <option>--type</option>, <option>--length</option>,
       <option>--subtype</option>, and <option>--sublength</option>
-      options can be used to create keys of insufficient security.  If
-      in doubt, leave them to the default values.
+      options can be used to create keys of low security.  If in
+      doubt, leave them to the default values.
     </para>
     <para>
-      The key expire time is not guaranteed to be honored by
-      <citerefentry><refentrytitle>mandos</refentrytitle>
+      The key expire time is <emphasis>not</emphasis> guaranteed to be
+      honored by <citerefentry><refentrytitle>mandos</refentrytitle>
       <manvolnum>8</manvolnum></citerefentry>.
     </para>
   </refsect1>
@@ -457,6 +476,8 @@
     <para>
       <citerefentry><refentrytitle>gpg</refentrytitle>
       <manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>mandos-clients.conf</refentrytitle>
+      <manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>mandos</refentrytitle>
       <manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>password-request</refentrytitle>
