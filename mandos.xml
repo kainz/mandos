@@ -149,51 +149,55 @@
       <emphasis>encrypted root file system</emphasis>.  See <xref
       linkend="overview"/> for details.
     </para>
-
+    
   </refsect1>
   
   <refsect1 id="options">
     <title>OPTIONS</title>
-
+    
     <variablelist>
       <varlistentry>
-	<term><option>-h</option></term>
 	<term><option>--help</option></term>
+	<term><option>-h</option></term>
 	<listitem>
 	  <para>
 	    Show a help message and exit
 	  </para>
 	</listitem>
       </varlistentry>
-
+      
       <varlistentry>
-	<term><option>-i</option>
-	<replaceable>NAME</replaceable></term>
 	<term><option>--interface</option>
+	<replaceable>NAME</replaceable></term>
+	<term><option>-i</option>
 	<replaceable>NAME</replaceable></term>
 	<listitem>
 	  <xi:include href="mandos-options.xml" xpointer="interface"/>
 	</listitem>
       </varlistentry>
-
+      
       <varlistentry>
-	<term><literal>-a</literal>, <literal>--address <replaceable>
-	ADDRESS</replaceable></literal></term>
+	<term><option>--address
+	<replaceable>ADDRESS</replaceable></option></term>
+	<term><option>-a
+	<replaceable>ADDRESS</replaceable></option></term>
 	<listitem>
 	  <xi:include href="mandos-options.xml" xpointer="address"/>
 	</listitem>
       </varlistentry>
-
+      
       <varlistentry>
-	<term><literal>-p</literal>, <literal>--port <replaceable>
-	PORT</replaceable></literal></term>
+	<term><option>--port
+	<replaceable>PORT</replaceable></option></term>
+	<term><option>-p
+	<replaceable>PORT</replaceable></option></term>
 	<listitem>
 	  <xi:include href="mandos-options.xml" xpointer="port"/>
 	</listitem>
       </varlistentry>
-
+      
       <varlistentry>
-	<term><literal>--check</literal></term>
+	<term><option>--check</option></term>
 	<listitem>
 	  <para>
 	    Run the server’s self-tests.  This includes any unit
@@ -201,25 +205,25 @@
 	  </para>
 	</listitem>
       </varlistentry>
-
+      
       <varlistentry>
-	<term><literal>--debug</literal></term>
+	<term><option>--debug</option></term>
 	<listitem>
 	  <xi:include href="mandos-options.xml" xpointer="debug"/>
 	</listitem>
       </varlistentry>
 
       <varlistentry>
-	<term><literal>--priority <replaceable>
-	PRIORITY</replaceable></literal></term>
+	<term><option>--priority <replaceable>
+	PRIORITY</replaceable></option></term>
 	<listitem>
 	  <xi:include href="mandos-options.xml" xpointer="priority"/>
 	</listitem>
       </varlistentry>
 
       <varlistentry>
-	<term><literal>--servicename <replaceable>NAME</replaceable>
-	</literal></term>
+	<term><option>--servicename
+	<replaceable>NAME</replaceable></option></term>
 	<listitem>
 	  <xi:include href="mandos-options.xml"
 		      xpointer="servicename"/>
@@ -227,8 +231,8 @@
       </varlistentry>
 
       <varlistentry>
-	<term><literal>--configdir <replaceable>DIR</replaceable>
-	</literal></term>
+	<term><option>--configdir
+	<replaceable>DIRECTORY</replaceable></option></term>
 	<listitem>
 	  <para>
 	    Directory to search for configuration files.  Default is
@@ -242,7 +246,7 @@
       </varlistentry>
 
       <varlistentry>
-	<term><literal>--version</literal></term>
+	<term><option>--version</option></term>
 	<listitem>
 	  <para>
 	    Prints the program version and exit.
