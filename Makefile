@@ -58,13 +58,13 @@ all: $(PROGS)
 
 doc: $(DOCS)
 
-%.5: %.xml
+%.5: %.xml legalnotice.xml
 	$(DOCBOOKTOMAN)
 
-%.8: %.xml
+%.8: %.xml legalnotice.xml
 	$(DOCBOOKTOMAN)
 
-%.8mandos: %.xml
+%.8mandos: %.xml legalnotice.xml
 	$(DOCBOOKTOMAN)
 
 mandos.8: mandos.xml mandos-options.xml

@@ -89,7 +89,7 @@
 
 * Man pages
 ** Use xinclude for common sections
-   Like copyright, authors, etc.
+   Like authors, etc.
 
 
 * Installer
