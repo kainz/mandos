@@ -5,7 +5,7 @@
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY VERSION "1.0">
 <!ENTITY COMMANDNAME "plugin-runner">
-<!ENTITY TIMESTAMP "2008-08-30">
+<!ENTITY TIMESTAMP "2008-08-31">
 ]>
 
 <refentry>
@@ -172,8 +172,10 @@
     <title>OPTIONS</title>
     <variablelist>
       <varlistentry>
-	<term><literal>-g</literal>,<literal>--global-options
-	<replaceable>OPTIONS</replaceable></literal></term>
+	<term><option>--global-options
+	<replaceable>OPTIONS</replaceable></option></term>
+	<term><option>-g
+	<replaceable>OPTIONS</replaceable></option></term>
 	<listitem>
 	  <para>
 	    Global options given to all plugins as additional start
@@ -184,9 +186,12 @@
       </varlistentry>
 
       <varlistentry>
-	<term><literal>-o</literal>,<literal> --options-for
-	<replaceable>PLUGIN</replaceable>:<replaceable>OPTION</replaceable>
-	</literal></term>
+	<term><option>--options-for
+	<replaceable>PLUGIN</replaceable><literal>:</literal
+	><replaceable>OPTION</replaceable></option></term>
+	<term><option>-o
+	<replaceable>PLUGIN</replaceable><literal>:</literal
+	><replaceable>OPTION</replaceable></option></term>
 	<listitem>
 	  <para>
 	    Plugin specific options given to the plugin as additional
@@ -197,9 +202,10 @@
       </varlistentry>
 
       <varlistentry>
-	<term><literal>-d</literal>,<literal> --disable
-	<replaceable>PLUGIN</replaceable>
-	</literal></term>
+	<term><option> --disable
+	<replaceable>PLUGIN</replaceable></option></term>
+	<term><option>-d
+	<replaceable>PLUGIN</replaceable></option></term>
 	<listitem>
 	  <para>
 	    Disable a specific plugin
@@ -208,8 +214,8 @@
       </varlistentry>
 
       <varlistentry>
-	<term><literal>--groupid <replaceable>ID</replaceable>
-	</literal></term>
+	<term><option>--groupid
+	<replaceable>ID</replaceable></option></term>
 	<listitem>
 	  <para>
 	    Group ID the plugins will run as
@@ -218,8 +224,8 @@
       </varlistentry>
 
       <varlistentry>
-	<term><literal>--userid <replaceable>ID</replaceable>
-	</literal></term>
+	<term><option>--userid
+	<replaceable>ID</replaceable></option></term>
 	<listitem>
 	  <para>
 	    User ID the plugins will run as
@@ -228,8 +234,8 @@
       </varlistentry>
 
       <varlistentry>
-	<term><literal>--plugin-dir <replaceable>DIRECTORY</replaceable>
-	</literal></term>
+	<term><option>--plugin-dir
+	<replaceable>DIRECTORY</replaceable></option></term>
 	<listitem>
 	  <para>
 	    Specify a different plugin directory
@@ -238,7 +244,7 @@
       </varlistentry>
       
       <varlistentry>
-	<term><literal>--debug</literal></term>
+	<term><option>--debug</option></term>
 	<listitem>
 	  <para>
 	    Debug mode
@@ -247,7 +253,8 @@
       </varlistentry>
       
       <varlistentry>
-	<term><literal>-?</literal>, <literal>--help</literal></term>
+	<term><option>--help</option></term>
+	<term><option>-?</option></term>
 	<listitem>
 	  <para>
 	    Gives a help message
@@ -256,7 +263,7 @@
       </varlistentry>
       
       <varlistentry>
-	<term><literal>--usage</literal></term>
+	<term><option>--usage</option></term>
 	<listitem>
 	  <para>
 	    Gives a short usage message
@@ -265,7 +272,8 @@
       </varlistentry>
 
       <varlistentry>
-	<term><literal>-V</literal>, <literal>--version</literal></term>
+	<term><option>--version</option></term>
+	<term><option>-V</option></term>
 	<listitem>
 	  <para>
 	    Prints the program version
