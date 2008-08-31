@@ -109,7 +109,7 @@
 **** DONE mandos.xml
 **** DONE plugin-runner.xml
 **** DONE plugins.d/password-prompt.xml
-**** TODO plugins.d/password-request.xml
+**** DONE plugins.d/password-request.xml
 ** Use xinclude for common sections
    Like copyright, authors, etc.
 
