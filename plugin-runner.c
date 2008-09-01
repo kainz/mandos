@@ -132,7 +132,7 @@ static plugin *getplugin(char *name){
   }
   new_plugin->argv[0] = copy_name;
   new_plugin->argv[1] = NULL;
-
+  
   new_plugin->environ = malloc(sizeof(char *));
   if(new_plugin->environ == NULL){
     free(copy_name);
@@ -141,7 +141,7 @@ static plugin *getplugin(char *name){
     return NULL;
   }
   new_plugin->environ[0] = NULL;
-
+  
   /* Append the new plugin to the list */
   plugin_list = new_plugin;
   return new_plugin;
@@ -182,6 +182,15 @@ static bool add_argument(plugin *p, const char *arg){
 static bool add_environment(plugin *p, const char *def){
   if(p == NULL){
     return false;
+  }
+  /* namelen = length of name of environment variable */
+  size_t namelen = (size_t)(strchrnul(def, '=') - def);
+  /* Search for this environment variable */
+  for(char **e = p->environ; *e != NULL; e++){
+    if(strncmp(*e, def, namelen+1) == 0){
+      /* Refuse to add an existing variable */
+      return true;
+    }
   }
   return add_to_char_array(def, &(p->environ), &(p->envc));
 }
@@ -327,13 +336,13 @@ int main(int argc, char *argv[]){
     { .name = "global-options", .key = 'g',
       .arg = "OPTION[,OPTION[,...]]",
       .doc = "Options passed to all plugins" },
-    { .name = "global-envs", .key = 'e',
+    { .name = "global-env", .key = 'e',
       .arg = "VAR=value",
       .doc = "Environment variable passed to all plugins" },
     { .name = "options-for", .key = 'o',
       .arg = "PLUGIN:OPTION[,OPTION[,...]]",
       .doc = "Options passed only to specified plugin" },
-    { .name = "envs-for", .key = 'f',
+    { .name = "env-for", .key = 'f',
       .arg = "PLUGIN:ENV=value",
       .doc = "Environment variable passed to specified plugin" },
     { .name = "disable", .key = 'd',
@@ -375,7 +384,7 @@ int main(int argc, char *argv[]){
 	}
       }
       break;
-    case 'e':			/* --global-envs */
+    case 'e':			/* --global-env */
       if(arg == NULL){
 	break;
       }
@@ -413,7 +422,7 @@ int main(int argc, char *argv[]){
 	}
       }
       break;
-    case 'f':			/* --envs-for */
+    case 'f':			/* --env-for */
       if(arg == NULL){
 	break;
       }
