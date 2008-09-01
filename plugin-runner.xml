@@ -53,7 +53,7 @@
     <cmdsynopsis>
       <command>&COMMANDNAME;</command>
       <group rep="repeat">
-	<arg choice="plain"><option>--global-envs=<replaceable
+	<arg choice="plain"><option>--global-env=<replaceable
 	>VAR</replaceable><literal>=</literal><replaceable
 	>value</replaceable></option></arg>
 	<arg choice="plain"><option>-e
@@ -62,7 +62,7 @@
       </group>
       <sbr/>
       <group rep="repeat">
-	<arg choice="plain"><option>--envs-for=<replaceable
+	<arg choice="plain"><option>--env-for=<replaceable
 	>PLUGIN</replaceable><literal>:</literal><replaceable
 	>ENV</replaceable><literal>=</literal><replaceable
 	>value</replaceable></option></arg>
@@ -158,6 +158,35 @@
   <refsect1>
     <title>OPTIONS</title>
     <variablelist>
+      <varlistentry>
+	<term><option>--global-env
+	<replaceable>VAR</replaceable><literal>=</literal><replaceable
+	>value</replaceable></option></term>
+	<term><option>-e
+	<replaceable>VAR</replaceable><literal>=</literal><replaceable
+	>value</replaceable></option></term>
+	<listitem>
+	  <para>
+	    
+	  </para>
+	</listitem>
+      </varlistentry>
+      
+      <varlistentry>
+	<term><option>--env-for
+	<replaceable>PLUGIN</replaceable><literal>:</literal
+	><replaceable>ENV</replaceable><literal>=</literal
+	><replaceable>value</replaceable></option></term>
+	<term><option>-f
+	<replaceable>PLUGIN</replaceable><literal>:</literal
+	><replaceable>ENV</replaceable><literal>=</literal
+	><replaceable>value</replaceable></option></term>
+	<listitem>
+	  <para>
+	  </para>
+	</listitem>
+      </varlistentry>
+      
       <varlistentry>
 	<term><option>--global-options
 	<replaceable>OPTIONS</replaceable></option></term>
@@ -326,32 +355,61 @@
       <filename>/lib/mandos/plugins.d</filename>, but this can be
       changed with the <option>--plugin-dir</option> option.  The
       plugins are started in parallel, and the first plugin to output
-      a password and exit with a successful exit code will make this
-      plugin-runner output that password, stop any other plugins, and
-      exit.
+      a password <emphasis>and</emphasis> exit with a successful exit
+      code will make this plugin-runner output the password from that
+      plugin, stop any other plugins, and exit.
     </para>
   </refsect1>
   
-  <refsect1>
+  <refsect1 id="fallback">
     <title>FALLBACK</title>
     <para>
+      If no plugins succeed, this program will, as a fallback, ask for
+      a password on the console using <citerefentry><refentrytitle
+      >getpass</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      and output it.  This is not meant to be the normal mode of
+      operation, as there is a separate plugin for getting a password
+      from the console.
     </para>
   </refsect1>
+  
   <refsect1 id="exit_status">
     <title>EXIT STATUS</title>
     <para>
+      Exit status of this program is zero if no errors were
+      encountered, and otherwise not.  The fallback (see <xref
+      linkend="fallback"/>) may or may not have succeeded in either
+      case.
     </para>
   </refsect1>
-
+  
+  <refsect1 id="environment">
+    <title>ENVIRONMENT</title>
+    <para>
+      
+    </para>
+  </refsect1>
+  
   <refsect1 id="file">
     <title>FILES</title>
     <para>
-    </para>
-  </refsect1>
-
-  <refsect1 id="notes">
-    <title>NOTES</title>
-    <para>
+      <variablelist>
+	<varlistentry>
+	  <term><filename
+	  >/conf/conf.d/mandos/plugin-runner.conf</filename></term>
+	  <listitem>
+	    <para>
+	      Since this program will be run as a keyscript, there is
+	      little to no opportunity to pass command line arguments
+	      to it.  Therefore, it will <emphasis>also</emphasis>
+	      read this file and use its contents as
+	      whitespace-separated command line options.  Also,
+	      everything from a <quote>#</quote> character to the end
+	      of a line is ignored.
+	    </para>
+	  </listitem>
+	</varlistentry>
+      </variablelist>
     </para>
   </refsect1>
   
@@ -360,19 +418,19 @@
     <para>
     </para>
   </refsect1>
-
+  
   <refsect1 id="examples">
     <title>EXAMPLE</title>
     <para>
     </para>
   </refsect1>
-
+  
   <refsect1 id="security">
     <title>SECURITY</title>
     <para>
     </para>
   </refsect1>
-
+  
   <refsect1 id="see_also">
     <title>SEE ALSO</title>
     <para>
@@ -386,7 +444,7 @@
       <manvolnum>8mandos</manvolnum></citerefentry>
     </para>
   </refsect1>
-
+  
 </refentry>
 <!-- Local Variables: -->
 <!-- time-stamp-start: "<!ENTITY TIMESTAMP [\"']" -->
