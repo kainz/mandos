@@ -167,7 +167,9 @@
 	>value</replaceable></option></term>
 	<listitem>
 	  <para>
-	    
+	    This option will add an environment variable setting to
+	    all plugins.  This will override any inherited environment
+	    variable.
 	  </para>
 	</listitem>
       </varlistentry>
@@ -183,6 +185,11 @@
 	><replaceable>value</replaceable></option></term>
 	<listitem>
 	  <para>
+	    This option will add an environment variable setting to
+	    the <replaceable>PLUGIN</replaceable> plugin.  This will
+	    override any inherited environment variables or
+	    environment variables specified using
+	    <option>--global-env</option>.
 	  </para>
 	</listitem>
       </varlistentry>
@@ -407,6 +414,11 @@
 	      everything from a <quote>#</quote> character to the end
 	      of a line is ignored.
 	    </para>
+	    <para>
+	      This file will be processed <emphasis>before</emphasis>
+	      the normal command line options, so the latter can
+	      override the former, if need be.
+	    </para>
 	  </listitem>
 	</varlistentry>
       </variablelist>
@@ -416,6 +428,8 @@
   <refsect1 id="bugs">
     <title>BUGS</title>
     <para>
+      There is no <option>--enable</option> option to enable disabled
+      plugins.
     </para>
   </refsect1>
   

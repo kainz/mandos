@@ -179,7 +179,7 @@ static bool add_argument(plugin *p, const char *arg){
 }
 
 /* Add to a plugin's environment */
-static bool add_environment(plugin *p, const char *def){
+static bool add_environment(plugin *p, const char *def, bool replace){
   if(p == NULL){
     return false;
   }
@@ -188,7 +188,15 @@ static bool add_environment(plugin *p, const char *def){
   /* Search for this environment variable */
   for(char **e = p->environ; *e != NULL; e++){
     if(strncmp(*e, def, namelen+1) == 0){
-      /* Refuse to add an existing variable */
+      /* It already exists */
+      if(replace){
+	char *new = realloc(*e, strlen(def));
+	if(new == NULL){
+	  return false;
+	}
+	*e = new;
+	strcpy(*e, def);
+      }
       return true;
     }
   }
@@ -393,7 +401,7 @@ int main(int argc, char *argv[]){
 	if(envdef == NULL){
 	  break;
 	}
-	if(not add_environment(getplugin(NULL), envdef)){
+	if(not add_environment(getplugin(NULL), envdef, true)){
 	  perror("add_environment");
 	}
       }
@@ -436,7 +444,7 @@ int main(int argc, char *argv[]){
 	  break;
 	}
 	envdef++;
-	if(not add_environment(getplugin(p_name), envdef)){
+	if(not add_environment(getplugin(p_name), envdef, true)){
 	  perror("add_environment");
 	}
       }
@@ -483,17 +491,10 @@ int main(int argc, char *argv[]){
   }
   
   struct argp argp = { .options = options, .parser = parse_opt,
-		       .args_doc = "[+PLUS_SEPARATED_OPTIONS]",
+		       .args_doc = "",
 		       .doc = "Mandos plugin runner -- Run plugins" };
   
-  ret = argp_parse (&argp, argc, argv, 0, 0, NULL);
-  if (ret == ARGP_ERR_UNKNOWN){
-    fprintf(stderr, "Unknown error while parsing arguments\n");
-    exitstatus = EXIT_FAILURE;
-    goto fallback;
-  }
-
-  /* Opens the configfile if aviable */
+  /* Open the configfile if available */
   if (argfile == NULL){
     conffp = fopen(AFILE, "r");
   } else {
@@ -553,7 +554,7 @@ int main(int argc, char *argv[]){
       }
     }
     free(org_line);
-  } else{
+  } else {
     /* Check for harmful errors and go to fallback. Other errors might
        not affect opening plugins */
     if (errno == EMFILE or errno == ENFILE or errno == ENOMEM){
@@ -565,12 +566,22 @@ int main(int argc, char *argv[]){
   /* If there was any arguments from configuration file,
      pass them to parser as command arguments */
   if(custom_argv != NULL){
-    ret = argp_parse (&argp, custom_argc, custom_argv, 0, 0, NULL);
+    ret = argp_parse (&argp, custom_argc, custom_argv, ARGP_IN_ORDER,
+		      0, NULL);
     if (ret == ARGP_ERR_UNKNOWN){
       fprintf(stderr, "Unknown error while parsing arguments\n");
       exitstatus = EXIT_FAILURE;
       goto fallback;
     }
+  }
+  
+  /* Parse actual command line arguments, to let them override the
+     config file */
+  ret = argp_parse (&argp, argc, argv, ARGP_IN_ORDER, 0, NULL);
+  if (ret == ARGP_ERR_UNKNOWN){
+    fprintf(stderr, "Unknown error while parsing arguments\n");
+    exitstatus = EXIT_FAILURE;
+    goto fallback;
   }
   
   if(debug){
@@ -586,7 +597,7 @@ int main(int argc, char *argv[]){
       }
     }
   }
-
+  
   /* Strip permissions down to nobody */
   ret = setuid(uid);
   if (ret == -1){
@@ -596,7 +607,7 @@ int main(int argc, char *argv[]){
   if (ret == -1){
     perror("setgid");
   }
-
+  
   if (plugindir == NULL){
     dir = opendir(PDIR);
   } else {
@@ -623,12 +634,12 @@ int main(int argc, char *argv[]){
   }
   
   FD_ZERO(&rfds_all);
-
+  
   /* Read and execute any executable in the plugin directory*/
   while(true){
     dirst = readdir(dir);
     
-    // All directory entries have been processed
+    /* All directory entries have been processed */
     if(dirst == NULL){
       if (errno == EBADF){
 	perror("readdir");
@@ -640,7 +651,7 @@ int main(int argc, char *argv[]){
     
     d_name_len = strlen(dirst->d_name);
     
-    // Ignore dotfiles, backup files and other junk
+    /* Ignore dotfiles, backup files and other junk */
     {
       bool bad_name = false;
       
@@ -732,7 +743,7 @@ int main(int argc, char *argv[]){
 	}
 	/* Add global environment variables */
 	for(char **e = g->environ; *e != NULL; e++){
-	  if(not add_environment(p, *e)){
+	  if(not add_environment(p, *e, false)){
 	    perror("add_environment");
 	  }
 	}
@@ -743,12 +754,7 @@ int main(int argc, char *argv[]){
        process, too. */
     if(p->environ[0] != NULL){
       for(char **e = environ; *e != NULL; e++){
-	char *copy = strdup(*e);
-	if(copy == NULL){
-	  perror("strdup");
-	  continue;
-	}
-	if(not add_environment(p, copy)){
+	if(not add_environment(p, *e, false)){
 	  perror("add_environment");
 	}
       }
@@ -781,7 +787,7 @@ int main(int argc, char *argv[]){
       exitstatus = EXIT_FAILURE;
       goto fallback;
     }
-    // Starting a new process to be watched
+    /* Starting a new process to be watched */
     pid_t pid = fork();
     if(pid == -1){
       perror("fork");
