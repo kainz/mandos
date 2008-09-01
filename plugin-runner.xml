@@ -3,7 +3,7 @@
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY VERSION "1.0">
 <!ENTITY COMMANDNAME "plugin-runner">
-<!ENTITY TIMESTAMP "2008-08-31">
+<!ENTITY TIMESTAMP "2008-09-01">
 ]>
 
 <refentry xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -125,26 +125,36 @@
       </group>
     </cmdsynopsis>
   </refsynopsisdiv>
-
+  
   <refsect1 id="description">
     <title>DESCRIPTION</title>
     <para>
-      <command>&COMMANDNAME;</command> is a plugin runner that waits
-      for any of its plugins to return sucessfull with a password, and
-      passes it to cryptsetup as stdout message. This command is not
-      meant to be invoked directly, but is instead meant to be run by
-      cryptsetup by being specified in /etc/crypttab as a keyscript
-      and subsequlently started in the initrd environment. See
-      <citerefentry><refentrytitle>crypttab</refentrytitle>
-      <manvolnum>5</manvolnum></citerefentry> for more information on
-      keyscripts.
+      <command>&COMMANDNAME;</command> is a program which is meant to
+      be specified as <quote>keyscript</quote> in <citerefentry>
+      <refentrytitle>crypttab</refentrytitle>
+      <manvolnum>5</manvolnum></citerefentry> for the root disk.  The
+      aim of this program is therefore to output a password, which
+      then <citerefentry><refentrytitle>cryptsetup</refentrytitle>
+      <manvolnum>8</manvolnum></citerefentry> will use to try and
+      unlock the root disk.
     </para>
-
     <para>
-      plugins is looked for in the plugins directory which by default will be
-      /conf/conf.d/mandos/plugins.d if not changed by option --plugin-dir.
+      This program is not meant to be invoked directly, but can be in
+      order to test it.  Note that any password obtained will simply
+      be output on standard output.
     </para>
   </refsect1>
+  
+  <refsect1 id="purpose">
+    <title>PURPOSE</title>
+    <para>
+      The purpose of this is to enable <emphasis>remote and unattended
+      rebooting</emphasis> of client host computer with an
+      <emphasis>encrypted root file system</emphasis>.  See <xref
+      linkend="overview"/> for details.
+    </para>
+  </refsect1>
+  
   <refsect1>
     <title>OPTIONS</title>
     <variablelist>
@@ -155,13 +165,15 @@
 	<replaceable>OPTIONS</replaceable></option></term>
 	<listitem>
 	  <para>
-	    Global options given to all plugins as additional start
-	    arguments.  Options are specified with a -o flag followed
-	    by a comma separated string of options.
-	  </para>	
+	    Pass some options to <emphasis>all</emphasis> plugins.
+	    <replaceable>OPTIONS</replaceable> is a comma separated
+	    list of options.  This is not a very useful option, except
+	    for specifying the <quote><option>--debug</option></quote>
+	    for all plugins.
+	  </para>
 	</listitem>
       </varlistentry>
-
+      
       <varlistentry>
 	<term><option>--options-for
 	<replaceable>PLUGIN</replaceable><literal>:</literal
@@ -171,10 +183,22 @@
 	><replaceable>OPTION</replaceable></option></term>
 	<listitem>
 	  <para>
-	    Plugin specific options given to the plugin as additional
-	    start arguments.  Options are specified with a -o flag
-	    followed by a comma separated string of options.
-	  </para>	
+	    Pass some options to a specific plugin.  <replaceable
+	    >PLUGIN</replaceable> is the name (file basename) of a
+	    plugin, and <replaceable>OPTIONS</replaceable> is a comma
+	    separated list of options.
+	  </para>
+	  <para>
+	    Note that since options are not split on whitespace, the
+	    way to pass, to the plugin
+	    <quote><filename>foo</filename></quote>, the option
+	    <option>--bar</option> with the option argument
+	    <quote>baz</quote> is either
+	    <userinput>--options-for=foo:--bar=baz</userinput> or
+	    <userinput>--options-for=foo:--bar,baz</userinput>, but
+	    <emphasis>not</emphasis>
+	    <userinput>--options-for="foo:--bar baz"</userinput>.
+	  </para>
 	</listitem>
       </varlistentry>
 
@@ -185,7 +209,9 @@
 	<replaceable>PLUGIN</replaceable></option></term>
 	<listitem>
 	  <para>
-	    Disable a specific plugin
+	    Disable the plugin named
+	    <replaceable>PLUGIN</replaceable>.  The plugin will not be
+	    started.
 	  </para>	
 	</listitem>
       </varlistentry>
@@ -195,7 +221,10 @@
 	<replaceable>ID</replaceable></option></term>
 	<listitem>
 	  <para>
-	    Group ID the plugins will run as
+	    Change to group ID <replaceable>ID</replaceable> on
+	    startup.  The default is 65534.  All plugins will be
+	    started using this group ID.  <emphasis>Note:</emphasis>
+	    This must be a number, not a name.
 	  </para>
 	</listitem>
       </varlistentry>
@@ -205,7 +234,10 @@
 	<replaceable>ID</replaceable></option></term>
 	<listitem>
 	  <para>
-	    User ID the plugins will run as
+	    Change to user ID <replaceable>ID</replaceable> on
+	    startup.  The default is 65534.  All plugins will be
+	    started using this user ID.  <emphasis>Note:</emphasis>
+	    This must be a number, not a name.
 	  </para>
 	</listitem>
       </varlistentry>
@@ -215,7 +247,10 @@
 	<replaceable>DIRECTORY</replaceable></option></term>
 	<listitem>
 	  <para>
-	    Specify a different plugin directory
+	    Specify a different plugin directory.  The default is
+	    <filename>/lib/mandos/plugins.d</filename>, which will
+	    exist in the initial <acronym>RAM</acronym> disk
+	    environment.
 	  </para>
 	</listitem>
       </varlistentry>
@@ -224,7 +259,17 @@
 	<term><option>--debug</option></term>
 	<listitem>
 	  <para>
-	    Debug mode
+	    Enable debug mode.  This will enable a lot of output to
+	    standard error about what the program is doing.  The
+	    program will still perform all other functions normally.
+	    The default is to <emphasis>not</emphasis> run in debug
+	    mode.
+	  </para>
+	  <para>
+	    The plugins will <emphasis>not</emphasis> be affected by
+	    this option.  Use
+	    <userinput><option>--global-options=--debug</option></userinput>
+	    if complete debugging eruption is desired.
 	  </para>
 	</listitem>
       </varlistentry>
@@ -234,7 +279,7 @@
 	<term><option>-?</option></term>
 	<listitem>
 	  <para>
-	    Gives a help message
+	    Gives a help message about options and their meanings.
 	  </para>
 	</listitem>
       </varlistentry>
@@ -243,7 +288,7 @@
 	<term><option>--usage</option></term>
 	<listitem>
 	  <para>
-	    Gives a short usage message
+	    Gives a short usage message.
 	  </para>
 	</listitem>
       </varlistentry>
@@ -253,13 +298,45 @@
 	<term><option>-V</option></term>
 	<listitem>
 	  <para>
-	    Prints the program version
+	    Prints the program version.
 	  </para>
 	</listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
 
+  <refsect1 id="overview">
+    <title>OVERVIEW</title>
+    <xi:include href="overview.xml"/>
+    <para>
+      This program will run on the client side in the initial
+      <acronym>RAM</acronym> disk environment, and is responsible for
+      getting a password.  It does this by running plugins, one of
+      which will normally be the actual client program communicating
+      with the server.
+    </para>
+  </refsect1>
+  <refsect1 id="plugins">
+    <title>PLUGINS</title>
+    <para>
+      This program will get a password by running a number of
+      <firstterm>plugins</firstterm>, which are simply executable
+      programs in a directory in the initial <acronym>RAM</acronym>
+      disk environment.  The default directory is
+      <filename>/lib/mandos/plugins.d</filename>, but this can be
+      changed with the <option>--plugin-dir</option> option.  The
+      plugins are started in parallel, and the first plugin to output
+      a password and exit with a successful exit code will make this
+      plugin-runner output that password, stop any other plugins, and
+      exit.
+    </para>
+  </refsect1>
+  
+  <refsect1>
+    <title>FALLBACK</title>
+    <para>
+    </para>
+  </refsect1>
   <refsect1 id="exit_status">
     <title>EXIT STATUS</title>
     <para>
