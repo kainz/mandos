@@ -375,8 +375,6 @@ int main(int argc, char *argv[]){
   
   error_t parse_opt (int key, char *arg, __attribute__((unused))
 		     struct argp_state *state) {
-    /* Get the INPUT argument from `argp_parse', which we know is a
-       pointer to our plugin list pointer. */
     switch (key) {
     case 'g': 			/* --global-options */
       if (arg != NULL){
@@ -465,11 +463,8 @@ int main(int argc, char *argv[]){
       }      
       break;
     case 129:			/* --config-file */
-      argfile = strdup(arg);
-      if(argfile == NULL){
-	perror("strdup");
-      }
-      break;      
+      /* This is already done by parse_opt_config_file() */
+      break;
     case 130:			/* --userid */
       uid = (uid_t)strtol(arg, NULL, 10);
       break;
@@ -490,9 +485,53 @@ int main(int argc, char *argv[]){
     return 0;
   }
   
-  struct argp argp = { .options = options, .parser = parse_opt,
+  /* This option parser is the same as parse_opt() above, except it
+     ignores everything but the --config-file option. */
+  error_t parse_opt_config_file (int key, char *arg,
+				 __attribute__((unused))
+				 struct argp_state *state) {
+    switch (key) {
+    case 'g': 			/* --global-options */
+    case 'e':			/* --global-env */
+    case 'o':			/* --options-for */
+    case 'f':			/* --env-for */
+    case 'd':			/* --disable */
+    case 128:			/* --plugin-dir */
+      break;
+    case 129:			/* --config-file */
+      argfile = strdup(arg);
+      if(argfile == NULL){
+	perror("strdup");
+      }
+      break;      
+    case 130:			/* --userid */
+    case 131:			/* --groupid */
+    case 132:			/* --debug */
+    case ARGP_KEY_ARG:
+    case ARGP_KEY_END:
+      break;
+    default:
+      return ARGP_ERR_UNKNOWN;
+    }
+    return 0;
+  }
+  
+  struct argp argp = { .options = options,
+		       .parser = parse_opt_config_file,
 		       .args_doc = "",
 		       .doc = "Mandos plugin runner -- Run plugins" };
+  
+  /* Parse using the parse_opt_config_file in order to get the custom
+     config file location, if any. */
+  ret = argp_parse (&argp, argc, argv, ARGP_IN_ORDER, 0, NULL);
+  if (ret == ARGP_ERR_UNKNOWN){
+    fprintf(stderr, "Unknown error while parsing arguments\n");
+    exitstatus = EXIT_FAILURE;
+    goto fallback;
+  }
+  
+  /* Reset to the normal argument parser */
+  argp.parser = parse_opt;
   
   /* Open the configfile if available */
   if (argfile == NULL){
