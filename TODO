@@ -9,8 +9,6 @@
 
 * password-request
 ** [#A] Man page: man8/password-request.8mandos
-*** SYNOPSIS
-    Document short options
 *** DESCRIPTION
     State that this command is not meant to be invoked directly, but
     is run as a plugin from mandos-client(8) and only run in the

@@ -5,6 +5,8 @@
 <!--
 This file is used by both mandos(8) and mandos.conf(5), since these
 options can be used both on the command line and in the config file.
+
+It is also used for some texts by password-request(8mandos).
 -->
 
 <section>

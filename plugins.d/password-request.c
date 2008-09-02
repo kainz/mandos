@@ -774,7 +774,8 @@ int main(int argc, char *argv[]){
     const char *pubkeyname = "pubkey.txt";
     const char *seckeyname = "seckey.txt";
     mandos_context mc = { .simple_poll = NULL, .server = NULL,
-			  .dh_bits = 1024, .priority = "SECURE256"};
+			  .dh_bits = 1024, .priority = "SECURE256"
+			  ":!CTYPE-X.509:+CTYPE-OPENPGP" };
     bool gnutls_initalized = false;
     
     {
@@ -817,25 +818,25 @@ int main(int argc, char *argv[]){
 	/* Get the INPUT argument from `argp_parse', which we know is
 	   a pointer to our plugin list pointer. */
 	switch (key) {
-	case 128:
+	case 128:		/* --debug */
 	  debug = true;
 	  break;
-	case 'c':
+	case 'c':		/* --connect */
 	  connect_to = arg;
 	  break;
-	case 'i':
+	case 'i':		/* --interface */
 	  interface = arg;
 	  break;
-	case 'd':
+	case 'd':		/* --keydir */
 	  keydir = arg;
 	  break;
-	case 's':
+	case 's':		/* --seckey */
 	  seckeyname = arg;
 	  break;
-	case 'p':
+	case 'p':		/* --pubkey */
 	  pubkeyname = arg;
 	  break;
-	case 129:
+	case 129:		/* --dh-bits */
 	  errno = 0;
 	  mc.dh_bits = (unsigned int) strtol(arg, NULL, 10);
 	  if (errno){
@@ -843,7 +844,7 @@ int main(int argc, char *argv[]){
 	    exit(EXIT_FAILURE);
 	  }
 	  break;
-	case 130:
+	case 130:		/* --priority */
 	  mc.priority = arg;
 	  break;
 	case ARGP_KEY_ARG:
