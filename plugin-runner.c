@@ -344,18 +344,21 @@ int main(int argc, char *argv[]){
     { .name = "global-options", .key = 'g',
       .arg = "OPTION[,OPTION[,...]]",
       .doc = "Options passed to all plugins" },
-    { .name = "global-env", .key = 'e',
+    { .name = "global-env", .key = 'G',
       .arg = "VAR=value",
       .doc = "Environment variable passed to all plugins" },
     { .name = "options-for", .key = 'o',
       .arg = "PLUGIN:OPTION[,OPTION[,...]]",
       .doc = "Options passed only to specified plugin" },
-    { .name = "env-for", .key = 'f',
+    { .name = "env-for", .key = 'E',
       .arg = "PLUGIN:ENV=value",
       .doc = "Environment variable passed to specified plugin" },
     { .name = "disable", .key = 'd',
       .arg = "PLUGIN",
       .doc = "Disable a specific plugin", .group = 1 },
+    { .name = "enable", .key = 'e',
+      .arg = "PLUGIN",
+      .doc = "Enable a specific plugin", .group = 1 },
     { .name = "plugin-dir", .key = 128,
       .arg = "DIRECTORY",
       .doc = "Specify a different plugin directory", .group = 2 },
@@ -390,7 +393,7 @@ int main(int argc, char *argv[]){
 	}
       }
       break;
-    case 'e':			/* --global-env */
+    case 'G':			/* --global-env */
       if(arg == NULL){
 	break;
       }
@@ -428,7 +431,7 @@ int main(int argc, char *argv[]){
 	}
       }
       break;
-    case 'f':			/* --env-for */
+    case 'E':			/* --env-for */
       if(arg == NULL){
 	break;
       }
@@ -454,6 +457,15 @@ int main(int argc, char *argv[]){
 	  return ARGP_ERR_UNKNOWN;
 	}
 	p->disabled = true;
+      }
+      break;
+    case 'e':			/* --enable */
+      if (arg != NULL){
+	plugin *p = getplugin(arg);
+	if(p == NULL){
+	  return ARGP_ERR_UNKNOWN;
+	}
+	p->disabled = false;
       }
       break;
     case 128:			/* --plugin-dir */
@@ -492,10 +504,11 @@ int main(int argc, char *argv[]){
 				 struct argp_state *state) {
     switch (key) {
     case 'g': 			/* --global-options */
-    case 'e':			/* --global-env */
+    case 'G':			/* --global-env */
     case 'o':			/* --options-for */
-    case 'f':			/* --env-for */
+    case 'E':			/* --env-for */
     case 'd':			/* --disable */
+    case 'e':			/* --enable */
     case 128:			/* --plugin-dir */
       break;
     case 129:			/* --config-file */
