@@ -7,13 +7,9 @@
 ** [#B] Add more if(debug) calls
 ** [#B] Seperate more code to function for more readability
 ** [#A] Man page: man8/plugin-runner.8mandos
-*** EXIT STATUS
-*** ENVIRONMENT
-    Environment is modified according to options and passed to plugins
 *** EXAMPLE
     Examples of normal usage, debug usage, debugging single or all
     plugins, etc.
-*** FILES
 *** SECURITY
     Note the danger of using this program, since you might lock
     yourself out of your system without any means of entering the root
