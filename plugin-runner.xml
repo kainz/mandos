@@ -3,7 +3,7 @@
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY VERSION "1.0">
 <!ENTITY COMMANDNAME "plugin-runner">
-<!ENTITY TIMESTAMP "2008-09-01">
+<!ENTITY TIMESTAMP "2008-09-02">
 ]>
 
 <refentry xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -56,7 +56,7 @@
 	<arg choice="plain"><option>--global-env=<replaceable
 	>VAR</replaceable><literal>=</literal><replaceable
 	>value</replaceable></option></arg>
-	<arg choice="plain"><option>-e
+	<arg choice="plain"><option>-G
 	<replaceable>VAR</replaceable><literal>=</literal><replaceable
 	>value</replaceable> </option></arg>
       </group>
@@ -66,7 +66,7 @@
 	>PLUGIN</replaceable><literal>:</literal><replaceable
 	>ENV</replaceable><literal>=</literal><replaceable
 	>value</replaceable></option></arg>
-	<arg choice="plain"><option>-f<replaceable>
+	<arg choice="plain"><option>-E<replaceable>
 	PLUGIN</replaceable><literal>:</literal><replaceable
 	>ENV</replaceable><literal>=</literal><replaceable
 	>value</replaceable> </option></arg>
@@ -83,7 +83,7 @@
 	<arg choice="plain"><option>--options-for=<replaceable
 	>PLUGIN</replaceable><literal>:</literal><replaceable
 	>OPTIONS</replaceable></option></arg>
-	<arg choice="plain"><option>-f<replaceable>
+	<arg choice="plain"><option>-o<replaceable>
 	PLUGIN</replaceable><literal>:</literal><replaceable
 	>OPTIONS</replaceable> </option></arg>
       </group>
@@ -95,6 +95,13 @@
 	<replaceable>PLUGIN</replaceable> </option></arg>
       </group>
       <sbr/>
+      <group rep="repeat">
+	<arg choice="plain"><option>--enable=<replaceable
+	>PLUGIN</replaceable></option></arg>
+	<arg choice="plain"><option>-e
+	<replaceable>PLUGIN</replaceable> </option></arg>
+      </group>
+      <sbr/>
       <arg><option>--groupid=<replaceable
       >ID</replaceable></option></arg>
       <sbr/>
@@ -103,6 +110,9 @@
       <sbr/>
       <arg><option>--plugin-dir=<replaceable
       >DIRECTORY</replaceable></option></arg>
+      <sbr/>
+      <arg><option>--config-file=<replaceable
+      >FILE</replaceable></option></arg>
       <sbr/>
       <arg><option>--debug</option></arg>
     </cmdsynopsis>
@@ -239,7 +249,7 @@
       </varlistentry>
 
       <varlistentry>
-	<term><option> --disable
+	<term><option>--disable
 	<replaceable>PLUGIN</replaceable></option></term>
 	<term><option>-d
 	<replaceable>PLUGIN</replaceable></option></term>
@@ -249,6 +259,21 @@
 	    <replaceable>PLUGIN</replaceable>.  The plugin will not be
 	    started.
 	  </para>	
+	</listitem>
+      </varlistentry>
+
+      <varlistentry>
+	<term><option>--enable
+	<replaceable>PLUGIN</replaceable></option></term>
+	<term><option>-e
+	<replaceable>PLUGIN</replaceable></option></term>
+	<listitem>
+	  <para>
+	    Re-enable the plugin named
+	    <replaceable>PLUGIN</replaceable>.  This is only useful to
+	    undo a previous <option>--disable</option> option, maybe
+	    from the config file.
+	  </para>
 	</listitem>
       </varlistentry>
 
@@ -287,6 +312,18 @@
 	    <filename>/lib/mandos/plugins.d</filename>, which will
 	    exist in the initial <acronym>RAM</acronym> disk
 	    environment.
+	  </para>
+	</listitem>
+      </varlistentry>
+      
+      <varlistentry>
+	<term><option>--config-file
+	<replaceable>FILE</replaceable></option></term>
+	<listitem>
+	  <para>
+	    Specify a different file to read additional options from.
+	    See <xref linkend="files"/>.  Other command line options
+	    will override options specified in the file.
 	  </para>
 	</listitem>
       </varlistentry>
@@ -393,11 +430,15 @@
   <refsect1 id="environment">
     <title>ENVIRONMENT</title>
     <para>
-      
+      This program does not use any environment variables itself, it
+      only passes on its environment to all the plugins.  The
+      environment passed to plugins can be modified using the
+      <option>--global-env</option> and <option>--env-for</option>
+      optins.
     </para>
   </refsect1>
   
-  <refsect1 id="file">
+  <refsect1 id="files">
     <title>FILES</title>
     <para>
       <variablelist>
@@ -415,9 +456,20 @@
 	      of a line is ignored.
 	    </para>
 	    <para>
+	      This program is meant to run in the initial RAM disk
+	      environment, so that is where this file is assumed to
+	      exist.  The file does not need to exist in the normal
+	      file system.
+	    </para>
+	    <para>
 	      This file will be processed <emphasis>before</emphasis>
 	      the normal command line options, so the latter can
 	      override the former, if need be.
+	    </para>
+	    <para>
+	      This file name is the default; the file to read for
+	      arguments can be changed using the
+	      <option>--config-file</option> option.
 	    </para>
 	  </listitem>
 	</varlistentry>
@@ -428,8 +480,6 @@
   <refsect1 id="bugs">
     <title>BUGS</title>
     <para>
-      There is no <option>--enable</option> option to enable disabled
-      plugins.
     </para>
   </refsect1>
   
