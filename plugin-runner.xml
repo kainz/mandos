@@ -145,8 +145,8 @@
       <manvolnum>5</manvolnum></citerefentry> for the root disk.  The
       aim of this program is therefore to output a password, which
       then <citerefentry><refentrytitle>cryptsetup</refentrytitle>
-      <manvolnum>8</manvolnum></citerefentry> will use to try and
-      unlock the root disk.
+      <manvolnum>8</manvolnum></citerefentry> will use to unlock the
+      root disk.
     </para>
     <para>
       This program is not meant to be invoked directly, but can be in
@@ -172,7 +172,7 @@
 	<term><option>--global-env
 	<replaceable>VAR</replaceable><literal>=</literal><replaceable
 	>value</replaceable></option></term>
-	<term><option>-e
+	<term><option>-G
 	<replaceable>VAR</replaceable><literal>=</literal><replaceable
 	>value</replaceable></option></term>
 	<listitem>
@@ -189,7 +189,7 @@
 	<replaceable>PLUGIN</replaceable><literal>:</literal
 	><replaceable>ENV</replaceable><literal>=</literal
 	><replaceable>value</replaceable></option></term>
-	<term><option>-f
+	<term><option>-E
 	<replaceable>PLUGIN</replaceable><literal>:</literal
 	><replaceable>ENV</replaceable><literal>=</literal
 	><replaceable>value</replaceable></option></term>
@@ -215,7 +215,7 @@
 	    <replaceable>OPTIONS</replaceable> is a comma separated
 	    list of options.  This is not a very useful option, except
 	    for specifying the <quote><option>--debug</option></quote>
-	    for all plugins.
+	    option to all plugins.
 	  </para>
 	</listitem>
       </varlistentry>
@@ -241,9 +241,9 @@
 	    <option>--bar</option> with the option argument
 	    <quote>baz</quote> is either
 	    <userinput>--options-for=foo:--bar=baz</userinput> or
-	    <userinput>--options-for=foo:--bar,baz</userinput>, but
-	    <emphasis>not</emphasis>
-	    <userinput>--options-for="foo:--bar baz"</userinput>.
+	    <userinput>--options-for=foo:--bar,baz</userinput>.  Using
+	    <userinput>--options-for="foo:--bar baz"</userinput>. will
+	    <emphasis>not</emphasis> work.
 	  </para>
 	</listitem>
       </varlistentry>
@@ -403,6 +403,39 @@
       code will make this plugin-runner output the password from that
       plugin, stop any other plugins, and exit.
     </para>
+
+    <refsect2 id="writing_plugins">
+      <title>WRITING PLUGINS</title>
+      <para>
+	A plugin is simply a program which prints a password to its
+	standard output and then exits with a successful (zero) exit
+	status.  If the exit status is not zero, any output on
+	standard output will be ignored by the plugin runner.  Any
+	output on its standard error channel will simply be passed to
+	the standard error of the plugin runner, usually the system
+	console.
+      </para>
+      <para>
+	The plugin will run in the initial RAM disk environment, so
+	care must be taken not to depend on any files or running
+	services not available there.
+      </para>
+      <para>
+	The plugin must exit cleanly and free all allocated resources
+	upon getting the TERM signal, since this is what the plugin
+	runner uses to stop all other plugins when one plugin has
+	output a password and exited cleanly.
+      </para>
+      <para>
+	The plugin must not use resources, like for instance reading
+	from the standard input, without knowing that no other plugins
+	are also using it.
+      </para>
+      <para>
+	It is useful, but not required, for the plugin to take the
+	<option>--debug</option> option.
+      </para>
+    </refsect2>
   </refsect1>
   
   <refsect1 id="fallback">
@@ -477,21 +510,98 @@
     </para>
   </refsect1>
   
-  <refsect1 id="bugs">
-    <title>BUGS</title>
-    <para>
-    </para>
-  </refsect1>
+<!--   <refsect1 id="bugs"> -->
+<!--     <title>BUGS</title> -->
+<!--     <para> -->
+<!--     </para> -->
+<!--   </refsect1> -->
   
   <refsect1 id="examples">
     <title>EXAMPLE</title>
-    <para>
-    </para>
+    <informalexample>
+      <para>
+	Normal invocation needs no options:
+      </para>
+      <para>
+	<userinput>&COMMANDNAME;</userinput>
+      </para>
+    </informalexample>
+    <informalexample>
+      <para>
+	Run the program, but not the plugins, in debug mode:
+      </para>
+      <para>
+	
+	<!-- do not wrap this line -->
+	<userinput>&COMMANDNAME; --debug</userinput>
+	
+      </para>
+    </informalexample>
+    <informalexample>
+      <para>
+	Run all plugins, but run the <quote>foo</quote> plugin in
+	debug mode:
+      </para>
+      <para>
+	
+	<!-- do not wrap this line -->
+	<userinput>&COMMANDNAME; --options-for=foo:--debug</userinput>
+	
+      </para>
+    </informalexample>
+    <informalexample>
+      <para>
+	Run all plugins, but not the program, in debug mode:
+      </para>
+      <para>
+	
+	<!-- do not wrap this line -->
+	<userinput>&COMMANDNAME; --global-options=--debug</userinput>
+	
+      </para>
+    </informalexample>
+    <informalexample>
+      <para>
+	Run plugins from a different directory and add a special
+	option to the <citerefentry><refentrytitle
+	>password-request</refentrytitle>
+	<manvolnum>8mandos</manvolnum></citerefentry> plugin:
+      </para>
+      <para>
+
+<!-- do not wrap this line -->
+<userinput>&COMMANDNAME;  --plugin-dir=plugins.d --options-for=password-request:--keydir=keydir</userinput>
+
+      </para>
+    </informalexample>
   </refsect1>
-  
   <refsect1 id="security">
     <title>SECURITY</title>
     <para>
+      This program will, when starting, try to switch to another user.
+      If it is started as root, it will succeed, and will by default
+      switch to user and group 65534, which are assumed to be
+      non-privileged.  This user and group is then what all plugins
+      will be started as.  Therefore, the only way to run a plugin as
+      a privileged user is to have the set-user-ID or set-group-ID bit
+      set on the plugin executable files (see <citerefentry>
+      <refentrytitle>execve</refentrytitle><manvolnum>2</manvolnum>
+      </citerefentry>).
+    </para>
+    <para>
+      If this program is used as a keyscript in <citerefentry
+      ><refentrytitle>crypttab</refentrytitle><manvolnum>5</manvolnum>
+      </citerefentry>, there is a risk that if this program fails to
+      work, there might be no way to boot the system except for
+      booting from another media and editing the initial RAM disk
+      image to not run this program.  This is, however, unlikely,
+      since the <citerefentry><refentrytitle
+      >password-prompt</refentrytitle><manvolnum>8mandos</manvolnum>
+      </citerefentry> plugin will read a password from the console in
+      case of failure of the other plugins, and this plugin runner
+      will also, in case of catastrophic failure, itself fall back to
+      asking and outputting a password on the console (see <xref
+      linkend="fallback"/>).
     </para>
   </refsect1>
   
@@ -500,6 +610,10 @@
     <para>
       <citerefentry><refentrytitle>cryptsetup</refentrytitle>
       <manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>crypttab</refentrytitle>
+      <manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>execve</refentrytitle>
+      <manvolnum>2</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>mandos</refentrytitle>
       <manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>password-prompt</refentrytitle>

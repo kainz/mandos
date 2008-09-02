@@ -7,15 +7,6 @@
 ** [#B] Add more if(debug) calls
 ** [#B] Seperate more code to function for more readability
 ** [#A] Man page: man8/plugin-runner.8mandos
-*** EXAMPLE
-    Examples of normal usage, debug usage, debugging single or all
-    plugins, etc.
-*** SECURITY
-    Note the danger of using this program, since you might lock
-    yourself out of your system without any means of entering the root
-    file system password.  This is, however, very unlikely considering
-    the fallback to getpass(3).
-*** BUGS
 *** SEE ALSO
     Explaining text on what you can read
 
