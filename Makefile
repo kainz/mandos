@@ -92,10 +92,11 @@ maintainer-clean: clean
 check:
 	./mandos --check
 
-# Run the server with a local key
+# Run the client with a local config and key
 run-client: all keydir/seckey.txt keydir/pubkey.txt \
 	keydir/secring.gpg keydir/pubring.gpg
 	./plugin-runner --plugin-dir=plugins.d \
+		--config-file=plugin-runner.conf \
 		--options-for=password-request:--keydir=keydir
 
 # Used by run-client
