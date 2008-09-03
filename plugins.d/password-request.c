@@ -47,21 +47,24 @@
 #include <sys/types.h>		/* socket(), inet_pton(), sockaddr,
 				   sockaddr_in6, PF_INET6,
 				   SOCK_STREAM, INET6_ADDRSTRLEN,
-				   uid_t, gid_t */
-#include <inttypes.h>		/* PRIu16 */
+				   uid_t, gid_t, open(), opendir(), DIR */
+#include <sys/stat.h>		/* open() */
 #include <sys/socket.h>		/* socket(), struct sockaddr_in6,
 				   struct in6_addr, inet_pton(),
 				   connect() */
+#include <fcntl.h>		/* open() */
+#include <dirent.h>		/* opendir(), struct dirent, readdir() */
+#include <inttypes.h>		/* PRIu16 */
 #include <assert.h>		/* assert() */
 #include <errno.h>		/* perror(), errno */
 #include <time.h>		/* time() */
 #include <net/if.h>		/* ioctl, ifreq, SIOCGIFFLAGS, IFF_UP,
 				   SIOCSIFFLAGS, if_indextoname(),
 				   if_nametoindex(), IF_NAMESIZE */
+#include <netinet/in.h>
 #include <unistd.h>		/* close(), SEEK_SET, off_t, write(),
 				   getuid(), getgid(), setuid(),
 				   setgid() */
-#include <netinet/in.h>
 #include <arpa/inet.h>		/* inet_pton(), htons */
 #include <iso646.h>		/* not, and */
 #include <argp.h>		/* struct argp_option, error_t, struct
@@ -98,8 +101,15 @@
 
 #define BUFFER_SIZE 256
 
+/*
+  #define PATHDIR "/conf/conf.d/mandos"
+*/
+
+#define PATHDIR "/conf/conf.d/mandos"
+#define SECKEY "seckey.txt"
+#define PUBKEY "pupkey.txt"
+
 bool debug = false;
-static const char *keydir = "/conf/conf.d/mandos";
 static const char mandos_protocol_version[] = "1";
 const char *argp_program_version = "password-request 1.0";
 const char *argp_program_bug_address = "<mandos@fukt.bsnet.se>";
@@ -112,6 +122,7 @@ typedef struct {
   unsigned int dh_bits;
   gnutls_dh_params_t dh_params;
   const char *priority;
+  gpgme_ctx_t ctx;
 } mandos_context;
 
 /*
@@ -132,52 +143,114 @@ size_t adjustbuffer(char **buffer, size_t buffer_length,
 }
 
 /* 
- * Decrypt OpenPGP data using keyrings in HOMEDIR.
- * Returns -1 on error
+ * Initialize GPGME.
  */
-static ssize_t pgp_packet_decrypt (const char *cryptotext,
-				   size_t crypto_size,
-				   char **plaintext,
-				   const char *homedir){
-  gpgme_data_t dh_crypto, dh_plain;
-  gpgme_ctx_t ctx;
+static bool init_gpgme(mandos_context *mc, const char *seckey,
+		       const char *pubkey, const char *tempdir){
+  int ret;
   gpgme_error_t rc;
-  ssize_t ret;
-  size_t plaintext_capacity = 0;
-  ssize_t plaintext_length = 0;
   gpgme_engine_info_t engine_info;
+
   
-  if (debug){
-    fprintf(stderr, "Trying to decrypt OpenPGP data\n");
+  /*
+   * Helper function to insert pub and seckey to the enigne keyring.
+   */
+  bool import_key(const char *filename){
+    int fd;
+    gpgme_data_t pgp_data;
+    
+    fd = TEMP_FAILURE_RETRY(open(filename, O_RDONLY));
+    if(fd == -1){
+      perror("open");
+      return false;
+    }
+    
+    rc = gpgme_data_new_from_fd(&pgp_data, fd);
+    if (rc != GPG_ERR_NO_ERROR){
+      fprintf(stderr, "bad gpgme_data_new_from_fd: %s: %s\n",
+	      gpgme_strsource(rc), gpgme_strerror(rc));
+      return false;
+    }
+
+    rc = gpgme_op_import(mc->ctx, pgp_data);
+    if (rc != GPG_ERR_NO_ERROR){
+      fprintf(stderr, "bad gpgme_op_import: %s: %s\n",
+	      gpgme_strsource(rc), gpgme_strerror(rc));
+      return false;
+    }
+
+    ret = TEMP_FAILURE_RETRY(close(fd));
+    if(ret == -1){
+      perror("close");
+    }
+    gpgme_data_release(pgp_data);
+    return true;
   }
   
+  if (debug){
+    fprintf(stderr, "Initialize gpgme\n");
+  }
+
   /* Init GPGME */
   gpgme_check_version(NULL);
   rc = gpgme_engine_check_version(GPGME_PROTOCOL_OpenPGP);
   if (rc != GPG_ERR_NO_ERROR){
     fprintf(stderr, "bad gpgme_engine_check_version: %s: %s\n",
 	    gpgme_strsource(rc), gpgme_strerror(rc));
-    return -1;
+    return false;
   }
-  
-  /* Set GPGME home directory for the OpenPGP engine only */
+
+    /* Set GPGME home directory for the OpenPGP engine only */
   rc = gpgme_get_engine_info (&engine_info);
   if (rc != GPG_ERR_NO_ERROR){
     fprintf(stderr, "bad gpgme_get_engine_info: %s: %s\n",
 	    gpgme_strsource(rc), gpgme_strerror(rc));
-    return -1;
+    return false;
   }
   while(engine_info != NULL){
     if(engine_info->protocol == GPGME_PROTOCOL_OpenPGP){
       gpgme_set_engine_info(GPGME_PROTOCOL_OpenPGP,
-			    engine_info->file_name, homedir);
+			    engine_info->file_name, tempdir);
       break;
     }
     engine_info = engine_info->next;
   }
   if(engine_info == NULL){
-    fprintf(stderr, "Could not set GPGME home dir to %s\n", homedir);
-    return -1;
+    fprintf(stderr, "Could not set GPGME home dir to %s\n", tempdir);
+    return false;
+  }
+
+  /* Create new GPGME "context" */
+  rc = gpgme_new(&(mc->ctx));
+  if (rc != GPG_ERR_NO_ERROR){
+    fprintf(stderr, "bad gpgme_new: %s: %s\n",
+	    gpgme_strsource(rc), gpgme_strerror(rc));
+    return false;
+  }
+  
+  if (not import_key(pubkey) or not import_key(seckey)){
+    return false;
+  }
+  
+  return true; 
+}
+
+/* 
+ * Decrypt OpenPGP data.
+ * Returns -1 on error
+ */
+static ssize_t pgp_packet_decrypt (const mandos_context *mc,
+				   const char *cryptotext,
+				   size_t crypto_size,
+				   char **plaintext){
+  gpgme_data_t dh_crypto, dh_plain;
+  gpgme_error_t rc;
+  ssize_t ret;
+  size_t plaintext_capacity = 0;
+  ssize_t plaintext_length = 0;
+  
+  if (debug){
+    fprintf(stderr, "Trying to decrypt OpenPGP data\n");
   }
   
   /* Create new GPGME data buffer from memory cryptotext */
@@ -198,25 +271,16 @@ static ssize_t pgp_packet_decrypt (const char *cryptotext,
     return -1;
   }
   
-  /* Create new GPGME "context" */
-  rc = gpgme_new(&ctx);
-  if (rc != GPG_ERR_NO_ERROR){
-    fprintf(stderr, "bad gpgme_new: %s: %s\n",
-	    gpgme_strsource(rc), gpgme_strerror(rc));
-    plaintext_length = -1;
-    goto decrypt_end;
-  }
-  
   /* Decrypt data from the cryptotext data buffer to the plaintext
      data buffer */
-  rc = gpgme_op_decrypt(ctx, dh_crypto, dh_plain);
+  rc = gpgme_op_decrypt(mc->ctx, dh_crypto, dh_plain);
   if (rc != GPG_ERR_NO_ERROR){
     fprintf(stderr, "bad gpgme_op_decrypt: %s: %s\n",
 	    gpgme_strsource(rc), gpgme_strerror(rc));
     plaintext_length = -1;
     if (debug){
       gpgme_decrypt_result_t result;
-      result = gpgme_op_decrypt_result(ctx);
+      result = gpgme_op_decrypt_result(mc->ctx);
       if (result == NULL){
 	fprintf(stderr, "gpgme_op_decrypt_result failed\n");
       } else {
@@ -610,10 +674,9 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   gnutls_bye (session, GNUTLS_SHUT_RDWR);
   
   if (buffer_length > 0){
-    decrypted_buffer_size = pgp_packet_decrypt(buffer,
+    decrypted_buffer_size = pgp_packet_decrypt(mc, buffer,
 					       buffer_length,
-					       &decrypted_buffer,
-					       keydir);
+					       &decrypted_buffer);
     if (decrypted_buffer_size >= 0){
       written = 0;
       while(written < (size_t) decrypted_buffer_size){
@@ -642,7 +705,10 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   
  mandos_end:
   free(buffer);
-  close(tcp_sd);
+  ret = TEMP_FAILURE_RETRY(close(tcp_sd));
+  if(ret == -1){
+    perror("close");
+  }
   gnutls_deinit (session);
   return retval;
 }
@@ -744,18 +810,6 @@ static void browse_callback( AvahiSServiceBrowser *b,
   }
 }
 
-/* Combines file name and path and returns the malloced new
-   string. some sane checks could/should be added */
-static char *combinepath(const char *first, const char *second){
-  char *tmp;
-  int ret = asprintf(&tmp, "%s/%s", first, second);
-  if(ret < 0){
-    return NULL;
-  }
-  return tmp;
-}
-
-
 int main(int argc, char *argv[]){
     AvahiSServiceBrowser *sb = NULL;
     int error;
@@ -767,15 +821,16 @@ int main(int argc, char *argv[]){
     uid_t uid;
     gid_t gid;
     char *connect_to = NULL;
+    char tempdir[] = "/tmp/mandosXXXXXX";
     AvahiIfIndex if_index = AVAHI_IF_UNSPEC;
-    char *pubkeyfilename = NULL;
-    char *seckeyfilename = NULL;
-    const char *pubkeyname = "pubkey.txt";
-    const char *seckeyname = "seckey.txt";
+    const char *seckey = PATHDIR "/" SECKEY;
+    const char *pubkey = PATHDIR "/" PUBKEY;
+    
     mandos_context mc = { .simple_poll = NULL, .server = NULL,
 			  .dh_bits = 1024, .priority = "SECURE256"
 			  ":!CTYPE-X.509:+CTYPE-OPENPGP" };
     bool gnutls_initalized = false;
+    bool pgpme_initalized = false;
     
     {
       struct argp_option options[] = {
@@ -789,10 +844,6 @@ int main(int argc, char *argv[]){
 	  .arg = "NAME",
 	  .doc = "Interface that will be used to search for Mandos"
 	  " servers",
-	  .group = 1 },
-	{ .name = "keydir", .key = 'd',
-	  .arg = "DIRECTORY",
-	  .doc = "Directory to read the OpenPGP key files from",
 	  .group = 1 },
 	{ .name = "seckey", .key = 's',
 	  .arg = "FILE",
@@ -828,14 +879,11 @@ int main(int argc, char *argv[]){
 	case 'i':		/* --interface */
 	  interface = arg;
 	  break;
-	case 'd':		/* --keydir */
-	  keydir = arg;
-	  break;
 	case 's':		/* --seckey */
-	  seckeyname = arg;
+	  seckey = arg;
 	  break;
 	case 'p':		/* --pubkey */
-	  pubkeyname = arg;
+	  pubkey = arg;
 	  break;
 	case 129:		/* --dh-bits */
 	  errno = 0;
@@ -870,27 +918,27 @@ int main(int argc, char *argv[]){
       }
     }
     
-    pubkeyfilename = combinepath(keydir, pubkeyname);
-    if (pubkeyfilename == NULL){
-      perror("combinepath");
-      exitcode = EXIT_FAILURE;
-      goto end;
-    }
-    
-    seckeyfilename = combinepath(keydir, seckeyname);
-    if (seckeyfilename == NULL){
-      perror("combinepath");
-      exitcode = EXIT_FAILURE;
-      goto end;
-    }
-    
-    ret = init_gnutls_global(&mc, pubkeyfilename, seckeyfilename);
+    ret = init_gnutls_global(&mc, pubkey, seckey);
     if (ret == -1){
       fprintf(stderr, "init_gnutls_global failed\n");
       exitcode = EXIT_FAILURE;
       goto end;
     } else {
       gnutls_initalized = true;
+    }
+
+    if(mkdtemp(tempdir) == NULL){
+      perror("mkdtemp");
+      tempdir[0] = '\0';
+      goto end;
+    }
+    
+    if(not init_gpgme(&mc, pubkey, seckey, tempdir)){
+      fprintf(stderr, "pgpme_initalized failed\n");
+      exitcode = EXIT_FAILURE;
+      goto end;
+    } else {
+      pgpme_initalized = true;
     }
     
     /* If the interface is down, bring it up */
@@ -917,7 +965,10 @@ int main(int argc, char *argv[]){
 	  goto end;
 	}
       }
-      close(sd);
+      ret = TEMP_FAILURE_RETRY(close(sd));
+      if(ret == -1){
+	perror("close");
+      }
     }
     
     uid = getuid();
@@ -1043,13 +1094,51 @@ int main(int argc, char *argv[]){
     
     if (mc.simple_poll != NULL)
         avahi_simple_poll_free(mc.simple_poll);
-    free(pubkeyfilename);
-    free(seckeyfilename);
     
     if (gnutls_initalized){
       gnutls_certificate_free_credentials(mc.cred);
       gnutls_global_deinit ();
     }
-    
+
+    if(pgpme_initalized){
+      gpgme_release(mc.ctx);
+    }
+
+    /* Removes the temp directory used by GPGME */
+    if(tempdir[0] != '\0'){
+      DIR *d;
+      struct dirent *direntry;
+      d = opendir(tempdir);
+      if(d == NULL){
+	perror("opendir");
+      } else {
+	while(true){
+	  direntry = readdir(d);
+	  if(direntry == NULL){
+	    break;
+	  }
+	  if (direntry->d_type == DT_REG){
+	    char *fullname = NULL;
+	    ret = asprintf(&fullname, "%s/%s", tempdir,
+			   direntry->d_name);
+	    if(ret < 0){
+	      perror("asprintf");
+	      continue;
+	    }
+	    ret = unlink(fullname);
+	    if(ret == -1){
+	      fprintf(stderr, "unlink(\"%s\"): %s",
+		      fullname, strerror(errno));
+	    }
+	    free(fullname);
+	  }
+	}
+      }
+      ret = rmdir(tempdir);
+      if(ret == -1){
+	perror("rmdir");
+      }
+    }
+	  
     return exitcode;
 }
