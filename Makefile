@@ -96,7 +96,7 @@ check:
 run-client: all keydir/seckey.txt keydir/pubkey.txt \
 	keydir/secring.gpg keydir/pubring.gpg
 	./plugin-runner --plugin-dir=plugins.d \
-		--options-for=password-request:--keydir=keydir
+		--options-for=password-request:--seckey=keydir/seckey.txt,--pubkey=keydir/pubkey.txt
 
 # Used by run-client
 keydir/secring.gpg: keydir/seckey.txt
