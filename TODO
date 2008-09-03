@@ -9,17 +9,6 @@
 
 * password-request
 ** [#A] Man page: man8/password-request.8mandos
-*** DESCRIPTION
-    State that this command is not meant to be invoked directly, but
-    is run as a plugin from mandos-client(8) and only run in the
-    initrd environment, not the real system.
-*** PURPOSE
-    As in mandos.xml
-*** OVERVIEW
-    As in mandos.xml
-*** EXIT STATUS
-*** ENVIRONMENT
-    Note that it does *not* currently use cryptsource or crypttarget.
 *** FILES
     Describe the key files and the key ring files.  Also note that
     they should normally have been automatically created.
