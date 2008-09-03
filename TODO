@@ -6,44 +6,8 @@
 ** [#B] Add more comments to code
 ** [#B] Add more if(debug) calls
 ** [#B] Seperate more code to function for more readability
-** [#A] Man page: man8/plugin-runner.8mandos
-*** EXAMPLE
-    Examples of normal usage, debug usage, debugging single or all
-    plugins, etc.
-*** SECURITY
-    Note the danger of using this program, since you might lock
-    yourself out of your system without any means of entering the root
-    file system password.  This is, however, very unlikely considering
-    the fallback to getpass(3).
-*** BUGS
-*** SEE ALSO
-    Explaining text on what you can read
 
 * password-request
-** [#A] Man page: man8/password-request.8mandos
-*** SYNOPSIS
-    Document short options
-*** DESCRIPTION
-    State that this command is not meant to be invoked directly, but
-    is run as a plugin from mandos-client(8) and only run in the
-    initrd environment, not the real system.
-*** PURPOSE
-    As in mandos.xml
-*** OVERVIEW
-    As in mandos.xml
-*** EXIT STATUS
-*** ENVIRONMENT
-    Note that it does *not* currently use cryptsource or crypttarget.
-*** FILES
-    Describe the key files and the key ring files.  Also note that
-    they should normally have been automatically created.
-*** BUGS
-*** EXAMPLE
-    Examples of normal usage, debug usage, debugging by connecting
-    directly, etc.
-*** SECURITY
-*** SEE ALSO
-    Update from mandos.xml
 ** [#B] Temporarily lower kernel log level
    for less printouts during sucessfull boot.
 ** IPv4 support
