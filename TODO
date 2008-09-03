@@ -3,9 +3,6 @@
 * [#A] README file
 
 * plugin-runner
-** [#B] Add more comments to code
-** [#B] Add more if(debug) calls
-** [#B] Seperate more code to function for more readability
 
 * password-request
 ** [#B] Temporarily lower kernel log level
@@ -19,11 +16,6 @@
    Must create in preinst if not pre-depending on cryptsetup
 
 * password-prompt
-** [#C] Use getpass(3)?
-   Man page says "obsolete", but [[info:libc:getpass][GNU LibC Manual: Reading Passwords]]
-   does not.  See also [[http://sources.redhat.com/ml/libc-alpha/2003-05/msg00251.html][Marcus Brinkmann: Re: getpass obsolete?]] and
-   [[http://article.gmane.org/gmane.comp.lib.glibc.alpha/4906][Petter Reinholdtsen: Re: getpass obsolete?]], and especially also
-   [[http://www.steve.org.uk/Reference/Unix/faq_4.html#SEC48][Unix Programming FAQ 3.1 How can I make my program not echo input?]]
 
 * mandos (server)
 ** [#A] /etc/init.d/mandos-server		:teddy:
@@ -46,6 +38,7 @@
 ** List clients
 ** Disable client
 ** Enable client
+** Reboot timer
 
 * Man pages
 ** Use xinclude for common sections
