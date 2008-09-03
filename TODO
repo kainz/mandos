@@ -8,9 +8,6 @@
 ** [#B] Seperate more code to function for more readability
 
 * password-request
-** [#A] Man page: man8/password-request.8mandos
-*** SEE ALSO
-    Update from mandos.xml
 ** [#B] Temporarily lower kernel log level
    for less printouts during sucessfull boot.
 ** IPv4 support
