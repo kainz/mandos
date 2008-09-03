@@ -1,0 +1,121 @@
+-*- org -*-
+
+* Mandos
+  - Have your cake and eat it too!
+  
+  You know how it is.  You've heard of it happening.  The Man comes
+  and takes away your servers, your friends' servers, the servers of
+  everybody in the same hosting facility. The servers of their
+  neighbors, and their neighbors' friends.  The servers of people who
+  owe them money.  And like *that*, they're gone.  And you doubt
+  you'll ever see them again.
+  
+  That is why your servers have encrypted root file systems.  However,
+  there's a downside.  There's no going around it: rebooting is a
+  pain.  Dragging out that rarely-used keyboard and screen and
+  unraveling cables behind your servers to plug them in to type in
+  that password is messy, especially if you have many servers.  There
+  are some people who do clever things like using serial line consoles
+  and daisy-chain it to the next server, and keep all the servers
+  connected in a ring with serial cables, which will work, if your
+  servers are physically close enough.  There are also other
+  out-of-band management solutions, but with *all* these, you still
+  have to be on hand and manually type in the password at boot time.
+  Otherwise the server just sits there, waiting for a password.
+  
+  Wouldn't it be great if you could have the security of encrypted
+  root file systems and still have servers that could boot up
+  automatically if there was a short power outage while you were
+  asleep?  That you could reboot at will, without having someone run
+  over to the server to type in the password?
+  
+  Well, with Mandos, you (almost) can!  The gain in convenience will
+  only be offset by a small loss in security.  The setup is as
+  follows:
+  
+  The server will still have its encrypted root file system.  The
+  password to this file system will be stored on another computer
+  (henceforth known as the Mandos server) on the same local network.
+  The password will *not* be stored in plaintext, but encrypted with
+  OpenPGP.  To decrypt this password, a key is needed.  This key (the
+  Mandos client key) will not be stored there, but back on the
+  original server (henceforth known as the Mandos client) in the
+  initial RAM disk image.  Oh, and all network Mandos client/server
+  communications will be encrypted, using TLS (SSL).
+  
+  So, at boot time, the Mandos client will ask for its encrypted data
+  over the network, decrypt it to get the password, use it to decrypt
+  the root file, and continue booting.
+  
+  Now, of course the initial RAM disk image is not on the encrypted
+  root file system, so anyone who would come and take the the whole
+  computer would have the Mandos client key when they took the server
+  offline and read the disk with their own tools.  *But*, by then the
+  Mandos server will have detected that the original server is no
+  longer online and will no longer give out the encrypted key.  The
+  timing here is the only real weak point, and the method, frequency
+  and timeout of checking can be adjusted to any desired level of
+  paranoia.
+  
+  (The encrypted keys on the Mandos server is on its normal file
+  system, so those are safe, provided the root file system of that
+  server is encrypted.)
+
+* FAQ - couldn’t the security be defeated by...
+
+** Grabbing the Mandos client key from the initrd *really quickly*?
+   This, as mentioned above, is the only real weak point.  But if you
+   set the timing values tight enough, this will be really difficult
+   to do.  An attacker would have to physically disassemble the client
+   computer, extract the key from the initial RAM disk image, and then
+   connect to a *still online* Mandos server to get the encrypted key,
+   all *before* the Mandos server timeout kicks in and the Mandos
+   server refuses to give out the key to anyone.
+   
+   As the typical SOP seems to be to barge in and turn off and grab
+   *all* computers to maybe look at them months later, this is not
+   likely.
+
+** Replay attacks?
+   Nope, the network stuff is all done over TLS, which provides
+   protection against that.
+
+** Man-in-the-middle?
+   No.  The server only gives out the passwords to clients which have
+   *in the TLS handshake* proven that they do indeed hold the OpenPGP
+   private key corresponding to that client.
+
+** Physically grabbing the Mandos server computer?
+   You could protect *that* computer the old-fashioned way, with a
+   must-type-in-the-password-at-boot method.  Or you could have two
+   computers be the Mandos server for each other.  (Multiple Mandos
+   servers can coexist on a network without any trouble.  They do not
+   clash, and clients will try all available servers.)
+
+** Faking ping replies?
+   The default for the server is to use "fping", the replies to which
+   could be faked to eliminate the timeout.  But this could easily be
+   changed to any shell command, with any security measures you like.
+   It could, for instance, be changed to an SSH command with strict
+   keychecking, which could not be faked.  Or IPsec could be used for
+   the ping packets, making them secure.
+
+* Security Summary
+  So, in summary:  The only weakness in the Mandos system is from
+  people who have:
+  1. The power to come in and physically take your servers, and
+  2. The cunning and patience to do it carefully, one at a time, and
+     *quickly*, faking Mandos client/server responses for each one
+     before the timeout.
+  
+  While there are some who may be threatened by people who have *both*
+  these attributes, they do not, probably, constitute the majority.
+  
+  If you *do* face such opponents, you must figure that they could
+  just as well open your servers and read the keys right off the
+  memory by running wires to the memory bus.
+  
+  What this system is designed to protect against is *not* such
+  determined, focused, and competent attacks, but against the early
+  morning knock on your door and the sudden absence of all servers in
+  your server room.
