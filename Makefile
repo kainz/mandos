@@ -67,10 +67,21 @@ doc: $(DOCS)
 %.8mandos: %.xml legalnotice.xml
 	$(DOCBOOKTOMAN)
 
-mandos.8: mandos.xml mandos-options.xml
+mandos.8: mandos.xml mandos-options.xml overview.xml legalnotice.xml
 	$(DOCBOOKTOMAN)
 
-mandos.conf.5: mandos.conf.xml mandos-options.xml
+mandos-keygen.8: mandos-keygen.xml overview.xml legalnotice.xml
+	$(DOCBOOKTOMAN)
+
+mandos.conf.5: mandos.conf.xml mandos-options.xml legalnotice.xml
+	$(DOCBOOKTOMAN)
+
+plugin-runner.8mandos: plugin-runner.xml overview.xml legalnotice.xml
+	$(DOCBOOKTOMAN)
+
+plugins.d/password-request.8mandos: plugins.d/password-request.xml \
+					mandos-options.xml \
+					overview.xml legalnotice.xml
 	$(DOCBOOKTOMAN)
 
 plugins.d/password-request: plugins.d/password-request.o
@@ -92,10 +103,11 @@ maintainer-clean: clean
 check:
 	./mandos --check
 
-# Run the server with a local key
+# Run the client with a local config and key
 run-client: all keydir/seckey.txt keydir/pubkey.txt \
 	keydir/secring.gpg keydir/pubring.gpg
 	./plugin-runner --plugin-dir=plugins.d \
+		--config-file=plugin-runner.conf \
 		--options-for=password-request:--seckey=keydir/seckey.txt,--pubkey=keydir/pubkey.txt
 
 # Used by run-client

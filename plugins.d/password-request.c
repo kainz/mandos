@@ -345,7 +345,7 @@ static ssize_t pgp_packet_decrypt (const mandos_context *mc,
     }
     plaintext_length += ret;
   }
-
+  
   if(debug){
     fprintf(stderr, "Decrypted password is: ");
     for(ssize_t i = 0; i < plaintext_length; i++){
@@ -412,8 +412,8 @@ static int init_gnutls_global(mandos_context *mc,
   }
   
   if(debug){
-    fprintf(stderr, "Attempting to use OpenPGP certificate %s"
-	    " and keyfile %s as GnuTLS credentials\n", pubkeyfilename,
+    fprintf(stderr, "Attempting to use OpenPGP public key %s and"
+	    " secret key %s as GnuTLS credentials\n", pubkeyfilename,
 	    seckeyfilename);
   }
   
@@ -444,15 +444,14 @@ static int init_gnutls_global(mandos_context *mc,
   }
   
   gnutls_certificate_set_dh_params(mc->cred, mc->dh_params);
-
+  
   return 0;
-
+  
  globalfail:
-
+  
   gnutls_certificate_free_credentials(mc->cred);
   gnutls_global_deinit();
   return -1;
-
 }
 
 static int init_gnutls_session(mandos_context *mc,
@@ -530,7 +529,7 @@ static int start_mandos_communication(const char *ip, uint16_t port,
     perror("socket");
     return -1;
   }
-
+  
   if(debug){
     if(if_indextoname((unsigned int)if_index, interface) == NULL){
       perror("if_indextoname");
@@ -575,7 +574,7 @@ static int start_mandos_communication(const char *ip, uint16_t port,
     perror("connect");
     return -1;
   }
-
+  
   const char *out = mandos_protocol_version;
   written = 0;
   while (true){
@@ -599,13 +598,13 @@ static int start_mandos_communication(const char *ip, uint16_t port,
       }
     }
   }
- 
+  
   if(debug){
     fprintf(stderr, "Establishing TLS session with %s\n", ip);
   }
   
   gnutls_transport_set_ptr (session, (gnutls_transport_ptr_t) tcp_sd);
-
+  
   do{
     ret = gnutls_handshake (session);
   } while(ret == GNUTLS_E_AGAIN or ret == GNUTLS_E_INTERRUPTED);
@@ -625,7 +624,7 @@ static int start_mandos_communication(const char *ip, uint16_t port,
     fprintf(stderr, "Retrieving pgp encrypted password from %s\n",
 	    ip);
   }
-
+  
   while(true){
     buffer_capacity = adjustbuffer(&buffer, buffer_length,
 				   buffer_capacity);
@@ -828,7 +827,8 @@ int main(int argc, char *argv[]){
     const char *pubkey = PATHDIR "/" PUBKEY;
     
     mandos_context mc = { .simple_poll = NULL, .server = NULL,
-			  .dh_bits = 1024, .priority = "SECURE256"};
+			  .dh_bits = 1024, .priority = "SECURE256"
+			  ":!CTYPE-X.509:+CTYPE-OPENPGP" };
     bool gnutls_initalized = false;
     bool pgpme_initalized = false;
     
@@ -837,53 +837,55 @@ int main(int argc, char *argv[]){
 	{ .name = "debug", .key = 128,
 	  .doc = "Debug mode", .group = 3 },
 	{ .name = "connect", .key = 'c',
-	  .arg = "IP",
-	  .doc = "Connect directly to a sepcified mandos server",
+	  .arg = "ADDRESS:PORT",
+	  .doc = "Connect directly to a specific Mandos server",
 	  .group = 1 },
 	{ .name = "interface", .key = 'i',
-	  .arg = "INTERFACE",
-	  .doc = "Interface that Avahi will conntect through",
+	  .arg = "NAME",
+	  .doc = "Interface that will be used to search for Mandos"
+	  " servers",
 	  .group = 1 },
 	{ .name = "seckey", .key = 's',
-	  .arg = "SECKEY",
-	  .doc = "Secret openpgp key for gnutls authentication",
+	  .arg = "FILE",
+	  .doc = "OpenPGP secret key file base name",
 	  .group = 1 },
 	{ .name = "pubkey", .key = 'p',
-	  .arg = "PUBKEY",
-	  .doc = "Public openpgp key for gnutls authentication",
+	  .arg = "FILE",
+	  .doc = "OpenPGP public key file base name",
 	  .group = 2 },
 	{ .name = "dh-bits", .key = 129,
 	  .arg = "BITS",
-	  .doc = "dh-bits to use in gnutls communication",
+	  .doc = "Bit length of the prime number used in the"
+	  " Diffie-Hellman key exchange",
 	  .group = 2 },
 	{ .name = "priority", .key = 130,
-	  .arg = "PRIORITY",
-	  .doc = "GNUTLS priority", .group = 1 },
+	  .arg = "STRING",
+	  .doc = "GnuTLS priority string for the TLS handshake",
+	  .group = 1 },
 	{ .name = NULL }
       };
-
       
       error_t parse_opt (int key, char *arg,
 			 struct argp_state *state) {
 	/* Get the INPUT argument from `argp_parse', which we know is
 	   a pointer to our plugin list pointer. */
 	switch (key) {
-	case 128:
+	case 128:		/* --debug */
 	  debug = true;
 	  break;
-	case 'c':
+	case 'c':		/* --connect */
 	  connect_to = arg;
 	  break;
-	case 'i':
+	case 'i':		/* --interface */
 	  interface = arg;
 	  break;
-	case 's':
+	case 's':		/* --seckey */
 	  seckey = arg;
 	  break;
-	case 'p':
+	case 'p':		/* --pubkey */
 	  pubkey = arg;
 	  break;
-	case 129:
+	case 129:		/* --dh-bits */
 	  errno = 0;
 	  mc.dh_bits = (unsigned int) strtol(arg, NULL, 10);
 	  if (errno){
@@ -891,7 +893,7 @@ int main(int argc, char *argv[]){
 	    exit(EXIT_FAILURE);
 	  }
 	  break;
-	case 130:
+	case 130:		/* --priority */
 	  mc.priority = arg;
 	  break;
 	case ARGP_KEY_ARG:
@@ -903,11 +905,11 @@ int main(int argc, char *argv[]){
 	}
 	return 0;
       }
-
+      
       struct argp argp = { .options = options, .parser = parse_opt,
 			   .args_doc = "",
 			   .doc = "Mandos client -- Get and decrypt"
-			   " passwords from mandos server" };
+			   " passwords from a Mandos server" };
       ret = argp_parse (&argp, argc, argv, 0, 0, NULL);
       if (ret == ARGP_ERR_UNKNOWN){
 	fprintf(stderr, "Unknown error while parsing arguments\n");
@@ -915,7 +917,7 @@ int main(int argc, char *argv[]){
 	goto end;
       }
     }
-
+    
     ret = init_gnutls_global(&mc, pubkey, seckey);
     if (ret == -1){
       fprintf(stderr, "init_gnutls_global failed\n");
@@ -1030,7 +1032,7 @@ int main(int argc, char *argv[]){
 	exitcode = EXIT_FAILURE;
         goto end;
     }
-
+    
     {
       AvahiServerConfig config;
       /* Do not publish any local Zeroconf records */
@@ -1039,12 +1041,12 @@ int main(int argc, char *argv[]){
       config.publish_addresses = 0;
       config.publish_workstation = 0;
       config.publish_domain = 0;
-
+      
       /* Allocate a new server */
       mc.server = avahi_server_new(avahi_simple_poll_get
 				   (mc.simple_poll), &config, NULL,
 				   NULL, &error);
-    
+      
       /* Free the Avahi configuration data */
       avahi_server_config_free(&config);
     }
@@ -1070,7 +1072,7 @@ int main(int argc, char *argv[]){
     }
     
     /* Run the main loop */
-
+    
     if (debug){
       fprintf(stderr, "Starting Avahi loop search\n");
     }
@@ -1078,7 +1080,7 @@ int main(int argc, char *argv[]){
     avahi_simple_poll_loop(mc.simple_poll);
     
  end:
-
+    
     if (debug){
       fprintf(stderr, "%s exiting\n", argv[0]);
     }
@@ -1089,10 +1091,10 @@ int main(int argc, char *argv[]){
     
     if (mc.server != NULL)
         avahi_server_free(mc.server);
-
+    
     if (mc.simple_poll != NULL)
         avahi_simple_poll_free(mc.simple_poll);
-
+    
     if (gnutls_initalized){
       gnutls_certificate_free_credentials(mc.cred);
       gnutls_global_deinit ();
