@@ -9,7 +9,6 @@
 
 * password-request
 ** [#A] Man page: man8/password-request.8mandos
-*** SECURITY
 *** SEE ALSO
     Update from mandos.xml
 ** [#B] Temporarily lower kernel log level

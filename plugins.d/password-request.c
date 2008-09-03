@@ -348,8 +348,8 @@ static int init_gnutls_global(mandos_context *mc,
   }
   
   if(debug){
-    fprintf(stderr, "Attempting to use OpenPGP certificate %s"
-	    " and keyfile %s as GnuTLS credentials\n", pubkeyfilename,
+    fprintf(stderr, "Attempting to use OpenPGP public key %s and"
+	    " secret key %s as GnuTLS credentials\n", pubkeyfilename,
 	    seckeyfilename);
   }
   
@@ -360,7 +360,7 @@ static int init_gnutls_global(mandos_context *mc,
     fprintf(stderr,
 	    "Error[%d] while reading the OpenPGP key pair ('%s',"
 	    " '%s')\n", ret, pubkeyfilename, seckeyfilename);
-    fprintf(stdout, "The GnuTLS error is: %s\n",
+    fprintf(stderr, "The GnuTLS error is: %s\n",
 	    safer_gnutls_strerror(ret));
     goto globalfail;
   }
