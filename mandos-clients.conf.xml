@@ -4,7 +4,7 @@
 <!ENTITY VERSION "1.0">
 <!ENTITY CONFNAME "mandos-clients.conf">
 <!ENTITY CONFPATH "<filename>/etc/mandos/clients.conf</filename>">
-<!ENTITY TIMESTAMP "2008-08-31">
+<!ENTITY TIMESTAMP "2008-09-03">
 ]>
 
 <refentry xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -103,6 +103,9 @@
 	>TIME</replaceable></option></term>
 	<listitem>
 	  <para>
+	    This option is <emphasis>optional</emphasis>.
+	  </para>
+	  <para>
 	    The timeout is how long the server will wait for a
 	    successful checker run until a client is considered
 	    invalid - that is, ineligible to get the data this server
@@ -129,6 +132,9 @@
 	>TIME</replaceable></option></term>
 	<listitem>
 	  <para>
+	    This option is <emphasis>optional</emphasis>.
+	  </para>
+	  <para>
 	    How often to run the checker to confirm that a client is
 	    still up.  <emphasis>Note:</emphasis> a new checker will
 	    not be started if an old one is still running.  The server
@@ -148,6 +154,9 @@
 	<term><option>checker<literal> = </literal><replaceable
 	>COMMAND</replaceable></option></term>
 	<listitem>
+	  <para>
+	    This option is <emphasis>optional</emphasis>.
+	  </para>
 	  <para>
 	    This option allows you to override the default shell
 	    command that the server will use to check if the client is
@@ -174,6 +183,9 @@
 	><replaceable>HEXSTRING</replaceable></option></term>
 	<listitem>
 	  <para>
+	    This option is <emphasis>required</emphasis>.
+	  </para>
+	  <para>
 	    This option sets the OpenPGP fingerprint that identifies
 	    the public key that clients authenticate themselves with
 	    through TLS.  The string needs to be in hexidecimal form,
@@ -186,6 +198,11 @@
 	<term><option>secret<literal> = </literal><replaceable
 	>BASE64_ENCODED_DATA</replaceable></option></term>
 	<listitem>
+	  <para>
+	    If this option is not specified, the <option
+	    >secfile</option> option is <emphasis>required</emphasis>
+	    to be present.
+	  </para>
 	  <para>
 	    If present, this option must be set to a string of
 	    base64-encoded binary data.  It will be decoded and sent
@@ -204,11 +221,6 @@
 	    lines is that a line beginning with white space adds to
 	    the value of the previous line, RFC 822-style.
 	  </para>
-	  <para>
-	    If this option is not specified, the <option
-	    >secfile</option> option is used instead, but one of them
-	    <emphasis>must</emphasis> be present.
-	  </para>
 	</listitem>
       </varlistentry>
 
@@ -217,14 +229,15 @@
 	>FILENAME</replaceable></option></term>
 	<listitem>
 	  <para>
+	    This option is only used if <option>secret</option> is not
+	    specified, in which case this option is
+	    <emphasis>required</emphasis>.
+	  </para>
+	  <para>
 	    Similar to the <option>secret</option>, except the secret
 	    data is in an external file.  The contents of the file
 	    should <emphasis>not</emphasis> be base64-encoded, but
 	    will be sent to clients verbatim.
-	  </para>
-	  <para>
-	    This option is only used, and <emphasis>must</emphasis> be
-	    present, if <option>secret</option> is not specified.
 	  </para>
 	</listitem>
       </varlistentry>
@@ -233,6 +246,12 @@
 	<term><option><literal>host = </literal><replaceable
 	>STRING</replaceable></option></term>
 	<listitem>
+	  <para>
+	    This option is <emphasis>optional</emphasis>, but highly
+	    <emphasis>recommended</emphasis> unless the
+	    <option>checker</option> option is modified to a
+	    non-standard value without <quote>%(host)s</quote> in it.
+	  </para>
 	  <para>
 	    Host name for this client.  This is not used by the server
 	    directly, but can be, and is by default, used by the
