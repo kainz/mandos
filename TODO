@@ -9,13 +9,6 @@
 
 * password-request
 ** [#A] Man page: man8/password-request.8mandos
-*** FILES
-    Describe the key files and the key ring files.  Also note that
-    they should normally have been automatically created.
-*** BUGS
-*** EXAMPLE
-    Examples of normal usage, debug usage, debugging by connecting
-    directly, etc.
 *** SECURITY
 *** SEE ALSO
     Update from mandos.xml
