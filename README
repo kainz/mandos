@@ -48,14 +48,14 @@
   the root file, and continue booting.
   
   Now, of course the initial RAM disk image is not on the encrypted
-  root file system, so anyone who would come and take the the whole
-  computer would have the Mandos client key when they took the server
-  offline and read the disk with their own tools.  *But*, by then the
-  Mandos server will have detected that the original server is no
-  longer online and will no longer give out the encrypted key.  The
-  timing here is the only real weak point, and the method, frequency
-  and timeout of checking can be adjusted to any desired level of
-  paranoia.
+  root file system, so anyone who would then have pyshical access,
+  could try to take the server offline and read the disk with their
+  own tools so to steal the authentication keys used by a client
+  *But*, by then the Mandos server should have detected that the
+  original server is no longer online and will no longer give out the
+  encrypted key.  The timing here is the only real weak point, and the
+  method, frequency and timeout of checking can be adjusted to any
+  desired level of paranoia
   
   (The encrypted keys on the Mandos server is on its normal file
   system, so those are safe, provided the root file system of that
@@ -74,7 +74,9 @@
    
    As the typical SOP seems to be to barge in and turn off and grab
    *all* computers to maybe look at them months later, this is not
-   likely.
+   likely. It is just simplier to steal a password from a encrypted
+   system by hardware memory scanners if one have this amount of time
+   of physical access to the server.
 
 ** Replay attacks?
    Nope, the network stuff is all done over TLS, which provides
@@ -90,7 +92,10 @@
    must-type-in-the-password-at-boot method.  Or you could have two
    computers be the Mandos server for each other.  (Multiple Mandos
    servers can coexist on a network without any trouble.  They do not
-   clash, and clients will try all available servers.)
+   clash, and clients will try all available servers.). That mean if
+   just one is down then the other can bring it back up, but if bouth
+   is out then they stay down until a
+   must-type-in-the-password-at-boot have happend.
 
 ** Faking ping replies?
    The default for the server is to use "fping", the replies to which

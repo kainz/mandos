@@ -1,6 +1,8 @@
 -*- org -*-
 
-* [#A] README file
+* README file
+  Note that if someone takes all machines, then all systems will be encrypted and all they have is some 
+  unusable key material.
 
 * plugin-runner
 
@@ -32,6 +34,7 @@
    [[info:standards:Option%20Table][Table of Long Options]]
 ** Date+time on console log messages		:bugs:
    Is this the default?
+** delete hook when clients fall out by timeout
 
 * Mandos-tools/utilities
   All of this probably using D-Bus
