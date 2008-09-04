@@ -4,7 +4,7 @@
 <!ENTITY VERSION "1.0">
 <!ENTITY CONFNAME "mandos.conf">
 <!ENTITY CONFPATH "<filename>/etc/mandos/mandos.conf</filename>">
-<!ENTITY TIMESTAMP "2008-08-31">
+<!ENTITY TIMESTAMP "2008-09-04">
 ]>
 
 <refentry xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -144,7 +144,7 @@
     <para>
       The <literal>[DEFAULT]</literal> is necessary because the Python
       built-in module <systemitem class="library">ConfigParser</systemitem>
-      requres it.
+      requires it.
     </para>
   </refsect1>
   
