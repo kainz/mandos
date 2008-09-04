@@ -1,7 +1,5 @@
 -*- org -*-
 
-* [#A] README file
-
 * plugin-runner
 
 * password-request
@@ -32,6 +30,7 @@
    [[info:standards:Option%20Table][Table of Long Options]]
 ** Date+time on console log messages		:bugs:
    Is this the default?
+** delete hook when clients fall out by timeout
 
 * Mandos-tools/utilities
   All of this probably using D-Bus
