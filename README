@@ -48,7 +48,7 @@
   the root file, and continue booting.
   
   Now, of course the initial RAM disk image is not on the encrypted
-  root file system, so anyone who had physhical access could take the
+  root file system, so anyone who had physical access could take the
   server offline and read the disk with their own tools to get the
   authentication keys used by a client.  *But*, by then the Mandos
   server should notice that the original server has been offline for
