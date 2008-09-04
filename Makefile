@@ -104,17 +104,12 @@ check:
 	./mandos --check
 
 # Run the client with a local config and key
-run-client: all keydir/seckey.txt keydir/pubkey.txt \
-	keydir/secring.gpg keydir/pubring.gpg
+run-client: all keydir/seckey.txt keydir/pubkey.txt
 	./plugin-runner --plugin-dir=plugins.d \
 		--config-file=plugin-runner.conf \
 		--options-for=password-request:--seckey=keydir/seckey.txt,--pubkey=keydir/pubkey.txt
 
 # Used by run-client
-keydir/secring.gpg: keydir/seckey.txt
-	gpg --homedir $(dir $<) --import $^
-keydir/pubring.gpg: keydir/pubkey.txt
-	gpg --homedir $(dir $<) --import $^
 keydir/seckey.txt keydir/pubkey.txt: mandos-keygen
 	install --directory keydir
 	./mandos-keygen --dir keydir --force
@@ -126,10 +121,10 @@ run-server: confdir/mandos.conf confdir/clients.conf
 # Used by run-server
 confdir/mandos.conf: mandos.conf
 	install --directory confdir
-	install $^ $@
+	install --mode=0644 $^ $@
 confdir/clients.conf: clients.conf keydir/seckey.txt
 	install --directory confdir
-	install clients.conf $@
+	install --mode=0640 $< $@
 # Add a client password
 	./mandos-keygen --dir keydir --password >> $@
 
