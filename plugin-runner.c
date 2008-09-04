@@ -96,7 +96,7 @@ typedef struct plugin{
 
 static plugin *plugin_list = NULL;
 
-/* Gets a existing plugin based on name,
+/* Gets an existing plugin based on name,
    or if none is found, creates a new one */
 static plugin *getplugin(char *name){
   /* Check for exiting plugin with that name */
@@ -118,7 +118,7 @@ static plugin *getplugin(char *name){
       return NULL;
     }
   }
-
+  
   *new_plugin = (plugin) { .name = copy_name,
 			   .argc = 1,
 			   .disabled = false,
@@ -187,10 +187,10 @@ static bool add_environment(plugin *p, const char *def, bool replace){
   size_t namelen = (size_t)(strchrnul(def, '=') - def);
   /* Search for this environment variable */
   for(char **e = p->environ; *e != NULL; e++){
-    if(strncmp(*e, def, namelen+1) == 0){
+    if(strncmp(*e, def, namelen + 1) == 0){
       /* It already exists */
       if(replace){
-	char *new = realloc(*e, strlen(def));
+	char *new = realloc(*e, strlen(def) + 1);
 	if(new == NULL){
 	  return false;
 	}
@@ -238,7 +238,7 @@ void handle_sigchld(__attribute__((unused)) int sig){
       /* No child processes */
       break;
     }
-
+    
     /* A child exited, find it in process_list */
     while(proc != NULL and proc->pid != pid){
       proc = proc->next;
@@ -410,23 +410,21 @@ int main(int argc, char *argv[]){
     case 'o':			/* --options-for */
       if (arg != NULL){
 	char *p_name = strsep(&arg, ":");
-	if(p_name[0] == '\0'){
+	if(p_name[0] == '\0' or arg == NULL){
 	  break;
 	}
 	char *opt = strsep(&arg, ":");
-	if(opt[0] == '\0'){
+	if(opt[0] == '\0' or opt == NULL){
 	  break;
 	}
-	if(opt != NULL){
-	  char *p;
-	  while((p = strsep(&opt, ",")) != NULL){
-	    if(p[0] == '\0'){
-	      continue;
-	    }
-	    if(not add_argument(getplugin(p_name), p)){
-	      perror("add_argument");
-	      return ARGP_ERR_UNKNOWN;
-	    }
+	char *p;
+	while((p = strsep(&opt, ",")) != NULL){
+	  if(p[0] == '\0'){
+	    continue;
+	  }
+	  if(not add_argument(getplugin(p_name), p)){
+	    perror("add_argument");
+	    return ARGP_ERR_UNKNOWN;
 	  }
 	}
       }
