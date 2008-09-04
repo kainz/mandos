@@ -108,21 +108,20 @@ SECKEYFILE="$KEYDIR/seckey.txt"
 PUBKEYFILE="$KEYDIR/pubkey.txt"
 
 # Check for some invalid values
-if [ -d "$KEYDIR" ]; then :; else
+if [ ! -d "$KEYDIR" ]; then
     echo "$KEYDIR not a directory" >&2
     exit 1
 fi
-if [ -w "$KEYDIR" ]; then :; else
-    echo "Directory $KEYDIR not writeable" >&2
-    exit 1
-fi
-
-if [ "$mode" = password -a -e "$KEYDIR/trustdb.gpg.lock" ]; then
-    echo "Key directory has locked trustdb; aborting." >&2
+if [ ! -r "$KEYDIR" ]; then
+    echo "Directory $KEYDIR not readable" >&2
     exit 1
 fi
 
 if [ "$mode" = keygen ]; then
+    if [ ! -w "$KEYDIR" ]; then
+	echo "Directory $KEYDIR not writeable" >&2
+	exit 1
+    fi
     if [ -z "$KEYTYPE" ]; then
 	echo "Empty key type" >&2
 	exit 1
@@ -164,31 +163,24 @@ if [ "$mode" = keygen ]; then
     fi
 
     # Create temporary gpg batch file
-    BATCHFILE="`mktemp -t mandos-gpg-batch.XXXXXXXXXX`"
+    BATCHFILE="`mktemp -t mandos-keygen-batch.XXXXXXXXXX`"
 fi
 
 if [ "$mode" = password ]; then
     # Create temporary encrypted password file
-    SECFILE="`mktemp -t mandos-gpg-secfile.XXXXXXXXXX`"
+    SECFILE="`mktemp -t mandos-keygen-secfile.XXXXXXXXXX`"
 fi
 
-# Create temporary key rings
-SECRING="`mktemp -t mandos-gpg-secring.XXXXXXXXXX`"
-PUBRING="`mktemp -t mandos-gpg-pubring.XXXXXXXXXX`"
-
-if [ "$mode" = password ]; then
-    # If a trustdb.gpg file does not already exist, schedule it for
-    # deletion when we are done.
-    if ! [ -e "$KEYDIR/trustdb.gpg" ]; then
-	TRUSTDB="$KEYDIR/trustdb.gpg"
-    fi
-fi
+# Create temporary key ring directory
+RINGDIR="`mktemp -d -t mandos-keygen-keyrings.XXXXXXXXXX`"
 
 # Remove temporary files on exit
 trap "
 set +e; \
-rm --force $PUBRING ${PUBRING}~ $BATCHFILE $TRUSTDB; \
-shred --remove $SECRING $SECFILE; \
+test -n \"$SECFILE\" && shred --remove \"$SECFILE\"; \
+shred --remove \"$RINGDIR\"/sec*;
+test -n \"$BATCHFILE\" && rm --force \"$BATCHFILE\"; \
+rm --recursive --force \"$RINGDIR\";
 stty echo; \
 " EXIT
 
@@ -209,18 +201,17 @@ if [ "$mode" = keygen ]; then
 	Expire-Date: $KEYEXPIRE
 	#Preferences: <string>
 	#Handle: <no-spaces>
-	%pubring $PUBRING
-	%secring $SECRING
+	#%pubring pubring.gpg
+	#%secring secring.gpg
 	%commit
 	EOF
     
     # Generate a new key in the key rings
-    gpg --no-random-seed-file --quiet --batch --no-tty \
-	--no-default-keyring --no-options --enable-dsa2 \
-	--secret-keyring "$SECRING" --keyring "$PUBRING" \
+    gpg --quiet --batch --no-tty --no-options --enable-dsa2 \
+	--homedir "$RINGDIR" --trust-model always \
 	--gen-key "$BATCHFILE"
     rm --force "$BATCHFILE"
-
+    
     # Backup any old key files
     if cp --backup=numbered --force "$SECKEYFILE" "$SECKEYFILE" \
 	2>/dev/null; then
@@ -241,37 +232,28 @@ if [ "$mode" = keygen ]; then
     fi
     
     # Export keys from key rings to key files
-    gpg --no-random-seed-file --quiet --batch --no-tty --armor \
-	--no-default-keyring --no-options --enable-dsa2 \
-	--secret-keyring "$SECRING" --keyring "$PUBRING" \
-	--export-options export-minimal --comment "$FILECOMMENT" \
-	--output "$SECKEYFILE" --export-secret-keys
-    gpg --no-random-seed-file --quiet --batch --no-tty --armor \
-	--no-default-keyring --no-options --enable-dsa2 \
-	--secret-keyring "$SECRING" --keyring "$PUBRING" \
-	--export-options export-minimal --comment "$FILECOMMENT" \
-	--output "$PUBKEYFILE" --export
+    gpg --quiet --batch --no-tty --no-options --enable-dsa2 \
+	--homedir "$RINGDIR" --armor --export-options export-minimal \
+	--comment "$FILECOMMENT" --output "$SECKEYFILE" \
+	--export-secret-keys
+    gpg --quiet --batch --no-tty --no-options --enable-dsa2 \
+	--homedir "$RINGDIR" --armor --export-options export-minimal \
+	--comment "$FILECOMMENT" --output "$PUBKEYFILE" --export
 fi
 
 if [ "$mode" = password ]; then
     # Import keys into temporary key rings
-    gpg --no-random-seed-file --quiet --batch --no-tty --armor \
-	--no-default-keyring --no-options --enable-dsa2 \
-	--homedir "$KEYDIR" --no-permission-warning \
-	--secret-keyring "$SECRING" --keyring "$PUBRING" \
-	--trust-model always --import "$SECKEYFILE"
-    gpg --no-random-seed-file --quiet --batch --no-tty --armor \
-	--no-default-keyring --no-options --enable-dsa2 \
-	--homedir "$KEYDIR" --no-permission-warning \
-	--secret-keyring "$SECRING" --keyring "$PUBRING" \
-	--trust-model always --import "$PUBKEYFILE"
-
+    gpg --quiet --batch --no-tty --no-options --enable-dsa2 \
+	--homedir "$RINGDIR" --trust-model always --armor \
+	--import "$SECKEYFILE"
+    gpg --quiet --batch --no-tty --no-options --enable-dsa2 \
+	--homedir "$RINGDIR" --trust-model always --armor \
+	--import "$PUBKEYFILE"
+    
     # Get fingerprint of key
-    FINGERPRINT="`gpg --no-random-seed-file --quiet --batch --no-tty \
-	--armor --no-default-keyring --no-options --enable-dsa2 \
-	--homedir \"$KEYDIR\" --no-permission-warning \
-	--secret-keyring \"$SECRING\" --keyring \"$PUBRING\" \
-	--trust-model always --fingerprint --with-colons \
+    FINGERPRINT="`gpg --quiet --batch --no-tty --no-options \
+	--enable-dsa2 --homedir \"$RINGDIR\" --trust-model always \
+	--fingerprint --with-colons \
 	| sed -n -e '/^fpr:/{s/^fpr:.*:\\([0-9A-Z]*\\):\$/\\1/p;q}'`"
     
     test -n "$FINGERPRINT"
@@ -281,12 +263,9 @@ if [ "$mode" = password ]; then
     stty -echo
     echo -n "Enter passphrase: " >&2
     sed -e '1q' \
-	| gpg --no-random-seed-file --batch --no-tty --armor \
-	--no-default-keyring --no-options --enable-dsa2 \
-	--homedir "$KEYDIR" --no-permission-warning \
-	--secret-keyring "$SECRING" --keyring "$PUBRING" \
-	--trust-model always --encrypt --recipient "$FINGERPRINT" \
-	--comment "$FILECOMMENT" \
+	| gpg --quiet --batch --no-tty --no-options --enable-dsa2 \
+	--homedir "$RINGDIR" --trust-model always --armor --encrypt \
+	--recipient "$FINGERPRINT" --comment "$FILECOMMENT" \
 	> "$SECFILE"
     echo >&2
     stty echo
@@ -316,9 +295,5 @@ if [ -n "$SECFILE" ]; then
     shred --remove "$SECFILE"
 fi
 # Remove the key rings
-shred --remove "$SECRING"
-rm --force "$PUBRING" "${PUBRING}~"
-# Remove the trustdb, if one did not exist when we started
-if [ -n "$TRUSTDB" ]; then
-    rm --force "$TRUSTDB"
-fi
+shred --remove "$RINGDIR"/sec*
+rm --recursive --force "$RINGDIR"

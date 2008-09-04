@@ -510,11 +510,13 @@
     </para>
   </refsect1>
   
-<!--   <refsect1 id="bugs"> -->
-<!--     <title>BUGS</title> -->
-<!--     <para> -->
-<!--     </para> -->
-<!--   </refsect1> -->
+  <refsect1 id="bugs">
+    <title>BUGS</title>
+    <para>
+      The <option>--config-file</option> option is ignored when
+      specified from within a configuration file.
+    </para>
+  </refsect1>
   
   <refsect1 id="examples">
     <title>EXAMPLE</title>
