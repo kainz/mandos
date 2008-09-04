@@ -1,9 +1,5 @@
 -*- org -*-
 
-* README file
-  Note that if someone takes all machines, then all systems will be encrypted and all they have is some 
-  unusable key material.
-
 * plugin-runner
 
 * password-request
