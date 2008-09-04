@@ -48,17 +48,17 @@
   the root file, and continue booting.
   
   Now, of course the initial RAM disk image is not on the encrypted
-  root file system, so anyone who would come and take the the whole
-  computer would have the Mandos client key when they took the server
-  offline and read the disk with their own tools.  *But*, by then the
-  Mandos server will have detected that the original server is no
-  longer online and will no longer give out the encrypted key.  The
-  timing here is the only real weak point, and the method, frequency
-  and timeout of checking can be adjusted to any desired level of
-  paranoia.
+  root file system, so anyone who had physhical access could take the
+  server offline and read the disk with their own tools to get the
+  authentication keys used by a client.  *But*, by then the Mandos
+  server should notice that the original server has been offline for
+  too long, and will no longer give out the encrypted key.  The timing
+  here is the only real weak point, and the method, frequency and
+  timeout of the server’s checking can be adjusted to any desired
+  level of paranoia
   
   (The encrypted keys on the Mandos server is on its normal file
-  system, so those are safe, provided the root file system of that
+  system, so those are safe, provided the root file system of *that*
   server is encrypted.)
 
 * FAQ - couldn’t the security be defeated by...
@@ -72,9 +72,15 @@
    all *before* the Mandos server timeout kicks in and the Mandos
    server refuses to give out the key to anyone.
    
-   As the typical SOP seems to be to barge in and turn off and grab
-   *all* computers to maybe look at them months later, this is not
-   likely.
+   Now, as the typical SOP seems to be to barge in and turn off and
+   grab *all* computers, to maybe look at them months later, this is
+   not likely.  If someone does that, the whole system *will* lock
+   itself up completely, since Mandos servers are no longer running.
+   
+   For sophisticated attackers who *could* do such a thing, *and* had
+   physical access to the server for enough time, it would be simpler
+   to get a key for an encrypted file system by using hardware memory
+   scanners and reading it right off the memory bus.
 
 ** Replay attacks?
    Nope, the network stuff is all done over TLS, which provides
@@ -88,9 +94,13 @@
 ** Physically grabbing the Mandos server computer?
    You could protect *that* computer the old-fashioned way, with a
    must-type-in-the-password-at-boot method.  Or you could have two
-   computers be the Mandos server for each other.  (Multiple Mandos
-   servers can coexist on a network without any trouble.  They do not
-   clash, and clients will try all available servers.)
+   computers be the Mandos server for each other.
+   
+   Multiple Mandos servers can coexist on a network without any
+   trouble.  They do not clash, and clients will try all available
+   servers.  This means that if just one reboots then the other can
+   bring it back up, but if both reboots at the same time they will
+   stay down until someone types in the password on one of them.
 
 ** Faking ping replies?
    The default for the server is to use "fping", the replies to which
@@ -103,7 +113,7 @@
 * Security Summary
   So, in summary:  The only weakness in the Mandos system is from
   people who have:
-  1. The power to come in and physically take your servers, and
+  1. The power to come in and physically take your servers, *and*
   2. The cunning and patience to do it carefully, one at a time, and
      *quickly*, faking Mandos client/server responses for each one
      before the timeout.
@@ -112,10 +122,10 @@
   these attributes, they do not, probably, constitute the majority.
   
   If you *do* face such opponents, you must figure that they could
-  just as well open your servers and read the keys right off the
-  memory by running wires to the memory bus.
+  just as well open your servers and read the file system keys right
+  off the memory by running wires to the memory bus.
   
   What this system is designed to protect against is *not* such
   determined, focused, and competent attacks, but against the early
-  morning knock on your door and the sudden absence of all servers in
-  your server room.
+  morning knock on your door and the sudden absence of all the servers
+  in your server room.  Which it does nicely.
