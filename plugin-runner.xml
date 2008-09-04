@@ -3,7 +3,7 @@
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY VERSION "1.0">
 <!ENTITY COMMANDNAME "plugin-runner">
-<!ENTITY TIMESTAMP "2008-09-02">
+<!ENTITY TIMESTAMP "2008-09-04">
 ]>
 
 <refentry xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -140,11 +140,11 @@
     <title>DESCRIPTION</title>
     <para>
       <command>&COMMANDNAME;</command> is a program which is meant to
-      be specified as <quote>keyscript</quote> in <citerefentry>
-      <refentrytitle>crypttab</refentrytitle>
-      <manvolnum>5</manvolnum></citerefentry> for the root disk.  The
-      aim of this program is therefore to output a password, which
-      then <citerefentry><refentrytitle>cryptsetup</refentrytitle>
+      be specified as a <quote>keyscript</quote> for the root disk in
+      <citerefentry><refentrytitle>crypttab</refentrytitle>
+      <manvolnum>5</manvolnum></citerefentry>.  The aim of this
+      program is therefore to output a password, which then
+      <citerefentry><refentrytitle>cryptsetup</refentrytitle>
       <manvolnum>8</manvolnum></citerefentry> will use to unlock the
       root disk.
     </para>
@@ -428,8 +428,8 @@
       </para>
       <para>
 	The plugin must not use resources, like for instance reading
-	from the standard input, without knowing that no other plugins
-	are also using it.
+	from the standard input, without knowing that no other plugin
+	is also using it.
       </para>
       <para>
 	It is useful, but not required, for the plugin to take the
