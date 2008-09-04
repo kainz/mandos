@@ -4,7 +4,7 @@
 <!ENTITY VERSION "1.0">
 <!ENTITY CONFNAME "mandos-clients.conf">
 <!ENTITY CONFPATH "<filename>/etc/mandos/clients.conf</filename>">
-<!ENTITY TIMESTAMP "2008-09-03">
+<!ENTITY TIMESTAMP "2008-09-04">
 ]>
 
 <refentry xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -93,7 +93,7 @@
       start time expansion, see <xref linkend="expansion"/>.
     </para>
     <para>
-      Uknown options are ignored.  The used options are as follows:
+      Unknown options are ignored.  The used options are as follows:
     </para>
 
     <variablelist>

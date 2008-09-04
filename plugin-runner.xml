@@ -45,7 +45,7 @@
   <refnamediv>
     <refname><command>&COMMANDNAME;</command></refname>
     <refpurpose>
-      Run Mandos plugins.  Pass data from first succesful one.
+      Run Mandos plugins, pass data from first to succeed.
     </refpurpose>
   </refnamediv>
 
@@ -272,7 +272,7 @@
 	    Re-enable the plugin named
 	    <replaceable>PLUGIN</replaceable>.  This is only useful to
 	    undo a previous <option>--disable</option> option, maybe
-	    from the config file.
+	    from the configuration file.
 	  </para>
 	</listitem>
       </varlistentry>
@@ -467,7 +467,7 @@
       only passes on its environment to all the plugins.  The
       environment passed to plugins can be modified using the
       <option>--global-env</option> and <option>--env-for</option>
-      optins.
+      options.
     </para>
   </refsect1>
   
@@ -562,15 +562,15 @@
     </informalexample>
     <informalexample>
       <para>
-	Run plugins from a different directory and add a special
-	option to the <citerefentry><refentrytitle
+	Run plugins from a different directory and add two
+	options to the <citerefentry><refentrytitle
 	>password-request</refentrytitle>
 	<manvolnum>8mandos</manvolnum></citerefentry> plugin:
       </para>
       <para>
 
 <!-- do not wrap this line -->
-<userinput>&COMMANDNAME;  --plugin-dir=plugins.d --options-for=password-request:--keydir=keydir</userinput>
+<userinput>&COMMANDNAME;  --plugin-dir=plugins.d --options-for=password-request:--pubkey=keydir/pubkey.txt,--seckey=keydir/seckey.txt</userinput>
 
       </para>
     </informalexample>
@@ -591,9 +591,9 @@
     <para>
       If this program is used as a keyscript in <citerefentry
       ><refentrytitle>crypttab</refentrytitle><manvolnum>5</manvolnum>
-      </citerefentry>, there is a risk that if this program fails to
-      work, there might be no way to boot the system except for
-      booting from another media and editing the initial RAM disk
+      </citerefentry>, there is a slight risk that if this program
+      fails to work, there might be no way to boot the system except
+      for booting from another media and editing the initial RAM disk
       image to not run this program.  This is, however, unlikely,
       since the <citerefentry><refentrytitle
       >password-prompt</refentrytitle><manvolnum>8mandos</manvolnum>
