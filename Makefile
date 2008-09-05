@@ -223,5 +223,6 @@ purge-server: uninstall-server
 
 purge-client: uninstall-client
 	-shred --remove $(KEYDIR)/seckey.txt
-	-rm --force $(KEYDIR)/pubkey.txt $(KEYDIR)/seckey.txt
+	-rm --force $(CONFDIR)/plugin-runner.conf \
+		$(KEYDIR)/pubkey.txt $(KEYDIR)/seckey.txt
 	-rmdir $(KEYDIR) $(CONFDIR)/plugins.d $(CONFDIR)
