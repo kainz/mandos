@@ -77,10 +77,10 @@
    not likely.  If someone does that, the whole system *will* lock
    itself up completely, since Mandos servers are no longer running.
    
-   For sophisticated attackers who *could* do such a thing, *and* had
-   physical access to the server for enough time, it would be simpler
-   to get a key for an encrypted file system by using hardware memory
-   scanners and reading it right off the memory bus.
+   For sophisticated attackers who *could* do the clever thing, *and*
+   had physical access to the server for enough time, it would be
+   simpler to get a key for an encrypted file system by using hardware
+   memory scanners and reading it right off the memory bus.
 
 ** Replay attacks?
    Nope, the network stuff is all done over TLS, which provides

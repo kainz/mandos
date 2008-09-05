@@ -29,12 +29,25 @@ esac
 
 . /usr/share/initramfs-tools/hook-functions
 
-if [ -d /usr/lib/mandos ]; then
-    prefix=/usr
-elif [ -d /usr/local/lib/mandos ]; then
-    prefix=/usr/local
-else
+for d in /usr /usr/local; do
+    if [ -d "$d"/lib/mandos ]; then
+	prefix="$d"
+	break
+    fi
+done
+if [ -z "$prefix" ]; then
     # Mandos not found
+    exit 1
+fi
+
+for d in /etc/keys/mandos /usr/local/lib/mandos/keys; do
+    if [ -d "$d" ]; then
+	keydir="$d"
+	break
+    fi
+done
+if [ -z "$keydir" ]; then
+    # Mandos key directory not found
     exit 1
 fi
 
@@ -53,7 +66,7 @@ mkdir --parents "${DESTDIR}${CONFDIR}"
 mkdir --parents "${DESTDIR}${PLUGINDIR}"
 
 # Copy the Mandos plugin runner
-copy_exec "$prefix"/lib/mandos/plugin-runner "${DESTDIR}${MANDOSDIR}"
+copy_exec "$prefix"/lib/mandos/plugin-runner "${MANDOSDIR}"
 
 # Copy the plugins
 
@@ -66,6 +79,7 @@ for file in "$prefix"/lib/mandos/plugins.d/*; do
     fi
     case "$base" in
 	*~|.*|\#*\#|*.dpkg-old|*.dpkg-new|*.dpkg-divert) : ;;
+	"*") :;;
 	*) copy_exec "$file" "${PLUGINDIR}";;
     esac
 done
@@ -75,6 +89,7 @@ for file in /etc/mandos/plugins.d/*; do
     base="`basename \"$file\"`"
     case "$base" in
 	*~|.*|\#*\#|*.dpkg-old|*.dpkg-new|*.dpkg-divert) : ;;
+	"*") :;;
 	*) copy_exec "$file" "${PLUGINDIR}";;
     esac
 done
@@ -85,8 +100,8 @@ if ! [ -e "${DESTDIR}/usr/bin/gpg" ] \
     copy_exec /usr/bin/gpg
 fi
 
-# Key files and config files
-for file in /etc/mandos/*; do
+# Config files and key files 
+for file in /etc/mandos/* "$keydir"/*; do
     if [ -d "$file" ]; then
 	continue
     fi
@@ -115,9 +130,11 @@ done
 # Reset some other things to sane permissions which we have
 # inadvertently affected with our umask setting.
 for dir in / /bin /etc /keyscripts /sbin /scripts /usr /usr/bin; do
-    chmod a+rX "${DESTDIR}$dir"
+    if [ -d "${DESTDIR}$dir" ]; then
+	chmod a+rX "${DESTDIR}$dir"
+    fi
 done
 for dir in /lib /usr/lib; do
     find "${DESTDIR}$dir" \! -perm /u+rw,g+r -prune -o -print0 \
-	| xargs --null chmod a+rX
+	| xargs --null --no-run-if-empty chmod a+rX
 done

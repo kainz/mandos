@@ -22,7 +22,7 @@
 
 VERSION="1.0"
 
-KEYDIR="/etc/mandos"
+KEYDIR="/etc/keys/mandos"
 KEYTYPE=DSA
 KEYLENGTH=2048
 SUBKEYTYPE=ELG-E

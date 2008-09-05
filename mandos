@@ -55,6 +55,7 @@ import atexit
 import stat
 import logging
 import logging.handlers
+import pwd
 
 import dbus
 import gobject
@@ -517,6 +518,7 @@ class IPv6_TCPServer(SocketServer.ForkingTCPServer, object):
     Attributes:
         settings:       Server settings
         clients:        Set() of Client objects
+        enabled:        Boolean; whether this server is activated yet
     """
     address_family = socket.AF_INET6
     def __init__(self, *args, **kwargs):
@@ -526,6 +528,7 @@ class IPv6_TCPServer(SocketServer.ForkingTCPServer, object):
         if "clients" in kwargs:
             self.clients = kwargs["clients"]
             del kwargs["clients"]
+        self.enabled = False
         return super(type(self), self).__init__(*args, **kwargs)
     def server_bind(self):
         """This overrides the normal server_bind() function
@@ -562,6 +565,11 @@ class IPv6_TCPServer(SocketServer.ForkingTCPServer, object):
 #                                            (self.settings
 #                                             ["interface"]))
             return super(type(self), self).server_bind()
+    def server_activate(self):
+        if self.enabled:
+            return super(type(self), self).server_activate()
+    def enable(self):
+        self.enabled = True
 
 
 def string_to_delta(interval):
@@ -758,6 +766,41 @@ def main():
     client_config.read(os.path.join(server_settings["configdir"],
                                     "clients.conf"))
     
+    clients = Set()
+    tcp_server = IPv6_TCPServer((server_settings["address"],
+                                 server_settings["port"]),
+                                tcp_handler,
+                                settings=server_settings,
+                                clients=clients)
+    pidfilename = "/var/run/mandos.pid"
+    try:
+        pidfile = open(pidfilename, "w")
+    except IOError, error:
+        logger.error("Could not open file %r", pidfilename)
+    
+    uid = 65534
+    gid = 65534
+    try:
+        uid = pwd.getpwnam("mandos").pw_uid
+    except KeyError:
+        try:
+            uid = pwd.getpwnam("nobody").pw_uid
+        except KeyError:
+            pass
+    try:
+        gid = pwd.getpwnam("mandos").pw_gid
+    except KeyError:
+        try:
+            gid = pwd.getpwnam("nogroup").pw_gid
+        except KeyError:
+            pass
+    try:
+        os.setuid(uid)
+        os.setgid(gid)
+    except OSError, error:
+        if error[0] != errno.EPERM:
+            raise error
+    
     global service
     service = AvahiService(name = server_settings["servicename"],
                            type = "_mandos._tcp", );
@@ -777,7 +820,6 @@ def main():
                             avahi.DBUS_INTERFACE_SERVER)
     # End of Avahi example code
     
-    clients = Set()
     def remove_from_clients(client):
         clients.remove(client)
         if not clients:
@@ -805,16 +847,18 @@ def main():
         # Close all input and output, do double fork, etc.
         daemon()
     
-    pidfilename = "/var/run/mandos/mandos.pid"
-    pid = os.getpid()
     try:
-        pidfile = open(pidfilename, "w")
+        pid = os.getpid()
         pidfile.write(str(pid) + "\n")
         pidfile.close()
         del pidfile
     except IOError, err:
-        logger.error(u"Could not write %s file with PID %d",
-                     pidfilename, os.getpid())
+        logger.error(u"Could not write to file %r with PID %d",
+                     pidfilename, pid)
+    except NameError:
+        # "pidfile" was never created
+        pass
+    del pidfilename
     
     def cleanup():
         "Cleanup function; run on exit"
@@ -840,11 +884,9 @@ def main():
     for client in clients:
         client.start()
     
-    tcp_server = IPv6_TCPServer((server_settings["address"],
-                                 server_settings["port"]),
-                                tcp_handler,
-                                settings=server_settings,
-                                clients=clients)
+    tcp_server.enable()
+    tcp_server.server_activate()
+    
     # Find out what port we got
     service.port = tcp_server.socket.getsockname()[1]
     logger.info(u"Now listening on address %r, port %d, flowinfo %d,"
