@@ -21,9 +21,6 @@ CONFDIR=$(DESTDIR)/etc/mandos
 KEYDIR=$(DESTDIR)/etc/keys/mandos
 # MANDIR=/usr/local/man
 MANDIR=$(DESTDIR)/usr/share/man
-PIDDIR=/var/run/mandos
-USER=nobody
-GROUP=nogroup
 
 GNUTLS_CFLAGS=$(shell libgnutls-config --cflags)
 GNUTLS_LIBS=$(shell libgnutls-config --libs)
@@ -138,8 +135,6 @@ install: install-server install-client
 install-server: doc
 	install --directory $(CONFDIR) $(MANDIR)/man5 \
 		$(MANDIR)/man8
-	install --mode=u=rwx,go=rx --owner=$(USER) --group=$(GROUP) \
-		--directory $(PIDDIR)
 	install --mode=u=rwx,go=rx mandos $(PREFIX)/sbin/mandos
 	install --mode=u=rw,go=r --target-directory=$(CONFDIR) \
 		mandos.conf
@@ -205,7 +200,7 @@ uninstall-server:
 		$(MANDIR)/man5/mandos.conf.5.gz \
 		$(MANDIR)/man5/mandos-clients.conf.5.gz
 	update-rc.d -f mandos remove
-	-rmdir $(CONFDIR) $(PIDDIR)
+	-rmdir $(CONFDIR)
 
 uninstall-client:
 # Refuse to uninstall client if /etc/crypttab is explicitly configured

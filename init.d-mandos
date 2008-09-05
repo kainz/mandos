@@ -19,11 +19,11 @@
 
 # PATH should only include /usr/* if it runs after the mountnfs.sh script
 PATH=/sbin:/usr/sbin:/bin:/usr/bin
-DESC="Gives encrypted passwords to Mandos clients"
+DESC="Mandos root file system password server"
 NAME=mandos
 DAEMON=/usr/sbin/$NAME
 DAEMON_ARGS=""
-PIDFILE=/var/run/mandos/$NAME.pid
+PIDFILE=/var/run/$NAME.pid
 SCRIPTNAME=/etc/init.d/$NAME
 
 # Exit if the package is not installed
