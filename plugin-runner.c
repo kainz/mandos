@@ -397,14 +397,8 @@ int main(int argc, char *argv[]){
       if(arg == NULL){
 	break;
       }
-      {
-	char *envdef = strdup(arg);
-	if(envdef == NULL){
-	  break;
-	}
-	if(not add_environment(getplugin(NULL), envdef, true)){
-	  perror("add_environment");
-	}
+      if(not add_environment(getplugin(NULL), arg, true)){
+	perror("add_environment");
       }
       break;
     case 'o':			/* --options-for */
@@ -438,12 +432,8 @@ int main(int argc, char *argv[]){
 	if(envdef == NULL){
 	  break;
 	}
-	char *p_name = strndup(arg, (size_t) (envdef-arg));
-	if(p_name == NULL){
-	  break;
-	}
-	envdef++;
-	if(not add_environment(getplugin(p_name), envdef, true)){
+	*envdef = '\0';
+	if(not add_environment(getplugin(arg), envdef+1, true)){
 	  perror("add_environment");
 	}
       }
@@ -467,6 +457,7 @@ int main(int argc, char *argv[]){
       }
       break;
     case 128:			/* --plugin-dir */
+      free(plugindir);
       plugindir = strdup(arg);
       if(plugindir == NULL){
 	perror("strdup");
@@ -510,6 +501,7 @@ int main(int argc, char *argv[]){
     case 128:			/* --plugin-dir */
       break;
     case 129:			/* --config-file */
+      free(argfile);
       argfile = strdup(arg);
       if(argfile == NULL){
 	perror("strdup");
@@ -940,7 +932,7 @@ int main(int argc, char *argv[]){
     }
     /* OK, now either a process completed, or something can be read
        from one of them */
-    for(plugin *proc = plugin_list; proc != NULL; proc = proc->next){
+    for(plugin *proc = plugin_list; proc != NULL;){
       /* Is this process completely done? */
       if(proc->eof and proc->completed){
 	/* Only accept the plugin output if it exited cleanly */
@@ -973,7 +965,7 @@ int main(int argc, char *argv[]){
 	    exitstatus = EXIT_FAILURE;
 	    goto fallback;
 	  }
-	  free_plugin(proc);
+	  
 	  /* We are done modifying process list, so unblock signal */
 	  ret = sigprocmask (SIG_UNBLOCK, &sigchld_action.sa_mask,
 			     NULL);
@@ -986,6 +978,10 @@ int main(int argc, char *argv[]){
 	  if(plugin_list == NULL){
 	    break;
 	  }
+	  
+	  plugin *next_plugin = proc->next;
+	  free_plugin(proc);
+	  proc = next_plugin;
 	  continue;
 	}
 	
@@ -1003,6 +999,7 @@ int main(int argc, char *argv[]){
       /* This process has not completed.  Does it have any output? */
       if(proc->eof or not FD_ISSET(proc->fd, &rfds)){
 	/* This process had nothing to say at this time */
+	proc = proc->next;
 	continue;
       }
       /* Before reading, make the process' data buffer large enough */
@@ -1021,6 +1018,7 @@ int main(int argc, char *argv[]){
 		 BUFFER_SIZE);
       if(ret < 0){
 	/* Read error from this process; ignore the error */
+	proc = proc->next;
 	continue;
       }
       if(ret == 0){
