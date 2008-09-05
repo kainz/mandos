@@ -3,7 +3,7 @@
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY VERSION "1.0">
 <!ENTITY COMMANDNAME "plugin-runner">
-<!ENTITY TIMESTAMP "2008-09-04">
+<!ENTITY TIMESTAMP "2008-09-05">
 ]>
 
 <refentry xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -564,15 +564,15 @@
     </informalexample>
     <informalexample>
       <para>
-	Run plugins from a different directory and add two
-	options to the <citerefentry><refentrytitle
-	>password-request</refentrytitle>
+	Run plugins from a different directory, read a different
+	configuration file, and add two options to the
+	<citerefentry><refentrytitle >password-request</refentrytitle>
 	<manvolnum>8mandos</manvolnum></citerefentry> plugin:
       </para>
       <para>
 
 <!-- do not wrap this line -->
-<userinput>&COMMANDNAME;  --plugin-dir=plugins.d --options-for=password-request:--pubkey=keydir/pubkey.txt,--seckey=keydir/seckey.txt</userinput>
+<userinput>&COMMANDNAME;  --config-file=/etc/mandos/plugin-runner.conf --plugin-dir /usr/lib/mandos/plugins.d --options-for=password-request:--pubkey=/etc/keys/mandos/pubkey.txt,--seckey=/etc/keys/mandos/seckey.txt</userinput>
 
       </para>
     </informalexample>
@@ -586,7 +586,7 @@
       non-privileged.  This user and group is then what all plugins
       will be started as.  Therefore, the only way to run a plugin as
       a privileged user is to have the set-user-ID or set-group-ID bit
-      set on the plugin executable files (see <citerefentry>
+      set on the plugin executable file (see <citerefentry>
       <refentrytitle>execve</refentrytitle><manvolnum>2</manvolnum>
       </citerefentry>).
     </para>

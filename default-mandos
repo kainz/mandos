@@ -1,0 +1,4 @@
+# Directory where configuration files are located.  Default is
+# "/etc/mandos".
+# 
+#CONFIGDIR=/etc/mandos

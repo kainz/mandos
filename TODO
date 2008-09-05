@@ -50,8 +50,6 @@
     This seems to use some kind of "trigger" system
     [[file:/usr/share/doc/dpkg/triggers.txt.gz]]
     dpkg-trigger(1), deb-triggers(5)
-*** Keydir move: /etc/mandos -> /etc/keys/mandos
-    Must create in preinst if not pre-depending on cryptsetup
 *** mandos-keygen
 **** "--passfile" option
      Using the "secfile" option instead of "secret"
@@ -60,6 +58,9 @@
 ** Server-side
 *** [#A] Create mandos user and group for server
 *** [#A] Create /var/run/mandos directory with perm and ownership
+*** [#A] install rc.d script and do update-rc.d
+    between config files and man pages
+
 
 * [#A] Package
 ** /usr/share/initramfs-tools/hooks/mandos
