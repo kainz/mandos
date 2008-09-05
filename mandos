@@ -773,7 +773,6 @@ def main():
                                 settings=server_settings,
                                 clients=clients)
     pidfilename = "/var/run/mandos.pid"
-    pidfile = None
     try:
         pidfile = open(pidfilename, "w")
     except IOError, error:
@@ -848,15 +847,17 @@ def main():
         # Close all input and output, do double fork, etc.
         daemon()
     
-    if pidfile is not None:
+    try:
         pid = os.getpid()
-        try:
-            pidfile.write(str(pid) + "\n")
-            pidfile.close()
-        except IOError, err:
-            logger.error(u"Could not write %s file with PID %d",
-                         pidfilename, os.getpid())
-    del pidfile
+        pidfile.write(str(pid) + "\n")
+        pidfile.close()
+        del pidfile
+    except IOError, err:
+        logger.error(u"Could not write to file %r with PID %d",
+                     pidfilename, pid)
+    except NameError:
+        # "pidfile" was never created
+        pass
     del pidfilename
     
     def cleanup():
