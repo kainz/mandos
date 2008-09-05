@@ -126,7 +126,7 @@ confdir/mandos.conf: mandos.conf
 	install --mode=u=rw,go=r $^ $@
 confdir/clients.conf: clients.conf keydir/seckey.txt
 	install --directory confdir
-	install --mode=u=rw,g=r $< $@
+	install --mode=u=rw $< $@
 # Add a client password
 	./mandos-keygen --dir keydir --password >> $@
 
@@ -138,7 +138,7 @@ install-server: doc
 	install --mode=u=rwx,go=rx mandos $(PREFIX)/sbin/mandos
 	install --mode=u=rw,go=r --target-directory=$(CONFDIR) \
 		mandos.conf
-	install --mode=u=rw,g=r --target-directory=$(CONFDIR) \
+	install --mode=u=rw --target-directory=$(CONFDIR) \
 		clients.conf
 	install --mode=u=rwx,go=rx init.d-mandos /etc/init.d/mandos
 	install --mode=u=rw,go=r default-mandos /etc/default/mandos
@@ -158,8 +158,9 @@ install-client: all doc /usr/share/initramfs-tools/hooks/.
 		$(PREFIX)/lib/mandos/plugins.d
 	if [ "$(CONFDIR)/plugins.d" \
 			!= "$(PREFIX)/lib/mandos/plugins.d" ]; then \
-			install --directory "$(CONFDIR)/plugins.d"; \
-		fi
+		install --mode=u=rwx \
+			--directory "$(CONFDIR)/plugins.d"; \
+	fi
 	install --mode=u=rwx,go=rx \
 		--target-directory=$(PREFIX)/lib/mandos plugin-runner
 	install --mode=u=rwx,go=rx --target-directory=$(PREFIX)/sbin \
@@ -188,6 +189,7 @@ install-client: all doc /usr/share/initramfs-tools/hooks/.
 		> $(MANDIR)/man8/password-prompt.8mandos.gz
 	gzip --best --to-stdout plugins.d/password-request.8mandos \
 		> $(MANDIR)/man8/password-request.8mandos.gz
+# Post-installation stuff
 	-$(PREFIX)/sbin/mandos-keygen --dir "$(KEYDIR)"
 	update-initramfs -k all -u
 	echo "Now run mandos-keygen --password --dir $(KEYDIR)"
@@ -211,21 +213,24 @@ uninstall-client:
 		$(PREFIX)/lib/mandos/plugin-runner \
 		$(PREFIX)/lib/mandos/plugins.d/password-prompt \
 		$(PREFIX)/lib/mandos/plugins.d/password-request \
+		$(PREFIX)/lib/mandos/plugins.d/usplash \
 		/usr/share/initramfs-tools/hooks/mandos \
 		/usr/share/initramfs-tools/conf-hooks.d/mandos \
+		/usr/share/initramfs-tools/scripts/local-top/mandos \
 		$(MANDIR)/man8/plugin-runner.8mandos.gz \
 		$(MANDIR)/man8/mandos-keygen.8.gz \
 		$(MANDIR)/man8/password-prompt.8mandos.gz \
 		$(MANDIR)/man8/password-request.8mandos.gz
 	-rmdir $(PREFIX)/lib/mandos/plugins.d $(CONFDIR)/plugins.d \
-		 $(PREFIX)/lib/mandos $(CONFDIR)
+		 $(PREFIX)/lib/mandos $(CONFDIR) $(KEYDIR)
 	update-initramfs -k all -u
 
 purge: purge-server purge-client
 
 purge-server: uninstall-server
 	-rm --force $(CONFDIR)/mandos.conf $(CONFDIR)/clients.conf \
-		/etc/default/mandos /etc/init.d/mandos
+		/etc/default/mandos /etc/init.d/mandos \
+		/var/run/mandos.pid
 	-rmdir $(CONFDIR)
 
 purge-client: uninstall-client

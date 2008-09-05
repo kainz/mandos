@@ -184,7 +184,7 @@ rm --recursive --force \"$RINGDIR\";
 stty echo; \
 " EXIT
 
-umask 027
+umask 077
 
 if [ "$mode" = keygen ]; then
     # Create batch file for GnuPG
