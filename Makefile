@@ -17,6 +17,8 @@ LANGUAGE=-std=gnu99
 PREFIX=$(DESTDIR)/usr
 # CONFDIR=/usr/local/lib/mandos
 CONFDIR=$(DESTDIR)/etc/mandos
+# KEYDIR=/usr/local/lib/mandos/keys
+KEYDIR=$(DESTDIR)/etc/keys/mandos
 # MANDIR=/usr/local/man
 MANDIR=$(DESTDIR)/usr/share/man
 
@@ -121,21 +123,21 @@ run-server: confdir/mandos.conf confdir/clients.conf
 # Used by run-server
 confdir/mandos.conf: mandos.conf
 	install --directory confdir
-	install --mode=0644 $^ $@
+	install --mode=u=rw,go=r $^ $@
 confdir/clients.conf: clients.conf keydir/seckey.txt
 	install --directory confdir
-	install --mode=0640 $< $@
+	install --mode=u=rw,g=r $< $@
 # Add a client password
 	./mandos-keygen --dir keydir --password >> $@
 
 install: install-server install-client
 
 install-server: doc
-	install --directory --parents $(CONFDIR) $(MANDIR)/man5 \
+	install --directory $(CONFDIR) $(MANDIR)/man5 \
 		$(MANDIR)/man8
-	install --mode=0755 mandos $(PREFIX)/sbin/mandos
-	install --mode=0644 --target-directory=$(CONFDIR) mandos.conf
-	install --mode=0640 --target-directory=$(CONFDIR) \
+	install --mode=u=rwx,go=rx mandos $(PREFIX)/sbin/mandos
+	install --mode=u=rw,go=r --target-directory=$(CONFDIR) mandos.conf
+	install --mode=u=rw,g=r --target-directory=$(CONFDIR) \
 		clients.conf
 	gzip --best --to-stdout mandos.8 \
 		> $(MANDIR)/man8/mandos.8.gz
@@ -145,26 +147,34 @@ install-server: doc
 		> $(MANDIR)/man5/mandos-clients.conf.5.gz
 
 install-client: all doc /usr/share/initramfs-tools/hooks/.
-	install --directory --parents $(PREFIX)/lib/mandos \
-		$(CONFDIR) $(MANDIR)/man8
-	install --directory --mode=0700 $(PREFIX)/lib/mandos/plugins.d
-	chmod u=rwx,g=,o= $(PREFIX)/lib/mandos/plugins.d
-	install --mode=0755 --target-directory=$(PREFIX)/lib/mandos \
+	install --directory $(PREFIX)/lib/mandos $(CONFDIR) \
+		$(MANDIR)/man8
+	install --directory --mode=u=rwx $(KEYDIR)
+	install --directory --mode=u=rwx $(PREFIX)/lib/mandos/plugins.d
+	if [ "$(CONFDIR)/plugins.d" \
+			!= "$(PREFIX)/lib/mandos/plugins.d" ]; then \
+			install --directory "$(CONFDIR)/plugins.d"; \
+		fi
+	install --mode=u=rwx,go=rx --target-directory=$(PREFIX)/lib/mandos \
 		plugin-runner
-	install --mode=0755 --target-directory=$(PREFIX)/sbin \
+	install --mode=u=rwx,go=rx --target-directory=$(PREFIX)/sbin \
 		mandos-keygen
-	install --mode=0755 \
+	install --mode=u=rwx,go=rx \
 		--target-directory=$(PREFIX)/lib/mandos/plugins.d \
 		plugins.d/password-prompt
-	install --mode=4755 \
+	install --mode=u=rwxs,go=rx \
 		--target-directory=$(PREFIX)/lib/mandos/plugins.d \
 		plugins.d/password-request
+	install --mode=u=rwx,go=rx \
+		--target-directory=$(PREFIX)/lib/mandos/plugins.d \
+		plugins.d/usplash
 	install initramfs-tools-hook \
 		/usr/share/initramfs-tools/hooks/mandos
 	install initramfs-tools-hook-conf \
 		/usr/share/initramfs-tools/conf-hooks.d/mandos
 	install initramfs-tools-script \
 		/usr/share/initramfs-tools/scripts/local-top/mandos
+	install --mode=u=rw,go=r plugin-runner.conf $(CONFDIR)
 	gzip --best --to-stdout mandos-keygen.8 \
 		> $(MANDIR)/man8/mandos-keygen.8.gz
 	gzip --best --to-stdout plugin-runner.8mandos \
@@ -173,12 +183,13 @@ install-client: all doc /usr/share/initramfs-tools/hooks/.
 		> $(MANDIR)/man8/password-prompt.8mandos.gz
 	gzip --best --to-stdout plugins.d/password-request.8mandos \
 		> $(MANDIR)/man8/password-request.8mandos.gz
-	-$(PREFIX)/sbin/mandos-keygen
+	-$(PREFIX)/sbin/mandos-keygen --dir "$(KEYDIR)"
 	update-initramfs -k all -u
+	echo "Now run mandos-keygen --password --dir $(KEYDIR)"
 
 uninstall: uninstall-server uninstall-client
 
-uninstall-server: $(PREFIX)/sbin/mandos
+uninstall-server:
 	-rm --force $(PREFIX)/sbin/mandos \
 		$(MANDIR)/man8/mandos.8.gz \
 		$(MANDIR)/man5/mandos.conf.5.gz \
@@ -211,5 +222,6 @@ purge-server: uninstall-server
 	-rmdir $(CONFDIR)
 
 purge-client: uninstall-client
-	-rm --force $(CONFDIR)/seckey.txt $(CONFDIR)/pubkey.txt
-	-rmdir $(CONFDIR) $(CONFDIR)/plugins.d
+	-shred --remove $(KEYDIR)/seckey.txt
+	-rm --force $(KEYDIR)/pubkey.txt $(KEYDIR)/seckey.txt
+	-rmdir $(KEYDIR) $(CONFDIR)/plugins.d $(CONFDIR)
