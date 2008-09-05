@@ -21,6 +21,9 @@ CONFDIR=$(DESTDIR)/etc/mandos
 KEYDIR=$(DESTDIR)/etc/keys/mandos
 # MANDIR=/usr/local/man
 MANDIR=$(DESTDIR)/usr/share/man
+PIDDIR=/var/run/mandos
+USER=nobody
+GROUP=nogroup
 
 GNUTLS_CFLAGS=$(shell libgnutls-config --cflags)
 GNUTLS_LIBS=$(shell libgnutls-config --libs)
@@ -135,10 +138,16 @@ install: install-server install-client
 install-server: doc
 	install --directory $(CONFDIR) $(MANDIR)/man5 \
 		$(MANDIR)/man8
+	install --mode=u=rwx,go=rx --owner=$(USER) --group=$(GROUP) \
+		--directory $(PIDDIR)
 	install --mode=u=rwx,go=rx mandos $(PREFIX)/sbin/mandos
-	install --mode=u=rw,go=r --target-directory=$(CONFDIR) mandos.conf
+	install --mode=u=rw,go=r --target-directory=$(CONFDIR) \
+		mandos.conf
 	install --mode=u=rw,g=r --target-directory=$(CONFDIR) \
 		clients.conf
+	install --mode=u=rwx,go=rx init.d-mandos /etc/init.d/mandos
+	install --mode=u=rw,go=r default-mandos /etc/default/mandos
+	update-rc.d mandos defaults
 	gzip --best --to-stdout mandos.8 \
 		> $(MANDIR)/man8/mandos.8.gz
 	gzip --best --to-stdout mandos.conf.5 \
@@ -150,13 +159,14 @@ install-client: all doc /usr/share/initramfs-tools/hooks/.
 	install --directory $(PREFIX)/lib/mandos $(CONFDIR) \
 		$(MANDIR)/man8
 	install --directory --mode=u=rwx $(KEYDIR)
-	install --directory --mode=u=rwx $(PREFIX)/lib/mandos/plugins.d
+	install --directory --mode=u=rwx \
+		$(PREFIX)/lib/mandos/plugins.d
 	if [ "$(CONFDIR)/plugins.d" \
 			!= "$(PREFIX)/lib/mandos/plugins.d" ]; then \
 			install --directory "$(CONFDIR)/plugins.d"; \
 		fi
-	install --mode=u=rwx,go=rx --target-directory=$(PREFIX)/lib/mandos \
-		plugin-runner
+	install --mode=u=rwx,go=rx \
+		--target-directory=$(PREFIX)/lib/mandos plugin-runner
 	install --mode=u=rwx,go=rx --target-directory=$(PREFIX)/sbin \
 		mandos-keygen
 	install --mode=u=rwx,go=rx \
@@ -194,7 +204,8 @@ uninstall-server:
 		$(MANDIR)/man8/mandos.8.gz \
 		$(MANDIR)/man5/mandos.conf.5.gz \
 		$(MANDIR)/man5/mandos-clients.conf.5.gz
-	-rmdir $(CONFDIR)
+	update-rc.d -f mandos remove
+	-rmdir $(CONFDIR) $(PIDDIR)
 
 uninstall-client:
 # Refuse to uninstall client if /etc/crypttab is explicitly configured
@@ -218,7 +229,8 @@ uninstall-client:
 purge: purge-server purge-client
 
 purge-server: uninstall-server
-	-rm --force $(CONFDIR)/mandos.conf $(CONFDIR)/clients.conf
+	-rm --force $(CONFDIR)/mandos.conf $(CONFDIR)/clients.conf \
+		/etc/default/mandos /etc/init.d/mandos
 	-rmdir $(CONFDIR)
 
 purge-client: uninstall-client
