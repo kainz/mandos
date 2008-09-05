@@ -586,7 +586,7 @@
       non-privileged.  This user and group is then what all plugins
       will be started as.  Therefore, the only way to run a plugin as
       a privileged user is to have the set-user-ID or set-group-ID bit
-      set on the plugin executable files (see <citerefentry>
+      set on the plugin executable file (see <citerefentry>
       <refentrytitle>execve</refentrytitle><manvolnum>2</manvolnum>
       </citerefentry>).
     </para>

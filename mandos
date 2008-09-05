@@ -772,6 +772,13 @@ def main():
                                 tcp_handler,
                                 settings=server_settings,
                                 clients=clients)
+    pidfilename = "/var/run/mandos.pid"
+    pidfile = None
+    try:
+        pidfile = open(pidfilename, "w")
+    except IOError, error:
+        logger.error("Could not open file %r", pidfilename)
+    
     uid = 65534
     gid = 65534
     try:
@@ -794,7 +801,7 @@ def main():
     except OSError, error:
         if error[0] != errno.EPERM:
             raise error
-
+    
     global service
     service = AvahiService(name = server_settings["servicename"],
                            type = "_mandos._tcp", );
@@ -841,16 +848,16 @@ def main():
         # Close all input and output, do double fork, etc.
         daemon()
     
-    pidfilename = "/var/run/mandos.pid"
-    pid = os.getpid()
-    try:
-        pidfile = open(pidfilename, "w")
-        pidfile.write(str(pid) + "\n")
-        pidfile.close()
-        del pidfile
-    except IOError, err:
-        logger.error(u"Could not write %s file with PID %d",
-                     pidfilename, os.getpid())
+    if pidfile is not None:
+        pid = os.getpid()
+        try:
+            pidfile.write(str(pid) + "\n")
+            pidfile.close()
+        except IOError, err:
+            logger.error(u"Could not write %s file with PID %d",
+                         pidfilename, os.getpid())
+    del pidfile
+    del pidfilename
     
     def cleanup():
         "Cleanup function; run on exit"
