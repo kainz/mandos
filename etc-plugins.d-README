@@ -1,0 +1,5 @@
+Any plugins found here in /etc/mandos/plugins.d will override and add
+to the normal Mandos plugins.  When adding or changing plugins, do not
+forget to update the initital RAM disk image:
+
+# update-initramfs -k all -u
