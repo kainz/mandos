@@ -156,10 +156,11 @@ install-client: all doc /usr/share/initramfs-tools/hooks/.
 	install --directory --mode=u=rwx $(KEYDIR)
 	install --directory --mode=u=rwx \
 		$(PREFIX)/lib/mandos/plugins.d
-	if [ "$(CONFDIR)/plugins.d" \
-			!= "$(PREFIX)/lib/mandos/plugins.d" ]; then \
+	if [ "$(CONFDIR)" != "$(PREFIX)/lib/mandos" ]; then \
 		install --mode=u=rwx \
 			--directory "$(CONFDIR)/plugins.d"; \
+		install --mode=u=rw,go=r etc-plugins.d-README \
+			$(CONFDIR)/plugins.d/README ; \
 	fi
 	install --mode=u=rwx,go=rx \
 		--target-directory=$(PREFIX)/lib/mandos plugin-runner
@@ -221,6 +222,9 @@ uninstall-client:
 		$(MANDIR)/man8/mandos-keygen.8.gz \
 		$(MANDIR)/man8/password-prompt.8mandos.gz \
 		$(MANDIR)/man8/password-request.8mandos.gz
+	if [ "$(CONFDIR)" != "$(PREFIX)/lib/mandos" ]; then \
+		rm --force $(CONFDIR)/plugins.d/README; \
+	fi
 	-rmdir $(PREFIX)/lib/mandos/plugins.d $(CONFDIR)/plugins.d \
 		 $(PREFIX)/lib/mandos $(CONFDIR) $(KEYDIR)
 	update-initramfs -k all -u
