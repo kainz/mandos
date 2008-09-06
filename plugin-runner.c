@@ -742,7 +742,11 @@ int main(int argc, char *argv[]){
     }
 
     char *filename;
-    ret = asprintf(&filename, "%s/%s", plugindir, dirst->d_name);
+    if(plugindir == NULL){
+      ret = asprintf(&filename, PDIR "/%s", dirst->d_name);
+    } else {
+      ret = asprintf(&filename, "%s/%s", plugindir, dirst->d_name);
+    }
     if(ret < 0){
       perror("asprintf");
       continue;
