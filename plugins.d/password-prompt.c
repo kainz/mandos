@@ -216,6 +216,11 @@ int main(int argc, char **argv){
       status = EXIT_SUCCESS;
       /* Make n = data size instead of allocated buffer size */
       n = (size_t)ret;
+      /* Strip final newline */
+      if(n>0 and buffer[n-1] == '\n'){
+	buffer[n-1] = '\0';	/* not strictly necessary */
+	n--;
+      }
       size_t written = 0;
       while(written < n){
 	ret = write(STDOUT_FILENO, buffer + written, n - written);

@@ -148,8 +148,8 @@ if [ "$mode" = keygen ]; then
 	[Nn][Oo]|[Ff][Aa][Ll][Ss][Ee]|*) FORCE=0;;
     esac
     
-    if { [ -e "$SECKEYFILE" ] || [ -e "$PUBKEYFILE" ]; } \
-	&& [ "$FORCE" -eq 0 ]; then
+    if [ \( -e "$SECKEYFILE" -o -e "$PUBKEYFILE" \) \
+	-a "$FORCE" -eq 0 ]; then
 	echo "Refusing to overwrite old key files; use --force" >&2
 	exit 1
     fi
@@ -254,7 +254,8 @@ if [ "$mode" = password ]; then
     FINGERPRINT="`gpg --quiet --batch --no-tty --no-options \
 	--enable-dsa2 --homedir \"$RINGDIR\" --trust-model always \
 	--fingerprint --with-colons \
-	| sed -n -e '/^fpr:/{s/^fpr:.*:\\([0-9A-Z]*\\):\$/\\1/p;q}'`"
+	| sed --quiet \
+	--expression='/^fpr:/{s/^fpr:.*:\\([0-9A-Z]*\\):\$/\\1/p;q}'`"
     
     test -n "$FINGERPRINT"
     
@@ -262,7 +263,7 @@ if [ "$mode" = password ]; then
     
     stty -echo
     echo -n "Enter passphrase: " >&2
-    sed -e '1q' \
+    head --lines=1 | tr --delete '\n' \
 	| gpg --quiet --batch --no-tty --no-options --enable-dsa2 \
 	--homedir "$RINGDIR" --trust-model always --armor --encrypt \
 	--recipient "$FINGERPRINT" --comment "$FILECOMMENT" \
@@ -276,7 +277,7 @@ if [ "$mode" = password ]; then
 	fingerprint = $FINGERPRINT
 	secret =
 EOF
-    sed -n -e '
+    sed --quiet --expression='
 	/^-----BEGIN PGP MESSAGE-----$/,/^-----END PGP MESSAGE-----$/{
 	    /^$/,${
 		# Remove 24-bit Radix-64 checksum

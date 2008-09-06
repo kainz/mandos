@@ -255,9 +255,6 @@ void handle_sigchld(__attribute__((unused)) int sig){
 /* Prints out a password to stdout */
 bool print_out_password(const char *buffer, size_t length){
   ssize_t ret;
-  if(length>0 and buffer[length-1] == '\n'){
-    length--;
-  }
   for(size_t written = 0; written < length; written += (size_t)ret){
     ret = TEMP_FAILURE_RETRY(write(STDOUT_FILENO, buffer + written,
 				   length - written));
@@ -1041,7 +1038,13 @@ int main(int argc, char *argv[]){
     bool bret;
     fprintf(stderr, "Going to fallback mode using getpass(3)\n");
     char *passwordbuffer = getpass("Password: ");
-    bret = print_out_password(passwordbuffer, strlen(passwordbuffer));
+    size_t len = strlen(passwordbuffer);
+    /* Strip trailing newline */
+    if(len > 0 and passwordbuffer[len-1] == '\n'){
+      passwordbuffer[len-1] = '\0'; /* not strictly necessary */
+      len--;
+    }
+    bret = print_out_password(passwordbuffer, len);
     if(not bret){
       perror("print_out_password");
       exitstatus = EXIT_FAILURE;
