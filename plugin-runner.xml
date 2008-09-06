@@ -571,13 +571,13 @@
       <para>
 	Run plugins from a different directory, read a different
 	configuration file, and add two options to the
-	<citerefentry><refentrytitle >password-request</refentrytitle>
+	<citerefentry><refentrytitle >mandos-client</refentrytitle>
 	<manvolnum>8mandos</manvolnum></citerefentry> plugin:
       </para>
       <para>
 
 <!-- do not wrap this line -->
-<userinput>&COMMANDNAME;  --config-file=/etc/mandos/plugin-runner.conf --plugin-dir /usr/lib/mandos/plugins.d --options-for=password-request:--pubkey=/etc/keys/mandos/pubkey.txt,--seckey=/etc/keys/mandos/seckey.txt</userinput>
+<userinput>&COMMANDNAME;  --config-file=/etc/mandos/plugin-runner.conf --plugin-dir /usr/lib/mandos/plugins.d --options-for=mandos-client:--pubkey=/etc/keys/mandos/pubkey.txt,--seckey=/etc/keys/mandos/seckey.txt</userinput>
 
       </para>
     </informalexample>
@@ -625,7 +625,7 @@
       <manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>password-prompt</refentrytitle>
       <manvolnum>8mandos</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>password-request</refentrytitle>
+      <citerefentry><refentrytitle>mandos-client</refentrytitle>
       <manvolnum>8mandos</manvolnum></citerefentry>
     </para>
   </refsect1>

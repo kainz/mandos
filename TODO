@@ -2,7 +2,7 @@
 
 * plugin-runner
 
-* password-request
+* mandos-client
 ** [#B] Temporarily lower kernel log level
    for less printouts during sucessfull boot.
 ** IPv4 support
