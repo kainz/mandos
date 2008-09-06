@@ -918,29 +918,6 @@ int main(int argc, char *argv[]){
       }
     }
     
-    ret = init_gnutls_global(&mc, pubkey, seckey);
-    if (ret == -1){
-      fprintf(stderr, "init_gnutls_global failed\n");
-      exitcode = EXIT_FAILURE;
-      goto end;
-    } else {
-      gnutls_initalized = true;
-    }
-
-    if(mkdtemp(tempdir) == NULL){
-      perror("mkdtemp");
-      tempdir[0] = '\0';
-      goto end;
-    }
-    
-    if(not init_gpgme(&mc, pubkey, seckey, tempdir)){
-      fprintf(stderr, "pgpme_initalized failed\n");
-      exitcode = EXIT_FAILURE;
-      goto end;
-    } else {
-      pgpme_initalized = true;
-    }
-    
     /* If the interface is down, bring it up */
     {
       sd = socket(PF_INET6, SOCK_DGRAM, IPPROTO_IP);
@@ -982,6 +959,29 @@ int main(int argc, char *argv[]){
     setgid(gid);
     if (ret == -1){
       perror("setgid");
+    }
+    
+    ret = init_gnutls_global(&mc, pubkey, seckey);
+    if (ret == -1){
+      fprintf(stderr, "init_gnutls_global failed\n");
+      exitcode = EXIT_FAILURE;
+      goto end;
+    } else {
+      gnutls_initalized = true;
+    }
+    
+    if(mkdtemp(tempdir) == NULL){
+      perror("mkdtemp");
+      tempdir[0] = '\0';
+      goto end;
+    }
+    
+    if(not init_gpgme(&mc, pubkey, seckey, tempdir)){
+      fprintf(stderr, "pgpme_initalized failed\n");
+      exitcode = EXIT_FAILURE;
+      goto end;
+    } else {
+      pgpme_initalized = true;
     }
     
     if_index = (AvahiIfIndex) if_nametoindex(interface);

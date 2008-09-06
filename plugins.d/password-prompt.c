@@ -256,6 +256,9 @@ int main(int argc, char **argv){
     fprintf(stderr, "%s is exiting with status %d\n", argv[0],
 	    status);
   }
+  if(status == EXIT_SUCCESS){
+    fputc('\n', stderr);
+  }
   
   return status;
 }
