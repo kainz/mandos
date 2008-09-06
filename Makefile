@@ -47,10 +47,10 @@ DOCBOOKTOMAN=cd $(dir $<); xsltproc --nonet --xinclude \
 # DocBook-to-man post-processing to fix a \n escape bug
 MANPOST=sed --in-place --expression='s,\\\\en,\\en,g;s,\\n,\\en,g'
 
-PLUGINS=plugins.d/password-prompt plugins.d/password-request
+PLUGINS=plugins.d/password-prompt plugins.d/mandos-client
 PROGS=plugin-runner $(PLUGINS)
 DOCS=mandos.8 plugin-runner.8mandos mandos-keygen.8 \
-	plugins.d/password-request.8mandos \
+	plugins.d/mandos-client.8mandos \
 	plugins.d/password-prompt.8mandos mandos.conf.5 \
 	mandos-clients.conf.5
 
@@ -81,12 +81,12 @@ mandos.conf.5: mandos.conf.xml mandos-options.xml legalnotice.xml
 plugin-runner.8mandos: plugin-runner.xml overview.xml legalnotice.xml
 	$(DOCBOOKTOMAN)
 
-plugins.d/password-request.8mandos: plugins.d/password-request.xml \
+plugins.d/mandos-client.8mandos: plugins.d/mandos-client.xml \
 					mandos-options.xml \
 					overview.xml legalnotice.xml
 	$(DOCBOOKTOMAN)
 
-plugins.d/password-request: plugins.d/password-request.o
+plugins.d/mandos-client: plugins.d/mandos-client.o
 	$(LINK.o) $(GNUTLS_LIBS) $(AVAHI_LIBS) $(GPGME_LIBS) \
 		$(COMMON) $^ $(LOADLIBES) $(LDLIBS) -o $@
 
@@ -109,7 +109,7 @@ check:
 run-client: all keydir/seckey.txt keydir/pubkey.txt
 	./plugin-runner --plugin-dir=plugins.d \
 		--config-file=plugin-runner.conf \
-		--options-for=password-request:--seckey=keydir/seckey.txt,--pubkey=keydir/pubkey.txt
+		--options-for=mandos-client:--seckey=keydir/seckey.txt,--pubkey=keydir/pubkey.txt
 
 # Used by run-client
 keydir/seckey.txt keydir/pubkey.txt: mandos-keygen
@@ -171,7 +171,7 @@ install-client: all doc /usr/share/initramfs-tools/hooks/.
 		plugins.d/password-prompt
 	install --mode=u=rwxs,go=rx \
 		--target-directory=$(PREFIX)/lib/mandos/plugins.d \
-		plugins.d/password-request
+		plugins.d/mandos-client
 	install --mode=u=rwx,go=rx \
 		--target-directory=$(PREFIX)/lib/mandos/plugins.d \
 		plugins.d/usplash
@@ -188,8 +188,8 @@ install-client: all doc /usr/share/initramfs-tools/hooks/.
 		> $(MANDIR)/man8/plugin-runner.8mandos.gz
 	gzip --best --to-stdout plugins.d/password-prompt.8mandos \
 		> $(MANDIR)/man8/password-prompt.8mandos.gz
-	gzip --best --to-stdout plugins.d/password-request.8mandos \
-		> $(MANDIR)/man8/password-request.8mandos.gz
+	gzip --best --to-stdout plugins.d/mandos-client.8mandos \
+		> $(MANDIR)/man8/mandos-client.8mandos.gz
 # Post-installation stuff
 	-$(PREFIX)/sbin/mandos-keygen --dir "$(KEYDIR)"
 	update-initramfs -k all -u
@@ -213,7 +213,7 @@ uninstall-client:
 	-rm --force $(PREFIX)/sbin/mandos-keygen \
 		$(PREFIX)/lib/mandos/plugin-runner \
 		$(PREFIX)/lib/mandos/plugins.d/password-prompt \
-		$(PREFIX)/lib/mandos/plugins.d/password-request \
+		$(PREFIX)/lib/mandos/plugins.d/mandos-client \
 		$(PREFIX)/lib/mandos/plugins.d/usplash \
 		/usr/share/initramfs-tools/hooks/mandos \
 		/usr/share/initramfs-tools/conf-hooks.d/mandos \
@@ -221,7 +221,7 @@ uninstall-client:
 		$(MANDIR)/man8/plugin-runner.8mandos.gz \
 		$(MANDIR)/man8/mandos-keygen.8.gz \
 		$(MANDIR)/man8/password-prompt.8mandos.gz \
-		$(MANDIR)/man8/password-request.8mandos.gz
+		$(MANDIR)/man8/mandos-client.8mandos.gz
 	if [ "$(CONFDIR)" != "$(PREFIX)/lib/mandos" ]; then \
 		rm --force $(CONFDIR)/plugins.d/README; \
 	fi

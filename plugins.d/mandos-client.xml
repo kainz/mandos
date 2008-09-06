@@ -2,8 +2,8 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY VERSION "1.0">
-<!ENTITY COMMANDNAME "password-request">
-<!ENTITY TIMESTAMP "2008-09-04">
+<!ENTITY COMMANDNAME "mandos-client">
+<!ENTITY TIMESTAMP "2008-09-06">
 ]>
 
 <refentry xmlns:xi="http://www.w3.org/2001/XInclude">
