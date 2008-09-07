@@ -473,7 +473,12 @@ int main(int argc, char *argv[]){
       debug = true;
       break;
     case ARGP_KEY_ARG:
-      fprintf(stderr, "Ignoring unknown argument \"%s\"\n", arg);
+      /* Cryptsetup always passes an argument, which is an empty
+	 string if "none" was specified in /etc/crypttab.  So if
+	 argument was empty, we ignore it silently. */
+      if(arg[0] != '\0'){
+	fprintf(stderr, "Ignoring unknown argument \"%s\"\n", arg);
+      }
       break;
     case ARGP_KEY_END:
       break;

@@ -24,6 +24,8 @@ prereqs)
      ;;
 esac
 
+chmod a=rwxt /tmp
+
 test -w /conf/conf.d/cryptroot
 
 # Do not replace cryptroot file unless we need to.
