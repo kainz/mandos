@@ -315,7 +315,7 @@ static ssize_t pgp_packet_decrypt (const mandos_context *mc,
   
   /* Seek back to the beginning of the GPGME plaintext data buffer */
   if (gpgme_data_seek(dh_plain, (off_t) 0, SEEK_SET) == -1){
-    perror("pgpme_data_seek");
+    perror("gpgme_data_seek");
     plaintext_length = -1;
     goto decrypt_end;
   }
@@ -451,6 +451,7 @@ static int init_gnutls_global(mandos_context *mc,
   
   gnutls_certificate_free_credentials(mc->cred);
   gnutls_global_deinit();
+  gnutls_dh_params_deinit(mc->dh_params);
   return -1;
 }
 
@@ -830,7 +831,7 @@ int main(int argc, char *argv[]){
 			  .dh_bits = 1024, .priority = "SECURE256"
 			  ":!CTYPE-X.509:+CTYPE-OPENPGP" };
     bool gnutls_initalized = false;
-    bool pgpme_initalized = false;
+    bool gpgme_initalized = false;
     
     {
       struct argp_option options[] = {
@@ -977,11 +978,11 @@ int main(int argc, char *argv[]){
     }
     
     if(not init_gpgme(&mc, pubkey, seckey, tempdir)){
-      fprintf(stderr, "pgpme_initalized failed\n");
+      fprintf(stderr, "gpgme_initalized failed\n");
       exitcode = EXIT_FAILURE;
       goto end;
     } else {
-      pgpme_initalized = true;
+      gpgme_initalized = true;
     }
     
     if_index = (AvahiIfIndex) if_nametoindex(interface);
@@ -1098,9 +1099,10 @@ int main(int argc, char *argv[]){
     if (gnutls_initalized){
       gnutls_certificate_free_credentials(mc.cred);
       gnutls_global_deinit ();
+      gnutls_dh_params_deinit(mc.dh_params);
     }
     
-    if(pgpme_initalized){
+    if(gpgme_initalized){
       gpgme_release(mc.ctx);
     }
     
@@ -1133,6 +1135,7 @@ int main(int argc, char *argv[]){
 	    free(fullname);
 	  }
 	}
+	closedir(d);
       }
       ret = rmdir(tempdir);
       if(ret == -1){

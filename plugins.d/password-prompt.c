@@ -249,6 +249,8 @@ int main(int argc, char **argv){
       fprintf(stderr, "getline() returned 0, retrying.\n");
     }
   }
+
+  free(buffer);
   
   if (debug){
     fprintf(stderr, "Restoring terminal attributes\n");
