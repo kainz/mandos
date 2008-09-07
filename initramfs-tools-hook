@@ -40,7 +40,7 @@ if [ -z "$prefix" ]; then
     exit 1
 fi
 
-for d in /etc/keys/mandos /usr/local/lib/mandos/keys; do
+for d in /etc/keys/mandos /etc/mandos/keys; do
     if [ -d "$d" ]; then
 	keydir="$d"
 	break
