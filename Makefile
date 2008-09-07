@@ -4,9 +4,9 @@ WARN=-O -Wall -Wformat=2 -Winit-self -Wmissing-include-dirs \
 	-Wunsafe-loop-optimizations -Wpointer-arith \
 	-Wbad-function-cast -Wcast-qual -Wcast-align -Wwrite-strings \
 	-Wconversion -Wstrict-prototypes -Wold-style-definition \
-	-Wpacked -Wnested-externs -Wunreachable-code -Winline \
-	-Wvolatile-register-var
-DEBUG=-ggdb3
+	-Wpacked -Wnested-externs -Winline -Wvolatile-register-var
+#	-Wunreachable-code 
+#DEBUG=-ggdb3
 # For info about _FORTIFY_SOURCE, see
 # <http://gcc.gnu.org/ml/gcc-patches/2004-09/msg02055.html>
 FORTIFY=-D_FORTIFY_SOURCE=2 # -fstack-protector-all
@@ -16,16 +16,19 @@ LANGUAGE=-std=gnu99
 
 ## Use these settings for a traditional /usr/local install
 # PREFIX=$(DESTDIR)/usr/local
-# CONFDIR=$(PREFIX)/lib/mandos
-# KEYDIR=$(PREFIX)/lib/mandos/keys
+# CONFDIR=$(DESTDIR)/etc/mandos
+# KEYDIR=$(DESTDIR)/etc/mandos/keys
 # MANDIR=$(PREFIX)/man
-# INITRAMFSTOOLS=/etc/initramfs-tools
+# INITRAMFSTOOLS=$(DESTDIR)/etc/initramfs-tools
+##
 
+## These settings are for a package-type install
 PREFIX=$(DESTDIR)/usr
 CONFDIR=$(DESTDIR)/etc/mandos
 KEYDIR=$(DESTDIR)/etc/keys/mandos
 MANDIR=$(PREFIX)/share/man
 INITRAMFSTOOLS=$(DESTDIR)/usr/share/initramfs-tools
+##
 
 GNUTLS_CFLAGS=$(shell libgnutls-config --cflags)
 GNUTLS_LIBS=$(shell libgnutls-config --libs)
