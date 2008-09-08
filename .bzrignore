@@ -3,6 +3,6 @@
 *.8mandos
 plugin-runner
 plugins.d/password-prompt
-plugins.d/password-request
+plugins.d/mandos-client
 confdir
 keydir

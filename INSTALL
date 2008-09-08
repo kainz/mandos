@@ -1,0 +1,114 @@
+-*- org -*-
+
+* Prerequisites
+  
+** Operating System
+   
+   Debian 5.0 "lenny" or Ubuntu 8.04 "Hardy Heron".
+   
+   This is mostly for the support scripts which make sure that the
+   client is installed and started in the initial RAM disk environment
+   and that the initrd.img file is automatically made unreadable.  The
+   server and client programs themselves *could* be run in other
+   distributions, but they *are* specific to GNU/Linux systems, and
+   are not intended to be portable to other Unixes.
+  
+** Libraries
+   
+   The following libraries and packages are needed.  (It is possible
+   that it might work with older versions of some of these, but these
+   versions are confirmed to work.  Newer versions are almost
+   certainly OK.)
+   
+*** Documentation
+    These are required to build the manual pages for both the server
+    and client:
+    
+    + DocBook 4.5         http://www.docbook.org/
+      Note: DocBook 5.0 is not compatible.
+    + DocBook XSL stylesheets 1.71.0
+                   http://wiki.docbook.org/topic/DocBookXslStylesheets
+    
+    Package names:
+    docbook docbook-xsl
+    
+    To build just the documentation, run the command "make doc".  Then
+    the manual page "mandos.8", for example, can be read by running
+    "man -l mandos.8".
+   
+*** Mandos Server
+    + GnuTLS 2.4          http://www.gnu.org/software/gnutls/
+    + Avahi 0.6.16        http://www.avahi.org/
+    + Python 2.4          http://www.python.org/
+    + Python-GnuTLS 1.1.5 http://pypi.python.org/pypi/python-gnutls/
+    + dbus-python 0.82.4  http://dbus.freedesktop.org/doc/dbus-python/
+    + python-ctypes 1.0.0 http://pypi.python.org/pypi/ctypes
+    
+    Strongly recommended:
+    + fping 2.4b2-to-ipv6 http://www.fping.com/
+    
+    Package names:
+    python-gnutls avahi-daemon python python-avahi python-dbus
+    python-ctypes
+   
+*** Mandos Client
+    + initramfs-tools 0.85i
+                  http://packages.qa.debian.org/i/initramfs-tools.html
+    + GnuTLS 2.4          http://www.gnu.org/software/gnutls/
+    + Avahi 0.6.16        http://www.avahi.org/
+    + GnuPG 1.4.9         http://www.gnupg.org/
+    + GPGME 1.1.6         http://www.gnupg.org/related_software/gpgme/
+    
+    Package names:
+    initramfs-tools libgnutls-dev libavahi-core-dev gnupg
+    libgpgme11-dev
+
+* Installing the Mandos server
+  
+  1. Do "make doc".
+  
+  2. On the computer to run as a Mandos server, run the following
+     command:
+     For Debian: su -c 'make install-server'
+     For Ubuntu: sudo make install-server
+     
+     (This creates a configuration without any clients configured; you
+     need an actually configured client to do that; see below.)
+
+* Installing the Mandos client.
+  
+  1. Do "make all doc".
+  
+  2. On the computer to run as a Mandos client, run the following
+     command:
+     For Debian: su -c 'make install-client'
+     For Ubuntu: sudo make install-client
+     
+     This will also create an OpenPGP key, which will take some time
+     and entropy, so be patient.
+  
+  3. Run the following command:
+     For Debian: su -c 'mandos-keygen --password'
+     For Ubuntu: sudo mandos-keygen --password
+     
+     When prompted, enter the password/passphrase for the encrypted
+     root file system on this client computer.  The command will
+     output a section of text, starting with a [section header].  Copy
+     and append this to the file "/etc/mandos/clients.conf" *on the
+     server computer*.
+  
+  4. On the server computer, start the server by running the command
+     For Debian: su -c 'invoke-rc.d mandos start'
+     For Ubuntu: sudo invoke-rc.d mandos start
+     
+     After this, the client computer should be able to reboot without
+     needing a password entered on the console, as long as it does not
+     take more than an hour to reboot.
+
+* Further customizations
+  
+  You may want to tighten or loosen the timeouts in the server
+  configuration files; see mandos.conf(5) and mandos-clients.conf(5).
+  Is IPsec is not used, it is suggested that a more cryptographically
+  secure checker program is used and configured, since without IPsec
+  ping packets can be faked.
