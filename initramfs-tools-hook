@@ -40,7 +40,7 @@ if [ -z "$prefix" ]; then
     exit 1
 fi
 
-for d in /etc/keys/mandos /usr/local/lib/mandos/keys; do
+for d in /etc/keys/mandos /etc/mandos/keys; do
     if [ -d "$d" ]; then
 	keydir="$d"
 	break
@@ -50,6 +50,15 @@ if [ -z "$keydir" ]; then
     # Mandos key directory not found
     exit 1
 fi
+
+mandos_user="`{ getent passwd mandos \
+		|| getent passwd nobody \
+		|| echo ::65534::::; } \
+	| awk --field-separator=: '{ print $3 }'`" 
+mandos_group="`{ getent group mandos \
+		|| getent group nogroup \
+		|| echo ::65534:; } \
+	| awk --field-separator=: '{ print $3 }'`"
 
 # The Mandos network client uses the network
 auto_add_modules net
@@ -62,8 +71,10 @@ MANDOSDIR="/lib/mandos"
 PLUGINDIR="${MANDOSDIR}/plugins.d"
 
 # Make directories
-mkdir --parents "${DESTDIR}${CONFDIR}"
-mkdir --parents "${DESTDIR}${PLUGINDIR}"
+install --directory --mode=u=rwx,go=rx "${DESTDIR}${CONFDIR}" \
+	"${DESTDIR}${MANDOSDIR}"
+install --owner=${mandos_user} --group=${mandos_group} --directory \
+    --mode=u=rwx "${DESTDIR}${PLUGINDIR}"
 
 # Copy the Mandos plugin runner
 copy_exec "$prefix"/lib/mandos/plugin-runner "${MANDOSDIR}"
@@ -95,17 +106,28 @@ for file in /etc/mandos/plugins.d/*; do
 done
 
 # GPGME needs /usr/bin/gpg
-if ! [ -e "${DESTDIR}/usr/bin/gpg" ] \
-    && [ -n "`ls \"${DESTDIR}\"/usr/lib/libgpgme.so* 2>/dev/null`" ]; then
+if [ ! -e "${DESTDIR}/usr/bin/gpg" \
+    -a -n "`ls \"${DESTDIR}\"/usr/lib/libgpgme.so* \
+		2>/dev/null`" ]; then
     copy_exec /usr/bin/gpg
 fi
 
-# Config files and key files 
-for file in /etc/mandos/* "$keydir"/*; do
+# Config files
+for file in /etc/mandos/*; do
     if [ -d "$file" ]; then
 	continue
     fi
     cp --archive --sparse=always "$file" "${DESTDIR}${CONFDIR}"
+done
+
+# Key files 
+for file in  "$keydir"/*; do
+    if [ -d "$file" ]; then
+	continue
+    fi
+    cp --archive --sparse=always "$file" "${DESTDIR}${CONFDIR}"
+    chown ${mandos_user}:${mandos_group} \
+	"${DESTDIR}${CONFDIR}/`basename \"$file\"`"
 done
 
 # /lib/mandos/plugin-runner will drop priviliges, but needs access to
@@ -120,7 +142,7 @@ done
 # condition.  This umask is set by "initramfs-tools-hook-conf",
 # installed as "/usr/share/initramfs-tools/conf-hooks.d/mandos".)
 # 
-for full in "${PLUGINDIR}" "${CONFDIR}"; do
+for full in "${MANDOSDIR}" "${CONFDIR}"; do
     while [ "$full" != "/" ]; do
 	chmod a+rX "${DESTDIR}$full"
 	full="`dirname \"$full\"`"
@@ -135,6 +157,6 @@ for dir in / /bin /etc /keyscripts /sbin /scripts /usr /usr/bin; do
     fi
 done
 for dir in /lib /usr/lib; do
-    find "${DESTDIR}$dir" \! -perm /u+rw,g+r -prune -o -print0 \
+    find "${DESTDIR}$dir" \! -perm -u+rw,g+r -prune -or -print0 \
 	| xargs --null --no-run-if-empty chmod a+rX
 done

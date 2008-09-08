@@ -107,11 +107,11 @@
 
 #define PATHDIR "/conf/conf.d/mandos"
 #define SECKEY "seckey.txt"
-#define PUBKEY "pupkey.txt"
+#define PUBKEY "pubkey.txt"
 
 bool debug = false;
 static const char mandos_protocol_version[] = "1";
-const char *argp_program_version = "password-request 1.0";
+const char *argp_program_version = "mandos-client 1.0";
 const char *argp_program_bug_address = "<mandos@fukt.bsnet.se>";
 
 /* Used for passing in values through the Avahi callback functions */
@@ -150,7 +150,7 @@ static bool init_gpgme(mandos_context *mc, const char *seckey,
   int ret;
   gpgme_error_t rc;
   gpgme_engine_info_t engine_info;
-
+  
   
   /*
    * Helper function to insert pub and seckey to the enigne keyring.
@@ -171,14 +171,14 @@ static bool init_gpgme(mandos_context *mc, const char *seckey,
 	      gpgme_strsource(rc), gpgme_strerror(rc));
       return false;
     }
-
+    
     rc = gpgme_op_import(mc->ctx, pgp_data);
     if (rc != GPG_ERR_NO_ERROR){
       fprintf(stderr, "bad gpgme_op_import: %s: %s\n",
 	      gpgme_strsource(rc), gpgme_strerror(rc));
       return false;
     }
-
+    
     ret = TEMP_FAILURE_RETRY(close(fd));
     if(ret == -1){
       perror("close");
@@ -190,7 +190,7 @@ static bool init_gpgme(mandos_context *mc, const char *seckey,
   if (debug){
     fprintf(stderr, "Initialize gpgme\n");
   }
-
+  
   /* Init GPGME */
   gpgme_check_version(NULL);
   rc = gpgme_engine_check_version(GPGME_PROTOCOL_OpenPGP);
@@ -199,7 +199,7 @@ static bool init_gpgme(mandos_context *mc, const char *seckey,
 	    gpgme_strsource(rc), gpgme_strerror(rc));
     return false;
   }
-
+  
     /* Set GPGME home directory for the OpenPGP engine only */
   rc = gpgme_get_engine_info (&engine_info);
   if (rc != GPG_ERR_NO_ERROR){
@@ -219,7 +219,7 @@ static bool init_gpgme(mandos_context *mc, const char *seckey,
     fprintf(stderr, "Could not set GPGME home dir to %s\n", tempdir);
     return false;
   }
-
+  
   /* Create new GPGME "context" */
   rc = gpgme_new(&(mc->ctx));
   if (rc != GPG_ERR_NO_ERROR){
@@ -919,29 +919,6 @@ int main(int argc, char *argv[]){
       }
     }
     
-    ret = init_gnutls_global(&mc, pubkey, seckey);
-    if (ret == -1){
-      fprintf(stderr, "init_gnutls_global failed\n");
-      exitcode = EXIT_FAILURE;
-      goto end;
-    } else {
-      gnutls_initalized = true;
-    }
-
-    if(mkdtemp(tempdir) == NULL){
-      perror("mkdtemp");
-      tempdir[0] = '\0';
-      goto end;
-    }
-    
-    if(not init_gpgme(&mc, pubkey, seckey, tempdir)){
-      fprintf(stderr, "gpgme_initalized failed\n");
-      exitcode = EXIT_FAILURE;
-      goto end;
-    } else {
-      gpgme_initalized = true;
-    }
-    
     /* If the interface is down, bring it up */
     {
       sd = socket(PF_INET6, SOCK_DGRAM, IPPROTO_IP);
@@ -983,6 +960,29 @@ int main(int argc, char *argv[]){
     setgid(gid);
     if (ret == -1){
       perror("setgid");
+    }
+    
+    ret = init_gnutls_global(&mc, pubkey, seckey);
+    if (ret == -1){
+      fprintf(stderr, "init_gnutls_global failed\n");
+      exitcode = EXIT_FAILURE;
+      goto end;
+    } else {
+      gnutls_initalized = true;
+    }
+    
+    if(mkdtemp(tempdir) == NULL){
+      perror("mkdtemp");
+      tempdir[0] = '\0';
+      goto end;
+    }
+    
+    if(not init_gpgme(&mc, pubkey, seckey, tempdir)){
+      fprintf(stderr, "gpgme_initalized failed\n");
+      exitcode = EXIT_FAILURE;
+      goto end;
+    } else {
+      gpgme_initalized = true;
     }
     
     if_index = (AvahiIfIndex) if_nametoindex(interface);
@@ -1101,11 +1101,11 @@ int main(int argc, char *argv[]){
       gnutls_global_deinit ();
       gnutls_dh_params_deinit(mc.dh_params);
     }
-
+    
     if(gpgme_initalized){
       gpgme_release(mc.ctx);
     }
-
+    
     /* Removes the temp directory used by GPGME */
     if(tempdir[0] != '\0'){
       DIR *d;
