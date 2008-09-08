@@ -2,67 +2,89 @@
 
 * Prerequisites
   
-  Debian 5.0 "lenny" or Ubuntu 8.04 "Hardy Heron".
-  
-  The following libraries and packages are needed.  (It is possible
-  that it might work with older versions of some of these, but these
-  versions are confirmed to work.  Newer versions are almost certainly
-  OK.)
-  
-** Documentation
-   These are required to build the manual pages for both the server
-   and client:
+** Operating System
    
-   + DocBook 4.5          http://www.docbook.org/
-   + DocBook XSL stylesheets 1.71.0
+   Debian 5.0 "lenny" or Ubuntu 8.04 "Hardy Heron".
+   
+   This is mostly for scripts to make sure that the client is
+   installed and started in the initial RAM disk environment and that
+   the initrd.img file is automatically made unreadable.  The programs
+   themselves *could* be run in other distributions, but they *are*
+   specific to GNU/Linux systems, and not intended to be portable to
+   other Unix systems.
+  
+** Libraries
+   
+   The following libraries and packages are needed.  (It is possible
+   that it might work with older versions of some of these, but these
+   versions are confirmed to work.  Newer versions are almost
+   certainly OK.)
+   
+*** Documentation
+    These are required to build the manual pages for both the server
+    and client:
+    
+    + DocBook 4.5         http://www.docbook.org/
+    + DocBook XSL stylesheets 1.71.0
                    http://wiki.docbook.org/topic/DocBookXslStylesheets
-  
-** Mandos Server
-   + GnuTLS 2.4           http://www.gnu.org/software/gnutls/
-   + Avahi 0.6.16         http://www.avahi.org/
-   + Python 2.4           http://www.python.org/
-   + Python-GnuTLS 1.1.5  http://pypi.python.org/pypi/python-gnutls/
-   + dbus-python 0.82.4   http://dbus.freedesktop.org/doc/dbus-python/
-   + python-ctypes 1.0.0  http://pypi.python.org/pypi/ctypes
+    
+    Package names:
+    docbook docbook-xsl
    
-   Strongly recommended:
-   + fping 2.4b2-to-ipv6  http://www.fping.com/
-  
-** Mandos Client
-   + initramfs-tools 0.85i
+*** Mandos Server
+    + GnuTLS 2.4          http://www.gnu.org/software/gnutls/
+    + Avahi 0.6.16        http://www.avahi.org/
+    + Python 2.4          http://www.python.org/
+    + Python-GnuTLS 1.1.5 http://pypi.python.org/pypi/python-gnutls/
+    + dbus-python 0.82.4  http://dbus.freedesktop.org/doc/dbus-python/
+    + python-ctypes 1.0.0 http://pypi.python.org/pypi/ctypes
+    
+    Strongly recommended:
+    + fping 2.4b2-to-ipv6 http://www.fping.com/
+    
+    Package names:
+    python-gnutls avahi-daemon python2.5 python-avahi python-dbus
+    python-ctypes
+   
+*** Mandos Client
+    + initramfs-tools 0.85i
                   http://packages.qa.debian.org/i/initramfs-tools.html
-   + GnuTLS 2.4           http://www.gnu.org/software/gnutls/
-   + Avahi 0.6.16         http://www.avahi.org/
-   + GnuPG 1.4.9          http://www.gnupg.org/
-   + GPGME 1.1.6          http://www.gnupg.org/related_software/gpgme/
+    + GnuTLS 2.4          http://www.gnu.org/software/gnutls/
+    + Avahi 0.6.16        http://www.avahi.org/
+    + GnuPG 1.4.9         http://www.gnupg.org/
+    + GPGME 1.1.6         http://www.gnupg.org/related_software/gpgme/
+    
+    Package names:
+    initramfs-tools libgnutls-dev libavahi-core-dev gnupg
+    libgpgme11-dev
 
 * Installing the Mandos server
   
-  + Do "make doc".
+  1. Do "make doc".
   
-  + On the computer to run as a Mandos server, run the following
-    command: "sudo make install-server".
+  2. On the computer to run as a Mandos server, run the following
+     command: "sudo make install-server".
     
-    (This creates a configuration without any clients configured; we
-    need an actually configured client to do that; see below.)
+     (This creates a configuration without any clients configured; we
+     need an actually configured client to do that; see below.)
 
 * Installing the Mandos client.
   
-  + Do "make all doc".
+  1. Do "make all doc".
   
-  + On the computer to run as a Mandos server, run the following
-    command: "sudo make install-client".  This will also create an
-    OpenPGP key, which will take some time and entropy, so either wait
-    patiently or frob your mouse until it's done.
+  2. On the computer to run as a Mandos client, run the following
+     command: "sudo make install-client".  This will also create an
+     OpenPGP key, which will take some time and entropy, so either
+     wait patiently or frob your mouse until it's done.
   
-  + Run "mandos-keygen --password".  When prompted, enter the
-    password/passphrase for the encrypted root file system on this
-    client computer.  It will output a section of text, starting with
-    a [section header].  Copy and paste this into the
-    "/etc/mandos/clients.conf" file *on the server computer*.
+  3. Run "mandos-keygen --password".  When prompted, enter the
+     password/passphrase for the encrypted root file system on this
+     client computer.  It will output a section of text, starting with
+     a [section header].  Copy and paste this into the file
+     "/etc/mandos/clients.conf" *on the server computer*.
   
-  + On the server computer, start the server by running the command
-    "invoke-rc.d mandos start".
+  4. On the server computer, start the server by running the command
+     "invoke-rc.d mandos start".
 
 * Further customizations
   
