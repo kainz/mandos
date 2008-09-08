@@ -6,12 +6,12 @@
    
    Debian 5.0 "lenny" or Ubuntu 8.04 "Hardy Heron".
    
-   This is mostly for scripts to make sure that the client is
-   installed and started in the initial RAM disk environment and that
-   the initrd.img file is automatically made unreadable.  The programs
-   themselves *could* be run in other distributions, but they *are*
-   specific to GNU/Linux systems, and not intended to be portable to
-   other Unix systems.
+   This is mostly for the support scripts which make sure that the
+   client is installed and started in the initial RAM disk environment
+   and that the initrd.img file is automatically made unreadable.  The
+   server and client programs themselves *could* be run in other
+   distributions, but they *are* specific to GNU/Linux systems, and
+   are not intended to be portable to other Unixes.
   
 ** Libraries
    
@@ -25,11 +25,16 @@
     and client:
     
     + DocBook 4.5         http://www.docbook.org/
+      Note: DocBook 5.0 is not compatible.
     + DocBook XSL stylesheets 1.71.0
                    http://wiki.docbook.org/topic/DocBookXslStylesheets
     
     Package names:
     docbook docbook-xsl
+    
+    To build just the documentation, run the command "make doc".  Then
+    the manual page "mandos.8", for example, can be read by running
+    "man -l mandos.8".
    
 *** Mandos Server
     + GnuTLS 2.4          http://www.gnu.org/software/gnutls/
@@ -43,7 +48,7 @@
     + fping 2.4b2-to-ipv6 http://www.fping.com/
     
     Package names:
-    python-gnutls avahi-daemon python2.5 python-avahi python-dbus
+    python-gnutls avahi-daemon python python-avahi python-dbus
     python-ctypes
    
 *** Mandos Client
@@ -63,9 +68,11 @@
   1. Do "make doc".
   
   2. On the computer to run as a Mandos server, run the following
-     command: "sudo make install-server".
-    
-     (This creates a configuration without any clients configured; we
+     command:
+     For Debian: su -c 'make install-server'
+     For Ubuntu: sudo make install-server
+     
+     (This creates a configuration without any clients configured; you
      need an actually configured client to do that; see below.)
 
 * Installing the Mandos client.
@@ -73,18 +80,30 @@
   1. Do "make all doc".
   
   2. On the computer to run as a Mandos client, run the following
-     command: "sudo make install-client".  This will also create an
-     OpenPGP key, which will take some time and entropy, so either
-     wait patiently or frob your mouse until it's done.
+     command:
+     For Debian: su -c 'make install-client'
+     For Ubuntu: sudo make install-client
+     
+     This will also create an OpenPGP key, which will take some time
+     and entropy, so be patient.
   
-  3. Run "mandos-keygen --password".  When prompted, enter the
-     password/passphrase for the encrypted root file system on this
-     client computer.  It will output a section of text, starting with
-     a [section header].  Copy and paste this into the file
-     "/etc/mandos/clients.conf" *on the server computer*.
+  3. Run the following command:
+     For Debian: su -c 'mandos-keygen --password'
+     For Ubuntu: sudo mandos-keygen --password
+     
+     When prompted, enter the password/passphrase for the encrypted
+     root file system on this client computer.  The command will
+     output a section of text, starting with a [section header].  Copy
+     and append this to the file "/etc/mandos/clients.conf" *on the
+     server computer*.
   
   4. On the server computer, start the server by running the command
-     "invoke-rc.d mandos start".
+     For Debian: su -c 'invoke-rc.d mandos start'
+     For Ubuntu: sudo invoke-rc.d mandos start
+     
+     After this, the client computer should be able to reboot without
+     needing a password entered on the console, as long as it does not
+     take more than an hour to reboot.
 
 * Further customizations
   
