@@ -35,6 +35,10 @@ FORCE=no
 KEYCOMMENT_ORIG="$KEYCOMMENT"
 mode=keygen
 
+if [ ! -d "$KEYDIR" ]; then
+    KEYDIR="/etc/mandos/keys"
+fi
+
 # Parse options
 TEMP=`getopt --options vhd:t:l:n:e:c:x:f \
     --longoptions version,help,password,dir:,type:,length:,subtype:,sublength:,name:,email:,comment:,expire:,force \
