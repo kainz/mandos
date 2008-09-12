@@ -4,7 +4,7 @@
 <!ENTITY VERSION "1.0">
 <!ENTITY CONFNAME "mandos-clients.conf">
 <!ENTITY CONFPATH "<filename>/etc/mandos/clients.conf</filename>">
-<!ENTITY TIMESTAMP "2008-09-04">
+<!ENTITY TIMESTAMP "2008-09-12">
 ]>
 
 <refentry xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -37,7 +37,7 @@
     </copyright>
     <xi:include href="legalnotice.xml"/>
   </refentryinfo>
-
+  
   <refmeta>
     <refentrytitle>&CONFNAME;</refentrytitle>
     <manvolnum>5</manvolnum>
@@ -49,11 +49,11 @@
       Configuration file for the Mandos server
     </refpurpose>
   </refnamediv>
-
+  
   <refsynopsisdiv>
     <synopsis>&CONFPATH;</synopsis>
   </refsynopsisdiv>
-
+  
   <refsect1 id="description">
     <title>DESCRIPTION</title>
     <para>
@@ -95,9 +95,9 @@
     <para>
       Unknown options are ignored.  The used options are as follows:
     </para>
-
+    
     <variablelist>
-
+      
       <varlistentry>
 	<term><option>timeout<literal> = </literal><replaceable
 	>TIME</replaceable></option></term>
@@ -126,7 +126,7 @@
 	  </para>
 	</listitem>
       </varlistentry>
-
+      
       <varlistentry>
 	<term><option>interval<literal> = </literal><replaceable
 	>TIME</replaceable></option></term>
@@ -149,7 +149,7 @@
 	  </para>
 	</listitem>
       </varlistentry>
-
+      
       <varlistentry>
 	<term><option>checker<literal> = </literal><replaceable
 	>COMMAND</replaceable></option></term>
@@ -223,7 +223,7 @@
 	  </para>
 	</listitem>
       </varlistentry>
-
+      
       <varlistentry>
 	<term><option>secfile<literal> = </literal><replaceable
 	>FILENAME</replaceable></option></term>
@@ -241,7 +241,7 @@
 	  </para>
 	</listitem>
       </varlistentry>
-
+      
       <varlistentry>
 	<term><option><literal>host = </literal><replaceable
 	>STRING</replaceable></option></term>
@@ -313,7 +313,7 @@
 	mode is needed to expose an error of this kind.
       </para>
     </refsect2>
-
+    
   </refsect1>
   
   <refsect1 id="files">
@@ -373,7 +373,6 @@ interval = 1m
 fingerprint = 3e393aeaefb84c7e89e2f547b3a107558fca3a27
 secfile = /etc/mandos/bar-secret
 timeout = 15m
-
       </programlisting>
     </informalexample>
   </refsect1>

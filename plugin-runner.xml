@@ -3,7 +3,7 @@
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY VERSION "1.0">
 <!ENTITY COMMANDNAME "plugin-runner">
-<!ENTITY TIMESTAMP "2008-09-06">
+<!ENTITY TIMESTAMP "2008-09-12">
 ]>
 
 <refentry xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -36,7 +36,7 @@
     </copyright>
     <xi:include href="legalnotice.xml"/>
   </refentryinfo>
-
+  
   <refmeta>
     <refentrytitle>&COMMANDNAME;</refentrytitle>
     <manvolnum>8mandos</manvolnum>
@@ -48,7 +48,7 @@
       Run Mandos plugins, pass data from first to succeed.
     </refpurpose>
   </refnamediv>
-
+  
   <refsynopsisdiv>
     <cmdsynopsis>
       <command>&COMMANDNAME;</command>
@@ -247,7 +247,7 @@
 	  </para>
 	</listitem>
       </varlistentry>
-
+      
       <varlistentry>
 	<term><option>--disable
 	<replaceable>PLUGIN</replaceable></option></term>
@@ -261,7 +261,7 @@
 	  </para>	
 	</listitem>
       </varlistentry>
-
+      
       <varlistentry>
 	<term><option>--enable
 	<replaceable>PLUGIN</replaceable></option></term>
@@ -276,7 +276,7 @@
 	  </para>
 	</listitem>
       </varlistentry>
-
+      
       <varlistentry>
 	<term><option>--groupid
 	<replaceable>ID</replaceable></option></term>
@@ -289,7 +289,7 @@
 	  </para>
 	</listitem>
       </varlistentry>
-
+      
       <varlistentry>
 	<term><option>--userid
 	<replaceable>ID</replaceable></option></term>
@@ -302,7 +302,7 @@
 	  </para>
 	</listitem>
       </varlistentry>
-
+      
       <varlistentry>
 	<term><option>--plugin-dir
 	<replaceable>DIRECTORY</replaceable></option></term>
@@ -365,7 +365,7 @@
 	  </para>
 	</listitem>
       </varlistentry>
-
+      
       <varlistentry>
 	<term><option>--version</option></term>
 	<term><option>-V</option></term>
@@ -377,7 +377,7 @@
       </varlistentry>
     </variablelist>
   </refsect1>
-
+  
   <refsect1 id="overview">
     <title>OVERVIEW</title>
     <xi:include href="overview.xml"/>
@@ -403,7 +403,7 @@
       code will make this plugin-runner output the password from that
       plugin, stop any other plugins, and exit.
     </para>
-
+    
     <refsect2 id="writing_plugins">
       <title>WRITING PLUGINS</title>
       <para>
