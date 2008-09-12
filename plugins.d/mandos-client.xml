@@ -3,7 +3,7 @@
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY VERSION "1.0">
 <!ENTITY COMMANDNAME "mandos-client">
-<!ENTITY TIMESTAMP "2008-09-06">
+<!ENTITY TIMESTAMP "2008-09-12">
 ]>
 
 <refentry xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -36,7 +36,7 @@
     </copyright>
     <xi:include href="../legalnotice.xml"/>
   </refentryinfo>
-
+  
   <refmeta>
     <refentrytitle>&COMMANDNAME;</refentrytitle>
     <manvolnum>8mandos</manvolnum>
@@ -48,7 +48,7 @@
       Client for <application>Mandos</application>
     </refpurpose>
   </refnamediv>
-
+  
   <refsynopsisdiv>
     <cmdsynopsis>
       <command>&COMMANDNAME;</command>
@@ -113,7 +113,7 @@
       </group>
     </cmdsynopsis>
   </refsynopsisdiv>
-
+  
   <refsect1 id="description">
     <title>DESCRIPTION</title>
     <para>
@@ -215,7 +215,7 @@
 	  </para>
 	</listitem>
       </varlistentry>
-
+      
       <varlistentry>
 	<term><option>--seckey=<replaceable
 	>FILE</replaceable></option></term>
@@ -238,7 +238,7 @@
 		      xpointer="priority"/>
 	</listitem>
       </varlistentry>
-
+      
       <varlistentry>
 	<term><option>--dh-bits=<replaceable
 	>BITS</replaceable></option></term>
@@ -284,7 +284,7 @@
 	  </para>
 	</listitem>
       </varlistentry>
-
+      
       <varlistentry>
 	<term><option>--version</option></term>
 	<term><option>-V</option></term>
@@ -296,7 +296,7 @@
       </varlistentry>
     </variablelist>
   </refsect1>
-
+  
   <refsect1 id="overview">
     <title>OVERVIEW</title>
     <xi:include href="../overview.xml"/>
@@ -368,7 +368,7 @@
 <!--     <para> -->
 <!--     </para> -->
 <!--   </refsect1> -->
-
+  
   <refsect1 id="example">
     <title>EXAMPLE</title>
     <para>
@@ -423,7 +423,7 @@
       </para>
     </informalexample>
   </refsect1>
-
+  
   <refsect1 id="security">
     <title>SECURITY</title>
     <para>
@@ -470,7 +470,7 @@
       confidential.
     </para>
   </refsect1>
-
+  
   <refsect1 id="see_also">
     <title>SEE ALSO</title>
     <para>
@@ -601,8 +601,8 @@
       </varlistentry>
     </variablelist>
   </refsect1>
-
 </refentry>
+
 <!-- Local Variables: -->
 <!-- time-stamp-start: "<!ENTITY TIMESTAMP [\"']" -->
 <!-- time-stamp-end: "[\"']>" -->
