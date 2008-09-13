@@ -172,7 +172,7 @@ install-client-nokey: all doc
 		$(PREFIX)/lib/mandos/plugins.d
 	if [ "$(CONFDIR)" != "$(PREFIX)/lib/mandos" ]; then \
 		install --mode=u=rwx \
-			--directory "$(CONFDIR)/plugins.d"; \
+			--directory "$(CONFDIR)/plugins.d" && \
 		install --mode=u=rw,go=r etc-plugins.d-README \
 			$(CONFDIR)/plugins.d/README ; \
 	fi
