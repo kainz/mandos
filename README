@@ -3,15 +3,15 @@
 * Mandos
   - Have your cake and eat it too!
   
-  You know how it is.  You've heard of it happening.  The Man comes
-  and takes away your servers, your friends' servers, the servers of
+  You know how it is.  You’ve heard of it happening.  The Man comes
+  and takes away your servers, your friends’ servers, the servers of
   everybody in the same hosting facility. The servers of their
-  neighbors, and their neighbors' friends.  The servers of people who
-  owe them money.  And like *that*, they're gone.  And you doubt
-  you'll ever see them again.
+  neighbors, and their neighbors’ friends.  The servers of people who
+  owe them money.  And like *that*, they’re gone.  And you doubt
+  you’ll ever see them again.
   
   That is why your servers have encrypted root file systems.  However,
-  there's a downside.  There's no going around it: rebooting is a
+  there’s a downside.  There’s no going around it: rebooting is a
   pain.  Dragging out that rarely-used keyboard and screen and
   unraveling cables behind your servers to plug them in to type in
   that password is messy, especially if you have many servers.  There
@@ -23,7 +23,7 @@
   have to be on hand and manually type in the password at boot time.
   Otherwise the server just sits there, waiting for a password.
   
-  Wouldn't it be great if you could have the security of encrypted
+  Wouldn’t it be great if you could have the security of encrypted
   root file systems and still have servers that could boot up
   automatically if there was a short power outage while you were
   asleep?  That you could reboot at will, without having someone run
@@ -129,3 +129,24 @@
   focused, and competent attacks, but against the early morning knock
   on your door and the sudden absence of all the servers in your
   server room.  Which it does nicely.
+
+* Copyright
+
+    Copyright (C) 2008 Teddy Hogeborn
+                  2008 Björn Påhlsson
+
+** License:
+
+   This program is free software: you can redistribute it and/or
+   modify it under the terms of the GNU General Public License as
+   published by the Free Software Foundation, either version 3 of the
+   License, or (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful, but
+   WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program.  If not, see
+   <http://www.gnu.org/licenses/>.
