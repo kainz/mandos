@@ -1,84 +1,79 @@
 -*- org -*-
 
-* plugin-runner
+* DONE plugin-runner
 
 * mandos-client
-** [#B] Temporarily lower kernel log level
+** TODO [#B] Temporarily lower kernel log level
    for less printouts during sucessfull boot.
-** IPv4 support
-** use strsep instead of strtok?
-** Do not depend on GnuPG key rings on disk
-   This would mean creating new GnuPG key rings with GPGME by
-   importing the key files from scratch on every program start.
-** Keydir move: /etc/mandos -> /etc/keys/mandos
-   Must create in preinst if not pre-depending on cryptsetup
+** TODO IPv4 support
+** TODO use strsep instead of strtok?
 
-* password-prompt
+* DONE password-prompt
 
 * mandos (server)
-** [#A] /etc/init.d/mandos-server		:teddy:
-** [#B] Log level				:bugs:
-** /etc/mandos/clients.d/*.conf
+** TODO [#B] Log level				:bugs:
+** TODO /etc/mandos/clients.d/*.conf
    Watch this directory and add/remove/update clients?
-** config for TXT record
-** [#B] Run-time communication with server	:bugs:
+** TODO config for TXT record
+** TODO [#B] Run-time communication with server :bugs:
    Probably using D-Bus
    See also [[*Mandos-tools]]
-** Implement --foreground			:bugs:
+** TODO Implement --foreground			:bugs:
    [[info:standards:Option%20Table][Table of Long Options]]
-** Implement --socket
+** TODO Implement --socket
    [[info:standards:Option%20Table][Table of Long Options]]
-** Date+time on console log messages		:bugs:
+** TODO Date+time on console log messages	:bugs:
    Is this the default?
-** delete hook when clients fall out by timeout
+** TODO delete hook when clients fall out by timeout
 
 * Mandos-tools/utilities
   All of this probably using D-Bus
-** List clients
-** Disable client
-** Enable client
-** Reboot timer
+** TODO List clients
+** TODO Disable client
+** TODO Enable client
+** TODO Reset timer
 
 * Man pages
-** Use xinclude for common sections
+** TODO Use xinclude for all common sections
    Like authors, etc.
 
 
 * Installer
 ** Client-side
-*** Update initrd.img after installation
+*** TODO Update initrd.img after installation
     This seems to use some kind of "trigger" system
     [[file:/usr/share/doc/dpkg/triggers.txt.gz]]
     dpkg-trigger(1), deb-triggers(5)
 *** mandos-keygen
-**** "--passfile" option
+**** TODO [#A] Ask for password twice for confirmation
+**** TODO "--passfile" option
      Using the "secfile" option instead of "secret"
-**** [#A] "--test" option
+**** TODO [#A] "--test" option
      For testing decryption before rebooting.
 ** Server-side
-*** [#A] Create mandos user and group for server
-*** [#A] Create /var/run/mandos directory with perm and ownership
-*** [#A] install rc.d script and do update-rc.d
-    between config files and man pages
+*** TODO [#A] Create mandos user and group for server
 
 
 * [#A] Package
 ** /usr/share/initramfs-tools/hooks/mandos
-*** Do not install in initrd.img if configured not to.
+*** TODO Do not install in initrd.img if configured not to.
     Use "/etc/initramfs-tools/conf.d/mandos"?  Definitely a debconf
     question.
-** /etc/bash_completion.d/mandos
+** TODO /etc/bash_completion.d/mandos
    From XML sources directly?
-** unperish
-** bzr-builddeb
+** TODO unperish
+** DONE bzr-builddeb
 
-* INSTALL file
-
-* Web site
+* TODO Web site
+** DONE http://www.fukt.bsnet.se/mandos
+   Redirects to the wiki page
+** TODO http://wiki.fukt.bsnet.se/wiki/Mandos
 
 * Mailing list
+** DONE mandos-dev
+*** TODO http://gmane.org/subscribe.php
 
-* Announce project on news
+* TODO Announce project on Usenet
   [[news:comp.os.linux.announce]]
 
 
