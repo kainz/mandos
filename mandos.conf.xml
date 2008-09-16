@@ -4,7 +4,7 @@
 <!ENTITY VERSION "1.0">
 <!ENTITY CONFNAME "mandos.conf">
 <!ENTITY CONFPATH "<filename>/etc/mandos/mandos.conf</filename>">
-<!ENTITY TIMESTAMP "2008-09-04">
+<!ENTITY TIMESTAMP "2008-09-12">
 ]>
 
 <refentry xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -37,7 +37,7 @@
     </copyright>
     <xi:include href="legalnotice.xml"/>
   </refentryinfo>
-
+  
   <refmeta>
     <refentrytitle>&CONFNAME;</refentrytitle>
     <manvolnum>5</manvolnum>
@@ -49,11 +49,11 @@
       Configuration file for the Mandos server
     </refpurpose>
   </refnamediv>
-
+  
   <refsynopsisdiv>
     <synopsis>&CONFPATH;</synopsis>
   </refsynopsisdiv>
-
+  
   <refsect1 id="description">
     <title>DESCRIPTION</title>
     <para>
@@ -71,7 +71,7 @@
       <quote>#</quote> or <quote>;</quote> are ignored and may be used
       to provide comments.
     </para>
-
+    
   </refsect1>
   <refsect1>
     <title>OPTIONS</title>
@@ -84,7 +84,7 @@
 	  <xi:include href="mandos-options.xml" xpointer="interface"/>
 	</listitem>
       </varlistentry>
-
+      
       <varlistentry>
 	<term><option>address<literal> = </literal><replaceable
 	  >ADDRESS</replaceable></option></term>
@@ -92,7 +92,7 @@
 	  <xi:include href="mandos-options.xml" xpointer="address"/>
 	</listitem>
       </varlistentry>
-
+      
       <varlistentry>
 	<term><option>port<literal> = </literal><replaceable
 	>NUMBER</replaceable></option></term>
@@ -100,7 +100,7 @@
 	  <xi:include href="mandos-options.xml" xpointer="port"/>
 	</listitem>
       </varlistentry>
-
+      
       <varlistentry>
 	<term><option>debug<literal> = </literal>{ <literal
 	  >1</literal> | <literal>yes</literal> | <literal
@@ -111,7 +111,7 @@
 	  <xi:include href="mandos-options.xml" xpointer="debug"/>
 	</listitem>
       </varlistentry>
-
+      
       <varlistentry>
 	<term><option>priority<literal> = </literal><replaceable
 	>STRING</replaceable></option></term>
@@ -119,7 +119,7 @@
 	  <xi:include href="mandos-options.xml" xpointer="priority"/>
 	</listitem>
       </varlistentry>
-
+      
       <varlistentry>
 	<term><option>servicename<literal> = </literal
 	><replaceable>NAME</replaceable></option></term>
@@ -185,7 +185,7 @@ servicename = Daena
       <citerefentry><refentrytitle>mandos-clients.conf</refentrytitle>
       <manvolnum>5</manvolnum></citerefentry>
     </para>
-
+    
     <variablelist>
       <varlistentry>
 	<term>

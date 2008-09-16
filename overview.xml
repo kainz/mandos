@@ -6,10 +6,12 @@
   encrypted root file systems and at the same time be capable of
   remote and/or unattended reboots.  The computers run a small client
   program in the initial <acronym>RAM</acronym> disk environment which
-  will communicate with a server over a network.  The clients are
-  identified by the server using a OpenPGP key; each client has one
-  unique to it.  The server sends the clients an encrypted password.
-  The encrypted password is decrypted by the clients using the same
-  OpenPGP key, and the password is then used to unlock the root file
-  system, whereupon the computers can continue booting normally.
+  will communicate with a server over a network.  All network
+  communication is encrypted using <acronym>TLS</acronym>.  The
+  clients are identified by the server using an OpenPGP key; each
+  client has one unique to it.  The server sends the clients an
+  encrypted password.  The encrypted password is decrypted by the
+  clients using the same OpenPGP key, and the password is then used to
+  unlock the root file system, whereupon the computers can continue
+  booting normally.
 </para>

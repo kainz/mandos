@@ -3,7 +3,7 @@
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY VERSION "1.0">
 <!ENTITY COMMANDNAME "mandos-keygen">
-<!ENTITY TIMESTAMP "2008-09-06">
+<!ENTITY TIMESTAMP "2008-09-12">
 ]>
 
 <refentry xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -36,7 +36,7 @@
     </copyright>
     <xi:include href="legalnotice.xml"/>
   </refentryinfo>
-
+  
   <refmeta>
     <refentrytitle>&COMMANDNAME;</refentrytitle>
     <manvolnum>8</manvolnum>
@@ -48,7 +48,7 @@
       Generate key and password for Mandos client and server.
     </refpurpose>
   </refnamediv>
-
+  
   <refsynopsisdiv>
     <cmdsynopsis>
       <command>&COMMANDNAME;</command>
@@ -197,7 +197,7 @@
 	  </para>
 	</listitem>
       </varlistentry>
-
+      
       <varlistentry>
 	<term><option>--dir
 	<replaceable>DIRECTORY</replaceable></option></term>
@@ -210,7 +210,7 @@
 	  </para>
 	</listitem>
       </varlistentry>
-
+      
       <varlistentry>
 	<term><option>--type
 	<replaceable>TYPE</replaceable></option></term>
@@ -222,7 +222,7 @@
 	  </para>
 	</listitem>
       </varlistentry>
-
+      
       <varlistentry>
 	<term><option>--length
 	<replaceable>BITS</replaceable></option></term>
@@ -234,7 +234,7 @@
 	  </para>
 	</listitem>
       </varlistentry>
-
+      
       <varlistentry>
 	<term><option>--subtype
 	<replaceable>KEYTYPE</replaceable></option></term>
@@ -247,7 +247,7 @@
 	  </para>
 	</listitem>
       </varlistentry>
-
+      
       <varlistentry>
 	<term><option>--sublength
 	<replaceable>BITS</replaceable></option></term>
@@ -259,7 +259,7 @@
 	  </para>
 	</listitem>
       </varlistentry>
-
+      
       <varlistentry>
 	<term><option>--email
 	<replaceable>ADDRESS</replaceable></option></term>
@@ -271,7 +271,7 @@
 	  </para>
 	</listitem>
       </varlistentry>
-
+      
       <varlistentry>
 	<term><option>--comment
 	<replaceable>TEXT</replaceable></option></term>
@@ -284,7 +284,7 @@
 	  </para>
 	</listitem>
       </varlistentry>
-
+      
       <varlistentry>
 	<term><option>--expire
 	<replaceable>TIME</replaceable></option></term>
@@ -298,7 +298,7 @@
 	  </para>
 	</listitem>
       </varlistentry>
-
+      
       <varlistentry>
 	<term><option>--force</option></term>
 	<term><option>-f</option></term>
@@ -328,7 +328,7 @@
       </varlistentry>
     </variablelist>
   </refsect1>
-
+  
   <refsect1 id="overview">
     <title>OVERVIEW</title>
     <xi:include href="overview.xml"/>
@@ -338,7 +338,7 @@
       <filename>clients.conf</filename> on the server.
     </para>
   </refsect1>
-
+  
   <refsect1 id="exit_status">
     <title>EXIT STATUS</title>
     <para>
@@ -401,13 +401,13 @@
       </varlistentry>
     </variablelist>
   </refsect1>
-
+  
 <!--   <refsect1 id="bugs"> -->
 <!--     <title>BUGS</title> -->
 <!--     <para> -->
 <!--     </para> -->
 <!--   </refsect1> -->
-
+  
   <refsect1 id="example">
     <title>EXAMPLE</title>
     <informalexample>
@@ -454,7 +454,7 @@
       </para>
     </informalexample>
   </refsect1>
-
+  
   <refsect1 id="security">
     <title>SECURITY</title>
     <para>
@@ -469,7 +469,7 @@
       <manvolnum>8</manvolnum></citerefentry>.
     </para>
   </refsect1>
-
+  
   <refsect1 id="see_also">
     <title>SEE ALSO</title>
     <para>

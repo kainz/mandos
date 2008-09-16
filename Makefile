@@ -138,11 +138,12 @@ confdir/clients.conf: clients.conf keydir/seckey.txt
 # Add a client password
 	./mandos-keygen --dir keydir --password >> $@
 
-install: install-server install-client
+install: install-server install-client-nokey
 
 install-server: doc
 	install --directory $(CONFDIR) $(MANDIR)/man5 \
-		$(MANDIR)/man8
+		$(MANDIR)/man8 $(DESTDIR)/etc/init.d \
+		$(DESTDIR)/etc/default $(PREFIX)/sbin
 	install --mode=u=rwx,go=rx mandos $(PREFIX)/sbin/mandos
 	install --mode=u=rw,go=r --target-directory=$(CONFDIR) \
 		mandos.conf
@@ -160,15 +161,18 @@ install-server: doc
 	gzip --best --to-stdout mandos-clients.conf.5 \
 		> $(MANDIR)/man5/mandos-clients.conf.5.gz
 
-install-client: all doc $(INITRAMFSTOOLS)/hooks/.
+install-client-nokey: all doc
 	install --directory $(PREFIX)/lib/mandos $(CONFDIR) \
-		$(MANDIR)/man8
+		$(MANDIR)/man8 $(PREFIX)/sbin \
+		$(INITRAMFSTOOLS)/hooks \
+		$(INITRAMFSTOOLS)/conf-hooks.d \
+		$(INITRAMFSTOOLS)/scripts/local-top
 	install --directory --mode=u=rwx $(KEYDIR)
 	install --directory --mode=u=rwx \
 		$(PREFIX)/lib/mandos/plugins.d
 	if [ "$(CONFDIR)" != "$(PREFIX)/lib/mandos" ]; then \
 		install --mode=u=rwx \
-			--directory "$(CONFDIR)/plugins.d"; \
+			--directory "$(CONFDIR)/plugins.d" && \
 		install --mode=u=rw,go=r etc-plugins.d-README \
 			$(CONFDIR)/plugins.d/README ; \
 	fi
@@ -200,6 +204,8 @@ install-client: all doc $(INITRAMFSTOOLS)/hooks/.
 		> $(MANDIR)/man8/password-prompt.8mandos.gz
 	gzip --best --to-stdout plugins.d/mandos-client.8mandos \
 		> $(MANDIR)/man8/mandos-client.8mandos.gz
+
+install-client: install-client-nokey
 # Post-installation stuff
 	-$(PREFIX)/sbin/mandos-keygen --dir "$(KEYDIR)"
 	update-initramfs -k all -u
