@@ -141,9 +141,7 @@ confdir/clients.conf: clients.conf keydir/seckey.txt
 install: install-server install-client-nokey
 
 install-server: doc
-	install --directory $(CONFDIR) $(MANDIR)/man5 \
-		$(MANDIR)/man8 $(DESTDIR)/etc/init.d \
-		$(DESTDIR)/etc/default $(PREFIX)/sbin
+	install --directory $(CONFDIR)
 	install --mode=u=rwx,go=rx mandos $(PREFIX)/sbin/mandos
 	install --mode=u=rw,go=r --target-directory=$(CONFDIR) \
 		mandos.conf
@@ -162,13 +160,8 @@ install-server: doc
 		> $(MANDIR)/man5/mandos-clients.conf.5.gz
 
 install-client-nokey: all doc
-	install --directory $(PREFIX)/lib/mandos $(CONFDIR) \
-		$(MANDIR)/man8 $(PREFIX)/sbin \
-		$(INITRAMFSTOOLS)/hooks \
-		$(INITRAMFSTOOLS)/conf-hooks.d \
-		$(INITRAMFSTOOLS)/scripts/local-top
-	install --directory --mode=u=rwx $(KEYDIR)
-	install --directory --mode=u=rwx \
+	install --directory $(PREFIX)/lib/mandos $(CONFDIR)
+	install --directory --mode=u=rwx $(KEYDIR) \
 		$(PREFIX)/lib/mandos/plugins.d
 	if [ "$(CONFDIR)" != "$(PREFIX)/lib/mandos" ]; then \
 		install --mode=u=rwx \
@@ -191,7 +184,7 @@ install-client-nokey: all doc
 		plugins.d/usplash
 	install initramfs-tools-hook \
 		$(INITRAMFSTOOLS)/hooks/mandos
-	install initramfs-tools-hook-conf \
+	install --mode=u=rw,go=r initramfs-tools-hook-conf \
 		$(INITRAMFSTOOLS)/conf-hooks.d/mandos
 	install initramfs-tools-script \
 		$(INITRAMFSTOOLS)/scripts/local-top/mandos

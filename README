@@ -49,13 +49,13 @@
   
   Now, of course the initial RAM disk image is not on the encrypted
   root file system, so anyone who had physical access could take the
-  server offline and read the disk with their own tools to get the
-  authentication keys used by a client.  *But*, by then the Mandos
-  server should notice that the original server has been offline for
-  too long, and will no longer give out the encrypted key.  The timing
-  here is the only real weak point, and the method, frequency and
-  timeout of the server’s checking can be adjusted to any desired
-  level of paranoia
+  Mandos client computer offline and read the disk with their own
+  tools to get the authentication keys used by a client.  *But*, by
+  then the Mandos server should notice that the original server has
+  been offline for too long, and will no longer give out the encrypted
+  key.  The timing here is the only real weak point, and the method,
+  frequency and timeout of the server’s checking can be adjusted to
+  any desired level of paranoia
   
   (The encrypted keys on the Mandos server is on its normal file
   system, so those are safe, provided the root file system of *that*
@@ -69,12 +69,12 @@
    to do.  An attacker would have to physically disassemble the client
    computer, extract the key from the initial RAM disk image, and then
    connect to a *still online* Mandos server to get the encrypted key,
-   all *before* the Mandos server timeout kicks in and the Mandos
-   server refuses to give out the key to anyone.
+   and do all this *before* the Mandos server timeout kicks in and the
+   Mandos server refuses to give out the key to anyone.
    
-   Now, as the typical SOP seems to be to barge in and turn off and
-   grab *all* computers, to maybe look at them months later, this is
-   not likely.  If someone does that, the whole system *will* lock
+   Now, as the typical procedure seems to be to barge in and turn off
+   and grab *all* computers, to maybe look at them months later, this
+   is not likely.  If someone does that, the whole system *will* lock
    itself up completely, since Mandos servers are no longer running.
    
    For sophisticated attackers who *could* do the clever thing, *and*
@@ -132,11 +132,11 @@
 
 * Copyright
 
-    Copyright (C) 2008 Teddy Hogeborn
-                  2008 Björn Påhlsson
-
+    Copyright © 2008 Teddy Hogeborn
+                2008 Björn Påhlsson
+  
 ** License:
-
+   
    This program is free software: you can redistribute it and/or
    modify it under the terms of the GNU General Public License as
    published by the Free Software Foundation, either version 3 of the
