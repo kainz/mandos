@@ -1,0 +1,49 @@
+Source: mandos
+Section: admin
+Priority: extra
+Maintainer: Mandos Maintainers <mandos@fukt.bsnet.se>
+Build-Depends: debhelper (>= 7), docbook-xsl, docbook (<5.0),
+	libavahi-core-dev, libgpgme11-dev, libgnutls-dev, xsltproc
+Standards-Version: 3.8.0
+Vcs-Bzr: ftp://anonymous@ftp.fukt.bsnet.se/pub/mandos/latest
+Homepage: http://www.fukt.bsnet.se/mandos
+
+Package: mandos
+Architecture: all
+Depends: ${shlibs:Depends}, ${misc:Depends}, python (>=2.5),
+	python-gnutls, python-dbus, python-avahi, avahi-daemon,
+	gnupg (< 2)
+Recommends: fping
+Description: a server giving encrypted passwords to Mandos clients
+ This is the server part of the Mandos system, which allows
+ computers to have encrypted root file systems and at the
+ same time be capable of remote and/or unattended reboots.
+ .
+ The computers run a small client program in the initial RAM
+ disk environment which will communicate with a server over a
+ network.  All network communication is encrypted using TLS.
+ The clients are identified by the server using an OpenPGP
+ key; each client has one unique to it.  The server sends the
+ clients an encrypted password.  The encrypted password is
+ decrypted by the clients using the same OpenPGP key, and the
+ password is then used to unlock the root file system,
+ whereupon the computers can continue booting normally.
+
+Package: mandos-client
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Enhances: cryptsetup
+Description: do unattended reboots with an encrypted root file system
+ This is the client part of the Mandos system, which allows
+ computers to have encrypted root file systems and at the
+ same time be capable of remote and/or unattended reboots.
+ .
+ The computers run a small client program in the initial RAM
+ disk environment which will communicate with a server over a
+ network.  All network communication is encrypted using TLS.
+ The clients are identified by the server using an OpenPGP
+ key; each client has one unique to it.  The server sends the
+ clients an encrypted password.  The encrypted password is
+ decrypted by the clients using the same OpenPGP key, and the
+ password is then used to unlock the root file system,
+ whereupon the computers can continue booting normally.

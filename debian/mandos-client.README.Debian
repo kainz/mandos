@@ -1,0 +1,10 @@
+A client key has been automatically created in /etc/keys/mandos.  The
+next step is to run "mandos-keygen --password" to get a config file
+stanza to copy and paste into /etc/mandos/clients.conf on the Mandos
+server.
+
+It is NOT necessary to edit /etc/crypttab to specify
+/usr/lib/mandos/plugin-runner as a keyscript for the root file system;
+if no keyscript is given for the root file system, the Mandos client
+will be the new default way for getting a password for the root file
+system when booting.
