@@ -36,9 +36,13 @@ add_mandos_user(){
 
 # Create client key pair
 create_key(){
-	if type mandos-keygen >/dev/null 2>&1; then
-	    mandos-keygen
-	fi
+    if [ -r /etc/keys/mandos/pubkey.txt \
+	-a -r /etc/keys/mandos/seckey.txt ]; then
+	return 0
+    fi
+    if type mandos-keygen >/dev/null 2>&1; then
+	mandos-keygen
+    fi
 }
 
 case "$1" in
