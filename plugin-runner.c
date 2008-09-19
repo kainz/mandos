@@ -72,8 +72,6 @@
 const char *argp_program_version = "plugin-runner 1.0";
 const char *argp_program_bug_address = "<mandos@fukt.bsnet.se>";
 
-struct plugin;
-
 typedef struct plugin{
   char *name;			/* can be NULL or any plugin name */
   char **argv;
@@ -208,8 +206,7 @@ static bool add_environment(plugin *p, const char *def, bool replace){
  * Descriptor Flags".
  * *Note File Descriptor Flags:(libc)Descriptor Flags.
  */
-static int set_cloexec_flag(int fd)
-{
+static int set_cloexec_flag(int fd){
   int ret = fcntl(fd, F_GETFD, 0);
   /* If reading the flags failed, return error indication now. */
   if(ret < 0){
@@ -222,7 +219,7 @@ static int set_cloexec_flag(int fd)
 
 /* Mark processes as completed when they exit, and save their exit
    status. */
-void handle_sigchld(__attribute__((unused)) int sig){
+static void handle_sigchld(__attribute__((unused)) int sig){
   while(true){
     plugin *proc = plugin_list;
     int status;
@@ -253,7 +250,7 @@ void handle_sigchld(__attribute__((unused)) int sig){
 }
 
 /* Prints out a password to stdout */
-bool print_out_password(const char *buffer, size_t length){
+static bool print_out_password(const char *buffer, size_t length){
   ssize_t ret;
   for(size_t written = 0; written < length; written += (size_t)ret){
     ret = TEMP_FAILURE_RETRY(write(STDOUT_FILENO, buffer + written,

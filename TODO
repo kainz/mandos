@@ -7,8 +7,7 @@
 * mandos-client
 ** TODO [#B] Temporarily lower kernel log level
    for less printouts during sucessfull boot.
-** TODO IPv4 support
-** TODO use strsep instead of strtok?
+** TODO [#C] IPv4 support
 
 * DONE password-prompt
 
