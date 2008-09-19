@@ -151,7 +151,7 @@ install-server: doc
 		$(DESTDIR)/etc/init.d/mandos
 	install --mode=u=rw,go=r default-mandos \
 		$(DESTDIR)/etc/default/mandos
-	test -z $(DESTDIR) && update-rc.d mandos defaults
+	if [ -z $(DESTDIR) ]; then update-rc.d mandos defaults; fi
 	gzip --best --to-stdout mandos.8 \
 		> $(MANDIR)/man8/mandos.8.gz
 	gzip --best --to-stdout mandos.conf.5 \
