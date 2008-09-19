@@ -17,12 +17,12 @@
 
 . /usr/share/debconf/confmodule
 
-# Update the initial RAM filesystem image
+# Update the initial RAM file system image
 update_initramfs()
 {
-	if type update-initramfs >/dev/null 2>&1; then
-		update-initramfs -u
-	fi
+    if [ -x /usr/sbin/update-initramfs ]; then
+	update-initramfs -u -k all
+    fi
 }
 
 # Add user and group
@@ -30,7 +30,7 @@ add_mandos_user(){
     if ! getent passwd mandos >/dev/null; then
 	adduser --disabled-password  --quiet --system \
 	    --home /var/run/mandos --no-create-home \
-	    --gecos "Mandos password daemon" --group mandos
+	    --gecos "Mandos password system" --group mandos
     fi
 }
 
@@ -40,7 +40,7 @@ create_key(){
 	-a -r /etc/keys/mandos/seckey.txt ]; then
 	return 0
     fi
-    if type mandos-keygen >/dev/null 2>&1; then
+    if [ -x /usr/sbin/mandos-keygen ]; then
 	mandos-keygen
     fi
 }
