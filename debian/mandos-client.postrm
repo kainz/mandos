@@ -30,8 +30,8 @@
 # Update the initramfs
 update_initramfs()
 {
-	if which update-initramfs >/dev/null 2>&1; then
-		update-initramfs -u
+	if type update-initramfs >/dev/null 2>&1 ; then
+		update-initramfs -u -k all
 	fi
 }
 
