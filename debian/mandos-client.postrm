@@ -41,10 +41,10 @@ case "$1" in
 	;;
 
     purge)
-	shred --remove /etc/keys/mandos/seckey.txt || :
+	shred --remove /etc/keys/mandos/seckey.txt 2>/dev/null || :
 	rm --force /etc/mandos/plugin-runner.conf \
 	    /etc/keys/mandos/pubkey.txt \
-	    /etc/keys/mandos/seckey.txt
+	    /etc/keys/mandos/seckey.txt 2>/dev/null
 	;;
     upgrade|failed-upgrade|disappear|abort-install|abort-upgrade)
 	;;

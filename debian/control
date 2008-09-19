@@ -30,7 +30,7 @@ Description: a server giving encrypted passwords to Mandos clients
 
 Package: mandos-client
 Architecture: any
-Depends: ${shlibs:Depends}, adduser
+Depends: ${shlibs:Depends}, adduser, cryptsetup
 Enhances: cryptsetup
 Description: do unattended reboots with an encrypted root file system
  This is the client part of the Mandos system, which allows
