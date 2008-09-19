@@ -10,9 +10,8 @@ Homepage: http://www.fukt.bsnet.se/mandos
 
 Package: mandos
 Architecture: all
-Depends: ${shlibs:Depends}, ${misc:Depends}, python (>=2.5),
-	python-gnutls, python-dbus, python-avahi, avahi-daemon,
-	gnupg (< 2)
+Depends: python (>=2.5), python-gnutls, python-dbus, python-avahi,
+	avahi-daemon, gnupg (< 2), adduser
 Recommends: fping
 Description: a server giving encrypted passwords to Mandos clients
  This is the server part of the Mandos system, which allows
@@ -31,7 +30,7 @@ Description: a server giving encrypted passwords to Mandos clients
 
 Package: mandos-client
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}
+Depends: ${shlibs:Depends}, adduser
 Enhances: cryptsetup
 Description: do unattended reboots with an encrypted root file system
  This is the client part of the Mandos system, which allows
