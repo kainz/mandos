@@ -1,12 +1,13 @@
 -*- org -*-
 
-* DONE plugin-runner
+* plugin-runner
+** TODO Man page  for plugin-runner.conf.5
+   link to plugin-runner.8
 
 * mandos-client
 ** TODO [#B] Temporarily lower kernel log level
    for less printouts during sucessfull boot.
-** TODO IPv4 support
-** TODO use strsep instead of strtok?
+** TODO [#C] IPv4 support
 
 * DONE password-prompt
 
@@ -48,7 +49,7 @@
 **** TODO [#A] Ask for password twice for confirmation
 **** TODO "--passfile" option
      Using the "secfile" option instead of "secret"
-**** TODO [#A] "--test" option
+**** TODO [#B] "--test" option
      For testing decryption before rebooting.
 ** Server-side
 *** TODO [#A] Create mandos user and group for server
@@ -63,6 +64,8 @@
    From XML sources directly?
 ** TODO unperish
 ** DONE bzr-builddeb
+** DONE mandos user/group creation		:test:
+** DONE Key creation in postinst		:test:
 
 * TODO Web site
 ** DONE http://www.fukt.bsnet.se/mandos

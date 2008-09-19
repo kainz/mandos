@@ -1,0 +1,1 @@
+mandos binary: non-standard-file-perm etc/mandos/clients.conf 0600 != 0644
