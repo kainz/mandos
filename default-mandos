@@ -2,3 +2,6 @@
 # "/etc/mandos".
 # 
 #CONFIGDIR=/etc/mandos
+
+# Additional options that are passed to the Daemon.
+DAEMON_ARGS=""

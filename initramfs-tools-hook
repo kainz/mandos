@@ -120,6 +120,16 @@ for file in /etc/mandos/*; do
     cp --archive --sparse=always "$file" "${DESTDIR}${CONFDIR}"
 done
 
+if [ ${mandos_user} != 65534 ]; then
+    PLUGINRUNNERCONF="${DESTDIR}${CONFDIR}/plugin-runner.conf"
+    echo "--userid=${mandos_user}" >> "$PLUGINRUNNERCONF"
+fi
+
+if [ ${mandos_group} != 65534 ]; then
+    PLUGINRUNNERCONF="${DESTDIR}${CONFDIR}/plugin-runner.conf"
+    echo "--groupid=${mandos_group}" >> "$PLUGINRUNNERCONF"
+fi
+
 # Key files 
 for file in  "$keydir"/*; do
     if [ -d "$file" ]; then
