@@ -2,8 +2,8 @@ Source: mandos
 Section: admin
 Priority: extra
 Maintainer: Mandos Maintainers <mandos@fukt.bsnet.se>
-Build-Depends: debhelper (>= 7), docbook-xsl, docbook (<5.0),
-	libavahi-core-dev, libgpgme11-dev, libgnutls-dev, xsltproc
+Build-Depends: debhelper (>= 7), docbook-xsl, libavahi-core-dev,
+	libgpgme11-dev, libgnutls-dev, xsltproc
 Standards-Version: 3.8.0
 Vcs-Bzr: ftp://anonymous@ftp.fukt.bsnet.se/pub/mandos/latest
 Homepage: http://www.fukt.bsnet.se/mandos
