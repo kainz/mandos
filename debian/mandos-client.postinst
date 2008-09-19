@@ -17,24 +17,36 @@
 
 . /usr/share/debconf/confmodule
 
-# Update the initramfs
+# Update the initial RAM filesystem image
 update_initramfs()
 {
-	if which update-initramfs >/dev/null 2>&1; then
+	if type update-initramfs >/dev/null 2>&1; then
 		update-initramfs -u
+	fi
+}
+
+# Add user and group
+add_mandos_user(){
+    if ! getent passwd mandos >/dev/null; then
+	adduser --disabled-password  --quiet --system \
+	    --home /var/run/mandos --no-create-home \
+	    --gecos "Mandos password daemon" --group mandos
+    fi
+}
+
+# Create client key pair
+create_key(){
+	if type mandos-keygen >/dev/null 2>&1; then
+	    mandos-keygen
 	fi
 }
 
 case "$1" in
     configure)
-	if ! getent passwd mandos >/dev/null; then
-	    adduser --disabled-password  --quiet --system \
-		--home /var/run/mandos --no-create-home \
-		--gecos "Mandos password daemon" --group mandos
-	fi
+	add_mandos_user
+	create_key
 	update_initramfs
 	;;
-
     abort-upgrade|abort-deconfigure|abort-remove)
 	;;
 

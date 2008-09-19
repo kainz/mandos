@@ -64,8 +64,8 @@
    From XML sources directly?
 ** TODO unperish
 ** DONE bzr-builddeb
-** TODO mandos user/group creation
-** TODO Key creation in postinst
+** DONE mandos user/group creation		:test:
+** DONE Key creation in postinst		:test:
 
 * TODO Web site
 ** DONE http://www.fukt.bsnet.se/mandos
