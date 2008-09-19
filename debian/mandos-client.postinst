@@ -27,6 +27,11 @@ update_initramfs()
 
 case "$1" in
     configure)
+	if ! getent passwd mandos >/dev/null; then
+	    adduser --disabled-password  --quiet --system \
+		--home /var/run/mandos --no-create-home \
+		--gecos "Mandos password daemon" --group mandos
+	fi
 	update_initramfs
 	;;
 
