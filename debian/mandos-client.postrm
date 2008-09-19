@@ -27,14 +27,13 @@
 #       <new-postrm> abort-upgrade <old-version>
 
 
-# Update the initramfs
+# Update the initial RAM file system image
 update_initramfs()
 {
-	if type update-initramfs >/dev/null 2>&1 ; then
-		update-initramfs -u -k all
-	fi
+    if [ -x /usr/sbin/update-initramfs ]; then
+	update-initramfs -u -k all
+    fi
 }
-
 
 case "$1" in
     remove)
@@ -46,7 +45,6 @@ case "$1" in
 	rm --force /etc/mandos/plugin-runner.conf \
 	    /etc/keys/mandos/pubkey.txt \
 	    /etc/keys/mandos/seckey.txt
-	rmdir /etc/keys/mandos /etc/mandos/plugins.d /etc/mandos || :
 	;;
     upgrade|failed-upgrade|disappear|abort-install|abort-upgrade)
 	;;

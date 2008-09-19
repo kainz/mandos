@@ -22,7 +22,7 @@ case "$1" in
 	if ! getent passwd mandos >/dev/null; then
 	    adduser --disabled-password  --quiet --system \
 		--home /var/run/mandos --no-create-home \
-		--gecos "Mandos password daemon" --group mandos
+		--gecos "Mandos password system" --group mandos
 	fi
 	;;
 
