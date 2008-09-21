@@ -48,7 +48,8 @@ install-indep:
 	dh_installdirs --indep
 	$(MAKE) DESTDIR=$(CURDIR)/debian/mandos install-server
 	dh_lintian
-	dh_installinit --onlyscripts --no-start
+	dh_installinit --onlyscripts --no-start \
+		--update-rcd-params="defaults 25 15"
 	dh_install --indep
 
 install-arch:
