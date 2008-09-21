@@ -17,7 +17,7 @@ set -e
 
 case "$1" in
     remove|deconfigure)
-	if [ -x /etc/init.d/ssh ]; then
+	if [ -x /etc/init.d/mandos ]; then
 		if [ -x /usr/sbin/invoke-rc.d ]; then
 			invoke-rc.d mandos stop
 		else
