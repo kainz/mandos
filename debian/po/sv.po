@@ -1,0 +1,66 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the mandos package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: 1.0\n"
+"Report-Msgid-Bugs-To: mandos@packages.debian.org\n"
+"POT-Creation-Date: 2008-09-20 23:01+0200\n"
+"PO-Revision-Date: 2008-09-21 06:01+0200\n"
+"Last-Translator: Teddy Hogeborn <teddy@fukt.bsnet.se>\n"
+"Language-Team: Swedish <tp-sv@listor.tp-sv.se>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#. Type: note
+#. Description
+#: ../mandos.templates:1001
+msgid "Your system needs more configuration[ mandos]"
+msgstr "Ditt system behöver ytterligare konfigurering"
+
+#. Type: note
+#. Description
+#: ../mandos.templates:1001
+#| msgid ""
+#| "Your system has not yet been completely configured as a Mandos server - "
+#| "you need to setup /etc/mandos/clients.conf. Please read /usr/share/doc/"
+#| "mandos/README.Debian.gz to find out how."
+msgid ""
+"Your system has not yet been completely configured as a Mandos server - "
+"clients need to be added to to /etc/mandos/clients.conf.  Please read /usr/"
+"share/doc/mandos/README.Debian.gz to find out how."
+msgstr ""
+"Ditt system är inte helt inställd som en Mandos-server än -\n"
+"det behövs läggas till klienter i Mandos-serverns\n"
+"inställingar.  Var vänlig läs\n"
+"/usr/share/doc/mandos-client/README.Debian.gz för att få\n"
+"veta hur."
+
+#. Type: note
+#. Description
+#: ../mandos.templates:1001
+msgid "(The server has not been started.)"
+msgstr "(Servern har inte startats.)"
+
+#. Type: note
+#. Description
+#: ../mandos-client.templates:1001
+msgid "Your system needs more configuration[ mandos-client]"
+msgstr "Ditt system behöver ytterligare konfigurering"
+
+#. Type: note
+#. Description
+#: ../mandos-client.templates:1001
+msgid ""
+"Your system can not function as a Mandos client until a password for this "
+"client has been added to the configuration on the Mandos server.  Please "
+"read /usr/share/doc/mandos-client/README.Debian.gz to find out how."
+msgstr ""
+"Ditt system kan inte fungera som en Mandos-klient förrän\n"
+"ett krypterat lösenord har lagts till i Mandos-serverns\n"
+"inställingar.  Var vänlig läs\n"
+"/usr/share/doc/mandos-client/README.Debian.gz för att få\n"
+"veta hur."

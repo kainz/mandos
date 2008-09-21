@@ -1,0 +1,9 @@
+Template: mandos/not-yet-configured
+Type: note
+_Description: Your system needs more configuration[ mandos]
+ Your system has not yet been completely configured as a
+ Mandos server - clients need to be added to to
+ /etc/mandos/clients.conf.  Please read
+ /usr/share/doc/mandos/README.Debian.gz to find out how.
+ .
+ (The server has not been started.)
