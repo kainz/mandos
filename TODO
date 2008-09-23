@@ -1,8 +1,6 @@
 -*- org -*-
 
-* plugin-runner
-** TODO Man page  for plugin-runner.conf.5
-   link to plugin-runner.8
+* DONE plugin-runner
 
 * mandos-client
 ** TODO [#B] Temporarily lower kernel log level
@@ -41,18 +39,11 @@
 
 * Installer
 ** Client-side
-*** TODO Update initrd.img after installation
-    This seems to use some kind of "trigger" system
-    [[file:/usr/share/doc/dpkg/triggers.txt.gz]]
-    dpkg-trigger(1), deb-triggers(5)
 *** mandos-keygen
-**** TODO [#A] Ask for password twice for confirmation
-**** TODO "--passfile" option
+**** TODO "--secfile" option
      Using the "secfile" option instead of "secret"
 **** TODO [#B] "--test" option
      For testing decryption before rebooting.
-** Server-side
-*** TODO [#A] Create mandos user and group for server
 
 
 * [#A] Package
@@ -63,9 +54,6 @@
 ** TODO /etc/bash_completion.d/mandos
    From XML sources directly?
 ** TODO unperish
-** DONE bzr-builddeb
-** DONE mandos user/group creation		:test:
-** DONE Key creation in postinst		:test:
 
 * TODO Web site
 ** DONE http://www.fukt.bsnet.se/mandos
