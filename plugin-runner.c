@@ -27,8 +27,8 @@
 #include <stdlib.h>		/* malloc(), exit(), EXIT_FAILURE,
 				   EXIT_SUCCESS, realloc() */
 #include <stdbool.h>		/* bool, true, false */
-#include <stdio.h>		/* perror, popen(), fileno(),
-				   fprintf(), stderr, STDOUT_FILENO */
+#include <stdio.h>		/* perror, fileno(), fprintf(),
+				   stderr, STDOUT_FILENO */
 #include <sys/types.h>	        /* DIR, opendir(), stat(), struct
 				   stat, waitpid(), WIFEXITED(),
 				   WEXITSTATUS(), wait(), pid_t,
@@ -46,7 +46,7 @@
 				   fcntl(), setuid(), setgid(),
 				   F_GETFD, F_SETFD, FD_CLOEXEC,
 				   access(), pipe(), fork(), close()
-				   dup2, STDOUT_FILENO, _exit(),
+				   dup2(), STDOUT_FILENO, _exit(),
 				   execv(), write(), read(),
 				   close() */
 #include <fcntl.h>		/* fcntl(), F_GETFD, F_SETFD,
