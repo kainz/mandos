@@ -166,8 +166,6 @@ install-client-nokey: all doc
 	if [ "$(CONFDIR)" != "$(PREFIX)/lib/mandos" ]; then \
 		install --mode=u=rwx \
 			--directory "$(CONFDIR)/plugins.d" && \
-		install --mode=u=rw,go=r etc-plugins.d-README \
-			$(CONFDIR)/plugins.d/README ; \
 	fi
 	install --mode=u=rwx,go=rx \
 		--target-directory=$(PREFIX)/lib/mandos plugin-runner
