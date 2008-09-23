@@ -55,7 +55,8 @@ DOCBOOKTOMAN=cd $(dir $<); xsltproc --nonet --xinclude \
 # DocBook-to-man post-processing to fix a '\n' escape bug
 MANPOST=sed --in-place --expression='s,\\\\en,\\en,g;s,\\n,\\en,g'
 
-PLUGINS=plugins.d/password-prompt plugins.d/mandos-client
+PLUGINS=plugins.d/password-prompt plugins.d/mandos-client \
+	plugins.d/splashy
 PROGS=plugin-runner $(PLUGINS)
 DOCS=mandos.8 plugin-runner.8mandos mandos-keygen.8 \
 	plugins.d/mandos-client.8mandos \
@@ -182,6 +183,9 @@ install-client-nokey: all doc
 	install --mode=u=rwx,go=rx \
 		--target-directory=$(PREFIX)/lib/mandos/plugins.d \
 		plugins.d/usplash
+	install --mode=u=rwxs,go=rx \
+		--target-directory=$(PREFIX)/lib/mandos/plugins.d \
+		plugins.d/splashy
 	install initramfs-tools-hook \
 		$(INITRAMFSTOOLS)/hooks/mandos
 	install --mode=u=rw,go=r initramfs-tools-hook-conf \
@@ -224,6 +228,7 @@ uninstall-client:
 		$(PREFIX)/lib/mandos/plugins.d/password-prompt \
 		$(PREFIX)/lib/mandos/plugins.d/mandos-client \
 		$(PREFIX)/lib/mandos/plugins.d/usplash \
+		$(PREFIX)/lib/mandos/plugins.d/splashy \
 		$(INITRAMFSTOOLS)/hooks/mandos \
 		$(INITRAMFSTOOLS)/conf-hooks.d/mandos \
 		$(INITRAMFSTOOLS)/scripts/local-top/mandos \
