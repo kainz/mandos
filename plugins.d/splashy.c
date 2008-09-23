@@ -87,6 +87,7 @@ int main(__attribute__((unused))int argc, char **argv){
       char exe_target[sizeof(splashy_name)];
       ssize_t sret = readlink(exe_link, exe_target,
 			      sizeof(exe_target));
+      free(exe_link);
       if((sret == ((ssize_t)sizeof(exe_target)-1))
 	 and (memcmp(splashy_name, exe_target,
 		     sizeof(exe_target)-1) == 0)){
@@ -195,9 +196,10 @@ int main(__attribute__((unused))int argc, char **argv){
   if(interrupted_by_signal){
     kill(splashy_command_pid, SIGTERM);
   }
-
+  
   pid_t new_splashy_pid = fork();
   if(new_splashy_pid == 0){
+    /* Child; will become new splashy process */
     while(kill(splashy_pid, 0)){
       sleep(2);
       kill(splashy_pid, SIGKILL);
