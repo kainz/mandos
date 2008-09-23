@@ -3,15 +3,16 @@ Section: admin
 Priority: extra
 Maintainer: Mandos Maintainers <mandos@fukt.bsnet.se>
 Build-Depends: debhelper (>= 7), docbook-xsl, libavahi-core-dev,
-	libgpgme11-dev, libgnutls-dev, xsltproc
+	libgpgme11-dev, libgnutls-dev, xsltproc, po-debconf,
+	pkg-config
 Standards-Version: 3.8.0
 Vcs-Bzr: ftp://anonymous@ftp.fukt.bsnet.se/pub/mandos/latest
 Homepage: http://www.fukt.bsnet.se/mandos
 
 Package: mandos
 Architecture: all
-Depends: python (>=2.5), python-gnutls, python-dbus, python-avahi,
-	avahi-daemon, gnupg (< 2), adduser
+Depends: ${misc:Depends}, python (>=2.5), python-gnutls, python-dbus,
+	python-avahi, avahi-daemon, gnupg (< 2), adduser
 Recommends: fping
 Description: a server giving encrypted passwords to Mandos clients
  This is the server part of the Mandos system, which allows
@@ -30,7 +31,7 @@ Description: a server giving encrypted passwords to Mandos clients
 
 Package: mandos-client
 Architecture: any
-Depends: ${shlibs:Depends}, adduser, cryptsetup
+Depends: ${shlibs:Depends}, ${misc:Depends}, adduser, cryptsetup
 Enhances: cryptsetup
 Description: do unattended reboots with an encrypted root file system
  This is the client part of the Mandos system, which allows
