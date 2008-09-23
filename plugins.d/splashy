@@ -5,10 +5,7 @@ if ! tty -s; then
     exec 2>/dev/null
 fi
 
-test -x /sbin/usplash
-
-usplash="`pidof usplash -o $$`"
-test -n "$usplash"
+test -x /sbin/splashy_update
 
 # We get some variables from cryptsetup:
 # $cryptsource	the device node, like "/dev/sda3"
@@ -23,20 +20,9 @@ if [ -n "$cryptsource" ]; then
 fi
 
 splash_input_password(){
-    test -p /dev/.initramfs/usplash_outfifo || return 1
-    /sbin/usplash_write "INPUTQUIET $1" || return 1
-    cat /dev/.initramfs/usplash_outfifo 2> /dev/null || return 1
+    /sbin/splashy_update "getpass $1"
 }
 
-# Usplash keeps waiting for input even if some other plugin provided
-# the password, so we must kill it
-trap "kill -TERM $usplash; sleep 2; kill -KILL $usplash; 
-	kill -TERM $$" TERM HUP
-
 password="`splash_input_password \"$prompt: \"`"
-
-trap - TERM
-
-/sbin/usplash_write "TIMEOUT 15"
 
 echo -n "$password"
