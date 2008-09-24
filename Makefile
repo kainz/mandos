@@ -56,7 +56,7 @@ DOCBOOKTOMAN=cd $(dir $<); xsltproc --nonet --xinclude \
 MANPOST=sed --in-place --expression='s,\\\\en,\\en,g;s,\\n,\\en,g'
 
 PLUGINS=plugins.d/password-prompt plugins.d/mandos-client \
-	plugins.d/splashy
+	plugins.d/usplash plugins.d/splashy
 PROGS=plugin-runner $(PLUGINS)
 DOCS=mandos.8 plugin-runner.8mandos mandos-keygen.8 \
 	plugins.d/mandos-client.8mandos \
@@ -180,7 +180,7 @@ install-client-nokey: all doc
 	install --mode=u=rwxs,go=rx \
 		--target-directory=$(PREFIX)/lib/mandos/plugins.d \
 		plugins.d/mandos-client
-	install --mode=u=rwx,go=rx \
+	install --mode=u=rwxs,go=rx \
 		--target-directory=$(PREFIX)/lib/mandos/plugins.d \
 		plugins.d/usplash
 	install --mode=u=rwxs,go=rx \
