@@ -2,4 +2,5 @@ mandos-client binary: manpage-has-errors-from-man usr/share/man/man8/plugin-runn
 mandos-client binary: non-standard-dir-perm etc/keys/mandos/ 0700 != 0755
 mandos-client binary: setuid-binary usr/lib/mandos/plugins.d/mandos-client 4755 root/root
 mandos-client binary: setuid-binary usr/lib/mandos/plugins.d/splashy 4755 root/root
+mandos-client binary: setuid-binary usr/lib/mandos/plugins.d/usplash 4755 root/root
 mandos-client binary: non-standard-dir-perm usr/lib/mandos/plugins.d/ 0700 != 0755

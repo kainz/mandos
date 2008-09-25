@@ -25,7 +25,8 @@ static void termination_handler(__attribute__((unused))int signum){
   interrupted_by_signal = 1;
 }
 
-int main(__attribute__((unused))int argc, char **argv){
+int main(__attribute__((unused))int argc,
+	 __attribute__((unused))char **argv){
   int ret = 0;
   
   /* Create prompt string */
@@ -76,18 +77,20 @@ int main(__attribute__((unused))int argc, char **argv){
       }
       /* Find the executable name by doing readlink() on the
 	 /proc/<pid>/exe link */
-      char *exe_link;
-      ret = asprintf(&exe_link, "/proc/%s/exe", proc_ent->d_name);
-      if(ret == -1){
-	perror("asprintf");
-	free(prompt);
-	closedir(proc_dir);
-	return EXIT_FAILURE;
-      }
       char exe_target[sizeof(splashy_name)];
-      ssize_t sret = readlink(exe_link, exe_target,
-			      sizeof(exe_target));
-      free(exe_link);
+      ssize_t sret;
+      {
+	char *exe_link;
+	ret = asprintf(&exe_link, "/proc/%s/exe", proc_ent->d_name);
+	if(ret == -1){
+	  perror("asprintf");
+	  free(prompt);
+	  closedir(proc_dir);
+	  return EXIT_FAILURE;
+	}
+	sret = readlink(exe_link, exe_target, sizeof(exe_target));
+	free(exe_link);
+      }
       if((sret == ((ssize_t)sizeof(exe_target)-1))
 	 and (memcmp(splashy_name, exe_target,
 		     sizeof(exe_target)-1) == 0)){
