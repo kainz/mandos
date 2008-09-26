@@ -3,7 +3,7 @@
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY VERSION "1.0">
 <!ENTITY COMMANDNAME "mandos-keygen">
-<!ENTITY TIMESTAMP "2008-09-12">
+<!ENTITY TIMESTAMP "2008-09-20">
 ]>
 
 <refentry xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -122,6 +122,10 @@
       <group choice="req">
 	<arg choice="plain"><option>--password</option></arg>
 	<arg choice="plain"><option>-p</option></arg>
+	<arg choice="plain"><option>--passfile
+	<replaceable>FILE</replaceable></option></arg>
+	<arg choice="plain"><option>-F</option>
+	<replaceable>FILE</replaceable></arg>
       </group>
       <sbr/>
       <group>
@@ -167,8 +171,9 @@
     </para>
     <para>
       This program can also be used with the
-      <option>--password</option> option to generate a ready-made
-      section for <filename>clients.conf</filename> (see
+      <option>--password</option> or <option>--passfile</option>
+      options to generate a ready-made section for
+      <filename>clients.conf</filename> (see
       <citerefentry><refentrytitle>mandos-clients.conf</refentrytitle>
       <manvolnum>5</manvolnum></citerefentry>).
     </para>
@@ -323,6 +328,18 @@
 	    specified with the <option>--name</option> option is used
 	    for the section header.  All other options are ignored,
 	    and no key is created.
+	  </para>
+	</listitem>
+      </varlistentry>
+      <varlistentry>
+	<term><option>--passfile
+	<replaceable>FILE</replaceable></option></term>
+	<term><option>-F
+	<replaceable>FILE</replaceable></option></term>
+	<listitem>
+	  <para>
+	    The same as <option>--password</option>, but read from
+	    <replaceable>FILE</replaceable>, not the terminal.
 	  </para>
 	</listitem>
       </varlistentry>

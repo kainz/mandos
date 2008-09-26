@@ -2,7 +2,7 @@
 /*
  * Mandos plugin runner - Run Mandos plugins
  *
- * Copyright © 2007-2008 Teddy Hogeborn & Björn Påhlsson
+ * Copyright © 2008 Teddy Hogeborn & Björn Påhlsson
  * 
  * This program is free software: you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -27,8 +27,8 @@
 #include <stdlib.h>		/* malloc(), exit(), EXIT_FAILURE,
 				   EXIT_SUCCESS, realloc() */
 #include <stdbool.h>		/* bool, true, false */
-#include <stdio.h>		/* perror, popen(), fileno(),
-				   fprintf(), stderr, STDOUT_FILENO */
+#include <stdio.h>		/* perror, fileno(), fprintf(),
+				   stderr, STDOUT_FILENO */
 #include <sys/types.h>	        /* DIR, opendir(), stat(), struct
 				   stat, waitpid(), WIFEXITED(),
 				   WEXITSTATUS(), wait(), pid_t,
@@ -46,7 +46,7 @@
 				   fcntl(), setuid(), setgid(),
 				   F_GETFD, F_SETFD, FD_CLOEXEC,
 				   access(), pipe(), fork(), close()
-				   dup2, STDOUT_FILENO, _exit(),
+				   dup2(), STDOUT_FILENO, _exit(),
 				   execv(), write(), read(),
 				   close() */
 #include <fcntl.h>		/* fcntl(), F_GETFD, F_SETFD,
@@ -846,12 +846,12 @@ int main(int argc, char *argv[]){
 	perror("sigaction");
 	_exit(EXIT_FAILURE);
       }
-      ret = sigprocmask (SIG_UNBLOCK, &sigchld_action.sa_mask, NULL);
+      ret = sigprocmask(SIG_UNBLOCK, &sigchld_action.sa_mask, NULL);
       if(ret < 0){
 	perror("sigprocmask");
 	_exit(EXIT_FAILURE);
       }
-
+      
       ret = dup2(pipefd[1], STDOUT_FILENO); /* replace our stdout */
       if(ret == -1){
 	perror("dup2");
@@ -907,12 +907,11 @@ int main(int argc, char *argv[]){
     if (maxfd < new_plugin->fd){
       maxfd = new_plugin->fd;
     }
-    
   }
   
   closedir(dir);
   dir = NULL;
-
+  
   for(plugin *p = plugin_list; p != NULL; p = p->next){
     if(p->pid != 0){
       break;
@@ -923,7 +922,7 @@ int main(int argc, char *argv[]){
       free_plugin_list();
     }
   }
-
+  
   /* Main loop while running plugins exist */
   while(plugin_list){
     fd_set rfds = rfds_all;
@@ -969,6 +968,10 @@ int main(int argc, char *argv[]){
 	    goto fallback;
 	  }
 	  
+	  plugin *next_plugin = proc->next;
+	  free_plugin(proc);
+	  proc = next_plugin;
+	  
 	  /* We are done modifying process list, so unblock signal */
 	  ret = sigprocmask (SIG_UNBLOCK, &sigchld_action.sa_mask,
 			     NULL);
@@ -982,14 +985,11 @@ int main(int argc, char *argv[]){
 	    break;
 	  }
 	  
-	  plugin *next_plugin = proc->next;
-	  free_plugin(proc);
-	  proc = next_plugin;
 	  continue;
 	}
 	
 	/* This process exited nicely, so print its buffer */
-
+	
 	bool bret = print_out_password(proc->buffer,
 				       proc->buffer_length);
 	if(not bret){
@@ -1061,7 +1061,7 @@ int main(int argc, char *argv[]){
     perror("sigaction");
     exitstatus = EXIT_FAILURE;
   }
-
+  
   if(custom_argv != NULL){
     for(char **arg = custom_argv+1; *arg != NULL; arg++){
       free(*arg);
@@ -1073,7 +1073,7 @@ int main(int argc, char *argv[]){
     closedir(dir);
   }
   
-  /* Free the process list and kill the processes */
+  /* Kill the processes */
   for(plugin *p = plugin_list; p != NULL; p = p->next){
     if(p->pid != 0){
       close(p->fd);
@@ -1092,7 +1092,7 @@ int main(int argc, char *argv[]){
   if(errno != ECHILD){
     perror("wait");
   }
-
+  
   free_plugin_list();
   
   free(plugindir);
