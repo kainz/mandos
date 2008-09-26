@@ -1,8 +1,12 @@
 *.5
 *.8
 *.8mandos
-plugin-runner
-plugins.d/password-prompt
-plugins.d/mandos-client
 confdir
+debian/po/messages.mo
+debian/po/templates.pot
 keydir
+plugin-runner
+plugins.d/mandos-client
+plugins.d/password-prompt
+plugins.d/splashy
+plugins.d/usplash
