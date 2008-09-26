@@ -29,7 +29,7 @@ update_initramfs()
 add_mandos_user(){
     if ! getent passwd mandos >/dev/null; then
 	adduser --disabled-password  --quiet --system \
-	    --home /var/run/mandos --no-create-home \
+	    --home /nonexistent --no-create-home \
 	    --gecos "Mandos password system" --group mandos
     fi
 }
