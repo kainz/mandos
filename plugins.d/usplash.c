@@ -431,7 +431,6 @@ int main(__attribute__((unused))int argc,
       position += strlen(cmdline + position) + 1;
     }
     cmdline_argv[cmdline_argc] = NULL;
-    free(cmdline);
   }
   /* Kill old usplash */
     kill(usplash_pid, SIGTERM);
@@ -464,9 +463,11 @@ int main(__attribute__((unused))int argc,
     
     execv(usplash_name, cmdline_argv);
     perror("execv");
+    free(cmdline);
     free(cmdline_argv);
     _exit(EXIT_FAILURE);
   }
+  free(cmdline);
   free(cmdline_argv);
   sleep(2);
   if(not usplash_write("PULSATE", NULL)
