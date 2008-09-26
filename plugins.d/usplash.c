@@ -1,25 +1,32 @@
 #define _GNU_SOURCE		/* asprintf() */
 #include <signal.h>		/* sig_atomic_t, struct sigaction,
-				   sigemptyset(), sigaddset(),
-				   sigaction, SIGINT, SIG_IGN, SIGHUP,
-				   SIGTERM, kill(), SIGKILL */
-#include <stddef.h>		/* NULL */
-#include <stdlib.h>		/* getenv() */
-#include <stdio.h>		/* asprintf(), perror() */
-#include <stdlib.h>		/* EXIT_FAILURE, EXIT_SUCCESS,
-				   strtoul(), free() */
-#include <sys/types.h>		/* pid_t, DIR, struct dirent,
-				   ssize_t */
-#include <dirent.h>		/* opendir(), readdir(), closedir() */
-#include <unistd.h>		/* readlink(), fork(), execl(),
-				   _exit */
-#include <string.h>		/* memcmp() */
-#include <iso646.h>		/* and */
+				   sigemptyset(), sigaddset(), SIGINT,
+				   SIGHUP, SIGTERM, sigaction(),
+				   SIG_IGN, kill(), SIGKILL */
 #include <stdbool.h>		/* bool, false, true */
-#include <errno.h>		/* errno */
+#include <fcntl.h>		/* open(), O_WRONLY, O_RDONLY */
+#include <errno.h>		/* errno, EINTR */
+#include <sys/types.h>		/* size_t, ssize_t, pid_t, DIR,
+				   struct dirent */
+#include <stddef.h>		/* NULL */
+#include <string.h>		/* strlen(), memcmp() */
+#include <stdio.h>		/* asprintf(), perror() */
+#include <unistd.h>		/* close(), write(), readlink(),
+				   read(), STDOUT_FILENO, sleep(),
+				   fork(), setuid(), geteuid(),
+				   setsid(), chdir(), dup2(),
+				   STDERR_FILENO, execv() */
+#include <stdlib.h>		/* free(), EXIT_FAILURE, strtoul(),
+				   realloc(), EXIT_SUCCESS, malloc(),
+				   _exit() */
+#include <stdlib.h>		/* getenv() */
+#include <dirent.h>		/* opendir(), readdir(), closedir() */
+
+
+
+#include <iso646.h>		/* and */
 #include <sys/wait.h>		/* waitpid(), WIFEXITED(),
 				   WEXITSTATUS() */
-#include <fcntl.h>		/* open(), O_RDONLY */
 
 sig_atomic_t interrupted_by_signal = 0;
 
@@ -44,10 +51,11 @@ static bool usplash_write(const char *cmd, const char *arg){
   }while(fifo_fd == -1);
   
   const char *cmd_line;
+  size_t cmd_line_len;
   char *cmd_line_alloc = NULL;
   if(arg == NULL){
     cmd_line = cmd;
-    ret = (int)strlen(cmd);
+    cmd_line_len = strlen(cmd);
   }else{
     do{
       ret = asprintf(&cmd_line_alloc, "%s %s", cmd, arg);
@@ -59,9 +67,9 @@ static bool usplash_write(const char *cmd, const char *arg){
       }
     }while(ret == -1);
     cmd_line = cmd_line_alloc;
+    cmd_line_len = (size_t)ret + 1;
   }
   
-  size_t cmd_line_len = (size_t)ret + 1;
   size_t written = 0;
   while(not interrupted_by_signal and written < cmd_line_len){
     ret = write(fifo_fd, cmd_line + written,
@@ -103,7 +111,7 @@ int main(__attribute__((unused))int argc,
   {
     const char *const cryptsource = getenv("cryptsource");
     const char *const crypttarget = getenv("crypttarget");
-    const char *const prompt_start = "Enter passphrase to unlock the disk";
+    const char prompt_start[] = "Enter passphrase to unlock the disk";
     
     if(cryptsource == NULL){
       if(crypttarget == NULL){
@@ -159,6 +167,9 @@ int main(__attribute__((unused))int argc,
 	}
 	sret = readlink(exe_link, exe_target, sizeof(exe_target));
 	free(exe_link);
+	if(sret == -1){
+	  continue;
+	}
       }
       if((sret == ((ssize_t)sizeof(exe_target)-1))
 	 and (memcmp(usplash_name, exe_target,
@@ -371,7 +382,7 @@ int main(__attribute__((unused))int argc,
     
     /* Print password to stdout */
     size_t written = 0;
-    do{
+    while(written < buf_len){
       do{
 	sret = write(STDOUT_FILENO, buf + written, buf_len - written);
 	if(sret == -1){
@@ -388,10 +399,11 @@ int main(__attribute__((unused))int argc,
       if(interrupted_by_signal or an_error_occured){
 	break;
       }
-      
       written += (size_t)sret;
-    }while(written < buf_len);
+    }
+    free(buf);
     if(not interrupted_by_signal and not an_error_occured){
+      free(cmdline);
       return EXIT_SUCCESS;
     }
     break;			/* Big */
@@ -406,7 +418,8 @@ int main(__attribute__((unused))int argc,
     size_t position = 0;
     while(position < cmdline_len){
       char **tmp = realloc(cmdline_argv,
-			   (sizeof(char *) * (size_t)(cmdline_argc + 2)));
+			   (sizeof(char *)
+			    * (size_t)(cmdline_argc + 2)));
       if(tmp == NULL){
 	perror("realloc");
 	free(cmdline_argv);
@@ -418,6 +431,7 @@ int main(__attribute__((unused))int argc,
       position += strlen(cmdline + position) + 1;
     }
     cmdline_argv[cmdline_argc] = NULL;
+    free(cmdline);
   }
   /* Kill old usplash */
     kill(usplash_pid, SIGTERM);
@@ -449,7 +463,11 @@ int main(__attribute__((unused))int argc,
     }
     
     execv(usplash_name, cmdline_argv);
+    perror("execv");
+    free(cmdline_argv);
+    _exit(EXIT_FAILURE);
   }
+  free(cmdline_argv);
   sleep(2);
   if(not usplash_write("PULSATE", NULL)
      and (errno != EINTR)){
