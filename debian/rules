@@ -38,6 +38,7 @@ clean:
 	rm -f build-arch-stamp build-indep-stamp configure-stamp
 	dh_auto_clean
 	dh_clean
+	debconf-updatepo
 
 install: install-indep install-arch
 install-indep:
@@ -47,7 +48,8 @@ install-indep:
 	dh_installdirs --indep
 	$(MAKE) DESTDIR=$(CURDIR)/debian/mandos install-server
 	dh_lintian
-	dh_installinit --onlyscripts --no-start
+	dh_installinit --onlyscripts --no-start \
+		--update-rcd-params="defaults 25 15"
 	dh_install --indep
 
 install-arch:
@@ -64,7 +66,7 @@ binary-common:
 	dh_testroot
 	dh_installchangelogs
 	dh_installdocs
-#	dh_installdebconf
+	dh_installdebconf
 	dh_link
 	dh_strip
 	dh_compress

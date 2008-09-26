@@ -55,7 +55,8 @@ DOCBOOKTOMAN=cd $(dir $<); xsltproc --nonet --xinclude \
 # DocBook-to-man post-processing to fix a '\n' escape bug
 MANPOST=sed --in-place --expression='s,\\\\en,\\en,g;s,\\n,\\en,g'
 
-PLUGINS=plugins.d/password-prompt plugins.d/mandos-client
+PLUGINS=plugins.d/password-prompt plugins.d/mandos-client \
+	plugins.d/usplash plugins.d/splashy plugins.d/askpass-fifo
 PROGS=plugin-runner $(PLUGINS)
 DOCS=mandos.8 plugin-runner.8mandos mandos-keygen.8 \
 	plugins.d/mandos-client.8mandos \
@@ -151,7 +152,9 @@ install-server: doc
 		$(DESTDIR)/etc/init.d/mandos
 	install --mode=u=rw,go=r default-mandos \
 		$(DESTDIR)/etc/default/mandos
-	if [ -z $(DESTDIR) ]; then update-rc.d mandos defaults; fi
+	if [ -z $(DESTDIR) ]; then \
+		update-rc.d mandos defaults 25 15;\
+	fi
 	gzip --best --to-stdout mandos.8 \
 		> $(MANDIR)/man8/mandos.8.gz
 	gzip --best --to-stdout mandos.conf.5 \
@@ -165,9 +168,7 @@ install-client-nokey: all doc
 		$(PREFIX)/lib/mandos/plugins.d
 	if [ "$(CONFDIR)" != "$(PREFIX)/lib/mandos" ]; then \
 		install --mode=u=rwx \
-			--directory "$(CONFDIR)/plugins.d" && \
-		install --mode=u=rw,go=r etc-plugins.d-README \
-			$(CONFDIR)/plugins.d/README ; \
+			--directory "$(CONFDIR)/plugins.d"; \
 	fi
 	install --mode=u=rwx,go=rx \
 		--target-directory=$(PREFIX)/lib/mandos plugin-runner
@@ -179,9 +180,15 @@ install-client-nokey: all doc
 	install --mode=u=rwxs,go=rx \
 		--target-directory=$(PREFIX)/lib/mandos/plugins.d \
 		plugins.d/mandos-client
-	install --mode=u=rwx,go=rx \
+	install --mode=u=rwxs,go=rx \
 		--target-directory=$(PREFIX)/lib/mandos/plugins.d \
 		plugins.d/usplash
+	install --mode=u=rwxs,go=rx \
+		--target-directory=$(PREFIX)/lib/mandos/plugins.d \
+		plugins.d/splashy
+	install --mode=u=rwxs,go=rx \
+		--target-directory=$(PREFIX)/lib/mandos/plugins.d \
+		plugins.d/askpass-fifo
 	install initramfs-tools-hook \
 		$(INITRAMFSTOOLS)/hooks/mandos
 	install --mode=u=rw,go=r initramfs-tools-hook-conf \
@@ -224,6 +231,7 @@ uninstall-client:
 		$(PREFIX)/lib/mandos/plugins.d/password-prompt \
 		$(PREFIX)/lib/mandos/plugins.d/mandos-client \
 		$(PREFIX)/lib/mandos/plugins.d/usplash \
+		$(PREFIX)/lib/mandos/plugins.d/splashy \
 		$(INITRAMFSTOOLS)/hooks/mandos \
 		$(INITRAMFSTOOLS)/conf-hooks.d/mandos \
 		$(INITRAMFSTOOLS)/scripts/local-top/mandos \

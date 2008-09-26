@@ -8,8 +8,16 @@ necessary to edit /etc/mandos/plugin-runner.conf to uncomment and
 change the line there.  If this file is changed, it will be necessary
 to update the initrd image by doing "update-initramfs -k all -u".
 
+Any plugins found in /etc/mandos/plugins.d will override and add to
+the normal Mandos plugins.  When adding or changing plugins, do not
+forget to update the initital RAM disk image:
+
+# update-initramfs -k all -u
+
 It is NOT necessary to edit /etc/crypttab to specify
 /usr/lib/mandos/plugin-runner as a keyscript for the root file system;
 if no keyscript is given for the root file system, the Mandos client
 will be the new default way for getting a password for the root file
 system when booting.
+
+ -- Teddy Hogeborn <teddy@fukt.bsnet.se>, Fri, 19 Sep 2008 22:50:16 +0200

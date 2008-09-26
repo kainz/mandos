@@ -2,7 +2,7 @@
 # 
 # Mandos key generator - create a new OpenPGP key for a Mandos client
 # 
-# Copyright © 2007-2008 Teddy Hogeborn & Björn Påhlsson
+# Copyright © 2008 Teddy Hogeborn & Björn Påhlsson
 # 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -40,8 +40,8 @@ if [ ! -d "$KEYDIR" ]; then
 fi
 
 # Parse options
-TEMP=`getopt --options vhd:t:l:n:e:c:x:f \
-    --longoptions version,help,password,dir:,type:,length:,subtype:,sublength:,name:,email:,comment:,expire:,force \
+TEMP=`getopt --options vhpF:d:t:l:s:L:n:e:c:x:f \
+    --longoptions version,help,password,passfile:,dir:,type:,length:,subtype:,sublength:,name:,email:,comment:,expire:,force \
     --name "$0" -- "$@"`
 
 help(){
@@ -53,6 +53,7 @@ Usage: $basename [ -v | --version ]
        $basename [ OPTIONS ]
    Encrypted password creation:
        $basename { -p | --password } [ --name NAME ] [ --dir DIR]
+       $basename { -F | --passfile } FILE [ --name NAME ] [ --dir DIR]
 
 Key creation options:
   -v, --version         Show program's version number and exit
@@ -74,10 +75,14 @@ Key creation options:
   -x TIME, --expire TIME
                         Key expire time.  Default is no expiration.
                         See gpg(1) for syntax.
-  -f, --force           Force overwriting old keys.
+  -f, --force           Force overwriting old key files.
 
 Password creation options:
-  -p, --password        Create an encrypted password using the keys in
+  -p, --password        Create an encrypted password using the key in
+                        the key directory.  All options other than
+                        --dir and --name are ignored.
+  -F FILE, --passfile FILE
+                        Encrypt a password from FILE using the key in
                         the key directory.  All options other than
                         --dir and --name are ignored.
 EOF
@@ -87,6 +92,7 @@ eval set -- "$TEMP"
 while :; do
     case "$1" in
 	-p|--password) mode=password; shift;;
+	-F|--passfile) mode=password; PASSFILE="$2"; shift 2;;
 	-d|--dir) KEYDIR="$2"; shift 2;;
 	-t|--type) KEYTYPE="$2"; shift 2;;
 	-s|--subtype) SUBKEYTYPE="$2"; shift 2;;
@@ -235,7 +241,7 @@ if [ "$mode" = keygen ]; then
 	FILECOMMENT="$FILECOMMENT <$KEYEMAIL>"
     fi
     
-    # Export keys from key rings to key files
+    # Export key from key rings to key files
     gpg --quiet --batch --no-tty --no-options --enable-dsa2 \
 	--homedir "$RINGDIR" --armor --export-options export-minimal \
 	--comment "$FILECOMMENT" --output "$SECKEYFILE" \
@@ -246,7 +252,7 @@ if [ "$mode" = keygen ]; then
 fi
 
 if [ "$mode" = password ]; then
-    # Import keys into temporary key rings
+    # Import key into temporary key rings
     gpg --quiet --batch --no-tty --no-options --enable-dsa2 \
 	--homedir "$RINGDIR" --trust-model always --armor \
 	--import "$SECKEYFILE"
@@ -265,22 +271,37 @@ if [ "$mode" = password ]; then
     
     FILECOMMENT="Encrypted password for a Mandos client"
     
-    stty -echo
-    echo -n "Enter passphrase: " >&2
-    head --lines=1 | tr --delete '\n' \
-	| gpg --quiet --batch --no-tty --no-options --enable-dsa2 \
+    if [ -n "$PASSFILE" ]; then
+	cat "$PASSFILE"
+    else
+	stty -echo
+	echo -n "Enter passphrase: " >&2
+	first="$(head --lines=1 | tr --delete '\n')"
+	echo -n -e "\nRepeat passphrase: " >&2
+	second="$(head --lines=1 | tr --delete '\n')"
+	echo >&2
+	stty echo
+	if [ "$first" != "$second" ]; then
+	    echo -e "Passphrase mismatch" >&2
+	    false
+	else
+	    echo -n "$first"
+	fi
+    fi | gpg --quiet --batch --no-tty --no-options --enable-dsa2 \
 	--homedir "$RINGDIR" --trust-model always --armor --encrypt \
 	--recipient "$FINGERPRINT" --comment "$FILECOMMENT" \
 	> "$SECFILE"
-    echo >&2
-    stty echo
+    status="${PIPESTATUS[0]}"
+    if [ "$status" -ne 0 ]; then
+	exit "$status"
+    fi
     
     cat <<-EOF
 	[$KEYNAME]
 	host = $KEYNAME
 	fingerprint = $FINGERPRINT
 	secret =
-EOF
+	EOF
     sed --quiet --expression='
 	/^-----BEGIN PGP MESSAGE-----$/,/^-----END PGP MESSAGE-----$/{
 	    /^$/,${
