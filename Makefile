@@ -13,6 +13,9 @@ FORTIFY=-D_FORTIFY_SOURCE=2 # -fstack-protector-all
 #COVERAGE=--coverage
 OPTIMIZE=-Os
 LANGUAGE=-std=gnu99
+htmldir=man
+version=1.0
+SED=sed
 
 ## Use these settings for a traditional /usr/local install
 # PREFIX=$(DESTDIR)/usr/local
@@ -39,7 +42,8 @@ GPGME_LIBS=$(shell gpgme-config --libs)
 
 # Do not change these two
 CFLAGS=$(WARN) $(DEBUG) $(FORTIFY) $(COVERAGE) $(OPTIMIZE) \
-	$(LANGUAGE) $(GNUTLS_CFLAGS) $(AVAHI_CFLAGS) $(GPGME_CFLAGS)
+	$(LANGUAGE) $(GNUTLS_CFLAGS) $(AVAHI_CFLAGS) $(GPGME_CFLAGS) \
+	-DVERSION='"$(version)"'
 LDFLAGS=$(COVERAGE)
 
 # Commands to format a DocBook <refentry> document into a manual page
@@ -53,65 +57,120 @@ DOCBOOKTOMAN=cd $(dir $<); xsltproc --nonet --xinclude \
 	$(notdir $<); \
 	$(MANPOST) $(notdir $@)
 # DocBook-to-man post-processing to fix a '\n' escape bug
-MANPOST=sed --in-place --expression='s,\\\\en,\\en,g;s,\\n,\\en,g'
+MANPOST=$(SED) --in-place --expression='s,\\\\en,\\en,g;s,\\n,\\en,g'
+
+DOCBOOKTOHTML=xsltproc --nonet --xinclude \
+	--param make.year.ranges		1 \
+	--param make.single.year.ranges		1 \
+	--param man.output.quietly		1 \
+	--param man.authors.section.enabled	0 \
+	--param citerefentry.link		1 \
+	--output $@ \
+	/usr/share/xml/docbook/stylesheet/nwalsh/xhtml/docbook.xsl \
+	$<; $(HTMLPOST) $@
+# Fix citerefentry links
+HTMLPOST=$(SED) --in-place --expression='s/\(<a class="citerefentry" href="\)\("><span class="citerefentry"><span class="refentrytitle">\)\([^<]*\)\(<\/span>(\)\([^)]*\)\()<\/span><\/a>\)/\1\3.\5\2\3\4\5\6/g'
 
 PLUGINS=plugins.d/password-prompt plugins.d/mandos-client \
 	plugins.d/usplash plugins.d/splashy plugins.d/askpass-fifo
-PROGS=plugin-runner $(PLUGINS)
+CPROGS=plugin-runner $(PLUGINS)
+PROGS=mandos mandos-keygen $(CPROGS)
 DOCS=mandos.8 plugin-runner.8mandos mandos-keygen.8 \
 	plugins.d/mandos-client.8mandos \
 	plugins.d/password-prompt.8mandos mandos.conf.5 \
 	mandos-clients.conf.5
 
-objects=$(addsuffix .o,$(PROGS))
+htmldocs=$(addsuffix .xhtml,$(DOCS))
+
+objects=$(addsuffix .o,$(CPROGS))
 
 all: $(PROGS)
 
 doc: $(DOCS)
 
-%.5: %.xml legalnotice.xml
-	$(DOCBOOKTOMAN)
+html: $(htmldocs)
 
-%.8: %.xml legalnotice.xml
+%.5: %.xml common.ent legalnotice.xml
 	$(DOCBOOKTOMAN)
+%.5.xhtml: %.xml common.ent legalnotice.xml
+	$(DOCBOOKTOHTML)
 
-%.8mandos: %.xml legalnotice.xml
+%.8: %.xml common.ent legalnotice.xml
 	$(DOCBOOKTOMAN)
+%.8.xhtml: %.xml common.ent legalnotice.xml
+	$(DOCBOOKTOHTML)
 
-mandos.8: mandos.xml mandos-options.xml overview.xml legalnotice.xml
+%.8mandos: %.xml common.ent legalnotice.xml
 	$(DOCBOOKTOMAN)
+%.8mandos.xhtml: %.xml common.ent legalnotice.xml
+	$(DOCBOOKTOHTML)
 
-mandos-keygen.8: mandos-keygen.xml overview.xml legalnotice.xml
+mandos.8: mandos.xml common.ent mandos-options.xml overview.xml \
+		legalnotice.xml
 	$(DOCBOOKTOMAN)
+mandos.8.xhtml: mandos.xml common.ent mandos-options.xml \
+		overview.xml legalnotice.xml
+	$(DOCBOOKTOHTML)
 
-mandos.conf.5: mandos.conf.xml mandos-options.xml legalnotice.xml
+mandos-keygen.8: mandos-keygen.xml common.ent overview.xml \
+		legalnotice.xml
 	$(DOCBOOKTOMAN)
+mandos-keygen.8.xhtml: mandos-keygen.xml common.ent overview.xml \
+		 legalnotice.xml
+	$(DOCBOOKTOHTML)
 
-plugin-runner.8mandos: plugin-runner.xml overview.xml legalnotice.xml
+mandos.conf.5: mandos.conf.xml common.ent mandos-options.xml \
+		legalnotice.xml
 	$(DOCBOOKTOMAN)
+mandos.conf.5.xhtml: mandos.conf.xml common.ent mandos-options.xml \
+		legalnotice.xml
+	$(DOCBOOKTOHTML)
+
+plugin-runner.8mandos: plugin-runner.xml common.ent overview.xml \
+		legalnotice.xml
+	$(DOCBOOKTOMAN)
+plugin-runner.8mandos.xhtml: plugin-runner.xml common.ent \
+		overview.xml legalnotice.xml
+	$(DOCBOOKTOHTML)
 
 plugins.d/mandos-client.8mandos: plugins.d/mandos-client.xml \
+					common.ent \
 					mandos-options.xml \
 					overview.xml legalnotice.xml
 	$(DOCBOOKTOMAN)
+plugins.d/mandos-client.8mandos.xhtml: plugins.d/mandos-client.xml \
+					common.ent \
+					mandos-options.xml \
+					overview.xml legalnotice.xml
+	$(DOCBOOKTOHTML)
+
+# Update all these files with version number $(version)
+common.ent: Makefile
+	$(SED) --in-place --expression='s/^\(<ENTITY VERSION "\)[^"]*">$$/\1$(version)"/' $@
+
+mandos: Makefile
+	$(SED) --in-place --expression='s/^\(version = "\)[^"]*"/\1$(version)"/' $@
+
+mandos-keygen: Makefile
+	$(SED) --in-place --expression='s/^\(VERSION="\)[^"]*"/\1$(version)"/' $@
 
 plugins.d/mandos-client: plugins.d/mandos-client.o
 	$(LINK.o) $(GNUTLS_LIBS) $(AVAHI_LIBS) $(GPGME_LIBS) \
 		$(COMMON) $^ $(LOADLIBES) $(LDLIBS) -o $@
 
-.PHONY : all doc clean distclean run-client run-server install \
+.PHONY : all doc html clean distclean run-client run-server install \
 	install-server install-client uninstall uninstall-server \
 	uninstall-client purge purge-server purge-client
 
 clean:
-	-rm --force $(PROGS) $(objects) $(DOCS) core
+	-rm --force $(CPROGS) $(objects) $(htmldocs) $(DOCS) core
 
 distclean: clean
 mostlyclean: clean
 maintainer-clean: clean
 	-rm --force --recursive keydir confdir
 
-check:
+check:	all
 	./mandos --check
 
 # Run the client with a local config and key
@@ -140,6 +199,11 @@ confdir/clients.conf: clients.conf keydir/seckey.txt
 	./mandos-keygen --dir keydir --password >> $@
 
 install: install-server install-client-nokey
+
+install-html: $(htmldocs)
+	install --directory $(htmldir)
+	install --mode=u=rw,go=r --target-directory=$(htmldir) \
+		$(htmldocs)
 
 install-server: doc
 	install --directory $(CONFDIR)
@@ -239,9 +303,6 @@ uninstall-client:
 		$(MANDIR)/man8/mandos-keygen.8.gz \
 		$(MANDIR)/man8/password-prompt.8mandos.gz \
 		$(MANDIR)/man8/mandos-client.8mandos.gz
-	if [ "$(CONFDIR)" != "$(PREFIX)/lib/mandos" ]; then \
-		rm --force $(CONFDIR)/plugins.d/README; \
-	fi
 	-rmdir $(PREFIX)/lib/mandos/plugins.d $(CONFDIR)/plugins.d \
 		 $(PREFIX)/lib/mandos $(CONFDIR) $(KEYDIR)
 	update-initramfs -k all -u
