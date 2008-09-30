@@ -303,9 +303,6 @@ uninstall-client:
 		$(MANDIR)/man8/mandos-keygen.8.gz \
 		$(MANDIR)/man8/password-prompt.8mandos.gz \
 		$(MANDIR)/man8/mandos-client.8mandos.gz
-	if [ "$(CONFDIR)" != "$(PREFIX)/lib/mandos" ]; then \
-		rm --force $(CONFDIR)/plugins.d/README; \
-	fi
 	-rmdir $(PREFIX)/lib/mandos/plugins.d $(CONFDIR)/plugins.d \
 		 $(PREFIX)/lib/mandos $(CONFDIR) $(KEYDIR)
 	update-initramfs -k all -u
