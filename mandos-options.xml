@@ -58,8 +58,8 @@ It is also used for some texts by mandos-client(8mandos).
   <para id="servicename">
     Zeroconf service name.  The default is
     <quote><literal>Mandos</literal></quote>.  This only needs to be
-    changed this if it, for some reason, is necessary to run more than
-    one server on the same <emphasis>host</emphasis>, which would not
+    changed if for some reason is would be necessary to run more than
+    one server on the same <emphasis>host</emphasis>.  This would not
     normally be useful.  If there are name collisions on the same
     <emphasis>network</emphasis>, the newer server will automatically
     rename itself to <quote><literal>Mandos #2</literal></quote>, and
