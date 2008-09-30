@@ -1,5 +1,5 @@
 mandos (1.0) unstable; urgency=low
 
-  * Initial Release.
+  * Initial Release. (Closes: #500727).
 
- -- Mandos Maintainers <mandos@fukt.bsnet.se>  Sun, 07 Sep 2008 11:55:51 +0200
+ -- Teddy Hogeborn <teddy@fukt.bsnet.se>  Tue, 30 Sep 2008 21:58:43 +0200
