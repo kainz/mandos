@@ -72,6 +72,7 @@ binary-common:
 	dh_compress
 	dh_fixperms --exclude etc/keys/mandos \
 		--exclude etc/mandos/clients.conf \
+		--exclude etc/mandos/plugins.d \
 		--exclude usr/lib/mandos/plugins.d
 	dh_installdeb
 	dh_shlibdeps
