@@ -5,6 +5,7 @@ confdir
 debian/po/messages.mo
 debian/po/templates.pot
 keydir
+man
 plugin-runner
 plugins.d/mandos-client
 plugins.d/password-prompt
