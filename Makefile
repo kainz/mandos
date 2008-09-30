@@ -55,6 +55,18 @@ DOCBOOKTOMAN=cd $(dir $<); xsltproc --nonet --xinclude \
 # DocBook-to-man post-processing to fix a '\n' escape bug
 MANPOST=sed --in-place --expression='s,\\\\en,\\en,g;s,\\n,\\en,g'
 
+DOCBOOKTOHTML=xsltproc --nonet --xinclude \
+	--param make.year.ranges		1 \
+	--param make.single.year.ranges		1 \
+	--param man.output.quietly		1 \
+	--param man.authors.section.enabled	0 \
+	--param citerefentry.link		1 \
+	--output $@ \
+	/usr/share/xml/docbook/stylesheet/nwalsh/xhtml/docbook.xsl \
+	$<; $(HTMLPOST) $@
+# Fix citerefentry links
+HTMLPOST=sed --in-place --expression='s/\(<a class="citerefentry" href="\)\("><span class="citerefentry"><span class="refentrytitle">\)\([^<]*\)\(<\/span>(\)\([^)]*\)\()<\/span><\/a>\)/\1\3.\5\2\3\4\5\6/g'
+
 PLUGINS=plugins.d/password-prompt plugins.d/mandos-client \
 	plugins.d/usplash plugins.d/splashy plugins.d/askpass-fifo
 PROGS=plugin-runner $(PLUGINS)
@@ -63,48 +75,72 @@ DOCS=mandos.8 plugin-runner.8mandos mandos-keygen.8 \
 	plugins.d/password-prompt.8mandos mandos.conf.5 \
 	mandos-clients.conf.5
 
+htmldocs=$(addsuffix .xhtml,$(DOCS))
+
 objects=$(addsuffix .o,$(PROGS))
 
 all: $(PROGS)
 
 doc: $(DOCS)
 
+html: $(htmldocs)
+
 %.5: %.xml legalnotice.xml
 	$(DOCBOOKTOMAN)
+%.5.xhtml: %.xml legalnotice.xml
+	$(DOCBOOKTOHTML)
 
 %.8: %.xml legalnotice.xml
 	$(DOCBOOKTOMAN)
+%.8.xhtml: %.xml legalnotice.xml
+	$(DOCBOOKTOHTML)
 
 %.8mandos: %.xml legalnotice.xml
 	$(DOCBOOKTOMAN)
+%.8mandos.xhtml: %.xml legalnotice.xml
+	$(DOCBOOKTOHTML)
 
 mandos.8: mandos.xml mandos-options.xml overview.xml legalnotice.xml
 	$(DOCBOOKTOMAN)
+mandos.8.xhtml: mandos.xml mandos-options.xml overview.xml \
+		legalnotice.xml
+	$(DOCBOOKTOHTML)
 
 mandos-keygen.8: mandos-keygen.xml overview.xml legalnotice.xml
 	$(DOCBOOKTOMAN)
+mandos-keygen.8.xhtml: mandos-keygen.xml overview.xml legalnotice.xml
+	$(DOCBOOKTOHTML)
 
 mandos.conf.5: mandos.conf.xml mandos-options.xml legalnotice.xml
 	$(DOCBOOKTOMAN)
+mandos.conf.5.xhtml: mandos.conf.xml mandos-options.xml legalnotice.xml
+	$(DOCBOOKTOHTML)
 
 plugin-runner.8mandos: plugin-runner.xml overview.xml legalnotice.xml
 	$(DOCBOOKTOMAN)
+plugin-runner.8mandos.xhtml: plugin-runner.xml overview.xml \
+		legalnotice.xml
+	$(DOCBOOKTOHTML)
 
 plugins.d/mandos-client.8mandos: plugins.d/mandos-client.xml \
 					mandos-options.xml \
 					overview.xml legalnotice.xml
 	$(DOCBOOKTOMAN)
+plugins.d/mandos-client.8mandos.xhtml: plugins.d/mandos-client.xml \
+					mandos-options.xml \
+					overview.xml legalnotice.xml
+	$(DOCBOOKTOHTML)
 
 plugins.d/mandos-client: plugins.d/mandos-client.o
 	$(LINK.o) $(GNUTLS_LIBS) $(AVAHI_LIBS) $(GPGME_LIBS) \
 		$(COMMON) $^ $(LOADLIBES) $(LDLIBS) -o $@
 
-.PHONY : all doc clean distclean run-client run-server install \
+.PHONY : all doc html clean distclean run-client run-server install \
 	install-server install-client uninstall uninstall-server \
 	uninstall-client purge purge-server purge-client
 
 clean:
-	-rm --force $(PROGS) $(objects) $(DOCS) core
+	-rm --force $(PROGS) $(objects) $(htmldocs) $(DOCS) core
 
 distclean: clean
 mostlyclean: clean
@@ -140,6 +176,10 @@ confdir/clients.conf: clients.conf keydir/seckey.txt
 	./mandos-keygen --dir keydir --password >> $@
 
 install: install-server install-client-nokey
+
+install-html: $(htmldocs)
+	install --directory man
+	install --mode=u=rw,go=r --target-directory=man $(htmldocs)
 
 install-server: doc
 	install --directory $(CONFDIR)
