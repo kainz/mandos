@@ -58,7 +58,8 @@
 * TODO Web site
 ** DONE http://www.fukt.bsnet.se/mandos
    Redirects to the wiki page
-** DONE http://wiki.fukt.bsnet.se/wiki/Mandos
+** TODO http://wiki.fukt.bsnet.se/wiki/Mandos
+   http://liw.fi/free-software-website/
 
 * Mailing list
 ** DONE mandos-dev

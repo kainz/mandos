@@ -101,17 +101,13 @@
 
 #define BUFFER_SIZE 256
 
-/*
-  #define PATHDIR "/conf/conf.d/mandos"
-*/
-
 #define PATHDIR "/conf/conf.d/mandos"
 #define SECKEY "seckey.txt"
 #define PUBKEY "pubkey.txt"
 
 bool debug = false;
 static const char mandos_protocol_version[] = "1";
-const char *argp_program_version = "mandos-client 1.0";
+const char *argp_program_version = "mandos-client " VERSION;
 const char *argp_program_bug_address = "<mandos@fukt.bsnet.se>";
 
 /* Used for passing in values through the Avahi callback functions */

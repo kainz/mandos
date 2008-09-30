@@ -34,7 +34,6 @@ from __future__ import division
 
 import SocketServer
 import socket
-import select
 from optparse import OptionParser
 import datetime
 import errno
@@ -62,6 +61,7 @@ import gobject
 import avahi
 from dbus.mainloop.glib import DBusGMainLoop
 import ctypes
+import ctypes.util
 
 version = "1.0"
 
@@ -81,6 +81,7 @@ logger.addHandler(console)
 class AvahiError(Exception):
     def __init__(self, value):
         self.value = value
+        super(AvahiError, self).__init__()
     def __str__(self):
         return repr(self.value)
 
@@ -108,11 +109,11 @@ class AvahiService(object):
                   a sensible number of times
     """
     def __init__(self, interface = avahi.IF_UNSPEC, name = None,
-                 type = None, port = None, TXT = None, domain = "",
+                 servicetype = None, port = None, TXT = None, domain = "",
                  host = "", max_renames = 32768):
         self.interface = interface
         self.name = name
-        self.type = type
+        self.type = servicetype
         self.port = port
         if TXT is None:
             self.TXT = []
@@ -127,7 +128,7 @@ class AvahiService(object):
         if self.rename_count >= self.max_renames:
             logger.critical(u"No suitable Zeroconf service name found"
                             u" after %i retries, exiting.",
-                            rename_count)
+                            self.rename_count)
             raise AvahiServiceError("Too many renames")
         self.name = server.GetAlternativeServiceName(self.name)
         logger.info(u"Changing Zeroconf service name to %r ...",
@@ -222,10 +223,12 @@ class Client(object):
     interval = property(lambda self: self._interval,
                         _set_interval)
     del _set_interval
-    def __init__(self, name = None, stop_hook=None, config={}):
+    def __init__(self, name = None, stop_hook=None, config=None):
         """Note: the 'checker' key in 'config' sets the
         'checker_command' attribute and *not* the 'checker'
         attribute."""
+        if config is None:
+            config = {}
         self.name = name
         logger.debug(u"Creating client %r", self.name)
         # Uppercase and remove spaces from fingerprint for later
@@ -237,9 +240,9 @@ class Client(object):
         if "secret" in config:
             self.secret = config["secret"].decode(u"base64")
         elif "secfile" in config:
-            sf = open(config["secfile"])
-            self.secret = sf.read()
-            sf.close()
+            secfile = open(config["secfile"])
+            self.secret = secfile.read()
+            secfile.close()
         else:
             raise TypeError(u"No secret or secfile for client %s"
                             % self.name)
@@ -415,28 +418,28 @@ def fingerprint(openpgp):
                     (crt, ctypes.byref(datum),
                      gnutls.library.constants.GNUTLS_OPENPGP_FMT_RAW)
     # Verify the self signature in the key
-    crtverify = ctypes.c_uint();
+    crtverify = ctypes.c_uint()
     gnutls.library.functions.gnutls_openpgp_crt_verify_self\
         (crt, 0, ctypes.byref(crtverify))
     if crtverify.value != 0:
         gnutls.library.functions.gnutls_openpgp_crt_deinit(crt)
         raise gnutls.errors.CertificateSecurityError("Verify failed")
     # New buffer for the fingerprint
-    buffer = ctypes.create_string_buffer(20)
-    buffer_length = ctypes.c_size_t()
+    buf = ctypes.create_string_buffer(20)
+    buf_len = ctypes.c_size_t()
     # Get the fingerprint from the certificate into the buffer
     gnutls.library.functions.gnutls_openpgp_crt_get_fingerprint\
-        (crt, ctypes.byref(buffer), ctypes.byref(buffer_length))
+        (crt, ctypes.byref(buf), ctypes.byref(buf_len))
     # Deinit the certificate
     gnutls.library.functions.gnutls_openpgp_crt_deinit(crt)
     # Convert the buffer to a Python bytestring
-    fpr = ctypes.string_at(buffer, buffer_length.value)
+    fpr = ctypes.string_at(buf, buf_len.value)
     # Convert the bytestring to hexadecimal notation
     hex_fpr = u''.join(u"%02X" % ord(char) for char in fpr)
     return hex_fpr
 
 
-class tcp_handler(SocketServer.BaseRequestHandler, object):
+class TCP_handler(SocketServer.BaseRequestHandler, object):
     """A TCP request handler class.
     Instantiated by IPv6_TCPServer for each request to handle it.
     Note: This will run in its own forked process."""
@@ -469,7 +472,7 @@ class tcp_handler(SocketServer.BaseRequestHandler, object):
         if self.server.settings["priority"]:
             priority = self.server.settings["priority"]
         gnutls.library.functions.gnutls_priority_set_direct\
-            (session._c_object, priority, None);
+            (session._c_object, priority, None)
         
         try:
             session.handshake()
@@ -529,7 +532,7 @@ class IPv6_TCPServer(SocketServer.ForkingTCPServer, object):
             self.clients = kwargs["clients"]
             del kwargs["clients"]
         self.enabled = False
-        return super(type(self), self).__init__(*args, **kwargs)
+        super(IPv6_TCPServer, self).__init__(*args, **kwargs)
     def server_bind(self):
         """This overrides the normal server_bind() function
         to bind to an interface if one was specified, and also NOT to
@@ -564,10 +567,10 @@ class IPv6_TCPServer(SocketServer.ForkingTCPServer, object):
 #                                            if_nametoindex
 #                                            (self.settings
 #                                             ["interface"]))
-            return super(type(self), self).server_bind()
+            return super(IPv6_TCPServer, self).server_bind()
     def server_activate(self):
         if self.enabled:
-            return super(type(self), self).server_activate()
+            return super(IPv6_TCPServer, self).server_activate()
     def enable(self):
         self.enabled = True
 
@@ -591,8 +594,8 @@ def string_to_delta(interval):
     timevalue = datetime.timedelta(0)
     for s in interval.split():
         try:
-            suffix=unicode(s[-1])
-            value=int(s[:-1])
+            suffix = unicode(s[-1])
+            value = int(s[:-1])
             if suffix == u"d":
                 delta = datetime.timedelta(value)
             elif suffix == u"s":
@@ -638,8 +641,6 @@ def if_nametoindex(interface):
     """Call the C function if_nametoindex(), or equivalent"""
     global if_nametoindex
     try:
-        if "ctypes.util" not in sys.modules:
-            import ctypes.util
         if_nametoindex = ctypes.cdll.LoadLibrary\
             (ctypes.util.find_library("c")).if_nametoindex
     except (OSError, AttributeError):
@@ -683,9 +684,6 @@ def daemon(nochdir = False, noclose = False):
 
 
 def main():
-    global main_loop_started
-    main_loop_started = False
-    
     parser = OptionParser(version = "%%prog %s" % version)
     parser.add_option("-i", "--interface", type="string",
                       metavar="IF", help="Bind to interface IF")
@@ -706,7 +704,7 @@ def main():
                       default="/etc/mandos", metavar="DIR",
                       help="Directory to search for configuration"
                       " files")
-    (options, args) = parser.parse_args()
+    options = parser.parse_args()[0]
     
     if options.check:
         import doctest
@@ -769,7 +767,7 @@ def main():
     clients = Set()
     tcp_server = IPv6_TCPServer((server_settings["address"],
                                  server_settings["port"]),
-                                tcp_handler,
+                                TCP_handler,
                                 settings=server_settings,
                                 clients=clients)
     pidfilename = "/var/run/mandos.pid"
@@ -803,7 +801,7 @@ def main():
     
     global service
     service = AvahiService(name = server_settings["servicename"],
-                           type = "_mandos._tcp", );
+                           servicetype = "_mandos._tcp", )
     if server_settings["interface"]:
         service.interface = if_nametoindex\
                             (server_settings["interface"])
@@ -852,7 +850,7 @@ def main():
         pidfile.write(str(pid) + "\n")
         pidfile.close()
         del pidfile
-    except IOError, err:
+    except IOError:
         logger.error(u"Could not write to file %r with PID %d",
                      pidfilename, pid)
     except NameError:
@@ -910,7 +908,6 @@ def main():
                              (*args[2:], **kwargs) or True)
         
         logger.debug(u"Starting main loop")
-        main_loop_started = True
         main_loop.run()
     except AvahiError, error:
         logger.critical(u"AvahiError: %s" + unicode(error))

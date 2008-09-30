@@ -69,7 +69,7 @@
 #define PDIR "/lib/mandos/plugins.d"
 #define AFILE "/conf/conf.d/mandos/plugin-runner.conf"
 
-const char *argp_program_version = "plugin-runner 1.0";
+const char *argp_program_version = "plugin-runner " VERSION;
 const char *argp_program_bug_address = "<mandos@fukt.bsnet.se>";
 
 typedef struct plugin{
