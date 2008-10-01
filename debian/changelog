@@ -1,11 +1,11 @@
-mandos (1.0-1) unstable; urgency=low
+mandos (1.0-2) unstable; urgency=low
 
   * Added comments in debian/*.lintian-overrides files.  Added Debian
     revison number to version number.
 
  -- Teddy Hogeborn <teddy@fukt.bsnet.se>  Wed, 01 Oct 2008 17:23:35 +0200
 
-mandos (1.0) unstable; urgency=low
+mandos (1.0-1) unstable; urgency=low
 
   * Initial Release. (Closes: #500727).
 
