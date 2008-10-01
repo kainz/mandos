@@ -1,8 +1,32 @@
+# This example command line is long without spaces, but it must be
+# that way; it's part of the point of showing it.
+#
 mandos-client binary: manpage-has-errors-from-man usr/share/man/man8/plugin-runner.8mandos.gz 297: warning [p 4, 5.8i]: can't break line
+
+# This directory contains secret client key files.
+#
 mandos-client binary: non-standard-dir-perm etc/keys/mandos/ 0700 != 0755
-mandos-client binary: non-standard-dir-perm etc/mandos/plugins.d/ 0700 != 0755
+
+# The directory /usr/lib/mandos/plugins.d contains setuid binaries
+# which are not meant to be run outside an initial RAM disk
+# environment (except for test purposes).  It would be insecure to
+# allow anyone to run them.
+#
+mandos-client binary: non-standard-dir-perm usr/lib/mandos/plugins.d/ 0700 != 0755
+
+# These binaries must be setuid root, since they need root powers, but
+# are started by plugin-runner(8mandos), which runs all plugins as
+# user/group "mandos".  These binaries are not run in a running
+# system, but in an initial RAM disk environment.  Here they are
+# protected from non-root access by the directory permissions, above.
+#
 mandos-client binary: setuid-binary usr/lib/mandos/plugins.d/mandos-client 4755 root/root
 mandos-client binary: setuid-binary usr/lib/mandos/plugins.d/askpass-fifo 4755 root/root
 mandos-client binary: setuid-binary usr/lib/mandos/plugins.d/splashy 4755 root/root
 mandos-client binary: setuid-binary usr/lib/mandos/plugins.d/usplash 4755 root/root
-mandos-client binary: non-standard-dir-perm usr/lib/mandos/plugins.d/ 0700 != 0755
+
+# The directory /etc/mandos/plugins.d can be used by local system
+# administrators to place plugins in, overriding and complementing
+# /usr/lib/mandos/plugins.d, and must be likewise protected.
+#
+mandos-client binary: non-standard-dir-perm etc/mandos/plugins.d/ 0700 != 0755
