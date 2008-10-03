@@ -9,7 +9,7 @@ WARN=-O -Wall -Wformat=2 -Winit-self -Wmissing-include-dirs \
 #DEBUG=-ggdb3
 # For info about _FORTIFY_SOURCE, see
 # <http://gcc.gnu.org/ml/gcc-patches/2004-09/msg02055.html>
-FORTIFY=-D_FORTIFY_SOURCE=2 # -fstack-protector-all
+FORTIFY=-D_FORTIFY_SOURCE=2 -fstack-protector-all
 #COVERAGE=--coverage
 OPTIMIZE=-Os
 LANGUAGE=-std=gnu99
@@ -149,10 +149,10 @@ common.ent: Makefile
 	$(SED) --in-place --expression='s/^\(<ENTITY VERSION "\)[^"]*">$$/\1$(version)"/' $@
 
 mandos: Makefile
-	$(SED) --in-place --expression='s/^\(version = "\)[^"]*"/\1$(version)"/' $@
+	$(SED) --in-place --expression='s/^\(version = "\)[^"]*"$$/\1$(version)"/' $@
 
 mandos-keygen: Makefile
-	$(SED) --in-place --expression='s/^\(VERSION="\)[^"]*"/\1$(version)"/' $@
+	$(SED) --in-place --expression='s/^\(VERSION="\)[^"]*"$$/\1$(version)"/' $@
 
 plugins.d/mandos-client: plugins.d/mandos-client.o
 	$(LINK.o) $(GNUTLS_LIBS) $(AVAHI_LIBS) $(GPGME_LIBS) \

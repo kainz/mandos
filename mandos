@@ -240,7 +240,8 @@ class Client(object):
         if "secret" in config:
             self.secret = config["secret"].decode(u"base64")
         elif "secfile" in config:
-            secfile = open(config["secfile"])
+            secfile = open(os.path.expanduser(os.path.expandvars
+                                              (config["secfile"])))
             self.secret = secfile.read()
             secfile.close()
         else:
