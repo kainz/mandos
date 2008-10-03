@@ -1,20 +1,22 @@
 #define _GNU_SOURCE		/* asprintf() */
 #include <signal.h>		/* sig_atomic_t, struct sigaction,
-				   sigemptyset(), sigaddset(),
-				   sigaction, SIGINT, SIG_IGN, SIGHUP,
-				   SIGTERM, kill(), SIGKILL */
+				   sigemptyset(), sigaddset(), SIGINT,
+				   SIGHUP, SIGTERM, sigaction,
+				   SIG_IGN, kill(), SIGKILL */
 #include <stddef.h>		/* NULL */
 #include <stdlib.h>		/* getenv() */
 #include <stdio.h>		/* asprintf(), perror() */
-#include <stdlib.h>		/* EXIT_FAILURE, EXIT_SUCCESS,
-				   strtoul(), free() */
+#include <stdlib.h>		/* EXIT_FAILURE, free(), strtoul(),
+				   EXIT_SUCCESS */
 #include <sys/types.h>		/* pid_t, DIR, struct dirent,
 				   ssize_t */
 #include <dirent.h>		/* opendir(), readdir(), closedir() */
+#include <sys/stat.h>		/* struct stat, lstat(), S_ISLNK */
+#include <iso646.h>		/* not, or, and */
 #include <unistd.h>		/* readlink(), fork(), execl(),
-				   _exit */
+				   sleep(), dup2() STDERR_FILENO,
+				   STDOUT_FILENO, _exit() */
 #include <string.h>		/* memcmp() */
-#include <iso646.h>		/* and */
 #include <errno.h>		/* errno */
 #include <sys/wait.h>		/* waitpid(), WIFEXITED(),
 				   WEXITSTATUS() */
@@ -88,6 +90,24 @@ int main(__attribute__((unused))int argc,
 	  closedir(proc_dir);
 	  return EXIT_FAILURE;
 	}
+	
+	/* Check that it refers to a symlink owned by root:root */
+	struct stat exe_stat;
+	ret = lstat(exe_link, &exe_stat);
+	if(ret == -1){
+	  perror("lstat");
+	  free(exe_link);
+	  free(prompt);
+	  closedir(proc_dir);
+	  return EXIT_FAILURE;
+	}
+	if(not S_ISLNK(exe_stat.st_mode)
+	   or exe_stat.st_uid != 0
+	   or exe_stat.st_gid != 0){
+	  free(exe_link);
+	  continue;
+	}
+	
 	sret = readlink(exe_link, exe_target, sizeof(exe_target));
 	free(exe_link);
       }
@@ -120,7 +140,7 @@ int main(__attribute__((unused))int argc,
       free(prompt);
       return EXIT_FAILURE;
     }
-    if (old_action.sa_handler != SIG_IGN){
+    if(old_action.sa_handler != SIG_IGN){
       ret = sigaction(SIGINT, &new_action, NULL);
       if(ret == -1){
 	perror("sigaction");
@@ -134,7 +154,7 @@ int main(__attribute__((unused))int argc,
       free(prompt);
       return EXIT_FAILURE;
     }
-    if (old_action.sa_handler != SIG_IGN){
+    if(old_action.sa_handler != SIG_IGN){
       ret = sigaction(SIGHUP, &new_action, NULL);
       if(ret == -1){
 	perror("sigaction");
@@ -148,7 +168,7 @@ int main(__attribute__((unused))int argc,
       free(prompt);
       return EXIT_FAILURE;
     }
-    if (old_action.sa_handler != SIG_IGN){
+    if(old_action.sa_handler != SIG_IGN){
       ret = sigaction(SIGTERM, &new_action, NULL);
       if(ret == -1){
 	perror("sigaction");
@@ -173,13 +193,11 @@ int main(__attribute__((unused))int argc,
       const char splashy_command[] = "/sbin/splashy_update";
       ret = execl(splashy_command, splashy_command, prompt,
 		  (char *)NULL);
-      if(not interrupted_by_signal and errno != ENOENT){
-	/* Don't report "File not found", since splashy might not be
-	   installed. */
+      if(not interrupted_by_signal){
 	perror("execl");
       }
       free(prompt);
-      return EXIT_FAILURE;
+      _exit(EXIT_FAILURE);
     }
   }
   
@@ -187,33 +205,61 @@ int main(__attribute__((unused))int argc,
   free(prompt);
   
   /* Wait for command to complete */
-  int status;
-  while(not interrupted_by_signal){
-    waitpid(splashy_command_pid, &status, 0);
-    if(not interrupted_by_signal
-       and WIFEXITED(status) and WEXITSTATUS(status)==0){
-      return EXIT_SUCCESS;
+  if(not interrupted_by_signal and splashy_command_pid != 0){
+    int status;
+    ret = waitpid(splashy_command_pid, &status, 0);
+    if(ret == -1){
+      if(errno != EINTR){
+	perror("waitpid");
+      }
+      if(errno == ECHILD){
+	splashy_command_pid = 0;
+      }
+    } else {
+      /* The child process has exited */
+      splashy_command_pid = 0;
+      if(not interrupted_by_signal and WIFEXITED(status)
+	 and WEXITSTATUS(status)==0){
+	return EXIT_SUCCESS;
+      }
     }
   }
   kill(splashy_pid, SIGTERM);
-  if(interrupted_by_signal){
+  if(interrupted_by_signal and splashy_command_pid != 0){
     kill(splashy_command_pid, SIGTERM);
   }
-  
+  sleep(2);
+  while(kill(splashy_pid, 0) == 0){
+    kill(splashy_pid, SIGKILL);
+    sleep(1);
+  }
   pid_t new_splashy_pid = fork();
   if(new_splashy_pid == 0){
     /* Child; will become new splashy process */
-    while(kill(splashy_pid, 0)){
-      sleep(2);
-      kill(splashy_pid, SIGKILL);
-      sleep(1);
+    
+    /* Make the effective user ID (root) the only user ID instead of
+       the real user ID (mandos) */
+    ret = setuid(geteuid());
+    if(ret == -1){
+      perror("setuid");
     }
+    
+    setsid();
+    ret = chdir("/");
+/*     if(fork() != 0){ */
+/*       _exit(EXIT_SUCCESS); */
+/*     } */
     ret = dup2(STDERR_FILENO, STDOUT_FILENO); /* replace our stdout */
     if(ret == -1){
       perror("dup2");
       _exit(EXIT_FAILURE);
     }
+    
     execl("/sbin/splashy", "/sbin/splashy", "boot", (char *)NULL);
+    if(not interrupted_by_signal){
+      perror("execl");
+    }
+    _exit(EXIT_FAILURE);
   }
   
   return EXIT_FAILURE;
