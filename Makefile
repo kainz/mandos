@@ -79,7 +79,7 @@ DOCS=mandos.8 plugin-runner.8mandos mandos-keygen.8 \
 	plugins.d/mandos-client.8mandos \
 	plugins.d/password-prompt.8mandos mandos.conf.5 \
 	plugins.d/usplash.8mandos plugins.d/splashy.8mandos \
-	mandos-clients.conf.5
+	plugins.d/askpass-fifo.8mandos mandos-clients.conf.5
 
 htmldocs=$(addsuffix .xhtml,$(DOCS))
 
@@ -273,6 +273,8 @@ install-client-nokey: all doc
 		> $(MANDIR)/man8/usplash.8mandos.gz
 	gzip --best --to-stdout plugins.d/splashy.8mandos \
 		> $(MANDIR)/man8/splashy.8mandos.gz
+	gzip --best --to-stdout plugins.d/askpass-fifo.8mandos \
+		> $(MANDIR)/man8/askpass-fifo.8mandos.gz
 
 install-client: install-client-nokey
 # Post-installation stuff
@@ -301,6 +303,7 @@ uninstall-client:
 		$(PREFIX)/lib/mandos/plugins.d/mandos-client \
 		$(PREFIX)/lib/mandos/plugins.d/usplash \
 		$(PREFIX)/lib/mandos/plugins.d/splashy \
+		$(PREFIX)/lib/mandos/plugins.d/askpass-fifo \
 		$(INITRAMFSTOOLS)/hooks/mandos \
 		$(INITRAMFSTOOLS)/conf-hooks.d/mandos \
 		$(INITRAMFSTOOLS)/scripts/local-top/mandos \
@@ -309,6 +312,7 @@ uninstall-client:
 		$(MANDIR)/man8/password-prompt.8mandos.gz \
 		$(MANDIR)/man8/usplash.8mandos.gz \
 		$(MANDIR)/man8/splashy.8mandos.gz \
+		$(MANDIR)/man8/askpass-fifo.8mandos.gz \
 		$(MANDIR)/man8/mandos-client.8mandos.gz
 	-rmdir $(PREFIX)/lib/mandos/plugins.d $(CONFDIR)/plugins.d \
 		 $(PREFIX)/lib/mandos $(CONFDIR) $(KEYDIR)
