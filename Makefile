@@ -9,7 +9,8 @@ WARN=-O -Wall -Wformat=2 -Winit-self -Wmissing-include-dirs \
 #DEBUG=-ggdb3
 # For info about _FORTIFY_SOURCE, see
 # <http://gcc.gnu.org/ml/gcc-patches/2004-09/msg02055.html>
-FORTIFY=-D_FORTIFY_SOURCE=2 -fstack-protector-all
+FORTIFY=-D_FORTIFY_SOURCE=2 -fstack-protector-all -fPIE -pie
+LINK_FORTIFY=-z relro -pie
 #COVERAGE=--coverage
 OPTIMIZE=-Os
 LANGUAGE=-std=gnu99
@@ -44,7 +45,7 @@ GPGME_LIBS=$(shell gpgme-config --libs)
 CFLAGS=$(WARN) $(DEBUG) $(FORTIFY) $(COVERAGE) $(OPTIMIZE) \
 	$(LANGUAGE) $(GNUTLS_CFLAGS) $(AVAHI_CFLAGS) $(GPGME_CFLAGS) \
 	-DVERSION='"$(version)"'
-LDFLAGS=$(COVERAGE)
+LDFLAGS=$(COVERAGE) $(LINK_FORTIFY)
 
 # Commands to format a DocBook <refentry> document into a manual page
 DOCBOOKTOMAN=cd $(dir $<); xsltproc --nonet --xinclude \
