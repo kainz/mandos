@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY COMMANDNAME "mandos-keygen">
-<!ENTITY TIMESTAMP "2008-09-30">
+<!ENTITY TIMESTAMP "2008-10-03">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -382,7 +382,7 @@
     </variablelist>
   </refsect1>
   
-  <refsect1 id="file">
+  <refsect1 id="files">
     <title>FILES</title>
     <para>
       Use the <option>--dir</option> option to change where
