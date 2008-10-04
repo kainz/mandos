@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY COMMANDNAME "mandos">
-<!ENTITY TIMESTAMP "2008-09-30">
+<!ENTITY TIMESTAMP "2008-10-03">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -351,7 +351,7 @@
     </variablelist>
   </refsect1>
   
-  <refsect1 id="file">
+  <refsect1 id="files">
     <title>FILES</title>
     <para>
       Use the <option>--configdir</option> option to change where
@@ -421,7 +421,7 @@
       Currently, if a client is declared <quote>invalid</quote> due to
       having timed out, the server does not record this fact onto
       permanent storage.  This has some security implications, see
-      <xref linkend="CLIENTS"/>.
+      <xref linkend="clients"/>.
     </para>
     <para>
       There is currently no way of querying the server of the current
@@ -483,7 +483,7 @@
   
   <refsect1 id="security">
     <title>SECURITY</title>
-    <refsect2 id="SERVER">
+    <refsect2 id="server">
       <title>SERVER</title>
       <para>
 	Running this <command>&COMMANDNAME;</command> server program
@@ -492,7 +492,7 @@
 	soon after startup.
       </para>
     </refsect2>
-    <refsect2 id="CLIENTS">
+    <refsect2 id="clients">
       <title>CLIENTS</title>
       <para>
 	The server only gives out its stored data to clients which
