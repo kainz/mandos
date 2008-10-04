@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+<!ENTITY COMMANDNAME "askpass-fifo">
+<!ENTITY TIMESTAMP "2008-10-04">
+<!ENTITY % common SYSTEM "../common.ent">
+%common;
+]>
+
+<refentry xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>Mandos Manual</title>
+    <!-- NWalsh’s docbook scripts use this to generate the footer: -->
+    <productname>Mandos</productname>
+    <productnumber>&version;</productnumber>
+    <date>&TIMESTAMP;</date>
+    <authorgroup>
+      <author>
+	<firstname>Björn</firstname>
+	<surname>Påhlsson</surname>
+	<address>
+	  <email>belorn@fukt.bsnet.se</email>
+	</address>
+      </author>
+      <author>
+	<firstname>Teddy</firstname>
+	<surname>Hogeborn</surname>
+	<address>
+	  <email>teddy@fukt.bsnet.se</email>
+	</address>
+      </author>
+    </authorgroup>
+    <copyright>
+      <year>2008</year>
+      <holder>Teddy Hogeborn</holder>
+      <holder>Björn Påhlsson</holder>
+    </copyright>
+    <xi:include href="../legalnotice.xml"/>
+  </refentryinfo>
+  
+  <refmeta>
+    <refentrytitle>&COMMANDNAME;</refentrytitle>
+    <manvolnum>8mandos</manvolnum>
+  </refmeta>
+  
+  <refnamediv>
+    <refname><command>&COMMANDNAME;</command></refname>
+    <refpurpose>Mandos plugin to get a password from a
+    FIFO.</refpurpose>
+  </refnamediv>
+  
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>&COMMANDNAME;</command>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+  
+  <refsect1 id="description">
+    <title>DESCRIPTION</title>
+    <para>
+      This program reads a password from a <acronym>FIFO</acronym> and
+      outputs it to standard output.
+    </para>
+    <para>
+      This program is not very useful on its own.  This program is
+      really meant to run as a plugin in the <application
+      >Mandos</application> client-side system, where it is used as a
+      fallback and alternative to retrieving passwords from a
+      <application >Mandos</application> server.
+    </para>
+    <para>
+      This program is meant to be imitate a feature of the
+      <command>askpass</command> program, so that programs written to
+      interface with it can keep working under the
+      <application>Mandos</application> system.
+    </para>
+  </refsect1>
+  
+  <refsect1 id="options">
+    <title>OPTIONS</title>
+    <para>
+      This program takes no options.
+    </para>
+  </refsect1>
+  
+  <refsect1 id="exit_status">
+    <title>EXIT STATUS</title>
+    <para>
+      If exit status is 0, the output from the program is the password
+      as it was read.  Otherwise, if exit status is other than 0, the
+      program was interrupted or encountered an error, and any output
+      so far could be corrupt and/or truncated, and should therefore
+      be ignored.
+    </para>
+  </refsect1>
+  
+  <refsect1 id="files">
+    <title>FILES</title>
+    <variablelist>
+      <varlistentry>
+	<term><filename>/lib/cryptsetup/passfifo</filename></term>
+	<listitem>
+	  <para>
+	    This is the <acronym>FIFO</acronym> where this program
+	    will read the password.  If it does not exist, it will be
+	    created.
+	  </para>
+	</listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+  
+  <refsect1 id="example">
+    <title>EXAMPLE</title>
+    <para>
+      Note that normally, this program will not be invoked directly,
+      but instead started by the Mandos <citerefentry><refentrytitle
+      >plugin-runner</refentrytitle><manvolnum>8mandos</manvolnum>
+      </citerefentry>.
+    </para>
+    <informalexample>
+      <para>
+	This program takes no options.
+      </para>
+      <para>
+	<userinput>&COMMANDNAME;</userinput>
+      </para>
+    </informalexample>
+  </refsect1>
+  
+  <refsect1 id="security">
+    <title>SECURITY</title>
+    <para>
+      The only thing that could be considered worthy of note is
+      this:  This program is meant to be run by <citerefentry>
+      <refentrytitle>plugin-runner</refentrytitle><manvolnum
+      >8mandos</manvolnum></citerefentry>, and will, when run
+      standalone, outside, in a normal environment, immediately output
+      on its standard output any presumably secret password it just
+      received.  Therefore, when running this program standalone
+      (which should never normally be done), take care not to type in
+      any real secret password by force of habit, since it would then
+      immediately be shown as output.
+    </para>
+  </refsect1>
+  
+  <refsect1 id="see_also">
+    <title>SEE ALSO</title>
+    <para>
+      <citerefentry><refentrytitle>fifo</refentrytitle>
+      <manvolnum>7</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>plugin-runner</refentrytitle>
+      <manvolnum>8mandos</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+</refentry>
+<!-- Local Variables: -->
+<!-- time-stamp-start: "<!ENTITY TIMESTAMP [\"']" -->
+<!-- time-stamp-end: "[\"']>" -->
+<!-- time-stamp-format: "%:y-%02m-%02d" -->
+<!-- End: -->
