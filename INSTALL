@@ -97,9 +97,27 @@
      and append this to the file "/etc/mandos/clients.conf" *on the
      server computer*.
   
-  4. On the server computer, start the server by running the command
+  4. Configure the client to use the correct network interface.  The
+     default is "eth0", and if this needs to be adjusted, it will be
+     necessary to edit /etc/mandos/plugin-runner.conf to uncomment and
+     change the line there.  If that file is changed, the initrd.img
+     file must be updated, possibly using the following command:
+     
+	# update-initramfs -k all -u
+  
+  5. On the server computer, start the server by running the command
      For Debian: su -c 'invoke-rc.d mandos start'
      For Ubuntu: sudo invoke-rc.d mandos start
+     
+     At this point, it is possible to verify that the correct password
+     will be received by the client by running the command:
+     
+	# /usr/lib/mandos/plugins.d/mandos-client \
+		--pubkey=/etc/keys/mandos/pubkey.txt \
+		--seckey=/etc/keys/mandos/seckey.txt; echo
+     
+     This command should retrieve the password from the server,
+     decrypt it, and output it to standard output.
      
      After this, the client computer should be able to reboot without
      needing a password entered on the console, as long as it does not
