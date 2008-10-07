@@ -3,7 +3,7 @@
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY CONFNAME "mandos-clients.conf">
 <!ENTITY CONFPATH "<filename>/etc/mandos/clients.conf</filename>">
-<!ENTITY TIMESTAMP "2008-09-30">
+<!ENTITY TIMESTAMP "2008-10-07">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -239,6 +239,11 @@
 	    data is in an external file.  The contents of the file
 	    should <emphasis>not</emphasis> be base64-encoded, but
 	    will be sent to clients verbatim.
+	  </para>
+	  <para>
+	    File names of the form <filename>~user/foo/bar</filename>
+	    and <filename>$<envar>ENVVAR</envar>/foo/bar</filename>
+	    are supported.
 	  </para>
 	</listitem>
       </varlistentry>

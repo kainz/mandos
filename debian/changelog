@@ -1,3 +1,12 @@
+mandos (1.0.1-1) unstable; urgency=low
+
+  * New upstream release.
+  * Separate /usr/share/doc/mandos-client/README.Debian into sections with
+    headlines.  Add instructions on how to test the server and verify the
+    password.
+
+ -- Teddy Hogeborn <teddy@fukt.bsnet.se>  Tue, 07 Oct 2008 23:07:23 +0200
+
 mandos (1.0-2) unstable; urgency=low
 
   * Added comments in debian/*.lintian-overrides files.  Added Debian

@@ -63,7 +63,7 @@ from dbus.mainloop.glib import DBusGMainLoop
 import ctypes
 import ctypes.util
 
-version = "1.0"
+version = "1.0.1"
 
 logger = logging.Logger('mandos')
 syslogger = logging.handlers.SysLogHandler\
