@@ -289,7 +289,7 @@ if [ "$mode" = password ]; then
 	fi
     fi | gpg --quiet --batch --no-tty --no-options --enable-dsa2 \
 	--homedir "$RINGDIR" --trust-model always --armor --encrypt \
-	--recipient "$FINGERPRINT" --comment "$FILECOMMENT" \
+	--sign --recipient "$FINGERPRINT" --comment "$FILECOMMENT" \
 	> "$SECFILE"
     status="${PIPESTATUS[0]}"
     if [ "$status" -ne 0 ]; then
