@@ -143,11 +143,11 @@
   first to find a password and provide it to the plugin runner.
   
   Three additional plugins are provided:
-  * usplash
+  * usplash(8mandos)
     This prompts for a password when using usplash(8).
-  * splashy
+  * splashy(8mandos)
     This prompts for a password when using splashy(8).
-  * askpass-fifo
+  * askpass-fifo(8mandos)
     To provide compatibility with the "askpass" program from
     cryptsetup, this plugin listens to the same FIFO as askpass would
     do.
