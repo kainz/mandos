@@ -1,3 +1,11 @@
+mandos (1.0.2-1) unstable; urgency=low
+
+  * New upstream release.
+  * debian/copyright: Rewritten to conform to
+    <http://wiki.debian.org/Proposals/CopyrightFormat?action=recall&rev=233>.
+
+ -- Teddy Hogeborn <teddy@fukt.bsnet.se>  Fri, 17 Oct 2008 20:42:12 +0200
+
 mandos (1.0.1-1) unstable; urgency=low
 
   * New upstream release.
