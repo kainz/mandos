@@ -86,7 +86,7 @@ htmldocs=$(addsuffix .xhtml,$(DOCS))
 
 objects=$(addsuffix .o,$(CPROGS))
 
-all: $(PROGS)
+all: $(PROGS) mandos.lsm
 
 doc: $(DOCS)
 
@@ -155,6 +155,10 @@ mandos: Makefile
 
 mandos-keygen: Makefile
 	$(SED) --in-place --expression='s/^\(VERSION="\)[^"]*"$$/\1$(version)"/' $@
+
+mandos.lsm: Makefile
+	$(SED) --in-place --expression='s/^\(Version:\).*/\1\t$(version)/' $@
+	$(SED) --in-place --expression='s/^\(Entered-date:\).*/\1\t$(shell date --rfc-3339=date --reference=Makefile)/' $@
 
 plugins.d/mandos-client: plugins.d/mandos-client.o
 	$(LINK.o) $(GNUTLS_LIBS) $(AVAHI_LIBS) $(GPGME_LIBS) \
