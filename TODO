@@ -3,6 +3,7 @@
 * mandos-client
 ** TODO [#B] Temporarily lower kernel log level
    for less printouts during sucessfull boot.
+   klogctl(6, NULL, 0); klogctl(7, NULL, 0);
 ** TODO [#C] IPv4 support
 
 * mandos (server)
