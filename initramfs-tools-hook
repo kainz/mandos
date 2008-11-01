@@ -89,7 +89,7 @@ for file in "$prefix"/lib/mandos/plugins.d/*; do
 	continue
     fi
     case "$base" in
-	*~|.*|\#*\#|*.dpkg-old|*.dpkg-new|*.dpkg-divert) : ;;
+	*~|.*|\#*\#|*.dpkg-old|*.dpkg-bak|*.dpkg-new|*.dpkg-divert) : ;;
 	"*") :;;
 	*) copy_exec "$file" "${PLUGINDIR}";;
     esac
@@ -99,7 +99,7 @@ done
 for file in /etc/mandos/plugins.d/*; do
     base="`basename \"$file\"`"
     case "$base" in
-	*~|.*|\#*\#|*.dpkg-old|*.dpkg-new|*.dpkg-divert) : ;;
+	*~|.*|\#*\#|*.dpkg-old|*.dpkg-bak|*.dpkg-new|*.dpkg-divert) : ;;
 	"*") :;;
 	*) copy_exec "$file" "${PLUGINDIR}";;
     esac

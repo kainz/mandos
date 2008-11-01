@@ -700,6 +700,7 @@ int main(int argc, char *argv[]){
       
       const char const *bad_suffixes[] = { "~", "#", ".dpkg-new",
 					   ".dpkg-old",
+					   ".dpkg-bak",
 					   ".dpkg-divert", NULL };
       for(const char **pre = bad_prefixes; *pre != NULL; pre++){
 	size_t pre_len = strlen(*pre);
