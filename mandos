@@ -30,7 +30,7 @@
 # Contact the authors at <mandos@fukt.bsnet.se>.
 # 
 
-from __future__ import division
+from __future__ import division, with_statement, absolute_import
 
 import SocketServer
 import socket
@@ -55,6 +55,7 @@ import stat
 import logging
 import logging.handlers
 import pwd
+from contextlib import closing
 
 import dbus
 import gobject
@@ -240,10 +241,11 @@ class Client(object):
         if "secret" in config:
             self.secret = config["secret"].decode(u"base64")
         elif "secfile" in config:
-            secfile = open(os.path.expanduser(os.path.expandvars
-                                              (config["secfile"])))
-            self.secret = secfile.read()
-            secfile.close()
+            with closing(open(os.path.expanduser
+                              (os.path.expandvars
+                               (config["secfile"])))) \
+                               as secfile:
+                self.secret = secfile.read()
         else:
             raise TypeError(u"No secret or secfile for client %s"
                             % self.name)
@@ -297,24 +299,28 @@ class Client(object):
         self.stop()
     def checker_callback(self, pid, condition):
         """The checker has completed, so take appropriate actions."""
-        now = datetime.datetime.now()
         self.checker_callback_tag = None
         self.checker = None
         if os.WIFEXITED(condition) \
                and (os.WEXITSTATUS(condition) == 0):
             logger.info(u"Checker for %(name)s succeeded",
                         vars(self))
-            self.last_checked_ok = now
-            gobject.source_remove(self.stop_initiator_tag)
-            self.stop_initiator_tag = gobject.timeout_add\
-                                      (self._timeout_milliseconds,
-                                       self.stop)
+            self.bump_timeout()
         elif not os.WIFEXITED(condition):
             logger.warning(u"Checker for %(name)s crashed?",
                            vars(self))
         else:
             logger.info(u"Checker for %(name)s failed",
                         vars(self))
+    def bump_timeout(self):
+        """Bump up the timeout for this client.
+        This should only be called when the client has been seen,
+        alive and well.
+        """
+        self.last_checked_ok = datetime.datetime.now()
+        gobject.source_remove(self.stop_initiator_tag)
+        self.stop_initiator_tag = gobject.timeout_add\
+            (self._timeout_milliseconds, self.stop)
     def start_checker(self):
         """Start a new checker subprocess if one is not running.
         If a checker already exists, leave it running and do
@@ -447,7 +453,7 @@ class TCP_handler(SocketServer.BaseRequestHandler, object):
     
     def handle(self):
         logger.info(u"TCP connection from: %s",
-                     unicode(self.client_address))
+                    unicode(self.client_address))
         session = gnutls.connection.ClientSession\
                   (self.request, gnutls.connection.X509Credentials())
         
@@ -468,10 +474,8 @@ class TCP_handler(SocketServer.BaseRequestHandler, object):
         #priority = ':'.join(("NONE", "+VERS-TLS1.1", "+AES-256-CBC",
         #                "+SHA1", "+COMP-NULL", "+CTYPE-OPENPGP",
         #                "+DHE-DSS"))
-        priority = "NORMAL"             # Fallback default, since this
-                                        # MUST be set.
-        if self.server.settings["priority"]:
-            priority = self.server.settings["priority"]
+        # Use a fallback default, since this MUST be set.
+        priority = self.server.settings.get("priority", "NORMAL")
         gnutls.library.functions.gnutls_priority_set_direct\
             (session._c_object, priority, None)
         
@@ -507,6 +511,8 @@ class TCP_handler(SocketServer.BaseRequestHandler, object):
                            vars(client))
             session.bye()
             return
+        ## This won't work here, since we're in a fork.
+        # client.bump_timeout()
         sent_size = 0
         while sent_size < len(client.secret):
             sent = session.send(client.secret[sent_size:])
@@ -517,7 +523,8 @@ class TCP_handler(SocketServer.BaseRequestHandler, object):
         session.bye()
 
 
-class IPv6_TCPServer(SocketServer.ForkingTCPServer, object):
+class IPv6_TCPServer(SocketServer.ForkingMixIn,
+                     SocketServer.TCPServer, object):
     """IPv6 TCP server.  Accepts 'None' as address and/or port.
     Attributes:
         settings:       Server settings
@@ -652,10 +659,9 @@ def if_nametoindex(interface):
         def if_nametoindex(interface):
             "Get an interface index the hard way, i.e. using fcntl()"
             SIOCGIFINDEX = 0x8933  # From /usr/include/linux/sockios.h
-            s = socket.socket()
-            ifreq = fcntl.ioctl(s, SIOCGIFINDEX,
-                                struct.pack("16s16x", interface))
-            s.close()
+            with closing(socket.socket()) as s:
+                ifreq = fcntl.ioctl(s, SIOCGIFINDEX,
+                                    struct.pack("16s16x", interface))
             interface_index = struct.unpack("I", ifreq[16:20])[0]
             return interface_index
     return if_nametoindex(interface)
