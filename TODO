@@ -14,6 +14,18 @@
 ** TODO [#B] Run-time communication with server :bugs:
    Probably using D-Bus
    See also [[*Mandos-tools]]
+*** Client class
+    + getHostname
+    + getChecker
+    + setChecker
+*** Main server
+    + Clients
+      out_signature="ao"
+      Does this have to be "getClients" so as not to collide with the
+      interface name?
+    + setLogLevel
+      syslogger.setLevel(logging.WARNING)
+    + quit
 ** TODO Implement --foreground			:bugs:
    [[info:standards:Option%20Table][Table of Long Options]]
 ** TODO Implement --socket
