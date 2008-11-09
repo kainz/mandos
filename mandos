@@ -58,6 +58,7 @@ import pwd
 from contextlib import closing
 
 import dbus
+import dbus.service
 import gobject
 import avahi
 from dbus.mainloop.glib import DBusGMainLoop
@@ -171,7 +172,7 @@ group = None                            # our entry group
 # End of Avahi example code
 
 
-class Client(object):
+class Client(dbus.service.Object):
     """A representation of a client host served by this server.
     Attributes:
     name:      string; from the config file, used in log messages
@@ -180,6 +181,7 @@ class Client(object):
     secret:    bytestring; sent verbatim (over TLS) to client
     host:      string; available for use by the checker command
     created:   datetime.datetime(); object creation, not client host
+    started:   bool()
     last_checked_ok: datetime.datetime() or None if not yet checked OK
     timeout:   datetime.timedelta(); How long from last_checked_ok
                                      until this client is invalid
@@ -201,19 +203,49 @@ class Client(object):
     _timeout_milliseconds: Used when calling gobject.timeout_add()
     _interval_milliseconds: - '' -
     """
+    interface = u"org.mandos_system.Mandos.Clients"
+    
+    @dbus.service.method(interface, out_signature="s")
+    def getName(self):
+        "D-Bus getter method"
+        return self.name
+    
+    @dbus.service.method(interface, out_signature="s")
+    def getFingerprint(self):
+        "D-Bus getter method"
+        return self.fingerprint
+    
+    @dbus.service.method(interface, in_signature="ay",
+                         byte_arrays=True)
+    def setSecret(self, secret):
+        "D-Bus setter method"
+        self.secret = secret
+    
     def _set_timeout(self, timeout):
-        "Setter function for 'timeout' attribute"
+        "Setter function for the 'timeout' attribute"
         self._timeout = timeout
         self._timeout_milliseconds = ((self.timeout.days
                                        * 24 * 60 * 60 * 1000)
                                       + (self.timeout.seconds * 1000)
                                       + (self.timeout.microseconds
                                          // 1000))
-    timeout = property(lambda self: self._timeout,
-                       _set_timeout)
+        # Emit D-Bus signal
+        self.TimeoutChanged(self._timeout_milliseconds)
+    timeout = property(lambda self: self._timeout, _set_timeout)
     del _set_timeout
+    
+    @dbus.service.method(interface, out_signature="t")
+    def getTimeout(self):
+        "D-Bus getter method"
+        return self._timeout_milliseconds
+    
+    @dbus.service.signal(interface, signature="t")
+    def TimeoutChanged(self, t):
+        "D-Bus signal"
+        pass
+    
     def _set_interval(self, interval):
-        "Setter function for 'interval' attribute"
+        "Setter function for the 'interval' attribute"
         self._interval = interval
         self._interval_milliseconds = ((self.interval.days
                                         * 24 * 60 * 60 * 1000)
@@ -221,13 +253,28 @@ class Client(object):
                                           * 1000)
                                        + (self.interval.microseconds
                                           // 1000))
-    interval = property(lambda self: self._interval,
-                        _set_interval)
+        # Emit D-Bus signal
+        self.IntervalChanged(self._interval_milliseconds)
+    interval = property(lambda self: self._interval, _set_interval)
     del _set_interval
+    
+    @dbus.service.method(interface, out_signature="t")
+    def getInterval(self):
+        "D-Bus getter method"
+        return self._interval_milliseconds
+    
+    @dbus.service.signal(interface, signature="t")
+    def IntervalChanged(self, t):
+        "D-Bus signal"
+        pass
+    
     def __init__(self, name = None, stop_hook=None, config=None):
         """Note: the 'checker' key in 'config' sets the
         'checker_command' attribute and *not* the 'checker'
         attribute."""
+        dbus.service.Object.__init__(self, bus,
+                                     "/Mandos/Clients/%s"
+                                     % name.replace(".", "_"))
         if config is None:
             config = {}
         self.name = name
@@ -251,6 +298,7 @@ class Client(object):
                             % self.name)
         self.host = config.get("host", "")
         self.created = datetime.datetime.now()
+        self.started = False
         self.last_checked_ok = None
         self.timeout = string_to_delta(config["timeout"])
         self.interval = string_to_delta(config["interval"])
@@ -260,8 +308,10 @@ class Client(object):
         self.stop_initiator_tag = None
         self.checker_callback_tag = None
         self.check_command = config["checker"]
+    
     def start(self):
         """Start this client's checker and timeout hooks"""
+        self.started = True
         # Schedule a new checker to be started an 'interval' from now,
         # and every interval from then on.
         self.checker_initiator_tag = gobject.timeout_add\
@@ -273,14 +323,18 @@ class Client(object):
         self.stop_initiator_tag = gobject.timeout_add\
                                   (self._timeout_milliseconds,
                                    self.stop)
+        # Emit D-Bus signal
+        self.StateChanged(True)
+    
+    @dbus.service.signal(interface, signature="b")
+    def StateChanged(self, started):
+        "D-Bus signal"
+        pass
+    
     def stop(self):
-        """Stop this client.
-        The possibility that a client might be restarted is left open,
-        but not currently used."""
-        # If this client doesn't have a secret, it is already stopped.
-        if hasattr(self, "secret") and self.secret:
+        """Stop this client."""
+        if getattr(self, "started", False):
             logger.info(u"Stopping client %s", self.name)
-            self.secret = None
         else:
             return False
         if getattr(self, "stop_initiator_tag", False):
@@ -292,11 +346,17 @@ class Client(object):
         self.stop_checker()
         if self.stop_hook:
             self.stop_hook(self)
+        # Emit D-Bus signal
+        self.StateChanged(False)
         # Do not run this again if called by a gobject.timeout_add
         return False
+    # D-Bus variant
+    Stop = dbus.service.method(interface)(stop)
+    
     def __del__(self):
         self.stop_hook = None
         self.stop()
+    
     def checker_callback(self, pid, condition):
         """The checker has completed, so take appropriate actions."""
         self.checker_callback_tag = None
@@ -305,13 +365,25 @@ class Client(object):
                and (os.WEXITSTATUS(condition) == 0):
             logger.info(u"Checker for %(name)s succeeded",
                         vars(self))
+            # Emit D-Bus signal
+            self.CheckerCompleted(True)
             self.bump_timeout()
         elif not os.WIFEXITED(condition):
             logger.warning(u"Checker for %(name)s crashed?",
                            vars(self))
+            # Emit D-Bus signal
+            self.CheckerCompleted(False)
         else:
             logger.info(u"Checker for %(name)s failed",
                         vars(self))
+            # Emit D-Bus signal
+            self.CheckerCompleted(False)
+    
+    @dbus.service.signal(interface, signature="b")
+    def CheckerCompleted(self, success):
+        "D-Bus signal"
+        pass
+    
     def bump_timeout(self):
         """Bump up the timeout for this client.
         This should only be called when the client has been seen,
@@ -321,6 +393,9 @@ class Client(object):
         gobject.source_remove(self.stop_initiator_tag)
         self.stop_initiator_tag = gobject.timeout_add\
             (self._timeout_milliseconds, self.stop)
+    # D-Bus variant
+    bumpTimeout = dbus.service.method(interface)(bump_timeout)
+    
     def start_checker(self):
         """Start a new checker subprocess if one is not running.
         If a checker already exists, leave it running and do
@@ -361,11 +436,23 @@ class Client(object):
                 self.checker_callback_tag = gobject.child_watch_add\
                                             (self.checker.pid,
                                              self.checker_callback)
+                # Emit D-Bus signal
+                self.CheckerStarted(command)
             except OSError, error:
                 logger.error(u"Failed to start subprocess: %s",
                              error)
         # Re-run this periodically if run by gobject.timeout_add
         return True
+    
+    @dbus.service.signal(interface, signature="s")
+    def CheckerStarted(self, command):
+        pass
+    
+    @dbus.service.method(interface, out_signature="b")
+    def checkerIsRunning(self):
+        "D-Bus getter method"
+        return self.checker is not None
+    
     def stop_checker(self):
         """Force the checker process, if any, to stop."""
         if self.checker_callback_tag:
@@ -383,13 +470,23 @@ class Client(object):
             if error.errno != errno.ESRCH: # No such process
                 raise
         self.checker = None
+    # D-Bus variant
+    StopChecker = dbus.service.method(interface)(stop_checker)
+    
     def still_valid(self):
         """Has the timeout not yet passed for this client?"""
+        if not self.started:
+            return False
         now = datetime.datetime.now()
         if self.last_checked_ok is None:
             return now < (self.created + self.timeout)
         else:
             return now < (self.last_checked_ok + self.timeout)
+    # D-Bus variant
+    stillValid = dbus.service.method(interface, out_signature="b")\
+        (still_valid)
+    
+    del interface
 
 
 def peer_certificate(session):
