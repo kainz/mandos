@@ -15,17 +15,22 @@
    Probably using D-Bus
    See also [[*Mandos-tools]]
 *** Client class
-    + getHostname
-    + getChecker
-    + setChecker
+    Remove unneeded Get* methods?
 *** Main server
     + Clients
       out_signature="ao"
-      Does this have to be "getClients" so as not to collide with the
+      Does this have to be "GetClients" so as not to collide with the
       interface name?
-    + setLogLevel
+    + SetLogLevel
       syslogger.setLevel(logging.WARNING)
-    + quit
+    + Quit
+    + GetClientsProperties "aa{sv}":
+      dbus.Array(dbus.Dictionary({dbus.String("name"):
+                                  dbus.String("foo", variant_level=1),
+                                  dbus.String("created"):
+				  dbus.Array(dbus.Int16(2008), ...,
+                                             variant_level=1)}))
+    + [[http://log.ometer.com/2007-05.html][Best D-Bus practices]]
 ** TODO Implement --foreground			:bugs:
    [[info:standards:Option%20Table][Table of Long Options]]
 ** TODO Implement --socket
@@ -33,6 +38,8 @@
 ** TODO Date+time on console log messages	:bugs:
    Is this the default?
 ** TODO delete hook when clients fall out by timeout
+   This will not be strictly necessary when the D-Bus interface is
+   implemented.
 
 * Mandos-tools/utilities
   All of this probably using D-Bus
