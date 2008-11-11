@@ -1,3 +1,28 @@
+/*  -*- coding: utf-8 -*- */
+/*
+ * Passprompt - Read a password from a FIFO and output it
+ * 
+ * Copyright © 2008 Teddy Hogeborn
+ * Copyright © 2008 Björn Påhlsson
+ * 
+ * This program is free software: you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see
+ * <http://www.gnu.org/licenses/>.
+ * 
+ * Contact the authors at <https://www.fukt.bsnet.se/~belorn/> and
+ * <https://www.fukt.bsnet.se/~teddy/>.
+ */
+
 #define _GNU_SOURCE		/* TEMP_FAILURE_RETRY() */
 #include <sys/types.h>		/* ssize_t */
 #include <sys/stat.h>		/* mkfifo(), S_IRUSR, S_IWUSR */
