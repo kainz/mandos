@@ -5,9 +5,10 @@
 				   SIG_IGN, kill(), SIGKILL */
 #include <stdbool.h>		/* bool, false, true */
 #include <fcntl.h>		/* open(), O_WRONLY, O_RDONLY */
+#include <iso646.h>		/* and, or, not*/
 #include <errno.h>		/* errno, EINTR */
-#include <sys/types.h>		/* size_t, ssize_t, pid_t, DIR,
-				   struct dirent */
+#include <sys/types.h>		/* size_t, ssize_t, pid_t, DIR, struct
+				   dirent */
 #include <stddef.h>		/* NULL */
 #include <string.h>		/* strlen(), memcmp() */
 #include <stdio.h>		/* asprintf(), perror() */
@@ -21,12 +22,7 @@
 				   _exit() */
 #include <stdlib.h>		/* getenv() */
 #include <dirent.h>		/* opendir(), readdir(), closedir() */
-
-
-
-#include <iso646.h>		/* and */
-#include <sys/wait.h>		/* waitpid(), WIFEXITED(),
-				   WEXITSTATUS() */
+#include <sys/stat.h>		/* struct stat, lstat(), S_ISLNK */
 
 sig_atomic_t interrupted_by_signal = 0;
 
@@ -36,8 +32,8 @@ static void termination_handler(__attribute__((unused))int signum){
 
 static bool usplash_write(const char *cmd, const char *arg){
   /* 
-   * usplash_write("TIMEOUT", "15"); -> "TIMEOUT 15\0"
-   * usplash_write("PULSATE", NULL); -> "PULSATE\0"
+   * usplash_write("TIMEOUT", "15") will write "TIMEOUT 15\0"
+   * usplash_write("PULSATE", NULL) will write "PULSATE\0"
    * SEE ALSO
    *         usplash_write(8)
    */
@@ -157,6 +153,7 @@ int main(__attribute__((unused))int argc,
 	 /proc/<pid>/exe link */
       char exe_target[sizeof(usplash_name)];
       {
+	/* create file name string */
 	char *exe_link;
 	ret = asprintf(&exe_link, "/proc/%s/exe", proc_ent->d_name);
 	if(ret == -1){
@@ -165,6 +162,24 @@ int main(__attribute__((unused))int argc,
 	  closedir(proc_dir);
 	  return EXIT_FAILURE;
 	}
+	
+	/* Check that it refers to a symlink owned by root:root */
+	struct stat exe_stat;
+	ret = lstat(exe_link, &exe_stat);
+	if(ret == -1){
+	  perror("lstat");
+	  free(exe_link);
+	  free(prompt);
+	  closedir(proc_dir);
+	  return EXIT_FAILURE;
+	}
+	if(not S_ISLNK(exe_stat.st_mode)
+	   or exe_stat.st_uid != 0
+	   or exe_stat.st_gid != 0){
+	  free(exe_link);
+	  continue;
+	}
+	
 	sret = readlink(exe_link, exe_target, sizeof(exe_target));
 	free(exe_link);
 	if(sret == -1){
@@ -253,7 +268,7 @@ int main(__attribute__((unused))int argc,
       free(prompt);
       return EXIT_FAILURE;
     }
-    if (old_action.sa_handler != SIG_IGN){
+    if(old_action.sa_handler != SIG_IGN){
       ret = sigaction(SIGINT, &new_action, NULL);
       if(ret == -1){
 	perror("sigaction");
@@ -267,7 +282,7 @@ int main(__attribute__((unused))int argc,
       free(prompt);
       return EXIT_FAILURE;
     }
-    if (old_action.sa_handler != SIG_IGN){
+    if(old_action.sa_handler != SIG_IGN){
       ret = sigaction(SIGHUP, &new_action, NULL);
       if(ret == -1){
 	perror("sigaction");
@@ -281,7 +296,7 @@ int main(__attribute__((unused))int argc,
       free(prompt);
       return EXIT_FAILURE;
     }
-    if (old_action.sa_handler != SIG_IGN){
+    if(old_action.sa_handler != SIG_IGN){
       ret = sigaction(SIGTERM, &new_action, NULL);
       if(ret == -1){
 	perror("sigaction");
@@ -407,13 +422,13 @@ int main(__attribute__((unused))int argc,
       return EXIT_SUCCESS;
     }
     break;			/* Big */
-  }
+  }				/* end of non-loop while() */
   
   /* If we got here, an error or interrupt must have happened */
   
+  /* Create argc and argv for new usplash*/
   int cmdline_argc = 0;
   char **cmdline_argv = malloc(sizeof(char *));
-  /* Create argv and argc for new usplash*/
   {
     size_t position = 0;
     while(position < cmdline_len){
@@ -433,8 +448,8 @@ int main(__attribute__((unused))int argc,
     cmdline_argv[cmdline_argc] = NULL;
   }
   /* Kill old usplash */
-    kill(usplash_pid, SIGTERM);
-    sleep(2);
+  kill(usplash_pid, SIGTERM);
+  sleep(2);
   while(kill(usplash_pid, 0) == 0){
     kill(usplash_pid, SIGKILL);
     sleep(1);
@@ -446,7 +461,7 @@ int main(__attribute__((unused))int argc,
     /* Make the effective user ID (root) the only user ID instead of
        the real user ID (mandos) */
     ret = setuid(geteuid());
-    if (ret == -1){
+    if(ret == -1){
       perror("setuid");
     }
     
@@ -462,7 +477,9 @@ int main(__attribute__((unused))int argc,
     }
     
     execv(usplash_name, cmdline_argv);
-    perror("execv");
+    if(not interrupted_by_signal){
+      perror("execv");
+    }
     free(cmdline);
     free(cmdline_argv);
     _exit(EXIT_FAILURE);

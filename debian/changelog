@@ -1,5 +1,29 @@
-mandos (1.0) unstable; urgency=low
+mandos (1.0.2-1) unstable; urgency=low
 
-  * Initial Release.
+  * New upstream release.
+  * debian/copyright: Rewritten to conform to
+    <http://wiki.debian.org/Proposals/CopyrightFormat?action=recall&rev=233>.
 
- -- Mandos Maintainers <mandos@fukt.bsnet.se>  Sun, 07 Sep 2008 11:55:51 +0200
+ -- Teddy Hogeborn <teddy@fukt.bsnet.se>  Fri, 17 Oct 2008 20:42:12 +0200
+
+mandos (1.0.1-1) unstable; urgency=low
+
+  * New upstream release.
+  * Separate /usr/share/doc/mandos-client/README.Debian into sections with
+    headlines.  Add instructions on how to test the server and verify the
+    password.
+
+ -- Teddy Hogeborn <teddy@fukt.bsnet.se>  Tue, 07 Oct 2008 23:07:23 +0200
+
+mandos (1.0-2) unstable; urgency=low
+
+  * Added comments in debian/*.lintian-overrides files.  Added Debian
+    revison number to version number.
+
+ -- Teddy Hogeborn <teddy@fukt.bsnet.se>  Wed, 01 Oct 2008 17:23:35 +0200
+
+mandos (1.0-1) unstable; urgency=low
+
+  * Initial Release. (Closes: #500727).
+
+ -- Teddy Hogeborn <teddy@fukt.bsnet.se>  Tue, 30 Sep 2008 21:58:43 +0200

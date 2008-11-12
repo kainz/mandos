@@ -1,0 +1,23 @@
+This NEWS file records noteworthy changes, very tersely.
+See the manual for detailed information.
+
+Version 1.0.2 (2008-10-17)
+* mandos-keygen now signs the encrypted key blobs.  This signature is
+  not currently verified by mandos-client, but this may change in the
+  future.
+
+Version 1.0.1 (2008-10-07)
+* Server
+** Expand environment variables and ~user in clients.conf's "secfile"
+   The "secfile" option in /etc/mandos/clients.conf now expands
+   "~user/foo" and "$ENVVAR" strings.
+
+* Client (plugin-runner, plugins, etc.)
+** Manual pages for the usplash, splashy, and askpass-fifo plugins.
+   All plugins now have man pages.
+** More secure compilation and linking flags.
+   All programs are now compiled with "-fstack-protector-all -fPIE
+   -pie", and linked using "-z relro -pie" for additional security.
+
+* There is now a "NEWS" file (this one), giving a history of
+  noteworthy changes.
