@@ -1,23 +1,45 @@
-A client key has been automatically created in /etc/keys/mandos.  The
-next step is to run "mandos-keygen --password" to get a config file
-stanza to copy and paste into /etc/mandos/clients.conf on the Mandos
-server.
+* Configure The Server
+  
+  A client key has been automatically created in /etc/keys/mandos.
+  The next step is to run "mandos-keygen --password" to get a config
+  file section.  This should be appended to /etc/mandos/clients.conf
+  on the Mandos server.
 
-Also, if some other network interface than "eth0" is used, it will be
-necessary to edit /etc/mandos/plugin-runner.conf to uncomment and
-change the line there.  If this file is changed, it will be necessary
-to update the initrd image by doing "update-initramfs -k all -u".
+* Use the Correct Network Interface
+  
+  If some other network interface than "eth0" is used, it will be
+  necessary to edit /etc/mandos/plugin-runner.conf to uncomment and
+  change the line there.  If this is done, it will be necessary to
+  update the initrd image by doing "update-initramfs -k all -u".
 
-Any plugins found in /etc/mandos/plugins.d will override and add to
-the normal Mandos plugins.  When adding or changing plugins, do not
-forget to update the initital RAM disk image:
+* Test the Server
+  
+  After the server has been started and this client's key added, it is
+  possible to verify that the correct password will be received by
+  this client by running the command, on the client:
+  
+	# /usr/lib/mandos/plugins.d/mandos-client \
+		--pubkey=/etc/keys/mandos/pubkey.txt \
+		--seckey=/etc/keys/mandos/seckey.txt; echo
+  
+  This command should retrieve the password from the server, decrypt
+  it, and output it to standard output.  It is now possible to verify
+  the correctness of the password before rebooting.
 
-# update-initramfs -k all -u
+* User-Supplied Plugins
 
-It is NOT necessary to edit /etc/crypttab to specify
-/usr/lib/mandos/plugin-runner as a keyscript for the root file system;
-if no keyscript is given for the root file system, the Mandos client
-will be the new default way for getting a password for the root file
-system when booting.
+  Any plugins found in /etc/mandos/plugins.d will override and add to
+  the normal Mandos plugins.  When adding or changing plugins, do not
+  forget to update the initital RAM disk image:
 
- -- Teddy Hogeborn <teddy@fukt.bsnet.se>, Fri, 19 Sep 2008 22:50:16 +0200
+	# update-initramfs -k all -u
+
+* Do *NOT* Edit /etc/crypttab
+
+  It is NOT necessary to edit /etc/crypttab to specify
+  /usr/lib/mandos/plugin-runner as a keyscript for the root file
+  system; if no keyscript is given for the root file system, the
+  Mandos client will be the new default way for getting a password for
+  the root file system when booting.
+
+ -- Teddy Hogeborn <teddy@fukt.bsnet.se>, Sun,  5 Oct 2008 19:04:26 +0200

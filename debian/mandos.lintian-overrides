@@ -1,1 +1,4 @@
+# This config file will normally have encrypted secret client keys in
+# it, so it must be kept unreadable for non-root users.
+#
 mandos binary: non-standard-file-perm etc/mandos/clients.conf 0600 != 0644

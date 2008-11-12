@@ -1,13 +1,9 @@
 -*- org -*-
 
-* DONE plugin-runner
-
 * mandos-client
 ** TODO [#B] Temporarily lower kernel log level
    for less printouts during sucessfull boot.
 ** TODO [#C] IPv4 support
-
-* DONE password-prompt
 
 * mandos (server)
 ** TODO [#B] Log level				:bugs:
@@ -32,19 +28,11 @@
 ** TODO Enable client
 ** TODO Reset timer
 
-* Man pages
-** TODO Use xinclude for all common sections
-   Like authors, etc.
-
-
-* Installer
-** Client-side
-*** mandos-keygen
-**** TODO "--secfile" option
-     Using the "secfile" option instead of "secret"
-**** TODO [#B] "--test" option
-     For testing decryption before rebooting.
-
+* mandos-keygen
+** TODO "--secfile" option
+   Using the "secfile" option instead of "secret"
+** TODO [#B] "--test" option
+   For testing decryption before rebooting.
 
 * [#A] Package
 ** /usr/share/initramfs-tools/hooks/mandos
@@ -53,20 +41,6 @@
     question.
 ** TODO /etc/bash_completion.d/mandos
    From XML sources directly?
-** TODO unperish
-
-* TODO Web site
-** DONE http://www.fukt.bsnet.se/mandos
-   Redirects to the wiki page
-** TODO http://wiki.fukt.bsnet.se/wiki/Mandos
-   http://liw.fi/free-software-website/
-
-* Mailing list
-** DONE mandos-dev
-*** TODO http://gmane.org/subscribe.php
-
-* TODO Announce project on Usenet
-  [[news:comp.os.linux.announce]]
 
 
 #+STARTUP: showall

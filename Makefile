@@ -9,12 +9,13 @@ WARN=-O -Wall -Wformat=2 -Winit-self -Wmissing-include-dirs \
 #DEBUG=-ggdb3
 # For info about _FORTIFY_SOURCE, see
 # <http://gcc.gnu.org/ml/gcc-patches/2004-09/msg02055.html>
-FORTIFY=-D_FORTIFY_SOURCE=2 # -fstack-protector-all
+FORTIFY=-D_FORTIFY_SOURCE=2 -fstack-protector-all -fPIE -pie
+LINK_FORTIFY=-z relro -pie
 #COVERAGE=--coverage
 OPTIMIZE=-Os
 LANGUAGE=-std=gnu99
 htmldir=man
-version=1.0
+version=1.0.2
 SED=sed
 
 ## Use these settings for a traditional /usr/local install
@@ -44,7 +45,7 @@ GPGME_LIBS=$(shell gpgme-config --libs)
 CFLAGS=$(WARN) $(DEBUG) $(FORTIFY) $(COVERAGE) $(OPTIMIZE) \
 	$(LANGUAGE) $(GNUTLS_CFLAGS) $(AVAHI_CFLAGS) $(GPGME_CFLAGS) \
 	-DVERSION='"$(version)"'
-LDFLAGS=$(COVERAGE)
+LDFLAGS=$(COVERAGE) $(LINK_FORTIFY)
 
 # Commands to format a DocBook <refentry> document into a manual page
 DOCBOOKTOMAN=cd $(dir $<); xsltproc --nonet --xinclude \
@@ -78,13 +79,14 @@ PROGS=mandos mandos-keygen $(CPROGS)
 DOCS=mandos.8 plugin-runner.8mandos mandos-keygen.8 \
 	plugins.d/mandos-client.8mandos \
 	plugins.d/password-prompt.8mandos mandos.conf.5 \
-	mandos-clients.conf.5
+	plugins.d/usplash.8mandos plugins.d/splashy.8mandos \
+	plugins.d/askpass-fifo.8mandos mandos-clients.conf.5
 
 htmldocs=$(addsuffix .xhtml,$(DOCS))
 
 objects=$(addsuffix .o,$(CPROGS))
 
-all: $(PROGS)
+all: $(PROGS) mandos.lsm
 
 doc: $(DOCS)
 
@@ -149,10 +151,14 @@ common.ent: Makefile
 	$(SED) --in-place --expression='s/^\(<ENTITY VERSION "\)[^"]*">$$/\1$(version)"/' $@
 
 mandos: Makefile
-	$(SED) --in-place --expression='s/^\(version = "\)[^"]*"/\1$(version)"/' $@
+	$(SED) --in-place --expression='s/^\(version = "\)[^"]*"$$/\1$(version)"/' $@
 
 mandos-keygen: Makefile
-	$(SED) --in-place --expression='s/^\(VERSION="\)[^"]*"/\1$(version)"/' $@
+	$(SED) --in-place --expression='s/^\(VERSION="\)[^"]*"$$/\1$(version)"/' $@
+
+mandos.lsm: Makefile
+	$(SED) --in-place --expression='s/^\(Version:\).*/\1\t$(version)/' $@
+	$(SED) --in-place --expression='s/^\(Entered-date:\).*/\1\t$(shell date --rfc-3339=date --reference=Makefile)/' $@
 
 plugins.d/mandos-client: plugins.d/mandos-client.o
 	$(LINK.o) $(GNUTLS_LIBS) $(AVAHI_LIBS) $(GPGME_LIBS) \
@@ -268,6 +274,12 @@ install-client-nokey: all doc
 		> $(MANDIR)/man8/password-prompt.8mandos.gz
 	gzip --best --to-stdout plugins.d/mandos-client.8mandos \
 		> $(MANDIR)/man8/mandos-client.8mandos.gz
+	gzip --best --to-stdout plugins.d/usplash.8mandos \
+		> $(MANDIR)/man8/usplash.8mandos.gz
+	gzip --best --to-stdout plugins.d/splashy.8mandos \
+		> $(MANDIR)/man8/splashy.8mandos.gz
+	gzip --best --to-stdout plugins.d/askpass-fifo.8mandos \
+		> $(MANDIR)/man8/askpass-fifo.8mandos.gz
 
 install-client: install-client-nokey
 # Post-installation stuff
@@ -296,12 +308,16 @@ uninstall-client:
 		$(PREFIX)/lib/mandos/plugins.d/mandos-client \
 		$(PREFIX)/lib/mandos/plugins.d/usplash \
 		$(PREFIX)/lib/mandos/plugins.d/splashy \
+		$(PREFIX)/lib/mandos/plugins.d/askpass-fifo \
 		$(INITRAMFSTOOLS)/hooks/mandos \
 		$(INITRAMFSTOOLS)/conf-hooks.d/mandos \
 		$(INITRAMFSTOOLS)/scripts/local-top/mandos \
 		$(MANDIR)/man8/plugin-runner.8mandos.gz \
 		$(MANDIR)/man8/mandos-keygen.8.gz \
 		$(MANDIR)/man8/password-prompt.8mandos.gz \
+		$(MANDIR)/man8/usplash.8mandos.gz \
+		$(MANDIR)/man8/splashy.8mandos.gz \
+		$(MANDIR)/man8/askpass-fifo.8mandos.gz \
 		$(MANDIR)/man8/mandos-client.8mandos.gz
 	-rmdir $(PREFIX)/lib/mandos/plugins.d $(CONFDIR)/plugins.d \
 		 $(PREFIX)/lib/mandos $(CONFDIR) $(KEYDIR)

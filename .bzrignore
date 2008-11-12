@@ -7,6 +7,7 @@ debian/po/templates.pot
 keydir
 man
 plugin-runner
+plugins.d/askpass-fifo
 plugins.d/mandos-client
 plugins.d/password-prompt
 plugins.d/splashy
