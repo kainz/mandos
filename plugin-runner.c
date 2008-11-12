@@ -2,7 +2,8 @@
 /*
  * Mandos plugin runner - Run Mandos plugins
  *
- * Copyright © 2008 Teddy Hogeborn & Björn Påhlsson
+ * Copyright © 2008 Teddy Hogeborn
+ * Copyright © 2008 Björn Påhlsson
  * 
  * This program is free software: you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -700,6 +701,7 @@ int main(int argc, char *argv[]){
       
       const char const *bad_suffixes[] = { "~", "#", ".dpkg-new",
 					   ".dpkg-old",
+					   ".dpkg-bak",
 					   ".dpkg-divert", NULL };
       for(const char **pre = bad_prefixes; *pre != NULL; pre++){
 	size_t pre_len = strlen(*pre);

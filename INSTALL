@@ -127,6 +127,6 @@
   
   You may want to tighten or loosen the timeouts in the server
   configuration files; see mandos.conf(5) and mandos-clients.conf(5).
-  Is IPsec is not used, it is suggested that a more cryptographically
+  If IPsec is not used, it is suggested that a more cryptographically
   secure checker program is used and configured, since without IPsec
   ping packets can be faked.
