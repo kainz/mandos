@@ -70,7 +70,8 @@ DOCBOOKTOHTML=xsltproc --nonet --xinclude \
 	/usr/share/xml/docbook/stylesheet/nwalsh/xhtml/docbook.xsl \
 	$<; $(HTMLPOST) $@
 # Fix citerefentry links
-HTMLPOST=$(SED) --in-place --expression='s/\(<a class="citerefentry" href="\)\("><span class="citerefentry"><span class="refentrytitle">\)\([^<]*\)\(<\/span>(\)\([^)]*\)\()<\/span><\/a>\)/\1\3.\5\2\3\4\5\6/g'
+HTMLPOST=$(SED) --in-place \
+	--expression='s/\(<a class="citerefentry" href="\)\("><span class="citerefentry"><span class="refentrytitle">\)\([^<]*\)\(<\/span>(\)\([^)]*\)\()<\/span><\/a>\)/\1\3.\5\2\3\4\5\6/g'
 
 PLUGINS=plugins.d/password-prompt plugins.d/mandos-client \
 	plugins.d/usplash plugins.d/splashy plugins.d/askpass-fifo
@@ -148,17 +149,27 @@ plugins.d/mandos-client.8mandos.xhtml: plugins.d/mandos-client.xml \
 
 # Update all these files with version number $(version)
 common.ent: Makefile
-	$(SED) --in-place --expression='s/^\(<ENTITY VERSION "\)[^"]*">$$/\1$(version)"/' $@
+	$(SED) --in-place \
+		--expression='s/^\(<ENTITY VERSION "\)[^"]*">$$/\1$(version)"/' \
+		$@
 
 mandos: Makefile
-	$(SED) --in-place --expression='s/^\(version = "\)[^"]*"$$/\1$(version)"/' $@
+	$(SED) --in-place \
+		--expression='s/^\(version = "\)[^"]*"$$/\1$(version)"/' \
+		$@
 
 mandos-keygen: Makefile
-	$(SED) --in-place --expression='s/^\(VERSION="\)[^"]*"$$/\1$(version)"/' $@
+	$(SED) --in-place \
+		--expression='s/^\(VERSION="\)[^"]*"$$/\1$(version)"/' \
+		$@
 
 mandos.lsm: Makefile
-	$(SED) --in-place --expression='s/^\(Version:\).*/\1\t$(version)/' $@
-	$(SED) --in-place --expression='s/^\(Entered-date:\).*/\1\t$(shell date --rfc-3339=date --reference=Makefile)/' $@
+	$(SED) --in-place \
+		--expression='s/^\(Version:\).*/\1\t$(version)/' \
+		$@
+	$(SED) --in-place \
+		--expression='s/^\(Entered-date:\).*/\1\t$(shell date --rfc-3339=date --reference=Makefile)/' \
+		$@
 
 plugins.d/mandos-client: plugins.d/mandos-client.o
 	$(LINK.o) $(GNUTLS_LIBS) $(AVAHI_LIBS) $(GPGME_LIBS) \
@@ -206,7 +217,7 @@ confdir/clients.conf: clients.conf keydir/seckey.txt
 
 install: install-server install-client-nokey
 
-install-html: $(htmldocs)
+install-html: html
 	install --directory $(htmldir)
 	install --mode=u=rw,go=r --target-directory=$(htmldir) \
 		$(htmldocs)
