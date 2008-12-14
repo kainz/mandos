@@ -15,21 +15,10 @@
    Probably using D-Bus
    See also [[*Mandos-tools]]
 *** Client class
-    Remove unneeded Get* methods?
 *** Main server
-    + Clients
-      out_signature="ao"
-      Does this have to be "GetClients" so as not to collide with the
-      interface name?
     + SetLogLevel
       syslogger.setLevel(logging.WARNING)
     + Quit
-    + GetClientsProperties "aa{sv}":
-      dbus.Array(dbus.Dictionary({dbus.String("name"):
-                                  dbus.String("foo", variant_level=1),
-                                  dbus.String("created"):
-				  dbus.Array(dbus.Int16(2008), ...,
-                                             variant_level=1)}))
     + [[http://log.ometer.com/2007-05.html][Best D-Bus practices]]
 ** TODO Implement --foreground			:bugs:
    [[info:standards:Option%20Table][Table of Long Options]]
