@@ -170,19 +170,9 @@ group = None                            # our entry group
 # End of Avahi example code
 
 
-def _datetime_to_dbus_struct(dt, variant_level=0):
-    """Convert a UTC datetime.datetime() to a D-Bus struct.
-    The format is special to this application, since we could not find
-    any other standard way."""
-    return dbus.Struct((dbus.Int16(dt.year),
-                        dbus.Byte(dt.month),
-                        dbus.Byte(dt.day),
-                        dbus.Byte(dt.hour),
-                        dbus.Byte(dt.minute),
-                        dbus.Byte(dt.second),
-                        dbus.UInt32(dt.microsecond)),
-                       signature="nyyyyyu",
-                       variant_level=variant_level)
+def _datetime_to_dbus(dt, variant_level=0):
+    """Convert a UTC datetime.datetime() to a D-Bus type."""
+    return dbus.String(dt.isoformat(), variant_level=variant_level)
 
 
 class Client(dbus.service.Object):
@@ -194,18 +184,18 @@ class Client(dbus.service.Object):
     secret:     bytestring; sent verbatim (over TLS) to client
     host:       string; available for use by the checker command
     created:    datetime.datetime(); (UTC) object creation
-    last_started: datetime.datetime(); (UTC)
-    started:    bool()
+    last_enabled: datetime.datetime(); (UTC)
+    enabled:    bool()
     last_checked_ok: datetime.datetime(); (UTC) or None
     timeout:    datetime.timedelta(); How long from last_checked_ok
                                       until this client is invalid
     interval:   datetime.timedelta(); How often to start a new checker
-    stop_hook:  If set, called by stop() as stop_hook(self)
+    disable_hook:  If set, called by disable() as disable_hook(self)
     checker:    subprocess.Popen(); a running checker process used
                                     to see if the client lives.
                                     'None' if no process is running.
     checker_initiator_tag: a gobject event source tag, or None
-    stop_initiator_tag:    - '' -
+    disable_initiator_tag:    - '' -
     checker_callback_tag:  - '' -
     checker_command: string; External command which is run to check if
                      client lives.  %() expansions are done at
@@ -249,7 +239,7 @@ class Client(dbus.service.Object):
     interval = property(lambda self: self._interval, _set_interval)
     del _set_interval
     
-    def __init__(self, name = None, stop_hook=None, config=None):
+    def __init__(self, name = None, disable_hook=None, config=None):
         """Note: the 'checker' key in 'config' sets the
         'checker_command' attribute and *not* the 'checker'
         attribute."""
@@ -280,21 +270,21 @@ class Client(dbus.service.Object):
                             % self.name)
         self.host = config.get("host", "")
         self.created = datetime.datetime.utcnow()
-        self.started = False
-        self.last_started = None
+        self.enabled = False
+        self.last_enabled = None
         self.last_checked_ok = None
         self.timeout = string_to_delta(config["timeout"])
         self.interval = string_to_delta(config["interval"])
-        self.stop_hook = stop_hook
+        self.disable_hook = disable_hook
         self.checker = None
         self.checker_initiator_tag = None
-        self.stop_initiator_tag = None
+        self.disable_initiator_tag = None
         self.checker_callback_tag = None
         self.checker_command = config["checker"]
     
-    def start(self):
+    def enable(self):
         """Start this client's checker and timeout hooks"""
-        self.last_started = datetime.datetime.utcnow()
+        self.last_enabled = datetime.datetime.utcnow()
         # Schedule a new checker to be started an 'interval' from now,
         # and every interval from then on.
         self.checker_initiator_tag = (gobject.timeout_add
@@ -302,42 +292,42 @@ class Client(dbus.service.Object):
                                        self.start_checker))
         # Also start a new checker *right now*.
         self.start_checker()
-        # Schedule a stop() when 'timeout' has passed
-        self.stop_initiator_tag = (gobject.timeout_add
+        # Schedule a disable() when 'timeout' has passed
+        self.disable_initiator_tag = (gobject.timeout_add
                                    (self._timeout_milliseconds,
-                                    self.stop))
-        self.started = True
+                                    self.disable))
+        self.enabled = True
         # Emit D-Bus signal
-        self.PropertyChanged(dbus.String(u"started"),
+        self.PropertyChanged(dbus.String(u"enabled"),
                              dbus.Boolean(True, variant_level=1))
-        self.PropertyChanged(dbus.String(u"last_started"),
-                             (_datetime_to_dbus_struct
-                              (self.last_started, variant_level=1)))
+        self.PropertyChanged(dbus.String(u"last_enabled"),
+                             (_datetime_to_dbus(self.last_enabled,
+                                                variant_level=1)))
     
-    def stop(self):
-        """Stop this client."""
-        if not getattr(self, "started", False):
+    def disable(self):
+        """Disable this client."""
+        if not getattr(self, "enabled", False):
             return False
-        logger.info(u"Stopping client %s", self.name)
-        if getattr(self, "stop_initiator_tag", False):
-            gobject.source_remove(self.stop_initiator_tag)
-            self.stop_initiator_tag = None
+        logger.info(u"Disabling client %s", self.name)
+        if getattr(self, "disable_initiator_tag", False):
+            gobject.source_remove(self.disable_initiator_tag)
+            self.disable_initiator_tag = None
         if getattr(self, "checker_initiator_tag", False):
             gobject.source_remove(self.checker_initiator_tag)
             self.checker_initiator_tag = None
         self.stop_checker()
-        if self.stop_hook:
-            self.stop_hook(self)
-        self.started = False
+        if self.disable_hook:
+            self.disable_hook(self)
+        self.enabled = False
         # Emit D-Bus signal
-        self.PropertyChanged(dbus.String(u"started"),
+        self.PropertyChanged(dbus.String(u"enabled"),
                              dbus.Boolean(False, variant_level=1))
         # Do not run this again if called by a gobject.timeout_add
         return False
     
     def __del__(self):
-        self.stop_hook = None
-        self.stop()
+        self.disable_hook = None
+        self.disable()
     
     def checker_callback(self, pid, condition, command):
         """The checker has completed, so take appropriate actions."""
@@ -376,14 +366,13 @@ class Client(dbus.service.Object):
         alive and well.
         """
         self.last_checked_ok = datetime.datetime.utcnow()
-        gobject.source_remove(self.stop_initiator_tag)
-        self.stop_initiator_tag = (gobject.timeout_add
-                                   (self._timeout_milliseconds,
-                                    self.stop))
+        gobject.source_remove(self.disable_initiator_tag)
+        self.disable_initiator_tag = (gobject.timeout_add
+                                      (self._timeout_milliseconds,
+                                       self.disable))
         self.PropertyChanged(dbus.String(u"last_checked_ok"),
-                             (_datetime_to_dbus_struct
-                              (self.last_checked_ok,
-                               variant_level=1)))
+                             (_datetime_to_dbus(self.last_checked_ok,
+                                                variant_level=1)))
     
     def start_checker(self):
         """Start a new checker subprocess if one is not running.
@@ -458,7 +447,7 @@ class Client(dbus.service.Object):
     
     def still_valid(self):
         """Has the timeout not yet passed for this client?"""
-        if not getattr(self, "started", False):
+        if not getattr(self, "enabled", False):
             return False
         now = datetime.datetime.utcnow()
         if self.last_checked_ok is None:
@@ -497,18 +486,17 @@ class Client(dbus.service.Object):
                 dbus.String("host"):
                     dbus.String(self.host, variant_level=1),
                 dbus.String("created"):
-                    _datetime_to_dbus_struct(self.created,
-                                             variant_level=1),
-                dbus.String("last_started"):
-                    (_datetime_to_dbus_struct(self.last_started,
-                                              variant_level=1)
-                     if self.last_started is not None
+                    _datetime_to_dbus(self.created, variant_level=1),
+                dbus.String("last_enabled"):
+                    (_datetime_to_dbus(self.last_enabled,
+                                       variant_level=1)
+                     if self.last_enabled is not None
                      else dbus.Boolean(False, variant_level=1)),
-                dbus.String("started"):
-                    dbus.Boolean(self.started, variant_level=1),
+                dbus.String("enabled"):
+                    dbus.Boolean(self.enabled, variant_level=1),
                 dbus.String("last_checked_ok"):
-                    (_datetime_to_dbus_struct(self.last_checked_ok,
-                                              variant_level=1)
+                    (_datetime_to_dbus(self.last_checked_ok,
+                                       variant_level=1)
                      if self.last_checked_ok is not None
                      else dbus.Boolean (False, variant_level=1)),
                 dbus.String("timeout"):
@@ -565,9 +553,9 @@ class Client(dbus.service.Object):
     def SetTimeout(self, milliseconds):
         self.timeout = datetime.timedelta(0, 0, 0, milliseconds)
     
-    # Start - method
-    Start = dbus.service.method(_interface)(start)
-    Start.__name__ = "Start"
+    # Enable - method
+    Enable = dbus.service.method(_interface)(enable)
+    Enable.__name__ = "Enable"
     
     # StartChecker - method
     @dbus.service.method(_interface)
@@ -575,11 +563,11 @@ class Client(dbus.service.Object):
         "D-Bus method"
         self.start_checker()
     
-    # Stop - method
+    # Disable - method
     @dbus.service.method(_interface)
-    def Stop(self):
+    def Disable(self):
         "D-Bus method"
-        self.stop()
+        self.disable()
     
     # StopChecker - method
     StopChecker = dbus.service.method(_interface)(stop_checker)
@@ -1077,8 +1065,8 @@ def main():
         
         while clients:
             client = clients.pop()
-            client.stop_hook = None
-            client.stop()
+            client.disable_hook = None
+            client.disable()
     
     atexit.register(cleanup)
     
@@ -1119,7 +1107,7 @@ def main():
         def RemoveClient(self, object_path):
             for c in clients:
                 if c.dbus_object_path == object_path:
-                    c.stop()
+                    c.disable()
                     clients.remove(c)
                     return
             raise KeyError
@@ -1132,7 +1120,7 @@ def main():
         # Emit D-Bus signal
         mandos_server.ClientAdded(client.dbus_object_path,
                                   client.GetAllProperties())
-        client.start()
+        client.enable()
     
     tcp_server.enable()
     tcp_server.server_activate()
