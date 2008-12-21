@@ -76,7 +76,7 @@ HTMLPOST=$(SED) --in-place \
 PLUGINS=plugins.d/password-prompt plugins.d/mandos-client \
 	plugins.d/usplash plugins.d/splashy plugins.d/askpass-fifo
 CPROGS=plugin-runner $(PLUGINS)
-PROGS=mandos mandos-keygen $(CPROGS)
+PROGS=mandos mandos-keygen mandos-list $(CPROGS)
 DOCS=mandos.8 plugin-runner.8mandos mandos-keygen.8 \
 	plugins.d/mandos-client.8mandos \
 	plugins.d/password-prompt.8mandos mandos.conf.5 \
@@ -161,6 +161,11 @@ mandos: Makefile
 mandos-keygen: Makefile
 	$(SED) --in-place \
 		--expression='s/^\(VERSION="\)[^"]*"$$/\1$(version)"/' \
+		$@
+
+mandos-list: Makefile
+	$(SED) --in-place \
+		--expression='s/^\(version = "\)[^"]*"$$/\1$(version)"/' \
 		$@
 
 mandos.lsm: Makefile
