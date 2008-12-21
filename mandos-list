@@ -1,0 +1,58 @@
+#!/usr/bin/python
+
+import dbus
+from optparse import OptionParser
+
+tablewords = {
+    'name': 'Name',
+    'enabled': 'Enabled',
+    'timeout': 'Timeout',
+    'last_checked_ok': 'Last Successful Check',
+    'created': 'Created',
+    'interval': 'Interval',
+    'host': 'Host',
+    'fingerprint': 'Fingerprint',
+    'checker_running': 'Check Is Running',
+    'last_enabled': 'Last Enabled',
+    'checker': 'Checker',
+    }
+busname = 'org.mandos-system.Mandos'
+object_path = '/Mandos'
+interface = 'org.mandos_system.Mandos'
+version = "1.0.0"
+defaultkeywords = ('name', 'enabled', 'timeout', 'last_checked_ok', 'checker')
+
+parser = OptionParser(version = "%%prog %s" % version)
+parser.add_option("-a", "--all", action="store_true", default=False,
+                      help="Print all fields")
+options = parser.parse_args()[0]
+if options.all:
+    keywords = ( 'name', 'enabled', 'timeout', 'last_checked_ok',
+                 'created', 'interval', 'host', 'fingerprint',
+                 'checker_running', 'last_enabled', 'checker' )
+else:
+    keywords = defaultkeywords
+
+
+bus = dbus.SystemBus()
+mandos_dbus_objc = bus.get_object(busname, object_path)
+mandos_serv = dbus.Interface(mandos_dbus_objc, dbus_interface = interface)
+mandos_clients = mandos_serv.GetAllClientsWithProperties()
+
+def valuetostring(x):
+    if type(x) is dbus.Boolean:
+        return "Yes" if x else "No"
+    else:
+        return str(x)
+
+format_string = ' '.join('%%-%ds'
+                         % max(len(tablewords[key]),
+                               max(len(valuetostring(client[key]))
+                                   for client
+                                   in mandos_clients.itervalues()))
+                         for key in keywords)
+print format_string % tuple(tablewords[key] for key in keywords) 
+for client in mandos_clients.itervalues():
+    print format_string % tuple(valuetostring(client[key]) for key in keywords)
+
+
