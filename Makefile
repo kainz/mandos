@@ -45,7 +45,7 @@ GPGME_LIBS=$(shell gpgme-config --libs)
 CFLAGS=$(WARN) $(DEBUG) $(FORTIFY) $(COVERAGE) $(OPTIMIZE) \
 	$(LANGUAGE) $(GNUTLS_CFLAGS) $(AVAHI_CFLAGS) $(GPGME_CFLAGS) \
 	-DVERSION='"$(version)"'
-LDFLAGS=$(COVERAGE) $(LINK_FORTIFY)
+LDFLAGS=$(COVERAGE) $(foreach flag,$(LINK_FORTIFY),-Xlinker $(flag))
 
 # Commands to format a DocBook <refentry> document into a manual page
 DOCBOOKTOMAN=cd $(dir $<); xsltproc --nonet --xinclude \
