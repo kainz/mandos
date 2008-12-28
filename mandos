@@ -82,11 +82,11 @@ console.setFormatter(logging.Formatter('%(name)s: %(levelname)s:'
 logger.addHandler(console)
 
 class AvahiError(Exception):
-    def __init__(self, value):
+    def __init__(self, value, *args, **kwargs):
         self.value = value
-        super(AvahiError, self).__init__()
-    def __str__(self):
-        return repr(self.value)
+        super(AvahiError, self).__init__(value, *args, **kwargs)
+    def __unicode__(self):
+        return unicode(repr(self.value))
 
 class AvahiServiceError(AvahiError):
     pass
@@ -129,7 +129,7 @@ class AvahiService(object):
             logger.critical(u"No suitable Zeroconf service name found"
                             u" after %i retries, exiting.",
                             self.rename_count)
-            raise AvahiServiceError("Too many renames")
+            raise AvahiServiceError(u"Too many renames")
         self.name = server.GetAlternativeServiceName(self.name)
         logger.info(u"Changing Zeroconf service name to %r ...",
                     str(self.name))
@@ -833,7 +833,7 @@ def entry_group_state_changed(state, error):
     elif state == avahi.ENTRY_GROUP_FAILURE:
         logger.critical(u"Avahi: Error in group state changed %s",
                         unicode(error))
-        raise AvahiGroupError("State changed: %s", str(error))
+        raise AvahiGroupError(u"State changed: %s" % unicode(error))
 
 def if_nametoindex(interface):
     """Call the C function if_nametoindex(), or equivalent"""
@@ -1150,7 +1150,7 @@ def main():
         logger.debug(u"Starting main loop")
         main_loop.run()
     except AvahiError, error:
-        logger.critical(u"AvahiError: %s" + unicode(error))
+        logger.critical(u"AvahiError: %s", error)
         sys.exit(1)
     except KeyboardInterrupt:
         if debug:
