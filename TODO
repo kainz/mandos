@@ -6,6 +6,9 @@
    klogctl(6, NULL, 0); klogctl(7, NULL, 0);
 ** TODO [#C] IPv4 support
 
+* plugin-runner
+** TODO [#B] use scandir(3) instead of readdir(3)
+
 * mandos (server)
 ** TODO [#B] Log level				:bugs:
 ** TODO /etc/mandos/clients.d/*.conf
@@ -30,12 +33,19 @@
    This will not be strictly necessary when the D-Bus interface is
    implemented.
 
-* Mandos-tools/utilities
-  All of this probably using D-Bus
-** TODO List clients
+* mandos.xml
+** [[file:mandos.xml::XXX][Document D-Bus interface]]
+
+* Provide and install /etc/dbus-1/system.d/mandos.conf
+
+* mandos-list
+*** Handle "no D-Bus server" and/or "no Mandos server found" better
+*** [#B] --dump option
 ** TODO Disable client
 ** TODO Enable client
 ** TODO Reset timer
+
+* Curses interface
 
 * mandos-keygen
 ** TODO "--secfile" option
