@@ -201,57 +201,37 @@ class Client(dbus.service.Object):
                      client lives.  %() expansions are done at
                      runtime with vars(self) as dict, so that for
                      instance %(name)s can be used in the command.
-    dbus_object_path: dbus.ObjectPath
-    Private attibutes:
-    _timeout: Real variable for 'timeout'
-    _interval: Real variable for 'interval'
-    _timeout_milliseconds: Used when calling gobject.timeout_add()
-    _interval_milliseconds: - '' -
+    use_dbus: bool(); Whether to provide D-Bus interface and signals
+    dbus_object_path: dbus.ObjectPath ; only set if self.use_dbus
     """
-    def _set_timeout(self, timeout):
-        "Setter function for the 'timeout' attribute"
-        self._timeout = timeout
-        self._timeout_milliseconds = ((self.timeout.days
-                                       * 24 * 60 * 60 * 1000)
-                                      + (self.timeout.seconds * 1000)
-                                      + (self.timeout.microseconds
-                                         // 1000))
-        # Emit D-Bus signal
-        self.PropertyChanged(dbus.String(u"timeout"),
-                             (dbus.UInt64(self._timeout_milliseconds,
-                                          variant_level=1)))
-    timeout = property(lambda self: self._timeout, _set_timeout)
-    del _set_timeout
+    def timeout_milliseconds(self):
+        "Return the 'timeout' attribute in milliseconds"
+        return ((self.timeout.days * 24 * 60 * 60 * 1000)
+                + (self.timeout.seconds * 1000)
+                + (self.timeout.microseconds // 1000))
     
-    def _set_interval(self, interval):
-        "Setter function for the 'interval' attribute"
-        self._interval = interval
-        self._interval_milliseconds = ((self.interval.days
-                                        * 24 * 60 * 60 * 1000)
-                                       + (self.interval.seconds
-                                          * 1000)
-                                       + (self.interval.microseconds
-                                          // 1000))
-        # Emit D-Bus signal
-        self.PropertyChanged(dbus.String(u"interval"),
-                             (dbus.UInt64(self._interval_milliseconds,
-                                          variant_level=1)))
-    interval = property(lambda self: self._interval, _set_interval)
-    del _set_interval
+    def interval_milliseconds(self):
+        "Return the 'interval' attribute in milliseconds"
+        return ((self.interval.days * 24 * 60 * 60 * 1000)
+                + (self.interval.seconds * 1000)
+                + (self.interval.microseconds // 1000))
     
-    def __init__(self, name = None, disable_hook=None, config=None):
+    def __init__(self, name = None, disable_hook=None, config=None,
+                 use_dbus=True):
         """Note: the 'checker' key in 'config' sets the
         'checker_command' attribute and *not* the 'checker'
         attribute."""
-        self.dbus_object_path = (dbus.ObjectPath
-                                 ("/Mandos/clients/"
-                                  + name.replace(".", "_")))
-        dbus.service.Object.__init__(self, bus,
-                                     self.dbus_object_path)
+        self.name = name
         if config is None:
             config = {}
-        self.name = name
         logger.debug(u"Creating client %r", self.name)
+        self.use_dbus = use_dbus
+        if self.use_dbus:
+            self.dbus_object_path = (dbus.ObjectPath
+                                     ("/Mandos/clients/"
+                                      + self.name.replace(".", "_")))
+            dbus.service.Object.__init__(self, bus,
+                                         self.dbus_object_path)
         # Uppercase and remove spaces from fingerprint for later
         # comparison purposes with return value from the fingerprint()
         # function
@@ -288,21 +268,22 @@ class Client(dbus.service.Object):
         # Schedule a new checker to be started an 'interval' from now,
         # and every interval from then on.
         self.checker_initiator_tag = (gobject.timeout_add
-                                      (self._interval_milliseconds,
+                                      (self.interval_milliseconds(),
                                        self.start_checker))
         # Also start a new checker *right now*.
         self.start_checker()
         # Schedule a disable() when 'timeout' has passed
         self.disable_initiator_tag = (gobject.timeout_add
-                                   (self._timeout_milliseconds,
+                                   (self.timeout_milliseconds(),
                                     self.disable))
         self.enabled = True
-        # Emit D-Bus signal
-        self.PropertyChanged(dbus.String(u"enabled"),
-                             dbus.Boolean(True, variant_level=1))
-        self.PropertyChanged(dbus.String(u"last_enabled"),
-                             (_datetime_to_dbus(self.last_enabled,
-                                                variant_level=1)))
+        if self.use_dbus:
+            # Emit D-Bus signals
+            self.PropertyChanged(dbus.String(u"enabled"),
+                                 dbus.Boolean(True, variant_level=1))
+            self.PropertyChanged(dbus.String(u"last_enabled"),
+                                 (_datetime_to_dbus(self.last_enabled,
+                                                    variant_level=1)))
     
     def disable(self):
         """Disable this client."""
@@ -319,9 +300,10 @@ class Client(dbus.service.Object):
         if self.disable_hook:
             self.disable_hook(self)
         self.enabled = False
-        # Emit D-Bus signal
-        self.PropertyChanged(dbus.String(u"enabled"),
-                             dbus.Boolean(False, variant_level=1))
+        if self.use_dbus:
+            # Emit D-Bus signal
+            self.PropertyChanged(dbus.String(u"enabled"),
+                                 dbus.Boolean(False, variant_level=1))
         # Do not run this again if called by a gobject.timeout_add
         return False
     
@@ -333,32 +315,36 @@ class Client(dbus.service.Object):
         """The checker has completed, so take appropriate actions."""
         self.checker_callback_tag = None
         self.checker = None
-        # Emit D-Bus signal
-        self.PropertyChanged(dbus.String(u"checker_running"),
-                             dbus.Boolean(False, variant_level=1))
+        if self.use_dbus:
+            # Emit D-Bus signal
+            self.PropertyChanged(dbus.String(u"checker_running"),
+                                 dbus.Boolean(False, variant_level=1))
         if (os.WIFEXITED(condition)
             and (os.WEXITSTATUS(condition) == 0)):
             logger.info(u"Checker for %(name)s succeeded",
                         vars(self))
-            # Emit D-Bus signal
-            self.CheckerCompleted(dbus.Boolean(True),
-                                  dbus.UInt16(condition),
-                                  dbus.String(command))
+            if self.use_dbus:
+                # Emit D-Bus signal
+                self.CheckerCompleted(dbus.Boolean(True),
+                                      dbus.UInt16(condition),
+                                      dbus.String(command))
             self.bump_timeout()
         elif not os.WIFEXITED(condition):
             logger.warning(u"Checker for %(name)s crashed?",
                            vars(self))
-            # Emit D-Bus signal
-            self.CheckerCompleted(dbus.Boolean(False),
-                                  dbus.UInt16(condition),
-                                  dbus.String(command))
+            if self.use_dbus:
+                # Emit D-Bus signal
+                self.CheckerCompleted(dbus.Boolean(False),
+                                      dbus.UInt16(condition),
+                                      dbus.String(command))
         else:
             logger.info(u"Checker for %(name)s failed",
                         vars(self))
-            # Emit D-Bus signal
-            self.CheckerCompleted(dbus.Boolean(False),
-                                  dbus.UInt16(condition),
-                                  dbus.String(command))
+            if self.use_dbus:
+                # Emit D-Bus signal
+                self.CheckerCompleted(dbus.Boolean(False),
+                                      dbus.UInt16(condition),
+                                      dbus.String(command))
     
     def bump_timeout(self):
         """Bump up the timeout for this client.
@@ -368,11 +354,14 @@ class Client(dbus.service.Object):
         self.last_checked_ok = datetime.datetime.utcnow()
         gobject.source_remove(self.disable_initiator_tag)
         self.disable_initiator_tag = (gobject.timeout_add
-                                      (self._timeout_milliseconds,
+                                      (self.timeout_milliseconds(),
                                        self.disable))
-        self.PropertyChanged(dbus.String(u"last_checked_ok"),
-                             (_datetime_to_dbus(self.last_checked_ok,
-                                                variant_level=1)))
+        if self.use_dbus:
+            # Emit D-Bus signal
+            self.PropertyChanged(
+                dbus.String(u"last_checked_ok"),
+                (_datetime_to_dbus(self.last_checked_ok,
+                                   variant_level=1)))
     
     def start_checker(self):
         """Start a new checker subprocess if one is not running.
@@ -411,10 +400,12 @@ class Client(dbus.service.Object):
                 self.checker = subprocess.Popen(command,
                                                 close_fds=True,
                                                 shell=True, cwd="/")
-                # Emit D-Bus signal
-                self.CheckerStarted(command)
-                self.PropertyChanged(dbus.String("checker_running"),
-                                     dbus.Boolean(True, variant_level=1))
+                if self.use_dbus:
+                    # Emit D-Bus signal
+                    self.CheckerStarted(command)
+                    self.PropertyChanged(
+                        dbus.String("checker_running"),
+                        dbus.Boolean(True, variant_level=1))
                 self.checker_callback_tag = (gobject.child_watch_add
                                              (self.checker.pid,
                                               self.checker_callback,
@@ -442,8 +433,9 @@ class Client(dbus.service.Object):
             if error.errno != errno.ESRCH: # No such process
                 raise
         self.checker = None
-        self.PropertyChanged(dbus.String(u"checker_running"),
-                             dbus.Boolean(False, variant_level=1))
+        if self.use_dbus:
+            self.PropertyChanged(dbus.String(u"checker_running"),
+                                 dbus.Boolean(False, variant_level=1))
     
     def still_valid(self):
         """Has the timeout not yet passed for this client?"""
@@ -500,10 +492,10 @@ class Client(dbus.service.Object):
                      if self.last_checked_ok is not None
                      else dbus.Boolean (False, variant_level=1)),
                 dbus.String("timeout"):
-                    dbus.UInt64(self._timeout_milliseconds,
+                    dbus.UInt64(self.timeout_milliseconds(),
                                 variant_level=1),
                 dbus.String("interval"):
-                    dbus.UInt64(self._interval_milliseconds,
+                    dbus.UInt64(self.interval_milliseconds(),
                                 variant_level=1),
                 dbus.String("checker"):
                     dbus.String(self.checker_command,
@@ -529,17 +521,28 @@ class Client(dbus.service.Object):
     def SetChecker(self, checker):
         "D-Bus setter method"
         self.checker_command = checker
+        # Emit D-Bus signal
+        self.PropertyChanged(dbus.String(u"checker"),
+                             dbus.String(self.checker_command,
+                                         variant_level=1))
     
     # SetHost - method
     @dbus.service.method(_interface, in_signature="s")
     def SetHost(self, host):
         "D-Bus setter method"
         self.host = host
+        # Emit D-Bus signal
+        self.PropertyChanged(dbus.String(u"host"),
+                             dbus.String(self.host, variant_level=1))
     
     # SetInterval - method
     @dbus.service.method(_interface, in_signature="t")
     def SetInterval(self, milliseconds):
-        self.interval = datetime.timdeelta(0, 0, 0, milliseconds)
+        self.interval = datetime.timedelta(0, 0, 0, milliseconds)
+        # Emit D-Bus signal
+        self.PropertyChanged(dbus.String(u"interval"),
+                             (dbus.UInt64(self.interval_milliseconds(),
+                                          variant_level=1)))
     
     # SetSecret - method
     @dbus.service.method(_interface, in_signature="ay",
@@ -552,6 +555,10 @@ class Client(dbus.service.Object):
     @dbus.service.method(_interface, in_signature="t")
     def SetTimeout(self, milliseconds):
         self.timeout = datetime.timedelta(0, 0, 0, milliseconds)
+        # Emit D-Bus signal
+        self.PropertyChanged(dbus.String(u"timeout"),
+                             (dbus.UInt64(self.timeout_milliseconds(),
+                                          variant_level=1)))
     
     # Enable - method
     Enable = dbus.service.method(_interface)(enable)
@@ -889,7 +896,7 @@ def main():
                       help="Address to listen for requests on")
     parser.add_option("-p", "--port", type="int",
                       help="Port number to receive requests on")
-    parser.add_option("--check", action="store_true", default=False,
+    parser.add_option("--check", action="store_true",
                       help="Run self-test")
     parser.add_option("--debug", action="store_true",
                       help="Debug mode; run in foreground and log to"
@@ -902,6 +909,10 @@ def main():
                       default="/etc/mandos", metavar="DIR",
                       help="Directory to search for configuration"
                       " files")
+    parser.add_option("--no-dbus", action="store_false",
+                      dest="use_dbus",
+                      help="Do not provide D-Bus system bus"
+                      " interface")
     options = parser.parse_args()[0]
     
     if options.check:
@@ -917,6 +928,7 @@ def main():
                         "priority":
                         "SECURE256:!CTYPE-X.509:+CTYPE-OPENPGP",
                         "servicename": "Mandos",
+                        "use_dbus": "True",
                         }
     
     # Parse config file for server-global settings
@@ -925,22 +937,27 @@ def main():
     server_config.read(os.path.join(options.configdir, "mandos.conf"))
     # Convert the SafeConfigParser object to a dict
     server_settings = server_config.defaults()
-    # Use getboolean on the boolean config option
+    # Use getboolean on the boolean config options
     server_settings["debug"] = (server_config.getboolean
                                 ("DEFAULT", "debug"))
+    server_settings["use_dbus"] = (server_config.getboolean
+                                   ("DEFAULT", "use_dbus"))
     del server_config
     
     # Override the settings from the config file with command line
     # options, if set.
     for option in ("interface", "address", "port", "debug",
-                   "priority", "servicename", "configdir"):
+                   "priority", "servicename", "configdir",
+                   "use_dbus"):
         value = getattr(options, option)
         if value is not None:
             server_settings[option] = value
     del options
     # Now we have our good server settings in "server_settings"
     
+    # For convenience
     debug = server_settings["debug"]
+    use_dbus = server_settings["use_dbus"]
     
     if not debug:
         syslogger.setLevel(logging.WARNING)
@@ -1019,11 +1036,14 @@ def main():
                                            avahi.DBUS_PATH_SERVER),
                             avahi.DBUS_INTERFACE_SERVER)
     # End of Avahi example code
-    bus_name = dbus.service.BusName(u"org.mandos-system.Mandos", bus)
+    if use_dbus:
+        bus_name = dbus.service.BusName(u"org.mandos-system.Mandos",
+                                        bus)
     
     clients.update(Set(Client(name = section,
                               config
-                              = dict(client_config.items(section)))
+                              = dict(client_config.items(section)),
+                              use_dbus = use_dbus)
                        for section in client_config.sections()))
     if not clients:
         logger.critical(u"No clients defined")
@@ -1075,51 +1095,57 @@ def main():
     signal.signal(signal.SIGHUP, lambda signum, frame: sys.exit())
     signal.signal(signal.SIGTERM, lambda signum, frame: sys.exit())
     
-    class MandosServer(dbus.service.Object):
-        """A D-Bus proxy object"""
-        def __init__(self):
-            dbus.service.Object.__init__(self, bus,
-                                         "/Mandos")
-        _interface = u"org.mandos_system.Mandos"
-        
-        @dbus.service.signal(_interface, signature="oa{sv}")
-        def ClientAdded(self, objpath, properties):
-            "D-Bus signal"
-            pass
-        
-        @dbus.service.signal(_interface, signature="o")
-        def ClientRemoved(self, objpath):
-            "D-Bus signal"
-            pass
-        
-        @dbus.service.method(_interface, out_signature="ao")
-        def GetAllClients(self):
-            return dbus.Array(c.dbus_object_path for c in clients)
-        
-        @dbus.service.method(_interface, out_signature="a{oa{sv}}")
-        def GetAllClientsWithProperties(self):
-            return dbus.Dictionary(
-                ((c.dbus_object_path, c.GetAllProperties())
-                 for c in clients),
-                signature="oa{sv}")
-        
-        @dbus.service.method(_interface, in_signature="o")
-        def RemoveClient(self, object_path):
-            for c in clients:
-                if c.dbus_object_path == object_path:
-                    c.disable()
-                    clients.remove(c)
-                    return
-            raise KeyError
-        
-        del _interface
+    if use_dbus:
+        class MandosServer(dbus.service.Object):
+            """A D-Bus proxy object"""
+            def __init__(self):
+                dbus.service.Object.__init__(self, bus,
+                                             "/Mandos")
+            _interface = u"org.mandos_system.Mandos"
+
+            @dbus.service.signal(_interface, signature="oa{sv}")
+            def ClientAdded(self, objpath, properties):
+                "D-Bus signal"
+                pass
+
+            @dbus.service.signal(_interface, signature="o")
+            def ClientRemoved(self, objpath):
+                "D-Bus signal"
+                pass
+
+            @dbus.service.method(_interface, out_signature="ao")
+            def GetAllClients(self):
+                return dbus.Array(c.dbus_object_path for c in clients)
+
+            @dbus.service.method(_interface, out_signature="a{oa{sv}}")
+            def GetAllClientsWithProperties(self):
+                return dbus.Dictionary(
+                    ((c.dbus_object_path, c.GetAllProperties())
+                     for c in clients),
+                    signature="oa{sv}")
+
+            @dbus.service.method(_interface, in_signature="o")
+            def RemoveClient(self, object_path):
+                for c in clients:
+                    if c.dbus_object_path == object_path:
+                        clients.remove(c)
+                        # Don't signal anything except ClientRemoved
+                        c.use_dbus = False
+                        c.disable()
+                        # Emit D-Bus signal
+                        self.ClientRemoved(object_path)
+                        return
+                raise KeyError
+
+            del _interface
     
-    mandos_server = MandosServer()
+        mandos_server = MandosServer()
     
     for client in clients:
-        # Emit D-Bus signal
-        mandos_server.ClientAdded(client.dbus_object_path,
-                                  client.GetAllProperties())
+        if use_dbus:
+            # Emit D-Bus signal
+            mandos_server.ClientAdded(client.dbus_object_path,
+                                      client.GetAllProperties())
         client.enable()
     
     tcp_server.enable()

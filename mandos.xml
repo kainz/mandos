@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY COMMANDNAME "mandos">
-<!ENTITY TIMESTAMP "2008-10-03">
+<!ENTITY TIMESTAMP "2008-12-28">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -84,6 +84,8 @@
       <replaceable>DIRECTORY</replaceable></option></arg>
       <sbr/>
       <arg><option>--debug</option></arg>
+      <sbr/>
+      <arg><option>--no-dbus</option></arg>
     </cmdsynopsis>
     <cmdsynopsis>
       <command>&COMMANDNAME;</command>
@@ -228,6 +230,15 @@
 	  </para>
 	</listitem>
       </varlistentry>
+      
+      <varlistentry>
+	<term><option>--no-dbus</option></term>
+	<listitem>
+	  <xi:include href="mandos-options.xml" xpointer="dbus"/>
+	  <para>
+	    See also <xref linkend="dbus"/>.
+	</listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
   
@@ -323,6 +334,16 @@
     </para>
   </refsect1>
   
+  <refsect1 id="dbus">
+    <title>D-BUS INTERFACE</title>
+    <para>
+      The server will by default provide a D-Bus system bus interface.
+      This interface will only be accessible by the root user or a
+      Mandos-specific user, if such a user exists.
+      <!-- XXX -->
+    </para>
+  </refsect1>
+
   <refsect1 id="exit_status">
     <title>EXIT STATUS</title>
     <para>
