@@ -17,8 +17,6 @@
 ** TODO [#B] Run-time communication with server :bugs:
    Probably using D-Bus
    See also [[*Mandos-tools]]
-** Handle non-existing D-Bus server.
-   Also, possibly a "--no-dbus" option?
 *** Client class
 *** Main server
     + SetLogLevel
@@ -35,8 +33,13 @@
    This will not be strictly necessary when the D-Bus interface is
    implemented.
 
+* mandos.xml
+** [[file:mandos.xml::XXX][Document D-Bus interface]]
+
+* Provide and install /etc/dbus-1/system.d/mandos.conf
+
 * mandos-list
-*** Handle no D-Bus server and/or no Mandos server found better
+*** Handle "no D-Bus server" and/or "no Mandos server found" better
 *** [#B] --dump option
 ** TODO Disable client
 ** TODO Enable client

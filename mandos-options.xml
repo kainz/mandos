@@ -65,5 +65,11 @@ It is also used for some texts by mandos-client(8mandos).
     rename itself to <quote><literal>Mandos #2</literal></quote>, and
     so on; therefore, this option is not needed in that case.
   </para>
+
+  <para id="dbus">
+    This option controls whether the server will provide a D-Bus
+    system bus interface.  The default is to provide such an
+    interface.
+  </para>
   
 </section>
