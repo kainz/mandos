@@ -38,7 +38,6 @@ clean:
 	rm -f build-arch-stamp build-indep-stamp configure-stamp
 	dh_auto_clean
 	dh_clean
-	debconf-updatepo
 
 install: install-indep install-arch
 install-indep:
@@ -66,7 +65,6 @@ binary-common:
 	dh_testroot
 	dh_installchangelogs
 	dh_installdocs
-	dh_installdebconf
 	dh_link
 	dh_strip
 	dh_compress
