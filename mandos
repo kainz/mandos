@@ -1046,8 +1046,7 @@ def main():
                               use_dbus = use_dbus)
                        for section in client_config.sections()))
     if not clients:
-        logger.critical(u"No clients defined")
-        sys.exit(1)
+        logger.warning(u"No clients defined")
     
     if debug:
         # Redirect stdin so all checkers get /dev/null
