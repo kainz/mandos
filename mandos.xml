@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY COMMANDNAME "mandos">
-<!ENTITY TIMESTAMP "2008-12-28">
+<!ENTITY TIMESTAMP "2009-01-04">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -236,7 +236,8 @@
 	<listitem>
 	  <xi:include href="mandos-options.xml" xpointer="dbus"/>
 	  <para>
-	    See also <xref linkend="dbus"/>.
+	    See also <xref linkend="dbus_interface"/>.
+	  </para>
 	</listitem>
       </varlistentry>
     </variablelist>
@@ -334,7 +335,7 @@
     </para>
   </refsect1>
   
-  <refsect1 id="dbus">
+  <refsect1 id="dbus_interface">
     <title>D-BUS INTERFACE</title>
     <para>
       The server will by default provide a D-Bus system bus interface.
