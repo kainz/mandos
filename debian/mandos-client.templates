@@ -1,8 +1,0 @@
-Template: mandos-client/not-yet-configured
-Type: note
-_Description: Your system needs more configuration[ mandos-client]
- Your system can not function as a Mandos client until a
- password for this client has been added to the
- configuration on the Mandos server.  Please read
- /usr/share/doc/mandos-client/README.Debian.gz to find out
- how.
