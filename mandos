@@ -1135,6 +1135,9 @@ def main():
                         self.ClientRemoved(object_path)
                         return
                 raise KeyError
+            @dbus.service.method(_interface)
+            def Quit(self):
+                main_loop.quit()
 
             del _interface
     
