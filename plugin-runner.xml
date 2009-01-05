@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY COMMANDNAME "plugin-runner">
-<!ENTITY TIMESTAMP "2008-09-30">
+<!ENTITY TIMESTAMP "2009-01-04">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -32,6 +32,7 @@
     </authorgroup>
     <copyright>
       <year>2008</year>
+      <year>2009</year>
       <holder>Teddy Hogeborn</holder>
       <holder>Björn Påhlsson</holder>
     </copyright>

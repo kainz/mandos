@@ -3,7 +3,7 @@
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY CONFNAME "mandos.conf">
 <!ENTITY CONFPATH "<filename>/etc/mandos/mandos.conf</filename>">
-<!ENTITY TIMESTAMP "2008-09-30">
+<!ENTITY TIMESTAMP "2009-01-04">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -33,6 +33,7 @@
     </authorgroup>
     <copyright>
       <year>2008</year>
+      <year>2009</year>
       <holder>Teddy Hogeborn</holder>
       <holder>Björn Påhlsson</holder>
     </copyright>
@@ -130,6 +131,17 @@
 	</listitem>
       </varlistentry>
       
+      <varlistentry>
+	<term><option>use_dbus<literal> = </literal>{ <literal
+	  >1</literal> | <literal>yes</literal> | <literal
+	  >true</literal> | <literal>on</literal> | <literal
+	  >0</literal> | <literal>no</literal> | <literal
+	  >false</literal> | <literal>off</literal> }</option></term>
+	<listitem>
+	  <xi:include href="mandos-options.xml" xpointer="dbus"/>
+	</listitem>
+      </varlistentry>
+      
     </variablelist>
   </refsect1>
   
@@ -172,6 +184,7 @@ port = 1025
 debug = true
 priority = SECURE256:!CTYPE-X.509:+CTYPE-OPENPGP
 servicename = Daena
+use_dbus = False
       </programlisting>
     </informalexample>
   </refsect1>

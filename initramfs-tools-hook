@@ -51,11 +51,13 @@ if [ -z "$keydir" ]; then
     exit 1
 fi
 
-mandos_user="`{ getent passwd mandos \
+mandos_user="`{ getent passwd _mandos \
+		|| getent passwd mandos \
 		|| getent passwd nobody \
 		|| echo ::65534::::; } \
 	| awk --field-separator=: '{ print $3 }'`" 
-mandos_group="`{ getent group mandos \
+mandos_group="`{ getent group _mandos \
+		|| getent group mandos \
 		|| getent group nogroup \
 		|| echo ::65534:; } \
 	| awk --field-separator=: '{ print $3 }'`"

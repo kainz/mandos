@@ -1,7 +1,7 @@
-The Mandos server cannot run without at least one configured client in
+The Mandos server is useless without at least one configured client in
 /etc/mandos/clients.conf.  To create one, install the "mandos-client"
 package on a client computer, and run "mandos-keygen --password" there
 to get a config file stanza.  Append that to /etc/mandos/clients.conf
 on the Mandos server.
 
- -- Teddy Hogeborn <teddy@fukt.bsnet.se>, Sat, 20 Sep 2008 21:21:19 +0200
+ -- Teddy Hogeborn <teddy@fukt.bsnet.se>, Sun,  4 Jan 2009 22:59:22 +0100
