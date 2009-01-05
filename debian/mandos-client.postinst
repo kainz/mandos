@@ -27,10 +27,19 @@ update_initramfs()
 
 # Add user and group
 add_mandos_user(){
-    if ! getent passwd mandos >/dev/null; then
-	adduser --disabled-password  --quiet --system \
-	    --home /nonexistent --no-create-home \
-	    --gecos "Mandos password system" --group mandos
+    # Rename old "mandos" user and group
+    case "$(getent passwd mandos)" in
+	*:Mandos\ password\ system,,,:/nonexistent:/bin/false)
+	    usermod --login _mandos mandos
+	    groupmod --new-name _mandos mandos
+	    return
+	    ;;
+    esac
+    # Create new user and group
+    if ! getent passwd _mandos >/dev/null; then
+	adduser --system --force-badname --quiet --home /nonexistent \
+	    --no-create-home --group --disabled-password \
+	    --gecos "Mandos password system" _mandos
     fi
 }
 
