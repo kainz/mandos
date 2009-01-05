@@ -2,8 +2,8 @@
 /*
  * Passprompt - Read a password from usplash and output it
  * 
- * Copyright © 2008 Teddy Hogeborn
- * Copyright © 2008 Björn Påhlsson
+ * Copyright © 2008,2009 Teddy Hogeborn
+ * Copyright © 2008,2009 Björn Påhlsson
  * 
  * This program is free software: you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
