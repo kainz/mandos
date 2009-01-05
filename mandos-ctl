@@ -1,6 +1,7 @@
 #!/usr/bin/python
 # -*- mode: python; coding: utf-8 -*-
 
+import sys
 import dbus
 from optparse import OptionParser
 import locale
@@ -20,43 +21,21 @@ tablewords = {
     'last_enabled': u'Last Enabled',
     'checker': u'Checker',
     }
+defaultkeywords = ('name', 'enabled', 'timeout', 'last_checked_ok',
+                   'checker')
 busname = 'org.mandos-system.Mandos'
 server_path = '/Mandos'
 server_interface = 'org.mandos_system.Mandos'
 client_interface = 'org.mandos_system.Mandos.Client'
 version = "1.0.2"
-defaultkeywords = ('name', 'enabled', 'timeout', 'last_checked_ok',
-                   'checker')
+
 bus = dbus.SystemBus()
 mandos_dbus_objc = bus.get_object(busname, server_path)
 mandos_serv = dbus.Interface(mandos_dbus_objc,
                              dbus_interface = server_interface)
 mandos_clients = mandos_serv.GetAllClientsWithProperties()
 
-def Getclientbyname(name):
-    client_path = None
-    for cli in mandos_clients.iteritems():
-        if cli[1]['name'] == name:
-            client_path = cli[0]
-    if client_path is None:
-        print "Client not found on server"
-        return
-
-    client_objc = bus.get_object(busname, client_path)
-    return dbus.Interface(client_objc, dbus_interface = client_interface)
-
-    
-def Enable(options):
-    client = Getclientbyname(options.enable)
-    if client is not None:
-        client.Enable()
-
-def Disable(options):
-    client = Getclientbyname(options.disable)
-    if client is not None:
-        client.Disable()
-
-def List(foo):
+def print_clients():
     def valuetostring(x):
         if type(x) is dbus.Boolean:
             return u"Yes" if x else u"No"
@@ -73,26 +52,51 @@ def List(foo):
         print format_string % tuple(valuetostring(client[key])
                                     for key in keywords)
 
-action = List
 parser = OptionParser(version = "%%prog %s" % version)
-parser.add_option("-a", "--all", action="store_true", default=False,
+parser.add_option("-a", "--all", action="store_true",
                   help="Print all fields")
-parser.add_option("-e", "--enable", type="string",
+parser.add_option("-e", "--enable", action="store_true",
                   help="Enable specified client")
-parser.add_option("-d", "--disable", type="string",
+parser.add_option("-d", "--disable", action="store_true",
                   help="disable specified client")
-options = parser.parse_args()[0]
-if options.enable:
-    action = Enable
-elif options.disable:
-    action = Disable
-elif options.all:
-    keywords = ('name', 'enabled', 'timeout', 'last_checked_ok',
-                'created', 'interval', 'host', 'fingerprint',
-                'checker_running', 'last_enabled', 'checker')
-else:
+parser.add_option("-b", "--bumptimeout", action="store_true",
+                  help="Bump timeout of specified client")
+parser.add_option("-s", "--startchecker", action="store_true",
+                  help="Start checker for specified client")
+parser.add_option("-S", "--stopchecker", action="store_true",
+                  help="Stop checker for specified client")
+options, client_names = parser.parse_args()
+
+clients=[]
+for name in client_names:
+    for path, client in mandos_clients.iteritems():
+        if client['name'] == name:
+            client_objc = bus.get_object(busname, path)
+            clients.append(dbus.Interface(client_objc,
+                                          dbus_interface
+                                          = client_interface))
+            break
+    else:
+        print >> sys.stderr, "Client not found on server: %r" % name
+        sys.exit(1)
+
+if not clients:
     keywords = defaultkeywords
+    if options.all:
+        keywords = ('name', 'enabled', 'timeout', 'last_checked_ok',
+                    'created', 'interval', 'host', 'fingerprint',
+                    'checker_running', 'last_enabled', 'checker')
+    print_clients()
 
-action(options)
+for client in clients:
+    if options.enable:
+        client.Enable()
+    if options.disable:
+        client.Disable()
+    if options.bumptimeout:
+        client.BumpTimeout()
+    if options.startchecker:
+        client.StartChecker()
+    if options.stopchecker:
+        client.StopChecker()
 
-    
