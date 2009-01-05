@@ -3,7 +3,7 @@
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY CONFNAME "mandos.conf">
 <!ENTITY CONFPATH "<filename>/etc/mandos/mandos.conf</filename>">
-<!ENTITY TIMESTAMP "2008-12-28">
+<!ENTITY TIMESTAMP "2009-01-04">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -33,6 +33,7 @@
     </authorgroup>
     <copyright>
       <year>2008</year>
+      <year>2009</year>
       <holder>Teddy Hogeborn</holder>
       <holder>Björn Påhlsson</holder>
     </copyright>
