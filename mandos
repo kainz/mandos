@@ -993,23 +993,17 @@ def main():
     
     try:
         uid = pwd.getpwnam("_mandos").pw_uid
-    except KeyError:
-        try:
-            uid = pwd.getpwnam("mandos").pw_uid
-        except KeyError:
-            try:
-                uid = pwd.getpwnam("nobody").pw_uid
-            except KeyError:
-                uid = 65534
-    try:
         gid = pwd.getpwnam("_mandos").pw_gid
     except KeyError:
         try:
+            uid = pwd.getpwnam("mandos").pw_uid
             gid = pwd.getpwnam("mandos").pw_gid
         except KeyError:
             try:
+                uid = pwd.getpwnam("nobody").pw_uid
                 gid = pwd.getpwnam("nogroup").pw_gid
             except KeyError:
+                uid = 65534
                 gid = 65534
     try:
         os.setuid(uid)
