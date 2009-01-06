@@ -1,3 +1,16 @@
+mandos (1.0.3-1) unstable; urgency=low
+
+  * New upstream release.
+  * Second try to close ITP: (Closes: #500727: ITP)
+  * Fix FTBFS for some architectures: (Closes: #509398)
+  * Remove debconf note: (Closes: #509653: Debconf abuse)
+  * Add NEWS file to /usr/share/doc directories.
+  * Use and create "_mandos" user+group.  Rename old user+group created by
+    older versions of this package.
+  * Fix manual pages by adding build-depend on "docbook-xml".
+
+ -- Teddy Hogeborn <teddy@fukt.bsnet.se>  Tue, 06 Jan 2009 01:21:20 +0100
+
 mandos (1.0.2-1) unstable; urgency=low
 
   * New upstream release.

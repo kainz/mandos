@@ -1,6 +1,18 @@
 This NEWS file records noteworthy changes, very tersely.
 See the manual for detailed information.
 
+Version 1.0.3 (2009-01-06)
+* Server
+** Now tries to change to user and group "_mandos" before falling back
+   to trying the old values "mandos", "nobody:nogroup", and "65534".
+** Now does not abort on startup even if no clients are defined in
+   clients.conf.
+
+* Client
+** Plugins named "*.dpkg-bak" are now ignored.
+** Hopefully fixed compilation failure on some architectures where the
+   C compiler does not recognize the "-z" option as a linker option.
+
 Version 1.0.2 (2008-10-17)
 * mandos-keygen now signs the encrypted key blobs.  This signature is
   not currently verified by mandos-client, but this may change in the
