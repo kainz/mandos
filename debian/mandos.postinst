@@ -15,8 +15,6 @@
 # If prerm fails during replacement due to conflict:
 #       <postinst> abort-remove in-favour <new-package> <version>
 
-. /usr/share/debconf/confmodule
-
 case "$1" in
     configure)
 	# Rename old "mandos" user and group
