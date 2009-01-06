@@ -175,6 +175,9 @@ mandos.lsm: Makefile
 	$(SED) --in-place \
 		--expression='s/^\(Entered-date:\).*/\1\t$(shell date --rfc-3339=date --reference=Makefile)/' \
 		$@
+	$(SED) --in-place \
+		--expression='s/\(mandos_\)[0-9.]\+\(\.orig\.tar\.gz\)/\1$(version)\2/' \
+		$@
 
 plugins.d/mandos-client: plugins.d/mandos-client.o
 	$(LINK.o) $(GNUTLS_LIBS) $(AVAHI_LIBS) $(GPGME_LIBS) \
