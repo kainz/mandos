@@ -1,11 +1,17 @@
+mandos (1.0.3-2) unstable; urgency=low
+
+  * Removed some now-unused debconf files.
+  * Changed postinst scripts to not source debconf/confmodule.
+  * Removed po-debconf from build-depends.
+
+ -- Teddy Hogeborn <teddy@fukt.bsnet.se>  Tue, 06 Jan 2009 21:28:20 +0100
+
 mandos (1.0.3-1) unstable; urgency=low
 
   * New upstream release.
-    
   * Add -Xlinker to linker flags to fix FTBFS for some architectures.
     Thanks to Thiemo Seufer <ths@networkno.de> for the report and
     fix. (Closes:  #509398)
-    
   * Remove debconf use altogether, thereby stopping debconf abuse.  Thanks
     to Christian Perrier <bubulle@debian.org>. (Closes:  #509653)
   * Add NEWS file to /usr/share/doc directories.
