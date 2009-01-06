@@ -15,7 +15,7 @@ LINK_FORTIFY=-z relro -pie
 OPTIMIZE=-Os
 LANGUAGE=-std=gnu99
 htmldir=man
-version=1.0.2
+version=1.0.3
 SED=sed
 
 ## Use these settings for a traditional /usr/local install
