@@ -203,7 +203,8 @@ check:	all
 run-client: all keydir/seckey.txt keydir/pubkey.txt
 	./plugin-runner --plugin-dir=plugins.d \
 		--config-file=plugin-runner.conf \
-		--options-for=mandos-client:--seckey=keydir/seckey.txt,--pubkey=keydir/pubkey.txt
+		--options-for=mandos-client:--seckey=keydir/seckey.txt,--pubkey=keydir/pubkey.txt \
+		$(CLIENTARGS)
 
 # Used by run-client
 keydir/seckey.txt keydir/pubkey.txt: mandos-keygen
@@ -212,7 +213,7 @@ keydir/seckey.txt keydir/pubkey.txt: mandos-keygen
 
 # Run the server with a local config
 run-server: confdir/mandos.conf confdir/clients.conf
-	./mandos --debug --configdir=confdir
+	./mandos --debug --configdir=confdir $(SERVERARGS)
 
 # Used by run-server
 confdir/mandos.conf: mandos.conf
