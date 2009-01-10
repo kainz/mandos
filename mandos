@@ -972,7 +972,7 @@ def main():
     # Parse config file with clients
     client_defaults = { "timeout": "1h",
                         "interval": "5m",
-                        "checker": "fping -q -- %(host)s",
+                        "checker": "fping -q -- %%(host)s",
                         "host": "",
                         }
     client_config = ConfigParser.SafeConfigParser(client_defaults)
