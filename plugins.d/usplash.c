@@ -193,6 +193,10 @@ int main(__attribute__((unused))int argc,
 	struct stat exe_stat;
 	ret = lstat(exe_link, &exe_stat);
 	if(ret == -1){
+	  if(errno == ENOENT){
+	    free(exe_link);
+	    continue;
+	  }
 	  perror("lstat");
 	  free(exe_link);
 	  free(prompt);
@@ -208,9 +212,6 @@ int main(__attribute__((unused))int argc,
 	
 	sret = readlink(exe_link, exe_target, sizeof(exe_target));
 	free(exe_link);
-	if(sret == -1){
-	  continue;
-	}
       }
       if((sret == ((ssize_t)sizeof(exe_target)-1))
 	 and (memcmp(usplash_name, exe_target,
