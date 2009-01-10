@@ -1,6 +1,6 @@
 /*  -*- coding: utf-8 -*- */
 /*
- * Passprompt - Read a password from splashy and output it
+ * Splashy - Read a password from splashy and output it
  * 
  * Copyright © 2008,2009 Teddy Hogeborn
  * Copyright © 2008,2009 Björn Påhlsson

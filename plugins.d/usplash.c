@@ -1,6 +1,6 @@
 /*  -*- coding: utf-8 -*- */
 /*
- * Passprompt - Read a password from usplash and output it
+ * Usplash - Read a password from usplash and output it
  * 
  * Copyright © 2008,2009 Teddy Hogeborn
  * Copyright © 2008,2009 Björn Påhlsson

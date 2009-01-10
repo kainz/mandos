@@ -1,6 +1,6 @@
 /*  -*- coding: utf-8 -*- */
 /*
- * Mandos client - get and decrypt data from a Mandos server
+ * Mandos-client - get and decrypt data from a Mandos server
  *
  * This program is partly derived from an example program for an Avahi
  * service browser, downloaded from
