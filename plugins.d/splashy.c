@@ -120,6 +120,10 @@ int main(__attribute__((unused))int argc,
 	struct stat exe_stat;
 	ret = lstat(exe_link, &exe_stat);
 	if(ret == -1){
+	  if(errno == ENOENT){
+	    free(exe_link);
+	    continue;
+	  }
 	  perror("lstat");
 	  free(exe_link);
 	  free(prompt);
