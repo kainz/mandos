@@ -3,7 +3,7 @@
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY CONFNAME "mandos-clients.conf">
 <!ENTITY CONFPATH "<filename>/etc/mandos/clients.conf</filename>">
-<!ENTITY TIMESTAMP "2009-01-04">
+<!ENTITY TIMESTAMP "2009-01-08">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -170,7 +170,7 @@
 	    <varname>PATH</varname> will be searched.  The default
 	    value for the checker command is <quote><literal
 	    ><command>fping</command> <option>-q</option> <option
-	    >--</option> %(host)s</literal></quote>.
+	    >--</option> %%(host)s</literal></quote>.
 	  </para>
 	  <para>
 	    In addition to normal start time expansion, this option
@@ -351,7 +351,7 @@
 [DEFAULT]
 timeout = 1h
 interval = 5m
-checker = fping -q -- %(host)s
+checker = fping -q -- %%(host)s
 
 # Client "foo"
 [foo]

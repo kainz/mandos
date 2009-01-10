@@ -156,7 +156,7 @@ static bool init_gpgme(mandos_context *mc, const char *seckey,
     int fd;
     gpgme_data_t pgp_data;
     
-    fd = TEMP_FAILURE_RETRY(open(filename, O_RDONLY));
+    fd = (int)TEMP_FAILURE_RETRY(open(filename, O_RDONLY));
     if(fd == -1){
       perror("open");
       return false;
@@ -176,7 +176,7 @@ static bool init_gpgme(mandos_context *mc, const char *seckey,
       return false;
     }
     
-    ret = TEMP_FAILURE_RETRY(close(fd));
+    ret = (int)TEMP_FAILURE_RETRY(close(fd));
     if(ret == -1){
       perror("close");
     }
@@ -501,6 +501,7 @@ static int start_mandos_communication(const char *ip, uint16_t port,
 				      AvahiIfIndex if_index,
 				      mandos_context *mc){
   int ret, tcp_sd;
+  ssize_t sret;
   union { struct sockaddr in; struct sockaddr_in6 in6; } to;
   char *buffer = NULL;
   char *decrypted_buffer;
@@ -577,7 +578,7 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   written = 0;
   while (true){
     size_t out_size = strlen(out);
-    ret = TEMP_FAILURE_RETRY(write(tcp_sd, out + written,
+    ret = (int)TEMP_FAILURE_RETRY(write(tcp_sd, out + written,
 				   out_size - written));
     if (ret == -1){
       perror("write");
@@ -632,13 +633,13 @@ static int start_mandos_communication(const char *ip, uint16_t port,
       goto mandos_end;
     }
     
-    ret = gnutls_record_recv(session, buffer+buffer_length,
-			     BUFFER_SIZE);
-    if (ret == 0){
+    sret = gnutls_record_recv(session, buffer+buffer_length,
+			      BUFFER_SIZE);
+    if (sret == 0){
       break;
     }
-    if (ret < 0){
-      switch(ret){
+    if (sret < 0){
+      switch(sret){
       case GNUTLS_E_INTERRUPTED:
       case GNUTLS_E_AGAIN:
 	break;
@@ -661,7 +662,7 @@ static int start_mandos_communication(const char *ip, uint16_t port,
 	goto mandos_end;
       }
     } else {
-      buffer_length += (size_t) ret;
+      buffer_length += (size_t) sret;
     }
   }
   
@@ -703,7 +704,7 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   
  mandos_end:
   free(buffer);
-  ret = TEMP_FAILURE_RETRY(close(tcp_sd));
+  ret = (int)TEMP_FAILURE_RETRY(close(tcp_sd));
   if(ret == -1){
     perror("close");
   }
@@ -940,7 +941,7 @@ int main(int argc, char *argv[]){
 	  goto end;
 	}
       }
-      ret = TEMP_FAILURE_RETRY(close(sd));
+      ret = (int)TEMP_FAILURE_RETRY(close(sd));
       if(ret == -1){
 	perror("close");
       }

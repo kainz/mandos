@@ -9,8 +9,9 @@ WARN=-O -Wall -Wformat=2 -Winit-self -Wmissing-include-dirs \
 #DEBUG=-ggdb3
 # For info about _FORTIFY_SOURCE, see
 # <http://gcc.gnu.org/ml/gcc-patches/2004-09/msg02055.html>
-FORTIFY=-D_FORTIFY_SOURCE=2 -fstack-protector-all -fPIE -pie
-LINK_FORTIFY=-z relro -pie
+FORTIFY=-D_FORTIFY_SOURCE=2 -fstack-protector-all -fPIC -fPIE
+LINK_FORTIFY_LD=-z relro -fPIE
+LINK_FORTIFY=-pie
 #COVERAGE=--coverage
 OPTIMIZE=-Os
 LANGUAGE=-std=gnu99
@@ -45,7 +46,7 @@ GPGME_LIBS=$(shell gpgme-config --libs)
 CFLAGS=$(WARN) $(DEBUG) $(FORTIFY) $(COVERAGE) $(OPTIMIZE) \
 	$(LANGUAGE) $(GNUTLS_CFLAGS) $(AVAHI_CFLAGS) $(GPGME_CFLAGS) \
 	-DVERSION='"$(version)"'
-LDFLAGS=$(COVERAGE) $(foreach flag,$(LINK_FORTIFY),-Xlinker $(flag))
+LDFLAGS=$(COVERAGE) $(LINK_FORTIFY) $(foreach flag,$(LINK_FORTIFY_LD),-Xlinker $(flag))
 
 # Commands to format a DocBook <refentry> document into a manual page
 DOCBOOKTOMAN=cd $(dir $<); xsltproc --nonet --xinclude \
@@ -170,6 +171,9 @@ mandos.lsm: Makefile
 	$(SED) --in-place \
 		--expression='s/^\(Entered-date:\).*/\1\t$(shell date --rfc-3339=date --reference=Makefile)/' \
 		$@
+	$(SED) --in-place \
+		--expression='s/\(mandos_\)[0-9.]\+\(\.orig\.tar\.gz\)/\1$(version)\2/' \
+		$@
 
 plugins.d/mandos-client: plugins.d/mandos-client.o
 	$(LINK.o) $(GNUTLS_LIBS) $(AVAHI_LIBS) $(GPGME_LIBS) \
@@ -194,7 +198,8 @@ check:	all
 run-client: all keydir/seckey.txt keydir/pubkey.txt
 	./plugin-runner --plugin-dir=plugins.d \
 		--config-file=plugin-runner.conf \
-		--options-for=mandos-client:--seckey=keydir/seckey.txt,--pubkey=keydir/pubkey.txt
+		--options-for=mandos-client:--seckey=keydir/seckey.txt,--pubkey=keydir/pubkey.txt \
+		$(CLIENTARGS)
 
 # Used by run-client
 keydir/seckey.txt keydir/pubkey.txt: mandos-keygen
@@ -203,7 +208,7 @@ keydir/seckey.txt keydir/pubkey.txt: mandos-keygen
 
 # Run the server with a local config
 run-server: confdir/mandos.conf confdir/clients.conf
-	./mandos --debug --configdir=confdir
+	./mandos --debug --configdir=confdir $(SERVERARGS)
 
 # Used by run-server
 confdir/mandos.conf: mandos.conf
