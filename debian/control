@@ -6,7 +6,7 @@ Uploaders: Teddy Hogeborn <teddy@fukt.bsnet.se>,
 	   Björn Påhlsson <belorn@fukt.bsnet.se>
 Build-Depends: debhelper (>= 7), docbook-xml, docbook-xsl,
 	libavahi-core-dev, libgpgme11-dev, libgnutls-dev, xsltproc,
-	po-debconf, pkg-config
+	pkg-config
 Standards-Version: 3.8.0
 Vcs-Bzr: http://ftp.fukt.bsnet.se/pub/mandos/trunk
 Vcs-Browser: http://bzr.fukt.bsnet.se/loggerhead/mandos/trunk/files

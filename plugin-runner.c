@@ -309,6 +309,7 @@ int main(int argc, char *argv[]){
   struct stat st;
   fd_set rfds_all;
   int ret, maxfd = 0;
+  ssize_t sret;
   uid_t uid = 65534;
   gid_t gid = 65534;
   bool debug = false;
@@ -546,7 +547,6 @@ int main(int argc, char *argv[]){
     char *org_line = NULL;
     char *p, *arg, *new_arg, *line;
     size_t size = 0;
-    ssize_t sret;
     const char whitespace_delims[] = " \r\t\f\v\n";
     const char comment_delim[] = "#";
 
@@ -1019,18 +1019,18 @@ int main(int argc, char *argv[]){
 	proc->buffer_size += BUFFER_SIZE;
       }
       /* Read from the process */
-      ret = read(proc->fd, proc->buffer + proc->buffer_length,
-		 BUFFER_SIZE);
-      if(ret < 0){
+      sret = read(proc->fd, proc->buffer + proc->buffer_length,
+		  BUFFER_SIZE);
+      if(sret < 0){
 	/* Read error from this process; ignore the error */
 	proc = proc->next;
 	continue;
       }
-      if(ret == 0){
+      if(sret == 0){
 	/* got EOF */
 	proc->eof = true;
       } else {
-	proc->buffer_length += (size_t) ret;
+	proc->buffer_length += (size_t) sret;
       }
     }
   }

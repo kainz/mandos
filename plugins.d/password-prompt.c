@@ -1,6 +1,6 @@
 /*  -*- coding: utf-8 -*- */
 /*
- * Passprompt - Read a password from the terminal and print it
+ * Password-prompt - Read a password from the terminal and print it
  * 
  * Copyright © 2008,2009 Teddy Hogeborn
  * Copyright © 2008,2009 Björn Påhlsson
@@ -79,7 +79,7 @@ int main(int argc, char **argv){
 	.doc = "Debug mode", .group = 3 },
       { .name = NULL }
     };
-  
+    
     error_t parse_opt (int key, char *arg, struct argp_state *state) {
       /* Get the INPUT argument from `argp_parse', which we know is a
 	 pointer to our plugin list pointer. */
@@ -100,7 +100,7 @@ int main(int argc, char **argv){
       }
       return 0;
     }
-  
+    
     struct argp argp = { .options = options, .parser = parse_opt,
 			 .args_doc = "",
 			 .doc = "Mandos password-prompt -- Read and"
@@ -111,7 +111,7 @@ int main(int argc, char **argv){
       return EXIT_FAILURE;
     }
   }
-    
+  
   if (debug){
     fprintf(stderr, "Starting %s\n", argv[0]);
   }
@@ -250,7 +250,7 @@ int main(int argc, char **argv){
       fprintf(stderr, "getline() returned 0, retrying.\n");
     }
   }
-
+  
   free(buffer);
   
   if (debug){

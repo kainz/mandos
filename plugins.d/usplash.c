@@ -1,6 +1,6 @@
 /*  -*- coding: utf-8 -*- */
 /*
- * Passprompt - Read a password from usplash and output it
+ * Usplash - Read a password from usplash and output it
  * 
  * Copyright © 2008,2009 Teddy Hogeborn
  * Copyright © 2008,2009 Björn Påhlsson
@@ -92,10 +92,11 @@ static bool usplash_write(const char *cmd, const char *arg){
   }
   
   size_t written = 0;
+  ssize_t sret = 0;
   while(not interrupted_by_signal and written < cmd_line_len){
-    ret = write(fifo_fd, cmd_line + written,
-		cmd_line_len - written);
-    if(ret == -1){
+    sret = write(fifo_fd, cmd_line + written,
+		 cmd_line_len - written);
+    if(sret == -1){
       if(errno != EINTR or interrupted_by_signal){
 	int e = errno;
 	close(fifo_fd);
@@ -106,7 +107,7 @@ static bool usplash_write(const char *cmd, const char *arg){
 	continue;
       }
     }
-    written += (size_t)ret;
+    written += (size_t)sret;
   }
   free(cmd_line_alloc);
   do{
@@ -192,6 +193,10 @@ int main(__attribute__((unused))int argc,
 	struct stat exe_stat;
 	ret = lstat(exe_link, &exe_stat);
 	if(ret == -1){
+	  if(errno == ENOENT){
+	    free(exe_link);
+	    continue;
+	  }
 	  perror("lstat");
 	  free(exe_link);
 	  free(prompt);
@@ -207,9 +212,6 @@ int main(__attribute__((unused))int argc,
 	
 	sret = readlink(exe_link, exe_target, sizeof(exe_target));
 	free(exe_link);
-	if(sret == -1){
-	  continue;
-	}
       }
       if((sret == ((ssize_t)sizeof(exe_target)-1))
 	 and (memcmp(usplash_name, exe_target,

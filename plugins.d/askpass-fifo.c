@@ -1,6 +1,6 @@
 /*  -*- coding: utf-8 -*- */
 /*
- * Passprompt - Read a password from a FIFO and output it
+ * Askpass-FIFO - Read a password from a FIFO and output it
  * 
  * Copyright © 2008,2009 Teddy Hogeborn
  * Copyright © 2008,2009 Björn Påhlsson
@@ -43,14 +43,14 @@ int main(__attribute__((unused))int argc,
   
   /* Create FIFO */
   const char passfifo[] = "/lib/cryptsetup/passfifo";
-  ret = TEMP_FAILURE_RETRY(mkfifo(passfifo, S_IRUSR | S_IWUSR));
+  ret = (int)TEMP_FAILURE_RETRY(mkfifo(passfifo, S_IRUSR | S_IWUSR));
   if(ret == -1 and errno != EEXIST){
     perror("mkfifo");
     return EXIT_FAILURE;
   }
   
   /* Open FIFO */
-  int fifo_fd = TEMP_FAILURE_RETRY(open(passfifo, O_RDONLY));
+  int fifo_fd = (int)TEMP_FAILURE_RETRY(open(passfifo, O_RDONLY));
   if(fifo_fd == -1){
     perror("open");
     return EXIT_FAILURE;
