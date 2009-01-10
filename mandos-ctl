@@ -1,10 +1,13 @@
 #!/usr/bin/python
 # -*- mode: python; coding: utf-8 -*-
 
+from __future__ import division
 import sys
 import dbus
 from optparse import OptionParser
 import locale
+import datetime
+import re
 
 locale.setlocale(locale.LC_ALL, u'')
 
@@ -35,21 +38,77 @@ mandos_serv = dbus.Interface(mandos_dbus_objc,
                              dbus_interface = server_interface)
 mandos_clients = mandos_serv.GetAllClientsWithProperties()
 
-def print_clients():
-    def valuetostring(x):
-        if type(x) is dbus.Boolean:
-            return u"Yes" if x else u"No"
-        else:
-            return unicode(x)
+def datetime_to_milliseconds(dt):
+    "Return the 'timeout' attribute in milliseconds"
+    return ((dt.days * 24 * 60 * 60 * 1000)
+            + (dt.seconds * 1000)
+            + (dt.microseconds // 1000))
+
+def milliseconds_to_string(ms):
+    td = datetime.timedelta(0, 0, 0, ms)
+    return "%s%02d:%02d:%02d" % (("%dT" % td.days) if td.days else "", # days
+                           td.seconds // 3600,        # hours
+                           (td.seconds % 3600) // 60, # minutes
+                           (td.seconds % 60))         # seconds
+
+
+def string_to_delta(interval):
+    """Parse a string and return a datetime.timedelta
+
+    >>> string_to_delta('7d')
+    datetime.timedelta(7)
+    >>> string_to_delta('60s')
+    datetime.timedelta(0, 60)
+    >>> string_to_delta('60m')
+    datetime.timedelta(0, 3600)
+    >>> string_to_delta('24h')
+    datetime.timedelta(1)
+    >>> string_to_delta(u'1w')
+    datetime.timedelta(7)
+    >>> string_to_delta('5m 30s')
+    datetime.timedelta(0, 330)
+    """
+    timevalue = datetime.timedelta(0)
+    regexp = re.compile("\d+[dsmhw]")
+    
+    for s in regexp.findall(interval):
+        try:
+            suffix = unicode(s[-1])
+            value = int(s[:-1])
+            if suffix == u"d":
+                delta = datetime.timedelta(value)
+            elif suffix == u"s":
+                delta = datetime.timedelta(0, value)
+            elif suffix == u"m":
+                delta = datetime.timedelta(0, 0, 0, 0, value)
+            elif suffix == u"h":
+                delta = datetime.timedelta(0, 0, 0, 0, 0, value)
+            elif suffix == u"w":
+                delta = datetime.timedelta(0, 0, 0, 0, 0, 0, value)
+            else:
+                raise ValueError
+        except (ValueError, IndexError):
+            raise ValueError
+        timevalue += delta
+    return timevalue
+
+def print_clients(clients):
+    def valuetostring(value, keyword):
+        if type(value) is dbus.Boolean:
+            return u"Yes" if value else u"No"
+        if keyword in ("timeout", "interval"):
+            return milliseconds_to_string(value)
+        return unicode(value)
+    
     format_string = u' '.join(u'%%-%ds' %
                               max(len(tablewords[key]),
-                                  max(len(valuetostring(client[key]))
+                                  max(len(valuetostring(client[key], key))
                                       for client in
-                                      mandos_clients.itervalues()))
+                                      clients))
                               for key in keywords)
     print format_string % tuple(tablewords[key] for key in keywords) 
-    for client in mandos_clients.itervalues():
-        print format_string % tuple(valuetostring(client[key])
+    for client in clients:
+        print format_string % tuple(valuetostring(client[key], key)
                                     for key in keywords)
 
 parser = OptionParser(version = "%%prog %s" % version)
@@ -59,12 +118,24 @@ parser.add_option("-e", "--enable", action="store_true",
                   help="Enable specified client")
 parser.add_option("-d", "--disable", action="store_true",
                   help="disable specified client")
-parser.add_option("-b", "--bumptimeout", action="store_true",
+parser.add_option("-b", "--bump-timeout", action="store_true",
                   help="Bump timeout of specified client")
-parser.add_option("-s", "--startchecker", action="store_true",
+parser.add_option("--start-checker", action="store_true",
                   help="Start checker for specified client")
-parser.add_option("-S", "--stopchecker", action="store_true",
+parser.add_option("--stop-checker", action="store_true",
                   help="Stop checker for specified client")
+parser.add_option("-v", "--is-valid", action="store_true",
+                  help="Stop checker for specified client")
+parser.add_option("-c", "--checker", type="string",
+                  help="Set checker command for specified client")
+parser.add_option("-t", "--timeout", type="string",
+                  help="Set timeout for specified client")
+parser.add_option("-i", "--interval", type="string",
+                  help="Set checker interval for specified client")
+parser.add_option("-H", "--host", type="string",
+                  help="Set host for specified client")
+parser.add_option("-s", "--secret", type="string",
+                  help="Set password blob (file) for specified client")
 options, client_names = parser.parse_args()
 
 clients=[]
@@ -86,17 +157,31 @@ if not clients:
         keywords = ('name', 'enabled', 'timeout', 'last_checked_ok',
                     'created', 'interval', 'host', 'fingerprint',
                     'checker_running', 'last_enabled', 'checker')
-    print_clients()
-
+    print_clients(mandos_clients.values())
+    
 for client in clients:
     if options.enable:
         client.Enable()
     if options.disable:
         client.Disable()
-    if options.bumptimeout:
+    if options.bump_timeout:
         client.BumpTimeout()
-    if options.startchecker:
+    if options.start_checker:
         client.StartChecker()
-    if options.stopchecker:
+    if options.stop_checker:
         client.StopChecker()
-
+    if options.is_valid:
+        sys.exit(0 if client.IsStillValid() else 1)
+    if options.checker:
+        client.SetChecker(options.checker)
+    if options.host:
+        client.SetHost(options.host)
+    if options.interval:
+        client.SetInterval(datetime_to_milliseconds
+                           (string_to_delta(options.interval)))
+    if options.timeout:
+        client.SetTimeout(datetime_to_milliseconds
+                          (string_to_delta(options.timeout)))
+    if options.secret:
+        client.SetSecret(dbus.ByteArray(open(options.secret, 'rb').read()))
+    
