@@ -1,6 +1,6 @@
 /*  -*- coding: utf-8 -*- */
 /*
- * Passprompt - Read a password from the terminal and print it
+ * Password-prompt - Read a password from the terminal and print it
  * 
  * Copyright © 2008,2009 Teddy Hogeborn
  * Copyright © 2008,2009 Björn Påhlsson
