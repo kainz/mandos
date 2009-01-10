@@ -92,10 +92,11 @@ static bool usplash_write(const char *cmd, const char *arg){
   }
   
   size_t written = 0;
+  ssize_t sret = 0;
   while(not interrupted_by_signal and written < cmd_line_len){
-    ret = write(fifo_fd, cmd_line + written,
-		cmd_line_len - written);
-    if(ret == -1){
+    sret = write(fifo_fd, cmd_line + written,
+		 cmd_line_len - written);
+    if(sret == -1){
       if(errno != EINTR or interrupted_by_signal){
 	int e = errno;
 	close(fifo_fd);
@@ -106,7 +107,7 @@ static bool usplash_write(const char *cmd, const char *arg){
 	continue;
       }
     }
-    written += (size_t)ret;
+    written += (size_t)sret;
   }
   free(cmd_line_alloc);
   do{
