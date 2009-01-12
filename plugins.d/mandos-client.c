@@ -36,7 +36,7 @@
 #define _GNU_SOURCE		/* TEMP_FAILURE_RETRY(), asprintf() */
 
 #include <stdio.h>		/* fprintf(), stderr, fwrite(),
-				   stdout, ferror() */
+				   stdout, ferror(), sscanf */
 #include <stdint.h> 		/* uint16_t, uint32_t */
 #include <stddef.h>		/* NULL, size_t, ssize_t */
 #include <stdlib.h> 		/* free(), EXIT_SUCCESS, EXIT_FAILURE,
@@ -55,7 +55,7 @@
 				   connect() */
 #include <fcntl.h>		/* open() */
 #include <dirent.h>		/* opendir(), struct dirent, readdir() */
-#include <inttypes.h>		/* PRIu16 */
+#include <inttypes.h>		/* PRIu16, SCNu16 */
 #include <assert.h>		/* assert() */
 #include <errno.h>		/* perror(), errno */
 #include <time.h>		/* time() */
@@ -67,7 +67,7 @@
 				   getuid(), getgid(), setuid(),
 				   setgid() */
 #include <arpa/inet.h>		/* inet_pton(), htons */
-#include <iso646.h>		/* not, and */
+#include <iso646.h>		/* not, and, or */
 #include <argp.h>		/* struct argp_option, error_t, struct
 				   argp_state, struct argp,
 				   argp_parse(), ARGP_KEY_ARG,
@@ -866,8 +866,6 @@ int main(int argc, char *argv[]){
       
       error_t parse_opt (int key, char *arg,
 			 struct argp_state *state) {
-	/* Get the INPUT argument from `argp_parse', which we know is
-	   a pointer to our plugin list pointer. */
 	switch (key) {
 	case 128:		/* --debug */
 	  debug = true;
@@ -885,10 +883,9 @@ int main(int argc, char *argv[]){
 	  pubkey = arg;
 	  break;
 	case 129:		/* --dh-bits */
-	  errno = 0;
-	  mc.dh_bits = (unsigned int) strtol(arg, NULL, 10);
-	  if (errno){
-	    perror("strtol");
+	  ret = sscanf(arg, "%u", &mc.dh_bits);
+	  if(ret == 0 or mc.dh_bits == 0){
+	    fprintf(stderr, "Bad number of DH bits\n");
 	    exit(EXIT_FAILURE);
 	  }
 	  break;
@@ -998,10 +995,10 @@ int main(int argc, char *argv[]){
 	exitcode = EXIT_FAILURE;
 	goto end;
       }
-      errno = 0;
-      uint16_t port = (uint16_t) strtol(address+1, NULL, 10);
-      if(errno){
-	perror("Bad port number");
+      uint16_t port;
+      ret = sscanf(address+1, "%" SCNu16, &port);
+      if(ret == 0 or port == 0){
+	fprintf(stderr, "Bad port number\n");
 	exitcode = EXIT_FAILURE;
 	goto end;
       }
@@ -1110,7 +1107,9 @@ int main(int argc, char *argv[]){
       struct dirent *direntry;
       d = opendir(tempdir);
       if(d == NULL){
-	perror("opendir");
+	if(errno != ENOENT){
+	  perror("opendir");
+	}
       } else {
 	while(true){
 	  direntry = readdir(d);
@@ -1136,7 +1135,7 @@ int main(int argc, char *argv[]){
 	closedir(d);
       }
       ret = rmdir(tempdir);
-      if(ret == -1){
+      if(ret == -1 and errno != ENOENT){
 	perror("rmdir");
       }
     }
