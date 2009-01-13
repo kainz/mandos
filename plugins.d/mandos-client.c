@@ -365,7 +365,8 @@ static ssize_t pgp_packet_decrypt(const mandos_context *mc,
 }
 
 static const char * safer_gnutls_strerror(int value) {
-  const char *ret = gnutls_strerror(value); /* Spurious warning */
+  const char *ret = gnutls_strerror(value); /* Spurious warning from
+					       -Wunreachable-code */
   if(ret == NULL)
     ret = "(unknown)";
   return ret;
@@ -404,8 +405,10 @@ static int init_gnutls_global(mandos_context *mc,
   /* OpenPGP credentials */
   gnutls_certificate_allocate_credentials(&mc->cred);
   if(ret != GNUTLS_E_SUCCESS){
-    fprintf(stderr, "GnuTLS memory error: %s\n", /* Spurious
-						    warning */
+    fprintf(stderr, "GnuTLS memory error: %s\n", /* Spurious warning
+						  * from
+						  * -Wunreachable-code
+						  */
 	    safer_gnutls_strerror(ret));
     gnutls_global_deinit();
     return -1;
@@ -553,7 +556,9 @@ static int start_mandos_communication(const char *ip, uint16_t port,
     fprintf(stderr, "Bad address: %s\n", ip);
     return -1;
   }
-  to.in6.sin6_port = htons(port); /* Spurious warning */
+  to.in6.sin6_port = htons(port); /* Spurious warnings from
+				     -Wconversion and
+				     -Wunreachable-code */
   
   to.in6.sin6_scope_id = (uint32_t)if_index;
   
