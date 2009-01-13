@@ -269,7 +269,7 @@ int main(__attribute__((unused))int argc,
     /* Child; will become new splashy process */
     
     /* Make the effective user ID (root) the only user ID instead of
-       the real user ID (mandos) */
+       the real user ID (_mandos) */
     ret = setuid(geteuid());
     if(ret == -1){
       perror("setuid");

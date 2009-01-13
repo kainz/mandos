@@ -81,8 +81,6 @@ int main(int argc, char **argv){
     };
     
     error_t parse_opt (int key, char *arg, struct argp_state *state) {
-      /* Get the INPUT argument from `argp_parse', which we know is a
-	 pointer to our plugin list pointer. */
       switch (key) {
       case 'p':
 	prefix = arg;

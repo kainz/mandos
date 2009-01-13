@@ -464,17 +464,17 @@ int main(int argc, char *argv[]){
       break;
     case 130:			/* --userid */
       /* In the GNU C library, uid_t is always unsigned int */
-      ret = sscanf(arg, "%ud", &uid);
+      ret = sscanf(arg, "%u", &uid);
       if(ret != 1){
-	fprintf(stderr, "Bad user ID number: \"%s\", using %ud\n",
-		arg, uid);
+	fprintf(stderr, "Bad user ID number: \"%s\", using %u\n", arg,
+		uid);
       }
       break;
     case 131:			/* --groupid */
       /* In the GNU C library, gid_t is always unsigned int */
-      ret = sscanf(arg, "%ud", &gid);
+      ret = sscanf(arg, "%u", &gid);
       if(ret != 1){
-	fprintf(stderr, "Bad group ID number: \"%s\", using %ud\n",
+	fprintf(stderr, "Bad group ID number: \"%s\", using %u\n",
 		arg, gid);
       }
       break;
@@ -539,7 +539,7 @@ int main(int argc, char *argv[]){
 		       .args_doc = "",
 		       .doc = "Mandos plugin runner -- Run plugins" };
   
-  /* Parse using the parse_opt_config_file in order to get the custom
+  /* Parse using parse_opt_config_file() in order to get the custom
      config file location, if any. */
   ret = argp_parse (&argp, argc, argv, ARGP_IN_ORDER, 0, NULL);
   if (ret == ARGP_ERR_UNKNOWN){
@@ -968,7 +968,7 @@ int main(int argc, char *argv[]){
 		      (unsigned int) (proc->pid),
 		      WTERMSIG(proc->status));
 	    } else if(WCOREDUMP(proc->status)){
-	      fprintf(stderr, "Plugin %d dumped core\n",
+	      fprintf(stderr, "Plugin %u dumped core\n",
 		      (unsigned int) (proc->pid));
 	    }
 	  }
