@@ -30,8 +30,8 @@
 				   SIG_IGN, kill(), SIGKILL */
 #include <stddef.h>		/* NULL */
 #include <stdlib.h>		/* getenv() */
-#include <stdio.h>		/* asprintf(), perror() */
-#include <stdlib.h>		/* EXIT_FAILURE, free(), strtoul(),
+#include <stdio.h>		/* asprintf(), perror(), sscanf() */
+#include <stdlib.h>		/* EXIT_FAILURE, free(),
 				   EXIT_SUCCESS */
 #include <sys/types.h>		/* pid_t, DIR, struct dirent,
 				   ssize_t */
@@ -97,8 +97,10 @@ int main(__attribute__((unused))int argc,
     for(struct dirent *proc_ent = readdir(proc_dir);
 	proc_ent != NULL;
 	proc_ent = readdir(proc_dir)){
-      pid_t pid = (pid_t) strtoul(proc_ent->d_name, NULL, 10);
-      if(pid == 0){
+      pid_t pid;
+      /* In the GNU C library, pid_t is always int */
+      ret = sscanf(proc_ent->d_name, "%d", &pid);
+      if(ret != 1){ 
 	/* Not a process */
 	continue;
       }
