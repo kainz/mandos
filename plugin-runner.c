@@ -463,14 +463,28 @@ int main(int argc, char *argv[]){
       /* This is already done by parse_opt_config_file() */
       break;
     case 130:			/* --userid */
-      uid = (uid_t)strtol(arg, NULL, 10);
+      /* In the GNU C library, uid_t is always unsigned int */
+      ret = sscanf(arg, "%ud", &uid);
+      if(ret != 1){
+	fprintf(stderr, "Bad user ID number: \"%s\", using %ud\n",
+		arg, uid);
+      }
       break;
     case 131:			/* --groupid */
-      gid = (gid_t)strtol(arg, NULL, 10);
+      /* In the GNU C library, gid_t is always unsigned int */
+      ret = sscanf(arg, "%ud", &gid);
+      if(ret != 1){
+	fprintf(stderr, "Bad group ID number: \"%s\", using %ud\n",
+		arg, gid);
+      }
       break;
     case 132:			/* --debug */
       debug = true;
       break;
+/*
+ * When adding more options before this line, remember to also add a
+ * "case" to the "parse_opt_config_file" function below.
+ */
     case ARGP_KEY_ARG:
       /* Cryptsetup always passes an argument, which is an empty
 	 string if "none" was specified in /etc/crypttab.  So if

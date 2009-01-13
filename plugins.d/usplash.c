@@ -36,15 +36,14 @@
 				   dirent */
 #include <stddef.h>		/* NULL */
 #include <string.h>		/* strlen(), memcmp() */
-#include <stdio.h>		/* asprintf(), perror() */
+#include <stdio.h>		/* asprintf(), perror(), sscanf() */
 #include <unistd.h>		/* close(), write(), readlink(),
 				   read(), STDOUT_FILENO, sleep(),
 				   fork(), setuid(), geteuid(),
 				   setsid(), chdir(), dup2(),
 				   STDERR_FILENO, execv() */
-#include <stdlib.h>		/* free(), EXIT_FAILURE, strtoul(),
-				   realloc(), EXIT_SUCCESS, malloc(),
-				   _exit() */
+#include <stdlib.h>		/* free(), EXIT_FAILURE, realloc(),
+				   EXIT_SUCCESS, malloc(), _exit() */
 #include <stdlib.h>		/* getenv() */
 #include <dirent.h>		/* opendir(), readdir(), closedir() */
 #include <sys/stat.h>		/* struct stat, lstat(), S_ISLNK */
@@ -170,8 +169,10 @@ int main(__attribute__((unused))int argc,
     for(struct dirent *proc_ent = readdir(proc_dir);
 	proc_ent != NULL;
 	proc_ent = readdir(proc_dir)){
-      pid_t pid = (pid_t) strtoul(proc_ent->d_name, NULL, 10);
-      if(pid == 0){
+      pid_t pid;
+      /* In the GNU C library, pid_t is always int */
+      ret = sscanf(proc_ent->d_name, "%d", &pid);
+      if(ret != 1){
 	/* Not a process */
 	continue;
       }

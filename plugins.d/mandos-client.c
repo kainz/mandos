@@ -884,7 +884,7 @@ int main(int argc, char *argv[]){
 	  break;
 	case 129:		/* --dh-bits */
 	  ret = sscanf(arg, "%u", &mc.dh_bits);
-	  if(ret == 0 or mc.dh_bits == 0){
+	  if(ret != 1){
 	    fprintf(stderr, "Bad number of DH bits\n");
 	    exit(EXIT_FAILURE);
 	  }
@@ -997,7 +997,7 @@ int main(int argc, char *argv[]){
       }
       uint16_t port;
       ret = sscanf(address+1, "%" SCNu16, &port);
-      if(ret == 0 or port == 0){
+      if(ret != 1){
 	fprintf(stderr, "Bad port number\n");
 	exitcode = EXIT_FAILURE;
 	goto end;
