@@ -57,7 +57,7 @@
 #include <fcntl.h>		/* open() */
 #include <dirent.h>		/* opendir(), struct dirent, readdir()
 				 */
-#include <inttypes.h>		/* PRIu16, SCNu16 */
+#include <inttypes.h>		/* PRIu16, intmax_t, SCNdMAX */
 #include <assert.h>		/* assert() */
 #include <errno.h>		/* perror(), errno */
 #include <time.h>		/* time() */
@@ -754,8 +754,8 @@ static void resolve_callback(AvahiSServiceResolver *r,
       avahi_address_snprint(ip, sizeof(ip), address);
       if(debug){
 	fprintf(stderr, "Mandos server \"%s\" found on %s (%s, %"
-		PRIu16 ") on port %d\n", name, host_name, ip,
-		interface, port);
+		PRIdMAX ") on port %" PRIu16 "\n", name, host_name,
+		ip, (intmax_t)interface, port);
       }
       int ret = start_mandos_communication(ip, port, interface, mc);
       if(ret == 0){
@@ -821,6 +821,8 @@ int main(int argc, char *argv[]){
     AvahiSServiceBrowser *sb = NULL;
     int error;
     int ret;
+    intmax_t tmpmax;
+    int numchars;
     int exitcode = EXIT_SUCCESS;
     const char *interface = "eth0";
     struct ifreq network;
@@ -891,11 +893,13 @@ int main(int argc, char *argv[]){
 	  pubkey = arg;
 	  break;
 	case 129:		/* --dh-bits */
-	  ret = sscanf(arg, "%u", &mc.dh_bits);
-	  if(ret != 1){
+	  ret = sscanf(arg, "%" SCNdMAX "%n", &tmpmax, &numchars);
+	  if(ret < 1 or tmpmax != (typeof(mc.dh_bits))tmpmax
+	     or arg[numchars] != '\0'){
 	    fprintf(stderr, "Bad number of DH bits\n");
 	    exit(EXIT_FAILURE);
 	  }
+	  mc.dh_bits = (typeof(mc.dh_bits))tmpmax;
 	  break;
 	case 130:		/* --priority */
 	  mc.priority = arg;
@@ -1004,12 +1008,14 @@ int main(int argc, char *argv[]){
 	goto end;
       }
       uint16_t port;
-      ret = sscanf(address+1, "%" SCNu16, &port);
-      if(ret != 1){
+      ret = sscanf(address+1, "%" SCNdMAX "%n", &tmpmax, &numchars);
+      if(ret < 1 or tmpmax != (uint16_t)tmpmax
+	 or address[numchars+1] != '\0'){
 	fprintf(stderr, "Bad port number\n");
 	exitcode = EXIT_FAILURE;
 	goto end;
       }
+      port = (uint16_t)tmpmax;
       *address = '\0';
       address = connect_to;
       ret = start_mandos_communication(address, port, if_index, &mc);
