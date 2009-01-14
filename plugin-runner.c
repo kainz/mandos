@@ -64,6 +64,7 @@
 				   sigprocmask(), SIG_BLOCK, SIGCHLD,
 				   SIG_UNBLOCK, kill() */
 #include <errno.h>		/* errno, EBADF */
+#include <inttypes.h>		/* intmax_t, SCNdMAX, PRIdMAX,  */
 
 #define BUFFER_SIZE 256
 
@@ -308,8 +309,9 @@ int main(int argc, char *argv[]){
   struct dirent *dirst;
   struct stat st;
   fd_set rfds_all;
-  int ret, maxfd = 0;
+  int ret, numchars, maxfd = 0;
   ssize_t sret;
+  intmax_t tmpmax;
   uid_t uid = 65534;
   gid_t gid = 65534;
   bool debug = false;
@@ -463,19 +465,23 @@ int main(int argc, char *argv[]){
       /* This is already done by parse_opt_config_file() */
       break;
     case 130:			/* --userid */
-      /* In the GNU C library, uid_t is always unsigned int */
-      ret = sscanf(arg, "%u", &uid);
-      if(ret != 1){
-	fprintf(stderr, "Bad user ID number: \"%s\", using %u\n", arg,
-		uid);
+      ret = sscanf(arg, "%" SCNdMAX "%n", &tmpmax, &numchars);
+      if(ret < 1 or tmpmax != (uid_t)tmpmax
+	 or arg[numchars] != '\0'){
+	fprintf(stderr, "Bad user ID number: \"%s\", using %"
+		PRIdMAX "\n", arg, (intmax_t)uid);
+      } else {
+	uid = (uid_t)tmpmax;
       }
       break;
     case 131:			/* --groupid */
-      /* In the GNU C library, gid_t is always unsigned int */
-      ret = sscanf(arg, "%u", &gid);
-      if(ret != 1){
-	fprintf(stderr, "Bad group ID number: \"%s\", using %u\n",
-		arg, gid);
+      ret = sscanf(arg, "%" SCNdMAX "%n", &tmpmax, &numchars);
+      if(ret < 1 or tmpmax != (gid_t)tmpmax
+	 or arg[numchars] != '\0'){
+	fprintf(stderr, "Bad group ID number: \"%s\", using %"
+		PRIdMAX "\n", arg, (intmax_t)gid);
+      } else {
+	gid = (gid_t)tmpmax;
       }
       break;
     case 132:			/* --debug */
@@ -647,7 +653,7 @@ int main(int argc, char *argv[]){
       for(char **a = p->argv; *a != NULL; a++){
 	fprintf(stderr, "\tArg: %s\n", *a);
       }
-      fprintf(stderr, "...and %u environment variables\n", p->envc);
+      fprintf(stderr, "...and %d environment variables\n", p->envc);
       for(char **a = p->environ; *a != NULL; a++){
 	fprintf(stderr, "\t%s\n", *a);
       }
@@ -960,16 +966,16 @@ int main(int argc, char *argv[]){
 
 	  if(debug){
 	    if(WIFEXITED(proc->status)){
-	      fprintf(stderr, "Plugin %u exited with status %d\n",
-		      (unsigned int) (proc->pid),
+	      fprintf(stderr, "Plugin %" PRIdMAX " exited with status"
+		      " %d\n", (intmax_t) (proc->pid),
 		      WEXITSTATUS(proc->status));
 	    } else if(WIFSIGNALED(proc->status)) {
-	      fprintf(stderr, "Plugin %u killed by signal %d\n",
-		      (unsigned int) (proc->pid),
+	      fprintf(stderr, "Plugin %" PRIdMAX " killed by signal"
+		      " %d\n", (intmax_t) (proc->pid),
 		      WTERMSIG(proc->status));
 	    } else if(WCOREDUMP(proc->status)){
-	      fprintf(stderr, "Plugin %u dumped core\n",
-		      (unsigned int) (proc->pid));
+	      fprintf(stderr, "Plugin %" PRIdMAX " dumped core\n",
+		      (intmax_t) (proc->pid));
 	    }
 	  }
 	  

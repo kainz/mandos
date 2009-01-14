@@ -46,6 +46,7 @@
 				   EXIT_SUCCESS, malloc(), _exit() */
 #include <stdlib.h>		/* getenv() */
 #include <dirent.h>		/* opendir(), readdir(), closedir() */
+#include <inttypes.h>		/* intmax_t, SCNdMAX */
 #include <sys/stat.h>		/* struct stat, lstat(), S_ISLNK */
 
 sig_atomic_t interrupted_by_signal = 0;
@@ -170,11 +171,17 @@ int main(__attribute__((unused))int argc,
 	proc_ent != NULL;
 	proc_ent = readdir(proc_dir)){
       pid_t pid;
-      /* In the GNU C library, pid_t is always int */
-      ret = sscanf(proc_ent->d_name, "%d", &pid);
-      if(ret != 1){
-	/* Not a process */
-	continue;
+      {
+	intmax_t tmpmax;
+	int numchars;
+	ret = sscanf(proc_ent->d_name, "%" SCNdMAX "%n", &tmpmax,
+		     &numchars);
+	if(ret < 1 or tmpmax != (pid_t)tmpmax
+	   or proc_ent->d_name[numchars] != '\0'){
+	  /* Not a process */
+	  continue;
+	}
+	pid = (pid_t)tmpmax;
       }
       /* Find the executable name by doing readlink() on the
 	 /proc/<pid>/exe link */
