@@ -1,6 +1,18 @@
 This NEWS file records noteworthy changes, very tersely.
 See the manual for detailed information.
 
+Version 1.0.4 (2009-01-15)
+* Server
+** Only find matched user/group pairs when searching for suitable
+   nonprivileged user/group to switch to.
+
+* Client
+** New kernel parameter "mandos=off" makes client not run at boot.
+** Fix linking errors and compilation warnings on AMD64.
+** Parse numbers in command line options better.
+** The splashy and usplash plugins are more robust while traversing
+   /proc, and will not abort if a process suddenly disappears.
+
 Version 1.0.3 (2009-01-06)
 * Server
 ** Now tries to change to user and group "_mandos" before falling back
