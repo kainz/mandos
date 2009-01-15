@@ -1,3 +1,12 @@
+mandos (1.0.4-1) unstable; urgency=low
+
+  * New upstream release.
+  * debian/watch: New file.
+  * debian/mandos-client.README.Debian: Document new "mandos=off" kernel
+    parameter.
+
+ -- Teddy Hogeborn <teddy@fukt.bsnet.se>  Thu, 15 Jan 2009 05:49:22 +0100
+
 mandos (1.0.3-2) unstable; urgency=low
 
   * Removed some now-unused debconf files.
