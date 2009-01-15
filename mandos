@@ -35,7 +35,7 @@ from __future__ import division, with_statement, absolute_import
 
 import SocketServer
 import socket
-from optparse import OptionParser
+import optparse
 import datetime
 import errno
 import gnutls.crypto
@@ -66,7 +66,7 @@ from dbus.mainloop.glib import DBusGMainLoop
 import ctypes
 import ctypes.util
 
-version = "1.0.3"
+version = "1.0.4"
 
 logger = logging.Logger('mandos')
 syslogger = (logging.handlers.SysLogHandler
@@ -889,7 +889,7 @@ def daemon(nochdir = False, noclose = False):
 
 
 def main():
-    parser = OptionParser(version = "%%prog %s" % version)
+    parser = optparse.OptionParser(version = "%%prog %s" % version)
     parser.add_option("-i", "--interface", type="string",
                       metavar="IF", help="Bind to interface IF")
     parser.add_option("-a", "--address", type="string",
