@@ -64,6 +64,7 @@
 				   sigprocmask(), SIG_BLOCK, SIGCHLD,
 				   SIG_UNBLOCK, kill() */
 #include <errno.h>		/* errno, EBADF */
+#include <inttypes.h>		/* intmax_t, SCNdMAX, PRIdMAX,  */
 
 #define BUFFER_SIZE 256
 
@@ -99,15 +100,15 @@ static plugin *plugin_list = NULL;
    or if none is found, creates a new one */
 static plugin *getplugin(char *name){
   /* Check for exiting plugin with that name */
-  for (plugin *p = plugin_list; p != NULL; p = p->next){
-    if ((p->name == name)
-	or (p->name and name and (strcmp(p->name, name) == 0))){
+  for(plugin *p = plugin_list; p != NULL; p = p->next){
+    if((p->name == name)
+       or (p->name and name and (strcmp(p->name, name) == 0))){
       return p;
     }
   }
   /* Create a new plugin */
   plugin *new_plugin = malloc(sizeof(plugin));
-  if (new_plugin == NULL){
+  if(new_plugin == NULL){
     return NULL;
   }
   char *copy_name = NULL;
@@ -124,7 +125,7 @@ static plugin *getplugin(char *name){
 			   .next = plugin_list };
   
   new_plugin->argv = malloc(sizeof(char *) * 2);
-  if (new_plugin->argv == NULL){
+  if(new_plugin->argv == NULL){
     free(copy_name);
     free(new_plugin);
     return NULL;
@@ -230,7 +231,7 @@ static void handle_sigchld(__attribute__((unused)) int sig){
       break;
     }
     if(pid == -1){
-      if (errno != ECHILD){
+      if(errno != ECHILD){
 	perror("waitpid");
       }
       /* No child processes */
@@ -308,8 +309,9 @@ int main(int argc, char *argv[]){
   struct dirent *dirst;
   struct stat st;
   fd_set rfds_all;
-  int ret, maxfd = 0;
+  int ret, numchars, maxfd = 0;
   ssize_t sret;
+  intmax_t tmpmax;
   uid_t uid = 65534;
   gid_t gid = 65534;
   bool debug = false;
@@ -372,11 +374,11 @@ int main(int argc, char *argv[]){
     { .name = NULL }
   };
   
-  error_t parse_opt (int key, char *arg, __attribute__((unused))
-		     struct argp_state *state) {
-    switch (key) {
+  error_t parse_opt(int key, char *arg, __attribute__((unused))
+		    struct argp_state *state) {
+    switch(key) {
     case 'g': 			/* --global-options */
-      if (arg != NULL){
+      if(arg != NULL){
 	char *p;
 	while((p = strsep(&arg, ",")) != NULL){
 	  if(p[0] == '\0'){
@@ -398,7 +400,7 @@ int main(int argc, char *argv[]){
       }
       break;
     case 'o':			/* --options-for */
-      if (arg != NULL){
+      if(arg != NULL){
 	char *p_name = strsep(&arg, ":");
 	if(p_name[0] == '\0' or arg == NULL){
 	  break;
@@ -435,7 +437,7 @@ int main(int argc, char *argv[]){
       }
       break;
     case 'd':			/* --disable */
-      if (arg != NULL){
+      if(arg != NULL){
 	plugin *p = getplugin(arg);
 	if(p == NULL){
 	  return ARGP_ERR_UNKNOWN;
@@ -444,7 +446,7 @@ int main(int argc, char *argv[]){
       }
       break;
     case 'e':			/* --enable */
-      if (arg != NULL){
+      if(arg != NULL){
 	plugin *p = getplugin(arg);
 	if(p == NULL){
 	  return ARGP_ERR_UNKNOWN;
@@ -463,14 +465,32 @@ int main(int argc, char *argv[]){
       /* This is already done by parse_opt_config_file() */
       break;
     case 130:			/* --userid */
-      uid = (uid_t)strtol(arg, NULL, 10);
+      ret = sscanf(arg, "%" SCNdMAX "%n", &tmpmax, &numchars);
+      if(ret < 1 or tmpmax != (uid_t)tmpmax
+	 or arg[numchars] != '\0'){
+	fprintf(stderr, "Bad user ID number: \"%s\", using %"
+		PRIdMAX "\n", arg, (intmax_t)uid);
+      } else {
+	uid = (uid_t)tmpmax;
+      }
       break;
     case 131:			/* --groupid */
-      gid = (gid_t)strtol(arg, NULL, 10);
+      ret = sscanf(arg, "%" SCNdMAX "%n", &tmpmax, &numchars);
+      if(ret < 1 or tmpmax != (gid_t)tmpmax
+	 or arg[numchars] != '\0'){
+	fprintf(stderr, "Bad group ID number: \"%s\", using %"
+		PRIdMAX "\n", arg, (intmax_t)gid);
+      } else {
+	gid = (gid_t)tmpmax;
+      }
       break;
     case 132:			/* --debug */
       debug = true;
       break;
+/*
+ * When adding more options before this line, remember to also add a
+ * "case" to the "parse_opt_config_file" function below.
+ */
     case ARGP_KEY_ARG:
       /* Cryptsetup always passes an argument, which is an empty
 	 string if "none" was specified in /etc/crypttab.  So if
@@ -489,10 +509,10 @@ int main(int argc, char *argv[]){
   
   /* This option parser is the same as parse_opt() above, except it
      ignores everything but the --config-file option. */
-  error_t parse_opt_config_file (int key, char *arg,
-				 __attribute__((unused))
-				 struct argp_state *state) {
-    switch (key) {
+  error_t parse_opt_config_file(int key, char *arg,
+				__attribute__((unused))
+				struct argp_state *state) {
+    switch(key) {
     case 'g': 			/* --global-options */
     case 'G':			/* --global-env */
     case 'o':			/* --options-for */
@@ -525,10 +545,10 @@ int main(int argc, char *argv[]){
 		       .args_doc = "",
 		       .doc = "Mandos plugin runner -- Run plugins" };
   
-  /* Parse using the parse_opt_config_file in order to get the custom
+  /* Parse using parse_opt_config_file() in order to get the custom
      config file location, if any. */
-  ret = argp_parse (&argp, argc, argv, ARGP_IN_ORDER, 0, NULL);
-  if (ret == ARGP_ERR_UNKNOWN){
+  ret = argp_parse(&argp, argc, argv, ARGP_IN_ORDER, 0, NULL);
+  if(ret == ARGP_ERR_UNKNOWN){
     fprintf(stderr, "Unknown error while parsing arguments\n");
     exitstatus = EXIT_FAILURE;
     goto fallback;
@@ -538,7 +558,7 @@ int main(int argc, char *argv[]){
   argp.parser = parse_opt;
   
   /* Open the configfile if available */
-  if (argfile == NULL){
+  if(argfile == NULL){
     conffp = fopen(AFILE, "r");
   } else {
     conffp = fopen(argfile, "r");
@@ -599,7 +619,7 @@ int main(int argc, char *argv[]){
   } else {
     /* Check for harmful errors and go to fallback. Other errors might
        not affect opening plugins */
-    if (errno == EMFILE or errno == ENFILE or errno == ENOMEM){
+    if(errno == EMFILE or errno == ENFILE or errno == ENOMEM){
       perror("fopen");
       exitstatus = EXIT_FAILURE;
       goto fallback;
@@ -608,9 +628,9 @@ int main(int argc, char *argv[]){
   /* If there was any arguments from configuration file,
      pass them to parser as command arguments */
   if(custom_argv != NULL){
-    ret = argp_parse (&argp, custom_argc, custom_argv, ARGP_IN_ORDER,
-		      0, NULL);
-    if (ret == ARGP_ERR_UNKNOWN){
+    ret = argp_parse(&argp, custom_argc, custom_argv, ARGP_IN_ORDER,
+		     0, NULL);
+    if(ret == ARGP_ERR_UNKNOWN){
       fprintf(stderr, "Unknown error while parsing arguments\n");
       exitstatus = EXIT_FAILURE;
       goto fallback;
@@ -619,8 +639,8 @@ int main(int argc, char *argv[]){
   
   /* Parse actual command line arguments, to let them override the
      config file */
-  ret = argp_parse (&argp, argc, argv, ARGP_IN_ORDER, 0, NULL);
-  if (ret == ARGP_ERR_UNKNOWN){
+  ret = argp_parse(&argp, argc, argv, ARGP_IN_ORDER, 0, NULL);
+  if(ret == ARGP_ERR_UNKNOWN){
     fprintf(stderr, "Unknown error while parsing arguments\n");
     exitstatus = EXIT_FAILURE;
     goto fallback;
@@ -633,7 +653,7 @@ int main(int argc, char *argv[]){
       for(char **a = p->argv; *a != NULL; a++){
 	fprintf(stderr, "\tArg: %s\n", *a);
       }
-      fprintf(stderr, "...and %u environment variables\n", p->envc);
+      fprintf(stderr, "...and %d environment variables\n", p->envc);
       for(char **a = p->environ; *a != NULL; a++){
 	fprintf(stderr, "\t%s\n", *a);
       }
@@ -642,15 +662,15 @@ int main(int argc, char *argv[]){
   
   /* Strip permissions down to nobody */
   ret = setuid(uid);
-  if (ret == -1){
+  if(ret == -1){
     perror("setuid");
   }  
   setgid(gid);
-  if (ret == -1){
+  if(ret == -1){
     perror("setgid");
   }
   
-  if (plugindir == NULL){
+  if(plugindir == NULL){
     dir = opendir(PDIR);
   } else {
     dir = opendir(plugindir);
@@ -683,7 +703,7 @@ int main(int argc, char *argv[]){
     
     /* All directory entries have been processed */
     if(dirst == NULL){
-      if (errno == EBADF){
+      if(errno == EBADF){
 	perror("readdir");
 	exitstatus = EXIT_FAILURE;
 	goto fallback;
@@ -749,14 +769,14 @@ int main(int argc, char *argv[]){
     }
     
     ret = stat(filename, &st);
-    if (ret == -1){
+    if(ret == -1){
       perror("stat");
       free(filename);
       continue;
     }
 
     /* Ignore non-executable files */
-    if (not S_ISREG(st.st_mode)	or (access(filename, X_OK) != 0)){
+    if(not S_ISREG(st.st_mode) or (access(filename, X_OK) != 0)){
       if(debug){
 	fprintf(stderr, "Ignoring plugin dir entry \"%s\""
 		" with bad type or mode\n", filename);
@@ -809,7 +829,7 @@ int main(int argc, char *argv[]){
     
     int pipefd[2];
     ret = pipe(pipefd);
-    if (ret == -1){
+    if(ret == -1){
       perror("pipe");
       exitstatus = EXIT_FAILURE;
       goto fallback;
@@ -828,7 +848,7 @@ int main(int argc, char *argv[]){
       goto fallback;
     }
     /* Block SIGCHLD until process is safely in process list */
-    ret = sigprocmask (SIG_BLOCK, &sigchld_action.sa_mask, NULL);
+    ret = sigprocmask(SIG_BLOCK, &sigchld_action.sa_mask, NULL);
     if(ret < 0){
       perror("sigprocmask");
       exitstatus = EXIT_FAILURE;
@@ -882,9 +902,9 @@ int main(int argc, char *argv[]){
     close(pipefd[1]);		/* Close unused write end of pipe */
     free(filename);
     plugin *new_plugin = getplugin(dirst->d_name);
-    if (new_plugin == NULL){
+    if(new_plugin == NULL){
       perror("getplugin");
-      ret = sigprocmask (SIG_UNBLOCK, &sigchld_action.sa_mask, NULL);
+      ret = sigprocmask(SIG_UNBLOCK, &sigchld_action.sa_mask, NULL);
       if(ret < 0){
         perror("sigprocmask");
       }
@@ -897,7 +917,7 @@ int main(int argc, char *argv[]){
     
     /* Unblock SIGCHLD so signal handler can be run if this process
        has already completed */
-    ret = sigprocmask (SIG_UNBLOCK, &sigchld_action.sa_mask, NULL);
+    ret = sigprocmask(SIG_UNBLOCK, &sigchld_action.sa_mask, NULL);
     if(ret < 0){
       perror("sigprocmask");
       exitstatus = EXIT_FAILURE;
@@ -906,7 +926,7 @@ int main(int argc, char *argv[]){
     
     FD_SET(new_plugin->fd, &rfds_all);
     
-    if (maxfd < new_plugin->fd){
+    if(maxfd < new_plugin->fd){
       maxfd = new_plugin->fd;
     }
   }
@@ -929,7 +949,7 @@ int main(int argc, char *argv[]){
   while(plugin_list){
     fd_set rfds = rfds_all;
     int select_ret = select(maxfd+1, &rfds, NULL, NULL, NULL);
-    if (select_ret == -1){
+    if(select_ret == -1){
       perror("select");
       exitstatus = EXIT_FAILURE;
       goto fallback;
@@ -946,16 +966,16 @@ int main(int argc, char *argv[]){
 
 	  if(debug){
 	    if(WIFEXITED(proc->status)){
-	      fprintf(stderr, "Plugin %u exited with status %d\n",
-		      (unsigned int) (proc->pid),
+	      fprintf(stderr, "Plugin %" PRIdMAX " exited with status"
+		      " %d\n", (intmax_t) (proc->pid),
 		      WEXITSTATUS(proc->status));
 	    } else if(WIFSIGNALED(proc->status)) {
-	      fprintf(stderr, "Plugin %u killed by signal %d\n",
-		      (unsigned int) (proc->pid),
+	      fprintf(stderr, "Plugin %" PRIdMAX " killed by signal"
+		      " %d\n", (intmax_t) (proc->pid),
 		      WTERMSIG(proc->status));
 	    } else if(WCOREDUMP(proc->status)){
-	      fprintf(stderr, "Plugin %d dumped core\n",
-		      (unsigned int) (proc->pid));
+	      fprintf(stderr, "Plugin %" PRIdMAX " dumped core\n",
+		      (intmax_t) (proc->pid));
 	    }
 	  }
 	  
@@ -975,8 +995,8 @@ int main(int argc, char *argv[]){
 	  proc = next_plugin;
 	  
 	  /* We are done modifying process list, so unblock signal */
-	  ret = sigprocmask (SIG_UNBLOCK, &sigchld_action.sa_mask,
-			     NULL);
+	  ret = sigprocmask(SIG_UNBLOCK, &sigchld_action.sa_mask,
+			    NULL);
 	  if(ret < 0){
 	    perror("sigprocmask");
 	    exitstatus = EXIT_FAILURE;
@@ -1011,7 +1031,7 @@ int main(int argc, char *argv[]){
       if(proc->buffer_length + BUFFER_SIZE > proc->buffer_size){
 	proc->buffer = realloc(proc->buffer, proc->buffer_size
 			       + (size_t) BUFFER_SIZE);
-	if (proc->buffer == NULL){
+	if(proc->buffer == NULL){
 	  perror("malloc");
 	  exitstatus = EXIT_FAILURE;
 	  goto fallback;

@@ -1,6 +1,6 @@
 /*  -*- coding: utf-8 -*- */
 /*
- * Passprompt - Read a password from a FIFO and output it
+ * Askpass-FIFO - Read a password from a FIFO and output it
  * 
  * Copyright © 2008,2009 Teddy Hogeborn
  * Copyright © 2008,2009 Björn Påhlsson

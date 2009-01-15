@@ -42,4 +42,10 @@
   Mandos client will be the new default way for getting a password for
   the root file system when booting.
 
- -- Teddy Hogeborn <teddy@fukt.bsnet.se>, Sun,  5 Oct 2008 19:04:26 +0200
+* Emergency Escape
+  
+  If it ever should be necessary, the Mandos client can be temporarily
+  prevented from running at startup by passing the parameter
+  "mandos=off" to the kernel.
+
+ -- Teddy Hogeborn <teddy@fukt.bsnet.se>, Mon, 12 Jan 2009 02:29:10 +0100
