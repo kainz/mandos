@@ -911,7 +911,7 @@ def main():
                       " files")
     parser.add_option("--no-dbus", action="store_false",
                       dest="use_dbus",
-                      help=optparse.SUPPRESS_HELP)
+                      help=optparse.SUPPRESS_HELP) # XXX: Not done yet
     options = parser.parse_args()[0]
     
     if options.check:
@@ -957,7 +957,7 @@ def main():
     # For convenience
     debug = server_settings["debug"]
     use_dbus = server_settings["use_dbus"]
-    use_dbus = False
+    use_dbus = False            # XXX: Not done yet
     
     if not debug:
         syslogger.setLevel(logging.WARNING)
