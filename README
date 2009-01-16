@@ -152,8 +152,6 @@
     cryptsetup, this plugin listens to the same FIFO as askpass would
     do.
   
-  (None of these take any options or reads any files.)
-  
   More plugins could easily be written and added by the system
   administrator; see the section called "WRITING PLUGINS" in
   plugin-runner(8mandos) to learn the plugin requirements.

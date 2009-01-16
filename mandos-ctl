@@ -30,7 +30,7 @@ busname = 'org.mandos-system.Mandos'
 server_path = '/Mandos'
 server_interface = 'org.mandos_system.Mandos'
 client_interface = 'org.mandos_system.Mandos.Client'
-version = "1.0.2"
+version = "1.0.4"
 
 bus = dbus.SystemBus()
 mandos_dbus_objc = bus.get_object(busname, server_path)

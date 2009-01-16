@@ -24,6 +24,12 @@ prereqs)
      ;;
 esac
 
+for param in `cat /proc/cmdline`; do
+    case "$param" in
+	mandos=off) exit 0;;
+    esac
+done
+
 chmod a=rwxt /tmp
 
 test -w /conf/conf.d/cryptroot

@@ -30,12 +30,13 @@
 				   SIG_IGN, kill(), SIGKILL */
 #include <stddef.h>		/* NULL */
 #include <stdlib.h>		/* getenv() */
-#include <stdio.h>		/* asprintf(), perror() */
-#include <stdlib.h>		/* EXIT_FAILURE, free(), strtoul(),
+#include <stdio.h>		/* asprintf(), perror(), sscanf() */
+#include <stdlib.h>		/* EXIT_FAILURE, free(),
 				   EXIT_SUCCESS */
 #include <sys/types.h>		/* pid_t, DIR, struct dirent,
 				   ssize_t */
 #include <dirent.h>		/* opendir(), readdir(), closedir() */
+#include <inttypes.h>		/* intmax_t, SCNdMAX */
 #include <sys/stat.h>		/* struct stat, lstat(), S_ISLNK */
 #include <iso646.h>		/* not, or, and */
 #include <unistd.h>		/* readlink(), fork(), execl(),
@@ -97,10 +98,18 @@ int main(__attribute__((unused))int argc,
     for(struct dirent *proc_ent = readdir(proc_dir);
 	proc_ent != NULL;
 	proc_ent = readdir(proc_dir)){
-      pid_t pid = (pid_t) strtoul(proc_ent->d_name, NULL, 10);
-      if(pid == 0){
-	/* Not a process */
-	continue;
+      pid_t pid;
+      {
+	intmax_t tmpmax;
+	int numchars;
+	ret = sscanf(proc_ent->d_name, "%" SCNdMAX "%n", &tmpmax,
+		     &numchars);
+	if(ret < 1 or tmpmax != (pid_t)tmpmax
+	   or proc_ent->d_name[numchars] != '\0'){
+	  /* Not a process */
+	  continue;
+	}
+	pid = (pid_t)tmpmax;
       }
       /* Find the executable name by doing readlink() on the
 	 /proc/<pid>/exe link */
@@ -267,7 +276,7 @@ int main(__attribute__((unused))int argc,
     /* Child; will become new splashy process */
     
     /* Make the effective user ID (root) the only user ID instead of
-       the real user ID (mandos) */
+       the real user ID (_mandos) */
     ret = setuid(geteuid());
     if(ret == -1){
       perror("setuid");

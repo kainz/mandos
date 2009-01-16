@@ -55,11 +55,14 @@
 
 * [#A] Package
 ** /usr/share/initramfs-tools/hooks/mandos
-*** TODO Do not install in initrd.img if configured not to.
+*** TODO [#C] Do not install in initrd.img if configured not to.
     Use "/etc/initramfs-tools/conf.d/mandos"?  Definitely a debconf
     question.
-** TODO /etc/bash_completion.d/mandos
+** TODO [#C] /etc/bash_completion.d/mandos
    From XML sources directly?
+** TODO initramfs-tools-script						  :test:
+   Do not insert plugin-runner as keyscript if a kernel parameter
+   "mandos=off" is passed.
 
 
 #+STARTUP: showall
