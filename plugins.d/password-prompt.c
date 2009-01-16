@@ -81,8 +81,6 @@ int main(int argc, char **argv){
     };
     
     error_t parse_opt (int key, char *arg, struct argp_state *state) {
-      /* Get the INPUT argument from `argp_parse', which we know is a
-	 pointer to our plugin list pointer. */
       switch (key) {
       case 'p':
 	prefix = arg;
@@ -91,7 +89,7 @@ int main(int argc, char **argv){
 	debug = true;
 	break;
       case ARGP_KEY_ARG:
-	argp_usage (state);
+	argp_usage(state);
 	break;
       case ARGP_KEY_END:
 	break;
@@ -105,21 +103,21 @@ int main(int argc, char **argv){
 			 .args_doc = "",
 			 .doc = "Mandos password-prompt -- Read and"
 			 " output a password" };
-    ret = argp_parse (&argp, argc, argv, 0, 0, NULL);
-    if (ret == ARGP_ERR_UNKNOWN){
+    ret = argp_parse(&argp, argc, argv, 0, 0, NULL);
+    if(ret == ARGP_ERR_UNKNOWN){
       fprintf(stderr, "Unknown error while parsing arguments\n");
       return EXIT_FAILURE;
     }
   }
   
-  if (debug){
+  if(debug){
     fprintf(stderr, "Starting %s\n", argv[0]);
   }
-  if (debug){
+  if(debug){
     fprintf(stderr, "Storing current terminal attributes\n");
   }
   
-  if (tcgetattr(STDIN_FILENO, &t_old) != 0){
+  if(tcgetattr(STDIN_FILENO, &t_old) != 0){
     perror("tcgetattr");
     return EXIT_FAILURE;
   }
@@ -133,7 +131,7 @@ int main(int argc, char **argv){
     perror("sigaction");
     return EXIT_FAILURE;
   }
-  if (old_action.sa_handler != SIG_IGN){
+  if(old_action.sa_handler != SIG_IGN){
     ret = sigaction(SIGINT, &new_action, NULL);
     if(ret == -1){
       perror("sigaction");
@@ -145,7 +143,7 @@ int main(int argc, char **argv){
     perror("sigaction");
     return EXIT_FAILURE;
   }
-  if (old_action.sa_handler != SIG_IGN){
+  if(old_action.sa_handler != SIG_IGN){
     ret = sigaction(SIGHUP, &new_action, NULL);
     if(ret == -1){
       perror("sigaction");
@@ -157,7 +155,7 @@ int main(int argc, char **argv){
     perror("sigaction");
     return EXIT_FAILURE;
   }
-  if (old_action.sa_handler != SIG_IGN){
+  if(old_action.sa_handler != SIG_IGN){
     ret = sigaction(SIGTERM, &new_action, NULL);
     if(ret == -1){
       perror("sigaction");
@@ -166,22 +164,22 @@ int main(int argc, char **argv){
   }
   
   
-  if (debug){
+  if(debug){
     fprintf(stderr, "Removing echo flag from terminal attributes\n");
   }
   
   t_new = t_old;
   t_new.c_lflag &= ~ECHO;
-  if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &t_new) != 0){
+  if(tcsetattr(STDIN_FILENO, TCSAFLUSH, &t_new) != 0){
     perror("tcsetattr-echo");
     return EXIT_FAILURE;
   }
 
-  if (debug){
+  if(debug){
     fprintf(stderr, "Waiting for input from stdin \n");
   }
   while(true){
-    if (quit_now){
+    if(quit_now){
       if(debug){
 	fprintf(stderr, "Interrupted by signal, exiting.\n");
       }
@@ -213,7 +211,7 @@ int main(int argc, char **argv){
       }
     }
     ret = getline(&buffer, &n, stdin);
-    if (ret > 0){
+    if(ret > 0){
       status = EXIT_SUCCESS;
       /* Make n = data size instead of allocated buffer size */
       n = (size_t)ret;
@@ -234,8 +232,8 @@ int main(int argc, char **argv){
       }
       break;
     }
-    if (ret < 0){
-      if (errno != EINTR and not feof(stdin)){
+    if(ret < 0){
+      if(errno != EINTR and not feof(stdin)){
 	perror("getline");
 	status = EXIT_FAILURE;
 	break;
@@ -253,14 +251,14 @@ int main(int argc, char **argv){
   
   free(buffer);
   
-  if (debug){
+  if(debug){
     fprintf(stderr, "Restoring terminal attributes\n");
   }
-  if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &t_old) != 0){
+  if(tcsetattr(STDIN_FILENO, TCSAFLUSH, &t_old) != 0){
     perror("tcsetattr+echo");
   }
   
-  if (debug){
+  if(debug){
     fprintf(stderr, "%s is exiting with status %d\n", argv[0],
 	    status);
   }
