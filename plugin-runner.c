@@ -115,6 +115,7 @@ static plugin *getplugin(char *name){
   if(name != NULL){
     copy_name = strdup(name);
     if(copy_name == NULL){
+      free(new_plugin);
       return NULL;
     }
   }
