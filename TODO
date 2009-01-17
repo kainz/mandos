@@ -1,9 +1,6 @@
 -*- org -*-
 
 * mandos-client
-** TODO [#B] Temporarily lower kernel log level
-   for less printouts during sucessfull boot.
-   klogctl(6, NULL, 0); klogctl(7, NULL, 0);
 ** TODO [#C] IPv4 support
 
 * plugin-runner
@@ -41,9 +38,6 @@
 * mandos-list
 *** Handle "no D-Bus server" and/or "no Mandos server found" better
 *** [#B] --dump option
-** TODO Disable client
-** TODO Enable client
-** TODO Reset timer
 
 * Curses interface
 

@@ -60,7 +60,7 @@
 #include <inttypes.h>		/* PRIu16, intmax_t, SCNdMAX */
 #include <assert.h>		/* assert() */
 #include <errno.h>		/* perror(), errno */
-#include <time.h>		/* time() */
+#include <time.h>		/* time(), nanosleep() */
 #include <net/if.h>		/* ioctl, ifreq, SIOCGIFFLAGS, IFF_UP,
 				   SIOCSIFFLAGS, if_indextoname(),
 				   if_nametoindex(), IF_NAMESIZE */
@@ -74,6 +74,7 @@
 				   argp_state, struct argp,
 				   argp_parse(), ARGP_KEY_ARG,
 				   ARGP_KEY_END, ARGP_ERR_UNKNOWN */
+#include <sys/klog.h> 		/* klogctl() */
 
 /* Avahi */
 /* All Avahi types, constants and functions
@@ -840,6 +841,7 @@ int main(int argc, char *argv[]){
 			  ":!CTYPE-X.509:+CTYPE-OPENPGP" };
     bool gnutls_initalized = false;
     bool gpgme_initalized = false;
+    double delay = 2.5;
     
     {
       struct argp_option options[] = {
@@ -871,6 +873,10 @@ int main(int argc, char *argv[]){
 	  .arg = "STRING",
 	  .doc = "GnuTLS priority string for the TLS handshake",
 	  .group = 1 },
+	{ .name = "delay", .key = 131,
+	  .arg = "SECONDS",
+	  .doc = "Maximum delay to wait for interface startup",
+	  .group = 2 },
 	{ .name = NULL }
       };
       
@@ -904,6 +910,13 @@ int main(int argc, char *argv[]){
 	case 130:		/* --priority */
 	  mc.priority = arg;
 	  break;
+	case 131:		/* --delay */
+	  ret = sscanf(arg, "%lf%n", &delay, &numchars);
+	  if(ret < 1 or arg[numchars] != '\0'){
+	    fprintf(stderr, "Bad delay\n");
+	    exit(EXIT_FAILURE);
+	  }
+	  break;
 	case ARGP_KEY_ARG:
 	  argp_usage(state);
 	case ARGP_KEY_END:
@@ -928,16 +941,31 @@ int main(int argc, char *argv[]){
     
     /* If the interface is down, bring it up */
     {
+      // Lower kernel loglevel to KERN_NOTICE to avoid
+      // KERN_INFO messages to mess up the prompt
+      ret = klogctl(8, NULL, 5);
+      if(ret == -1){
+	perror("klogctl");
+      }
+
       sd = socket(PF_INET6, SOCK_DGRAM, IPPROTO_IP);
       if(sd < 0) {
 	perror("socket");
 	exitcode = EXIT_FAILURE;
+	ret = klogctl(7, NULL, 0);
+	if(ret == -1){
+	  perror("klogctl");
+	}
 	goto end;
       }
       strcpy(network.ifr_name, interface);
       ret = ioctl(sd, SIOCGIFFLAGS, &network);
       if(ret == -1){
 	perror("ioctl SIOCGIFFLAGS");
+	ret = klogctl(7, NULL, 0);
+	if(ret == -1){
+	  perror("klogctl");
+	}
 	exitcode = EXIT_FAILURE;
 	goto end;
       }
@@ -947,12 +975,32 @@ int main(int argc, char *argv[]){
 	if(ret == -1){
 	  perror("ioctl SIOCSIFFLAGS");
 	  exitcode = EXIT_FAILURE;
+	  ret = klogctl(7, NULL, 0);
+	  if(ret == -1){
+	    perror("klogctl");
+	  }
 	  goto end;
 	}
+      }
+      // sleep checking until interface is running
+      for(int i=0; i < delay * 4; i++){
+	ret = ioctl(sd, SIOCGIFFLAGS, &network);
+	if(ret == -1){
+	  perror("ioctl SIOCGIFFLAGS");
+	} else if(network.ifr_flags & IFF_RUNNING){
+	  break;
+	}
+	struct timespec sleeptime = { .tv_nsec = 250000000 };
+	nanosleep(&sleeptime, NULL);
       }
       ret = (int)TEMP_FAILURE_RETRY(close(sd));
       if(ret == -1){
 	perror("close");
+      }
+      // Restores kernel loglevel to default
+      ret = klogctl(7, NULL, 0);
+      if(ret == -1){
+	perror("klogctl");
       }
     }
     
@@ -1086,7 +1134,7 @@ int main(int argc, char *argv[]){
     if(debug){
       fprintf(stderr, "Starting Avahi loop search\n");
     }
-    
+
     avahi_simple_poll_loop(mc.simple_poll);
     
  end:
