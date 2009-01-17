@@ -1,6 +1,10 @@
 This NEWS file records noteworthy changes, very tersely.
 See the manual for detailed information.
 
+Version 1.0.5 (2009-01-17)
+* Client
+** Fix small memory leak in plugin-runner.
+
 Version 1.0.4 (2009-01-15)
 * Server
 ** Only find matched user/group pairs when searching for suitable
