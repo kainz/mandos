@@ -178,7 +178,8 @@ def _datetime_to_dbus(dt, variant_level=0):
 class Client(dbus.service.Object):
     """A representation of a client host served by this server.
     Attributes:
-    name:       string; from the config file, used in log messages
+    name:       string; from the config file, used in log messages and
+                        D-Bus identifiers
     fingerprint: string (40 or 32 hexadecimal digits); used to
                  uniquely identify the client
     secret:     bytestring; sent verbatim (over TLS) to client
@@ -503,6 +504,9 @@ class Client(dbus.service.Object):
                 dbus.String("checker_running"):
                     dbus.Boolean(self.checker is not None,
                                  variant_level=1),
+                dbus.String("object_path"):
+                    dbus.ObjectPath(self.dbus_object_path,
+                                    variant_level=1)
                 }, signature="sv")
     
     # IsStillValid - method
@@ -1095,28 +1099,28 @@ def main():
                 dbus.service.Object.__init__(self, bus,
                                              "/Mandos")
             _interface = u"org.mandos_system.Mandos"
-
+            
             @dbus.service.signal(_interface, signature="oa{sv}")
             def ClientAdded(self, objpath, properties):
                 "D-Bus signal"
                 pass
-
-            @dbus.service.signal(_interface, signature="o")
-            def ClientRemoved(self, objpath):
+            
+            @dbus.service.signal(_interface, signature="os")
+            def ClientRemoved(self, objpath, name):
                 "D-Bus signal"
                 pass
-
+            
             @dbus.service.method(_interface, out_signature="ao")
             def GetAllClients(self):
                 return dbus.Array(c.dbus_object_path for c in clients)
-
+            
             @dbus.service.method(_interface, out_signature="a{oa{sv}}")
             def GetAllClientsWithProperties(self):
                 return dbus.Dictionary(
                     ((c.dbus_object_path, c.GetAllProperties())
                      for c in clients),
                     signature="oa{sv}")
-
+            
             @dbus.service.method(_interface, in_signature="o")
             def RemoveClient(self, object_path):
                 for c in clients:
@@ -1126,15 +1130,29 @@ def main():
                         c.use_dbus = False
                         c.disable()
                         # Emit D-Bus signal
-                        self.ClientRemoved(object_path)
+                        self.ClientRemoved(object_path, c.name)
                         return
                 raise KeyError
+            
+            @dbus.service.method(_interface, in_signature="s")
+            def RemoveClientByName(self, name):
+                for c in clients:
+                    if c.name == name:
+                        clients.remove(c)
+                        # Don't signal anything except ClientRemoved
+                        c.use_dbus = False
+                        c.disable()
+                        # Emit D-Bus signal
+                        self.ClientRemoved(c.dbus_object_path, name)
+                        return
+                raise KeyError
+            
             @dbus.service.method(_interface)
             def Quit(self):
                 main_loop.quit()
-
+            
             del _interface
-    
+        
         mandos_server = MandosServer()
     
     for client in clients:

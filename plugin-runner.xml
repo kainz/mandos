@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY COMMANDNAME "plugin-runner">
-<!ENTITY TIMESTAMP "2009-01-04">
+<!ENTITY TIMESTAMP "2009-01-17">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -579,7 +579,7 @@
       <para>
 
 <!-- do not wrap this line -->
-<userinput>&COMMANDNAME;  --config-file=/etc/mandos/plugin-runner.conf --plugin-dir /usr/lib/mandos/plugins.d --options-for=mandos-client:--pubkey=/etc/keys/mandos/pubkey.txt,--seckey=/etc/keys/mandos/seckey.txt</userinput>
+<userinput>cd /etc/keys/mandos; &COMMANDNAME;  --config-file=/etc/mandos/plugin-runner.conf --plugin-dir /usr/lib/mandos/plugins.d --options-for=mandos-client:--pubkey=pubkey.txt,--seckey=seckey.txt</userinput>
 
       </para>
     </informalexample>
