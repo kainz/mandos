@@ -42,6 +42,7 @@
 * Curses interface
 
 * mandos-keygen
+** TODO Loop until passwords match when run interactively
 ** TODO "--secfile" option
    Using the "secfile" option instead of "secret"
 ** TODO [#B] "--test" option
