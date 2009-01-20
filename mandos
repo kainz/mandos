@@ -324,31 +324,27 @@ class Client(dbus.service.Object):
             # Emit D-Bus signal
             self.PropertyChanged(dbus.String(u"checker_running"),
                                  dbus.Boolean(False, variant_level=1))
-        if (os.WIFEXITED(condition)
-            and (os.WEXITSTATUS(condition) == 0)):
-            logger.info(u"Checker for %(name)s succeeded",
-                        vars(self))
+        if os.WIFEXITED(condition):
+            exitstatus = os.WEXITSTATUS(condition)
+            if exitstatus == 0:
+                logger.info(u"Checker for %(name)s succeeded",
+                            vars(self))
+                self.bump_timeout()
+            else:
+                logger.info(u"Checker for %(name)s failed",
+                            vars(self))
             if self.use_dbus:
                 # Emit D-Bus signal
-                self.CheckerCompleted(dbus.Boolean(True),
-                                      dbus.UInt16(condition),
+                self.CheckerCompleted(dbus.Int16(exitstatus),
+                                      dbus.Int64(condition),
                                       dbus.String(command))
-            self.bump_timeout()
-        elif not os.WIFEXITED(condition):
+        else:
             logger.warning(u"Checker for %(name)s crashed?",
                            vars(self))
             if self.use_dbus:
                 # Emit D-Bus signal
-                self.CheckerCompleted(dbus.Boolean(False),
-                                      dbus.UInt16(condition),
-                                      dbus.String(command))
-        else:
-            logger.info(u"Checker for %(name)s failed",
-                        vars(self))
-            if self.use_dbus:
-                # Emit D-Bus signal
-                self.CheckerCompleted(dbus.Boolean(False),
-                                      dbus.UInt16(condition),
+                self.CheckerCompleted(dbus.Int16(-1),
+                                      dbus.Int64(condition),
                                       dbus.String(command))
     
     def bump_timeout(self):
@@ -460,8 +456,8 @@ class Client(dbus.service.Object):
     BumpTimeout.__name__ = "BumpTimeout"
     
     # CheckerCompleted - signal
-    @dbus.service.signal(_interface, signature="bqs")
-    def CheckerCompleted(self, success, condition, command):
+    @dbus.service.signal(_interface, signature="nxs")
+    def CheckerCompleted(self, exitcode, waitstatus, command):
         "D-Bus signal"
         pass
     
