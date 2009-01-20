@@ -226,13 +226,7 @@ class Client(dbus.service.Object):
         if config is None:
             config = {}
         logger.debug(u"Creating client %r", self.name)
-        self.use_dbus = use_dbus
-        if self.use_dbus:
-            self.dbus_object_path = (dbus.ObjectPath
-                                     ("/Mandos/clients/"
-                                      + self.name.replace(".", "_")))
-            dbus.service.Object.__init__(self, bus,
-                                         self.dbus_object_path)
+        self.use_dbus = False   # During __init__
         # Uppercase and remove spaces from fingerprint for later
         # comparison purposes with return value from the fingerprint()
         # function
@@ -262,6 +256,16 @@ class Client(dbus.service.Object):
         self.disable_initiator_tag = None
         self.checker_callback_tag = None
         self.checker_command = config["checker"]
+        self.last_connect = None
+        # Only now, when this client is initialized, can it show up on
+        # the D-Bus
+        self.use_dbus = use_dbus
+        if self.use_dbus:
+            self.dbus_object_path = (dbus.ObjectPath
+                                     ("/clients/"
+                                      + self.name.replace(".", "_")))
+            dbus.service.Object.__init__(self, bus,
+                                         self.dbus_object_path)
     
     def enable(self):
         """Start this client's checker and timeout hooks"""
@@ -320,31 +324,27 @@ class Client(dbus.service.Object):
             # Emit D-Bus signal
             self.PropertyChanged(dbus.String(u"checker_running"),
                                  dbus.Boolean(False, variant_level=1))
-        if (os.WIFEXITED(condition)
-            and (os.WEXITSTATUS(condition) == 0)):
-            logger.info(u"Checker for %(name)s succeeded",
-                        vars(self))
+        if os.WIFEXITED(condition):
+            exitstatus = os.WEXITSTATUS(condition)
+            if exitstatus == 0:
+                logger.info(u"Checker for %(name)s succeeded",
+                            vars(self))
+                self.bump_timeout()
+            else:
+                logger.info(u"Checker for %(name)s failed",
+                            vars(self))
             if self.use_dbus:
                 # Emit D-Bus signal
-                self.CheckerCompleted(dbus.Boolean(True),
-                                      dbus.UInt16(condition),
+                self.CheckerCompleted(dbus.Int16(exitstatus),
+                                      dbus.Int64(condition),
                                       dbus.String(command))
-            self.bump_timeout()
-        elif not os.WIFEXITED(condition):
+        else:
             logger.warning(u"Checker for %(name)s crashed?",
                            vars(self))
             if self.use_dbus:
                 # Emit D-Bus signal
-                self.CheckerCompleted(dbus.Boolean(False),
-                                      dbus.UInt16(condition),
-                                      dbus.String(command))
-        else:
-            logger.info(u"Checker for %(name)s failed",
-                        vars(self))
-            if self.use_dbus:
-                # Emit D-Bus signal
-                self.CheckerCompleted(dbus.Boolean(False),
-                                      dbus.UInt16(condition),
+                self.CheckerCompleted(dbus.Int16(-1),
+                                      dbus.Int64(condition),
                                       dbus.String(command))
     
     def bump_timeout(self):
@@ -449,15 +449,15 @@ class Client(dbus.service.Object):
             return now < (self.last_checked_ok + self.timeout)
     
     ## D-Bus methods & signals
-    _interface = u"org.mandos_system.Mandos.Client"
+    _interface = u"se.bsnet.fukt.Mandos.Client"
     
     # BumpTimeout - method
     BumpTimeout = dbus.service.method(_interface)(bump_timeout)
     BumpTimeout.__name__ = "BumpTimeout"
     
     # CheckerCompleted - signal
-    @dbus.service.signal(_interface, signature="bqs")
-    def CheckerCompleted(self, success, condition, command):
+    @dbus.service.signal(_interface, signature="nxs")
+    def CheckerCompleted(self, exitcode, waitstatus, command):
         "D-Bus signal"
         pass
     
@@ -1035,8 +1035,7 @@ def main():
                             avahi.DBUS_INTERFACE_SERVER)
     # End of Avahi example code
     if use_dbus:
-        bus_name = dbus.service.BusName(u"org.mandos-system.Mandos",
-                                        bus)
+        bus_name = dbus.service.BusName(u"se.bsnet.fukt.Mandos", bus)
     
     clients.update(Set(Client(name = section,
                               config
@@ -1096,9 +1095,8 @@ def main():
         class MandosServer(dbus.service.Object):
             """A D-Bus proxy object"""
             def __init__(self):
-                dbus.service.Object.__init__(self, bus,
-                                             "/Mandos")
-            _interface = u"org.mandos_system.Mandos"
+                dbus.service.Object.__init__(self, bus, "/")
+            _interface = u"se.bsnet.fukt.Mandos"
             
             @dbus.service.signal(_interface, signature="oa{sv}")
             def ClientAdded(self, objpath, properties):
@@ -1133,23 +1131,6 @@ def main():
                         self.ClientRemoved(object_path, c.name)
                         return
                 raise KeyError
-            
-            @dbus.service.method(_interface, in_signature="s")
-            def RemoveClientByName(self, name):
-                for c in clients:
-                    if c.name == name:
-                        clients.remove(c)
-                        # Don't signal anything except ClientRemoved
-                        c.use_dbus = False
-                        c.disable()
-                        # Emit D-Bus signal
-                        self.ClientRemoved(c.dbus_object_path, name)
-                        return
-                raise KeyError
-            
-            @dbus.service.method(_interface)
-            def Quit(self):
-                main_loop.quit()
             
             del _interface
         
