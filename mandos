@@ -329,7 +329,7 @@ class Client(dbus.service.Object):
             if exitstatus == 0:
                 logger.info(u"Checker for %(name)s succeeded",
                             vars(self))
-                self.bump_timeout()
+                self.checked_ok()
             else:
                 logger.info(u"Checker for %(name)s failed",
                             vars(self))
@@ -347,7 +347,7 @@ class Client(dbus.service.Object):
                                       dbus.Int64(condition),
                                       dbus.String(command))
     
-    def bump_timeout(self):
+    def checked_ok(self):
         """Bump up the timeout for this client.
         This should only be called when the client has been seen,
         alive and well.
@@ -451,9 +451,9 @@ class Client(dbus.service.Object):
     ## D-Bus methods & signals
     _interface = u"se.bsnet.fukt.Mandos.Client"
     
-    # BumpTimeout - method
-    BumpTimeout = dbus.service.method(_interface)(bump_timeout)
-    BumpTimeout.__name__ = "BumpTimeout"
+    # CheckedOK - method
+    CheckedOK = dbus.service.method(_interface)(checked_ok)
+    CheckedOK.__name__ = "CheckedOK"
     
     # CheckerCompleted - signal
     @dbus.service.signal(_interface, signature="nxs")
@@ -713,7 +713,7 @@ class TCP_handler(SocketServer.BaseRequestHandler, object):
             session.bye()
             return
         ## This won't work here, since we're in a fork.
-        # client.bump_timeout()
+        # client.checked_ok()
         sent_size = 0
         while sent_size < len(client.secret):
             sent = session.send(client.secret[sent_size:])
