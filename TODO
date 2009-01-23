@@ -1,6 +1,7 @@
 -*- org -*-
 
 * mandos-client
+** TODO [#A] Clean up /tmp directory on signal
 ** TODO [#B] Temporarily lower kernel log level
    for less printouts during sucessfull boot.
    klogctl(6, NULL, 0); klogctl(7, NULL, 0);

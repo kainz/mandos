@@ -838,8 +838,8 @@ int main(int argc, char *argv[]){
     mandos_context mc = { .simple_poll = NULL, .server = NULL,
 			  .dh_bits = 1024, .priority = "SECURE256"
 			  ":!CTYPE-X.509:+CTYPE-OPENPGP" };
-    bool gnutls_initalized = false;
-    bool gpgme_initalized = false;
+    bool gnutls_initialized = false;
+    bool gpgme_initialized = false;
     
     {
       struct argp_option options[] = {
@@ -975,7 +975,7 @@ int main(int argc, char *argv[]){
       exitcode = EXIT_FAILURE;
       goto end;
     } else {
-      gnutls_initalized = true;
+      gnutls_initialized = true;
     }
     
     if(mkdtemp(tempdir) == NULL){
@@ -985,11 +985,11 @@ int main(int argc, char *argv[]){
     }
     
     if(not init_gpgme(&mc, pubkey, seckey, tempdir)){
-      fprintf(stderr, "gpgme_initalized failed\n");
+      fprintf(stderr, "init_gpgme failed\n");
       exitcode = EXIT_FAILURE;
       goto end;
     } else {
-      gpgme_initalized = true;
+      gpgme_initialized = true;
     }
     
     if_index = (AvahiIfIndex) if_nametoindex(interface);
@@ -1105,13 +1105,13 @@ int main(int argc, char *argv[]){
     if(mc.simple_poll != NULL)
         avahi_simple_poll_free(mc.simple_poll);
     
-    if(gnutls_initalized){
+    if(gnutls_initialized){
       gnutls_certificate_free_credentials(mc.cred);
       gnutls_global_deinit();
       gnutls_dh_params_deinit(mc.dh_params);
     }
     
-    if(gpgme_initalized){
+    if(gpgme_initialized){
       gpgme_release(mc.ctx);
     }
     
