@@ -595,10 +595,13 @@ def peer_certificate(session):
         != gnutls.library.constants.GNUTLS_CRT_OPENPGP):
         # ...do the normal thing
         return session.peer_certificate
-    list_size = ctypes.c_uint()
+    list_size = ctypes.c_uint(1)
     cert_list = (gnutls.library.functions
                  .gnutls_certificate_get_peers
                  (session._c_object, ctypes.byref(list_size)))
+    if not bool(cert_list) and list_size.value != 0:
+        raise gnutls.errors.GNUTLSError("error getting peer"
+                                        " certificate")
     if list_size.value == 0:
         return None
     cert = cert_list[0]
@@ -688,6 +691,7 @@ class TCP_handler(SocketServer.BaseRequestHandler, object):
             # Do not run session.bye() here: the session is not
             # established.  Just abandon the request.
             return
+        logger.debug(u"Handshake succeeded")
         try:
             fpr = fingerprint(peer_certificate(session))
         except (TypeError, gnutls.errors.GNUTLSError), error:
@@ -1113,10 +1117,12 @@ def main():
             
             @dbus.service.method(_interface, out_signature="ao")
             def GetAllClients(self):
+                "D-Bus method"
                 return dbus.Array(c.dbus_object_path for c in clients)
             
             @dbus.service.method(_interface, out_signature="a{oa{sv}}")
             def GetAllClientsWithProperties(self):
+                "D-Bus method"
                 return dbus.Dictionary(
                     ((c.dbus_object_path, c.GetAllProperties())
                      for c in clients),
@@ -1124,6 +1130,7 @@ def main():
             
             @dbus.service.method(_interface, in_signature="o")
             def RemoveClient(self, object_path):
+                "D-Bus method"
                 for c in clients:
                     if c.dbus_object_path == object_path:
                         clients.remove(c)
