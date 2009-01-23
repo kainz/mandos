@@ -1,8 +1,3 @@
-# This example command line is long without spaces, but it must be
-# that way; it's part of the point of showing it.
-#
-mandos-client binary: manpage-has-errors-from-man usr/share/man/man8/plugin-runner.8mandos.gz 297: warning [p 4, 5.8i]: can't break line
-
 # This directory contains secret client key files.
 #
 mandos-client binary: non-standard-dir-perm etc/keys/mandos/ 0700 != 0755
@@ -16,7 +11,7 @@ mandos-client binary: non-standard-dir-perm usr/lib/mandos/plugins.d/ 0700 != 07
 
 # These binaries must be setuid root, since they need root powers, but
 # are started by plugin-runner(8mandos), which runs all plugins as
-# user/group "mandos".  These binaries are not run in a running
+# user/group "_mandos".  These binaries are not run in a running
 # system, but in an initial RAM disk environment.  Here they are
 # protected from non-root access by the directory permissions, above.
 #
