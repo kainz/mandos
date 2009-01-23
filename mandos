@@ -941,11 +941,14 @@ def main():
     server_config.read(os.path.join(options.configdir, "mandos.conf"))
     # Convert the SafeConfigParser object to a dict
     server_settings = server_config.defaults()
-    # Use getboolean on the boolean config options
-    server_settings["debug"] = (server_config.getboolean
-                                ("DEFAULT", "debug"))
-    server_settings["use_dbus"] = (server_config.getboolean
-                                   ("DEFAULT", "use_dbus"))
+    # Use the appropriate methods on the non-string config options
+    server_settings["debug"] = server_config.getboolean("DEFAULT",
+                                                        "debug")
+    server_settings["use_dbus"] = server_config.getboolean("DEFAULT",
+                                                           "use_dbus")
+    if server_settings["port"]:
+        server_settings["port"] = server_config.getint("DEFAULT",
+                                                       "port")
     del server_config
     
     # Override the settings from the config file with command line
