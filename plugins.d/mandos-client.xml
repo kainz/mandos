@@ -122,12 +122,16 @@
       <command>&COMMANDNAME;</command> is a client program that
       communicates with <citerefentry><refentrytitle
       >mandos</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-      to get a password.  It brings up a network interface, uses its
-      IPv6 link-local address to get network connectivity, uses
-      Zeroconf to find servers, and uses TLS with an OpenPGP key to
-      ensure authenticity and confidentiality.  It keeps running,
-      trying all servers on the network, until it receives a
-      satisfactory reply or a TERM signal is received.
+      to get a password.  In slightly more detail, this client program
+      brings up a network interface, uses the interface’s IPv6
+      link-local address to get network connectivity, uses Zeroconf to
+      find servers on the local network, and communicates with servers
+      using TLS with an OpenPGP key to ensure authenticity and
+      confidentiality.  This client program keeps running, trying all
+      servers on the network, until it receives a satisfactory reply
+      or a TERM signal is received.  If no servers are found, or after
+      all servers have been tried, it waits indefinitely for new
+      servers to appear.
     </para>
     <para>
       This program is not meant to be run directly; it is really meant
@@ -201,6 +205,15 @@
 	    If the <option>--connect</option> option is used, this
 	    specifies the interface to use to connect to the address
 	    given.
+	  </para>
+	  <para>
+	    Note that since this program will normally run in the
+	    initial RAM disk environment, the interface must be an
+	    interface which exists at that stage.  Thus, the interface
+	    can not be a pseudo-interface such as <quote>br0</quote>
+	    or <quote>tun0</quote>; such interfaces will not exist
+	    until much later in the boot process, and can not be used
+	    by this program.
 	  </para>
 	</listitem>
       </varlistentry>
