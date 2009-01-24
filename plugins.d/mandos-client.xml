@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY COMMANDNAME "mandos-client">
-<!ENTITY TIMESTAMP "2009-01-04">
+<!ENTITY TIMESTAMP "2009-01-24">
 <!ENTITY % common SYSTEM "../common.ent">
 %common;
 ]>
@@ -122,11 +122,12 @@
       <command>&COMMANDNAME;</command> is a client program that
       communicates with <citerefentry><refentrytitle
       >mandos</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-      to get a password.  It uses IPv6 link-local addresses to get
-      network connectivity, Zeroconf to find servers, and TLS with an
-      OpenPGP key to ensure authenticity and confidentiality.  It
-      keeps running, trying all servers on the network, until it
-      receives a satisfactory reply or a TERM signal is received.
+      to get a password.  It brings up a network interface, uses its
+      IPv6 link-local address to get network connectivity, uses
+      Zeroconf to find servers, and uses TLS with an OpenPGP key to
+      ensure authenticity and confidentiality.  It keeps running,
+      trying all servers on the network, until it receives a
+      satisfactory reply or a TERM signal is received.
     </para>
     <para>
       This program is not meant to be run directly; it is really meant
