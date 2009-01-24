@@ -36,7 +36,8 @@
 #define _GNU_SOURCE		/* TEMP_FAILURE_RETRY(), asprintf() */
 
 #include <stdio.h>		/* fprintf(), stderr, fwrite(),
-				   stdout, ferror(), sscanf */
+				   stdout, ferror(), sscanf(),
+				   remove() */
 #include <stdint.h> 		/* uint16_t, uint32_t */
 #include <stddef.h>		/* NULL, size_t, ssize_t */
 #include <stdlib.h> 		/* free(), EXIT_SUCCESS, EXIT_FAILURE,
@@ -1130,21 +1131,26 @@ int main(int argc, char *argv[]){
 	  if(direntry == NULL){
 	    break;
 	  }
-	  if(direntry->d_type == DT_REG){
-	    char *fullname = NULL;
-	    ret = asprintf(&fullname, "%s/%s", tempdir,
-			   direntry->d_name);
-	    if(ret < 0){
-	      perror("asprintf");
-	      continue;
-	    }
-	    ret = unlink(fullname);
-	    if(ret == -1){
-	      fprintf(stderr, "unlink(\"%s\"): %s",
-		      fullname, strerror(errno));
-	    }
-	    free(fullname);
+	  /* Skip "." and ".." */
+	  if(direntry->d_name[0] == '.'
+	     and (direntry->d_name[1] == '\0'
+		  or (direntry->d_name[1] == '.'
+		      and direntry->d_name[2] == '\0'))){
+	    continue;
 	  }
+	  char *fullname = NULL;
+	  ret = asprintf(&fullname, "%s/%s", tempdir,
+			 direntry->d_name);
+	  if(ret < 0){
+	    perror("asprintf");
+	    continue;
+	  }
+	  ret = remove(fullname);
+	  if(ret == -1){
+	    fprintf(stderr, "remove(\"%s\"): %s\n", fullname,
+		    strerror(errno));
+	  }
+	  free(fullname);
 	}
 	closedir(d);
       }
@@ -1153,6 +1159,6 @@ int main(int argc, char *argv[]){
 	perror("rmdir");
       }
     }
-	  
+    
     return exitcode;
 }
