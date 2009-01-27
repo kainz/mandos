@@ -154,7 +154,7 @@ static bool init_gpgme(mandos_context *mc, const char *seckey,
   
   
   /*
-   * Helper function to insert pub and seckey to the enigne keyring.
+   * Helper function to insert pub and seckey to the engine keyring.
    */
   bool import_key(const char *filename){
     int fd;
@@ -832,6 +832,7 @@ int main(int argc, char *argv[]){
     gid_t gid;
     char *connect_to = NULL;
     char tempdir[] = "/tmp/mandosXXXXXX";
+    bool tempdir_created = false;
     AvahiIfIndex if_index = AVAHI_IF_UNSPEC;
     const char *seckey = PATHDIR "/" SECKEY;
     const char *pubkey = PATHDIR "/" PUBKEY;
@@ -981,9 +982,9 @@ int main(int argc, char *argv[]){
     
     if(mkdtemp(tempdir) == NULL){
       perror("mkdtemp");
-      tempdir[0] = '\0';
       goto end;
     }
+    tempdir_created = true;
     
     if(not init_gpgme(&mc, pubkey, seckey, tempdir)){
       fprintf(stderr, "init_gpgme failed\n");
@@ -996,7 +997,8 @@ int main(int argc, char *argv[]){
     if_index = (AvahiIfIndex) if_nametoindex(interface);
     if(if_index == 0){
       fprintf(stderr, "No such interface: \"%s\"\n", interface);
-      exit(EXIT_FAILURE);
+      exitcode = EXIT_FAILURE;
+      goto end;
     }
     
     if(connect_to != NULL){
@@ -1117,7 +1119,7 @@ int main(int argc, char *argv[]){
     }
     
     /* Removes the temp directory used by GPGME */
-    if(tempdir[0] != '\0'){
+    if(tempdir_created){
       DIR *d;
       struct dirent *direntry;
       d = opendir(tempdir);
