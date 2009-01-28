@@ -656,79 +656,108 @@ class TCP_handler(SocketServer.BaseRequestHandler, object):
     def handle(self):
         logger.info(u"TCP connection from: %s",
                     unicode(self.client_address))
-        session = (gnutls.connection
-                   .ClientSession(self.request,
-                                  gnutls.connection
-                                  .X509Credentials()))
-        
-        line = self.request.makefile().readline()
-        logger.debug(u"Protocol version: %r", line)
-        try:
-            if int(line.strip().split()[0]) > 1:
-                raise RuntimeError
-        except (ValueError, IndexError, RuntimeError), error:
-            logger.error(u"Unknown protocol version: %s", error)
-            return
-        
-        # Note: gnutls.connection.X509Credentials is really a generic
-        # GnuTLS certificate credentials object so long as no X.509
-        # keys are added to it.  Therefore, we can use it here despite
-        # using OpenPGP certificates.
-        
-        #priority = ':'.join(("NONE", "+VERS-TLS1.1", "+AES-256-CBC",
-        #                "+SHA1", "+COMP-NULL", "+CTYPE-OPENPGP",
-        #                "+DHE-DSS"))
-        # Use a fallback default, since this MUST be set.
-        priority = self.server.settings.get("priority", "NORMAL")
-        (gnutls.library.functions
-         .gnutls_priority_set_direct(session._c_object,
-                                     priority, None))
-        
-        try:
-            session.handshake()
-        except gnutls.errors.GNUTLSError, error:
-            logger.warning(u"Handshake failed: %s", error)
-            # Do not run session.bye() here: the session is not
-            # established.  Just abandon the request.
-            return
-        logger.debug(u"Handshake succeeded")
-        try:
-            fpr = fingerprint(peer_certificate(session))
-        except (TypeError, gnutls.errors.GNUTLSError), error:
-            logger.warning(u"Bad certificate: %s", error)
+        logger.debug(u"Pipe: %d", self.server.pipe[1])
+        # Open IPC pipe to parent process
+        with closing(os.fdopen(self.server.pipe[1], "w", 1)) as ipc:
+            session = (gnutls.connection
+                       .ClientSession(self.request,
+                                      gnutls.connection
+                                      .X509Credentials()))
+            
+            line = self.request.makefile().readline()
+            logger.debug(u"Protocol version: %r", line)
+            try:
+                if int(line.strip().split()[0]) > 1:
+                    raise RuntimeError
+            except (ValueError, IndexError, RuntimeError), error:
+                logger.error(u"Unknown protocol version: %s", error)
+                return
+            
+            # Note: gnutls.connection.X509Credentials is really a
+            # generic GnuTLS certificate credentials object so long as
+            # no X.509 keys are added to it.  Therefore, we can use it
+            # here despite using OpenPGP certificates.
+            
+            #priority = ':'.join(("NONE", "+VERS-TLS1.1",
+            #                     "+AES-256-CBC", "+SHA1",
+            #                     "+COMP-NULL", "+CTYPE-OPENPGP",
+            #                     "+DHE-DSS"))
+            # Use a fallback default, since this MUST be set.
+            priority = self.server.settings.get("priority", "NORMAL")
+            (gnutls.library.functions
+             .gnutls_priority_set_direct(session._c_object,
+                                         priority, None))
+
+            try:
+                session.handshake()
+            except gnutls.errors.GNUTLSError, error:
+                logger.warning(u"Handshake failed: %s", error)
+                # Do not run session.bye() here: the session is not
+                # established.  Just abandon the request.
+                return
+            logger.debug(u"Handshake succeeded")
+            try:
+                fpr = fingerprint(peer_certificate(session))
+            except (TypeError, gnutls.errors.GNUTLSError), error:
+                logger.warning(u"Bad certificate: %s", error)
+                session.bye()
+                return
+            logger.debug(u"Fingerprint: %s", fpr)
+            for c in self.server.clients:
+                if c.fingerprint == fpr:
+                    client = c
+                    break
+            else:
+                logger.warning(u"Client not found for fingerprint: %s",
+                               fpr)
+                ipc.write("NOTFOUND %s\n" % fpr)
+                session.bye()
+                return
+            # Have to check if client.still_valid(), since it is
+            # possible that the client timed out while establishing
+            # the GnuTLS session.
+            if not client.still_valid():
+                logger.warning(u"Client %(name)s is invalid",
+                               vars(client))
+                ipc.write("INVALID %s\n" % client.name)
+                session.bye()
+                return
+            ipc.write("SENDING %s\n" % client.name)
+            ## This won't work here, since we're in a fork.
+            # client.checked_ok()
+            sent_size = 0
+            while sent_size < len(client.secret):
+                sent = session.send(client.secret[sent_size:])
+                logger.debug(u"Sent: %d, remaining: %d",
+                             sent, len(client.secret)
+                             - (sent_size + sent))
+                sent_size += sent
             session.bye()
-            return
-        logger.debug(u"Fingerprint: %s", fpr)
-        for c in self.server.clients:
-            if c.fingerprint == fpr:
-                client = c
-                break
-        else:
-            logger.warning(u"Client not found for fingerprint: %s",
-                           fpr)
-            session.bye()
-            return
-        # Have to check if client.still_valid(), since it is possible
-        # that the client timed out while establishing the GnuTLS
-        # session.
-        if not client.still_valid():
-            logger.warning(u"Client %(name)s is invalid",
-                           vars(client))
-            session.bye()
-            return
-        ## This won't work here, since we're in a fork.
-        # client.checked_ok()
-        sent_size = 0
-        while sent_size < len(client.secret):
-            sent = session.send(client.secret[sent_size:])
-            logger.debug(u"Sent: %d, remaining: %d",
-                         sent, len(client.secret)
-                         - (sent_size + sent))
-            sent_size += sent
-        session.bye()
 
 
-class IPv6_TCPServer(SocketServer.ForkingMixIn,
+class ForkingMixInWithPipe(SocketServer.ForkingMixIn, object):
+    """Like SocketServer.ForkingMixIn, but also pass a pipe.
+    Assumes a gobject.MainLoop event loop.
+    """
+    def process_request(self, request, client_address):
+        """This overrides and wraps the original process_request().
+        This function creates a new pipe in self.pipe 
+        """
+        self.pipe = os.pipe()
+        super(ForkingMixInWithPipe,
+              self).process_request(request, client_address)
+        os.close(self.pipe[1])  # close write end
+        # Call "handle_ipc" for both data and EOF events
+        gobject.io_add_watch(self.pipe[0],
+                             gobject.IO_IN | gobject.IO_HUP,
+                             self.handle_ipc)
+    def handle_ipc(source, condition):
+        """Dummy function; override as necessary"""
+        os.close(source)
+        return False
+
+
+class IPv6_TCPServer(ForkingMixInWithPipe,
                      SocketServer.TCPServer, object):
     """IPv6 TCP server.  Accepts 'None' as address and/or port.
     Attributes:
@@ -786,6 +815,39 @@ class IPv6_TCPServer(SocketServer.ForkingMixIn,
             return super(IPv6_TCPServer, self).server_activate()
     def enable(self):
         self.enabled = True
+    def handle_ipc(self, source, condition, file_objects={}):
+        logger.debug("Handling IPC: %r : %r", source, condition)
+        
+        # Turn a file descriptor into a Python file object
+        if source not in file_objects:
+            file_objects[source] = os.fdopen(source, "r", 1)
+        
+        # Read a line from the file object
+        cmdline = file_objects[source].readline()
+        if not cmdline:             # Empty line means end of file
+            # close the IPC pipe
+            logger.debug("Closing: %r", source)
+            file_objects[source].close()
+            del file_objects[source]
+
+            # Stop calling this function
+            return False
+        
+        logger.debug("IPC command: %r\n" % cmdline)
+        
+        # Parse and act on command
+        cmd, args = cmdline.split(None, 1)
+        if cmd == "NOTFOUND":
+            pass                # xxx
+        elif cmd == "INVALID":
+            pass                # xxx
+        elif cmd == "SENDING":
+            pass                # xxx
+        else:
+            logger.error("Unknown IPC command: %r", cmdline)
+        
+        # Keep calling this function
+        return True
 
 
 def string_to_delta(interval):
