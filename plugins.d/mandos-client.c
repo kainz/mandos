@@ -961,14 +961,14 @@ int main(int argc, char *argv[]){
     uid = getuid();
     gid = getgid();
     
-    ret = setuid(uid);
-    if(ret == -1){
-      perror("setuid");
-    }
-    
     setgid(gid);
     if(ret == -1){
       perror("setgid");
+    }
+    
+    ret = setuid(uid);
+    if(ret == -1){
+      perror("setuid");
     }
     
     ret = init_gnutls_global(&mc, pubkey, seckey);
