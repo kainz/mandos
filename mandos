@@ -969,10 +969,15 @@ def main():
     # For convenience
     debug = server_settings["debug"]
     use_dbus = server_settings["use_dbus"]
+
+    def sigsegvhandler(signum, frame):
+        raise RuntimeError('Segmentation fault')
     
     if not debug:
         syslogger.setLevel(logging.WARNING)
         console.setLevel(logging.WARNING)
+    else:
+        signal.signal(signal.SIGSEGV, sigsegvhandler)
     
     if server_settings["servicename"] != "Mandos":
         syslogger.setFormatter(logging.Formatter
