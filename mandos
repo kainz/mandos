@@ -699,6 +699,7 @@ class TCP_handler(SocketServer.BaseRequestHandler, object):
             session.bye()
             return
         logger.debug(u"Fingerprint: %s", fpr)
+        
         for c in self.server.clients:
             if c.fingerprint == fpr:
                 client = c
@@ -790,7 +791,7 @@ class IPv6_TCPServer(SocketServer.ForkingMixIn,
 
 def string_to_delta(interval):
     """Parse a string and return a datetime.timedelta
-
+    
     >>> string_to_delta('7d')
     datetime.timedelta(7)
     >>> string_to_delta('60s')
@@ -1022,11 +1023,24 @@ def main():
                 uid = 65534
                 gid = 65534
     try:
-        os.setuid(uid)
         os.setgid(gid)
+        os.setuid(uid)
     except OSError, error:
         if error[0] != errno.EPERM:
             raise error
+    
+    # Enable all possible GnuTLS debugging
+    if debug:
+        # "Use a log level over 10 to enable all debugging options."
+        # - GnuTLS manual
+        gnutls.library.functions.gnutls_global_set_log_level(11)
+        
+        @gnutls.library.types.gnutls_log_func
+        def debug_gnutls(level, string):
+            logger.debug("GnuTLS: %s", string[:-1])
+        
+        (gnutls.library.functions
+         .gnutls_global_set_log_function(debug_gnutls))
     
     global service
     service = AvahiService(name = server_settings["servicename"],
