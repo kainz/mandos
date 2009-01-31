@@ -2,9 +2,6 @@
 
 * mandos-client
 ** TODO [#A] Clean up /tmp directory on signal
-** TODO [#B] Temporarily lower kernel log level
-   for less printouts during sucessfull boot.
-   klogctl(6, NULL, 0); klogctl(7, NULL, 0);
 ** TODO [#C] IPv4 support
 
 * plugin-runner
@@ -42,13 +39,11 @@
 * mandos-list
 *** Handle "no D-Bus server" and/or "no Mandos server found" better
 *** [#B] --dump option
-** TODO Disable client
-** TODO Enable client
-** TODO Reset timer
 
 * Curses interface
 
 * mandos-keygen
+** TODO Loop until passwords match when run interactively
 ** TODO "--secfile" option
    Using the "secfile" option instead of "secret"
 ** TODO [#B] "--test" option
