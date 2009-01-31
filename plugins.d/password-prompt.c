@@ -194,7 +194,7 @@ int main(int argc, char **argv){
       const char *cryptsource = getenv("cryptsource");
       const char *crypttarget = getenv("crypttarget");
       const char *const prompt
-	= "Enter passphrase to unlock the disk";
+	= "Enter passphrase to unlock the disk";      
       if(cryptsource == NULL){
 	if(crypttarget == NULL){
 	  fprintf(stderr, "%s: ", prompt);

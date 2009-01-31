@@ -93,6 +93,10 @@
       </arg>
       <sbr/>
       <arg>
+	<option>--delay <replaceable>SECONDS</replaceable></option>
+      </arg>
+      <sbr/>
+      <arg>
 	<option>--debug</option>
       </arg>
     </cmdsynopsis>
@@ -262,6 +266,22 @@
 	  <para>
 	    Sets the number of bits to use for the prime number in the
 	    TLS Diffie-Hellman key exchange.  Default is 1024.
+	  </para>
+	</listitem>
+      </varlistentry>
+
+      <varlistentry>
+	<term><option>--delay=<replaceable
+	>SECONDS</replaceable></option></term>
+	<listitem>
+	  <para>
+	    After bringing the network interface up, the program waits
+	    for the interface to arrive in a <quote>running</quote>
+	    state before proceeding.  During this time, the kernel log
+	    level will be lowered to reduce clutter on the system
+	    console, alleviating any other plugins which might be
+	    using the system console.  This option sets the upper
+	    limit of seconds to wait.  The default is 2.5 seconds.
 	  </para>
 	</listitem>
       </varlistentry>
