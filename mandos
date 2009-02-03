@@ -73,12 +73,13 @@ syslogger = (logging.handlers.SysLogHandler
              (facility = logging.handlers.SysLogHandler.LOG_DAEMON,
               address = "/dev/log"))
 syslogger.setFormatter(logging.Formatter
-                       ('Mandos: %(levelname)s: %(message)s'))
+                       ('Mandos [%(process)d]: %(levelname)s:'
+                        ' %(message)s'))
 logger.addHandler(syslogger)
 
 console = logging.StreamHandler()
-console.setFormatter(logging.Formatter('%(name)s: %(levelname)s:'
-                                       ' %(message)s'))
+console.setFormatter(logging.Formatter('%(name)s [%(process)d]:'
+                                       ' %(levelname)s: %(message)s'))
 logger.addHandler(console)
 
 class AvahiError(Exception):
@@ -676,8 +677,8 @@ class TCP_handler(SocketServer.BaseRequestHandler, object):
         # using OpenPGP certificates.
         
         #priority = ':'.join(("NONE", "+VERS-TLS1.1", "+AES-256-CBC",
-        #                "+SHA1", "+COMP-NULL", "+CTYPE-OPENPGP",
-        #                "+DHE-DSS"))
+        #                     "+SHA1", "+COMP-NULL", "+CTYPE-OPENPGP",
+        #                     "+DHE-DSS"))
         # Use a fallback default, since this MUST be set.
         priority = self.server.settings.get("priority", "NORMAL")
         (gnutls.library.functions
@@ -764,7 +765,7 @@ class IPv6_TCPServer(SocketServer.ForkingMixIn,
                                  u" bind to interface %s",
                                  self.settings["interface"])
                 else:
-                    raise error
+                    raise
         # Only bind(2) the socket if we really need to.
         if self.server_address[0] or self.server_address[1]:
             if not self.server_address[0]:
@@ -970,15 +971,10 @@ def main():
     # For convenience
     debug = server_settings["debug"]
     use_dbus = server_settings["use_dbus"]
-
-    def sigsegvhandler(signum, frame):
-        raise RuntimeError('Segmentation fault')
     
     if not debug:
         syslogger.setLevel(logging.WARNING)
         console.setLevel(logging.WARNING)
-    else:
-        signal.signal(signal.SIGSEGV, sigsegvhandler)
     
     if server_settings["servicename"] != "Mandos":
         syslogger.setFormatter(logging.Formatter
@@ -1005,7 +1001,7 @@ def main():
     pidfilename = "/var/run/mandos.pid"
     try:
         pidfile = open(pidfilename, "w")
-    except IOError, error:
+    except IOError:
         logger.error("Could not open file %r", pidfilename)
     
     try:
@@ -1204,7 +1200,9 @@ def main():
         sys.exit(1)
     except KeyboardInterrupt:
         if debug:
-            print
+            print >> sys.stderr
+        logger.debug("Server received KeyboardInterrupt")
+    logger.debug("Server exiting")
 
 if __name__ == '__main__':
     main()
