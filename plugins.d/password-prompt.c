@@ -80,8 +80,8 @@ int main(int argc, char **argv){
       { .name = NULL }
     };
     
-    error_t parse_opt (int key, char *arg, struct argp_state *state) {
-      switch (key) {
+    error_t parse_opt (int key, char *arg, struct argp_state *state){
+      switch (key){
       case 'p':
 	prefix = arg;
 	break;
