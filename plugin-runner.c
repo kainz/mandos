@@ -120,10 +120,10 @@ static plugin *getplugin(char *name){
     }
   }
   
-  *new_plugin = (plugin) { .name = copy_name,
-			   .argc = 1,
-			   .disabled = false,
-			   .next = plugin_list };
+  *new_plugin = (plugin){ .name = copy_name,
+			  .argc = 1,
+			  .disabled = false,
+			  .next = plugin_list };
   
   new_plugin->argv = malloc(sizeof(char *) * 2);
   if(new_plugin->argv == NULL){
@@ -376,8 +376,8 @@ int main(int argc, char *argv[]){
   };
   
   error_t parse_opt(int key, char *arg, __attribute__((unused))
-		    struct argp_state *state) {
-    switch(key) {
+		    struct argp_state *state){
+    switch(key){
     case 'g': 			/* --global-options */
       if(arg != NULL){
 	char *p;
@@ -512,8 +512,8 @@ int main(int argc, char *argv[]){
      ignores everything but the --config-file option. */
   error_t parse_opt_config_file(int key, char *arg,
 				__attribute__((unused))
-				struct argp_state *state) {
-    switch(key) {
+				struct argp_state *state){
+    switch(key){
     case 'g': 			/* --global-options */
     case 'G':			/* --global-env */
     case 'o':			/* --options-for */
@@ -970,7 +970,7 @@ int main(int argc, char *argv[]){
 	      fprintf(stderr, "Plugin %" PRIdMAX " exited with status"
 		      " %d\n", (intmax_t) (proc->pid),
 		      WEXITSTATUS(proc->status));
-	    } else if(WIFSIGNALED(proc->status)) {
+	    } else if(WIFSIGNALED(proc->status)){
 	      fprintf(stderr, "Plugin %" PRIdMAX " killed by signal"
 		      " %d\n", (intmax_t) (proc->pid),
 		      WTERMSIG(proc->status));
