@@ -89,7 +89,7 @@ typedef struct plugin{
   size_t buffer_size;
   size_t buffer_length;
   bool eof;
-  volatile bool completed;
+  volatile sig_atomic_t completed;
   volatile int status;
   struct plugin *next;
 } plugin;
@@ -248,7 +248,7 @@ static void handle_sigchld(__attribute__((unused)) int sig){
       continue;
     }
     proc->status = status;
-    proc->completed = true;
+    proc->completed = 1;
   }
 }
 
