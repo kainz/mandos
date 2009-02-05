@@ -90,7 +90,7 @@ typedef struct plugin{
   size_t buffer_length;
   bool eof;
   volatile sig_atomic_t completed;
-  volatile int status;
+  int status;
   struct plugin *next;
 } plugin;
 
@@ -959,7 +959,7 @@ int main(int argc, char *argv[]){
        from one of them */
     for(plugin *proc = plugin_list; proc != NULL;){
       /* Is this process completely done? */
-      if(proc->eof and proc->completed){
+      if(proc->completed and proc->eof){
 	/* Only accept the plugin output if it exited cleanly */
 	if(not WIFEXITED(proc->status)
 	   or WEXITSTATUS(proc->status) != 0){
