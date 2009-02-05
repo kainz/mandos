@@ -232,11 +232,11 @@ static void handle_sigchld(__attribute__((unused)) int sig){
       break;
     }
     if(pid == -1){
-      if(errno != ECHILD){
-	perror("waitpid");
+      if(errno == ECHILD){
+	/* No child processes */
+	break;
       }
-      /* No child processes */
-      break;
+      perror("waitpid");
     }
     
     /* A child exited, find it in process_list */
