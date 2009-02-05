@@ -664,13 +664,13 @@ int main(int argc, char *argv[]){
   }
   
   /* Strip permissions down to nobody */
-  ret = setuid(uid);
-  if(ret == -1){
-    perror("setuid");
-  }  
   setgid(gid);
   if(ret == -1){
     perror("setgid");
+  }
+  ret = setuid(uid);
+  if(ret == -1){
+    perror("setuid");
   }
   
   if(plugindir == NULL){
