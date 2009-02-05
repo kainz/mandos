@@ -223,6 +223,7 @@ static int set_cloexec_flag(int fd){
 /* Mark processes as completed when they exit, and save their exit
    status. */
 static void handle_sigchld(__attribute__((unused)) int sig){
+  int old_errno = errno;
   while(true){
     plugin *proc = plugin_list;
     int status;
@@ -250,6 +251,7 @@ static void handle_sigchld(__attribute__((unused)) int sig){
     proc->status = status;
     proc->completed = 1;
   }
+  errno = old_errno;
 }
 
 /* Prints out a password to stdout */
