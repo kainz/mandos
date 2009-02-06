@@ -14,14 +14,14 @@
 PREREQ=""
 prereqs()
 {
-     echo "$PREREQ"
+    echo "$PREREQ"
 }
 
 case $1 in
 prereqs)
-     prereqs
-     exit 0
-     ;;
+	prereqs
+	exit 0
+	;;
 esac
 
 for param in `cat /proc/cmdline`; do
@@ -32,7 +32,8 @@ done
 
 chmod a=rwxt /tmp
 
-test -w /conf/conf.d/cryptroot
+test -r /conf/conf.d/cryptroot
+test -w /conf/conf.d
 
 # Do not replace cryptroot file unless we need to.
 replace_cryptroot=no

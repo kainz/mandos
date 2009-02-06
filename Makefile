@@ -213,7 +213,7 @@ keydir/seckey.txt keydir/pubkey.txt: mandos-keygen
 
 # Run the server with a local config
 run-server: confdir/mandos.conf confdir/clients.conf
-	./mandos --debug --configdir=confdir $(SERVERARGS)
+	./mandos --debug --no-dbus --configdir=confdir $(SERVERARGS)
 
 # Used by run-server
 confdir/mandos.conf: mandos.conf

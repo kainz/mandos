@@ -73,12 +73,13 @@ syslogger = (logging.handlers.SysLogHandler
              (facility = logging.handlers.SysLogHandler.LOG_DAEMON,
               address = "/dev/log"))
 syslogger.setFormatter(logging.Formatter
-                       ('Mandos: %(levelname)s: %(message)s'))
+                       ('Mandos [%(process)d]: %(levelname)s:'
+                        ' %(message)s'))
 logger.addHandler(syslogger)
 
 console = logging.StreamHandler()
-console.setFormatter(logging.Formatter('%(name)s: %(levelname)s:'
-                                       ' %(message)s'))
+console.setFormatter(logging.Formatter('%(name)s [%(process)d]:'
+                                       ' %(levelname)s: %(message)s'))
 logger.addHandler(console)
 
 class AvahiError(Exception):
@@ -329,7 +330,7 @@ class Client(dbus.service.Object):
             if exitstatus == 0:
                 logger.info(u"Checker for %(name)s succeeded",
                             vars(self))
-                self.bump_timeout()
+                self.checked_ok()
             else:
                 logger.info(u"Checker for %(name)s failed",
                             vars(self))
@@ -347,7 +348,7 @@ class Client(dbus.service.Object):
                                       dbus.Int64(condition),
                                       dbus.String(command))
     
-    def bump_timeout(self):
+    def checked_ok(self):
         """Bump up the timeout for this client.
         This should only be called when the client has been seen,
         alive and well.
@@ -451,9 +452,9 @@ class Client(dbus.service.Object):
     ## D-Bus methods & signals
     _interface = u"se.bsnet.fukt.Mandos.Client"
     
-    # BumpTimeout - method
-    BumpTimeout = dbus.service.method(_interface)(bump_timeout)
-    BumpTimeout.__name__ = "BumpTimeout"
+    # CheckedOK - method
+    CheckedOK = dbus.service.method(_interface)(checked_ok)
+    CheckedOK.__name__ = "CheckedOK"
     
     # CheckerCompleted - signal
     @dbus.service.signal(_interface, signature="nxs")
@@ -595,10 +596,13 @@ def peer_certificate(session):
         != gnutls.library.constants.GNUTLS_CRT_OPENPGP):
         # ...do the normal thing
         return session.peer_certificate
-    list_size = ctypes.c_uint()
+    list_size = ctypes.c_uint(1)
     cert_list = (gnutls.library.functions
                  .gnutls_certificate_get_peers
                  (session._c_object, ctypes.byref(list_size)))
+    if not bool(cert_list) and list_size.value != 0:
+        raise gnutls.errors.GNUTLSError("error getting peer"
+                                        " certificate")
     if list_size.value == 0:
         return None
     cert = cert_list[0]
@@ -673,8 +677,8 @@ class TCP_handler(SocketServer.BaseRequestHandler, object):
         # using OpenPGP certificates.
         
         #priority = ':'.join(("NONE", "+VERS-TLS1.1", "+AES-256-CBC",
-        #                "+SHA1", "+COMP-NULL", "+CTYPE-OPENPGP",
-        #                "+DHE-DSS"))
+        #                     "+SHA1", "+COMP-NULL", "+CTYPE-OPENPGP",
+        #                     "+DHE-DSS"))
         # Use a fallback default, since this MUST be set.
         priority = self.server.settings.get("priority", "NORMAL")
         (gnutls.library.functions
@@ -688,6 +692,7 @@ class TCP_handler(SocketServer.BaseRequestHandler, object):
             # Do not run session.bye() here: the session is not
             # established.  Just abandon the request.
             return
+        logger.debug(u"Handshake succeeded")
         try:
             fpr = fingerprint(peer_certificate(session))
         except (TypeError, gnutls.errors.GNUTLSError), error:
@@ -695,6 +700,7 @@ class TCP_handler(SocketServer.BaseRequestHandler, object):
             session.bye()
             return
         logger.debug(u"Fingerprint: %s", fpr)
+        
         for c in self.server.clients:
             if c.fingerprint == fpr:
                 client = c
@@ -713,7 +719,7 @@ class TCP_handler(SocketServer.BaseRequestHandler, object):
             session.bye()
             return
         ## This won't work here, since we're in a fork.
-        # client.bump_timeout()
+        # client.checked_ok()
         sent_size = 0
         while sent_size < len(client.secret):
             sent = session.send(client.secret[sent_size:])
@@ -759,7 +765,7 @@ class IPv6_TCPServer(SocketServer.ForkingMixIn,
                                  u" bind to interface %s",
                                  self.settings["interface"])
                 else:
-                    raise error
+                    raise
         # Only bind(2) the socket if we really need to.
         if self.server_address[0] or self.server_address[1]:
             if not self.server_address[0]:
@@ -786,7 +792,7 @@ class IPv6_TCPServer(SocketServer.ForkingMixIn,
 
 def string_to_delta(interval):
     """Parse a string and return a datetime.timedelta
-
+    
     >>> string_to_delta('7d')
     datetime.timedelta(7)
     >>> string_to_delta('60s')
@@ -941,11 +947,14 @@ def main():
     server_config.read(os.path.join(options.configdir, "mandos.conf"))
     # Convert the SafeConfigParser object to a dict
     server_settings = server_config.defaults()
-    # Use getboolean on the boolean config options
-    server_settings["debug"] = (server_config.getboolean
-                                ("DEFAULT", "debug"))
-    server_settings["use_dbus"] = (server_config.getboolean
-                                   ("DEFAULT", "use_dbus"))
+    # Use the appropriate methods on the non-string config options
+    server_settings["debug"] = server_config.getboolean("DEFAULT",
+                                                        "debug")
+    server_settings["use_dbus"] = server_config.getboolean("DEFAULT",
+                                                           "use_dbus")
+    if server_settings["port"]:
+        server_settings["port"] = server_config.getint("DEFAULT",
+                                                       "port")
     del server_config
     
     # Override the settings from the config file with command line
@@ -992,7 +1001,7 @@ def main():
     pidfilename = "/var/run/mandos.pid"
     try:
         pidfile = open(pidfilename, "w")
-    except IOError, error:
+    except IOError:
         logger.error("Could not open file %r", pidfilename)
     
     try:
@@ -1010,11 +1019,24 @@ def main():
                 uid = 65534
                 gid = 65534
     try:
-        os.setuid(uid)
         os.setgid(gid)
+        os.setuid(uid)
     except OSError, error:
         if error[0] != errno.EPERM:
             raise error
+    
+    # Enable all possible GnuTLS debugging
+    if debug:
+        # "Use a log level over 10 to enable all debugging options."
+        # - GnuTLS manual
+        gnutls.library.functions.gnutls_global_set_log_level(11)
+        
+        @gnutls.library.types.gnutls_log_func
+        def debug_gnutls(level, string):
+            logger.debug("GnuTLS: %s", string[:-1])
+        
+        (gnutls.library.functions
+         .gnutls_global_set_log_function(debug_gnutls))
     
     global service
     service = AvahiService(name = server_settings["servicename"],
@@ -1110,10 +1132,12 @@ def main():
             
             @dbus.service.method(_interface, out_signature="ao")
             def GetAllClients(self):
+                "D-Bus method"
                 return dbus.Array(c.dbus_object_path for c in clients)
             
             @dbus.service.method(_interface, out_signature="a{oa{sv}}")
             def GetAllClientsWithProperties(self):
+                "D-Bus method"
                 return dbus.Dictionary(
                     ((c.dbus_object_path, c.GetAllProperties())
                      for c in clients),
@@ -1121,6 +1145,7 @@ def main():
             
             @dbus.service.method(_interface, in_signature="o")
             def RemoveClient(self, object_path):
+                "D-Bus method"
                 for c in clients:
                     if c.dbus_object_path == object_path:
                         clients.remove(c)
@@ -1175,7 +1200,9 @@ def main():
         sys.exit(1)
     except KeyboardInterrupt:
         if debug:
-            print
+            print >> sys.stderr
+        logger.debug("Server received KeyboardInterrupt")
+    logger.debug("Server exiting")
 
 if __name__ == '__main__':
     main()

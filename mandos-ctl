@@ -140,7 +140,7 @@ parser.add_option("-s", "--secret", type="string",
                   help="Set password blob (file) for client")
 options, client_names = parser.parse_args()
 
-# Compile list of clients to processed
+# Compile list of clients to process
 clients=[]
 for name in client_names:
     for path, client in mandos_clients.iteritems():
