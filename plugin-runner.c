@@ -89,8 +89,8 @@ typedef struct plugin{
   size_t buffer_size;
   size_t buffer_length;
   bool eof;
-  volatile bool completed;
-  volatile int status;
+  volatile sig_atomic_t completed;
+  int status;
   struct plugin *next;
 } plugin;
 
@@ -120,10 +120,10 @@ static plugin *getplugin(char *name){
     }
   }
   
-  *new_plugin = (plugin) { .name = copy_name,
-			   .argc = 1,
-			   .disabled = false,
-			   .next = plugin_list };
+  *new_plugin = (plugin){ .name = copy_name,
+			  .argc = 1,
+			  .disabled = false,
+			  .next = plugin_list };
   
   new_plugin->argv = malloc(sizeof(char *) * 2);
   if(new_plugin->argv == NULL){
@@ -223,6 +223,7 @@ static int set_cloexec_flag(int fd){
 /* Mark processes as completed when they exit, and save their exit
    status. */
 static void handle_sigchld(__attribute__((unused)) int sig){
+  int old_errno = errno;
   while(true){
     plugin *proc = plugin_list;
     int status;
@@ -232,11 +233,11 @@ static void handle_sigchld(__attribute__((unused)) int sig){
       break;
     }
     if(pid == -1){
-      if(errno != ECHILD){
-	perror("waitpid");
+      if(errno == ECHILD){
+	/* No child processes */
+	break;
       }
-      /* No child processes */
-      break;
+      perror("waitpid");
     }
     
     /* A child exited, find it in process_list */
@@ -248,8 +249,9 @@ static void handle_sigchld(__attribute__((unused)) int sig){
       continue;
     }
     proc->status = status;
-    proc->completed = true;
+    proc->completed = 1;
   }
+  errno = old_errno;
 }
 
 /* Prints out a password to stdout */
@@ -376,8 +378,8 @@ int main(int argc, char *argv[]){
   };
   
   error_t parse_opt(int key, char *arg, __attribute__((unused))
-		    struct argp_state *state) {
-    switch(key) {
+		    struct argp_state *state){
+    switch(key){
     case 'g': 			/* --global-options */
       if(arg != NULL){
 	char *p;
@@ -512,8 +514,8 @@ int main(int argc, char *argv[]){
      ignores everything but the --config-file option. */
   error_t parse_opt_config_file(int key, char *arg,
 				__attribute__((unused))
-				struct argp_state *state) {
-    switch(key) {
+				struct argp_state *state){
+    switch(key){
     case 'g': 			/* --global-options */
     case 'G':			/* --global-env */
     case 'o':			/* --options-for */
@@ -662,13 +664,13 @@ int main(int argc, char *argv[]){
   }
   
   /* Strip permissions down to nobody */
-  ret = setuid(uid);
-  if(ret == -1){
-    perror("setuid");
-  }  
   setgid(gid);
   if(ret == -1){
     perror("setgid");
+  }
+  ret = setuid(uid);
+  if(ret == -1){
+    perror("setuid");
   }
   
   if(plugindir == NULL){
@@ -959,7 +961,7 @@ int main(int argc, char *argv[]){
        from one of them */
     for(plugin *proc = plugin_list; proc != NULL;){
       /* Is this process completely done? */
-      if(proc->eof and proc->completed){
+      if(proc->completed and proc->eof){
 	/* Only accept the plugin output if it exited cleanly */
 	if(not WIFEXITED(proc->status)
 	   or WEXITSTATUS(proc->status) != 0){
@@ -970,7 +972,7 @@ int main(int argc, char *argv[]){
 	      fprintf(stderr, "Plugin %" PRIdMAX " exited with status"
 		      " %d\n", (intmax_t) (proc->pid),
 		      WEXITSTATUS(proc->status));
-	    } else if(WIFSIGNALED(proc->status)) {
+	    } else if(WIFSIGNALED(proc->status)){
 	      fprintf(stderr, "Plugin %" PRIdMAX " killed by signal"
 		      " %d\n", (intmax_t) (proc->pid),
 		      WTERMSIG(proc->status));

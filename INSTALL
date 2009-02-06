@@ -43,13 +43,14 @@
     + Python-GnuTLS 1.1.5 http://pypi.python.org/pypi/python-gnutls/
     + dbus-python 0.82.4  http://dbus.freedesktop.org/doc/dbus-python/
     + python-ctypes 1.0.0 http://pypi.python.org/pypi/ctypes
+    + PyGObject 2.14.2    http://library.gnome.org/devel/pygobject/
     
     Strongly recommended:
     + fping 2.4b2-to-ipv6 http://www.fping.com/
     
     Package names:
     python-gnutls avahi-daemon python python-avahi python-dbus
-    python-ctypes
+    python-ctypes python-gobject
    
 *** Mandos Client
     + initramfs-tools 0.85i

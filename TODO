@@ -1,6 +1,7 @@
 -*- org -*-
 
 * mandos-client
+** TODO [#A] Clean up /tmp directory on signal
 ** TODO [#C] IPv4 support
 
 * plugin-runner

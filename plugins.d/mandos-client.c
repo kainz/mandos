@@ -36,7 +36,8 @@
 #define _GNU_SOURCE		/* TEMP_FAILURE_RETRY(), asprintf() */
 
 #include <stdio.h>		/* fprintf(), stderr, fwrite(),
-				   stdout, ferror(), sscanf */
+				   stdout, ferror(), sscanf(),
+				   remove() */
 #include <stdint.h> 		/* uint16_t, uint32_t */
 #include <stddef.h>		/* NULL, size_t, ssize_t */
 #include <stdlib.h> 		/* free(), EXIT_SUCCESS, EXIT_FAILURE,
@@ -60,7 +61,7 @@
 #include <inttypes.h>		/* PRIu16, intmax_t, SCNdMAX */
 #include <assert.h>		/* assert() */
 #include <errno.h>		/* perror(), errno */
-#include <time.h>		/* time(), nanosleep() */
+#include <time.h>		/* nanosleep(), time() */
 #include <net/if.h>		/* ioctl, ifreq, SIOCGIFFLAGS, IFF_UP,
 				   SIOCSIFFLAGS, if_indextoname(),
 				   if_nametoindex(), IF_NAMESIZE */
@@ -74,7 +75,9 @@
 				   argp_state, struct argp,
 				   argp_parse(), ARGP_KEY_ARG,
 				   ARGP_KEY_END, ARGP_ERR_UNKNOWN */
+#ifdef __linux__
 #include <sys/klog.h> 		/* klogctl() */
+#endif
 
 /* Avahi */
 /* All Avahi types, constants and functions
@@ -154,7 +157,7 @@ static bool init_gpgme(mandos_context *mc, const char *seckey,
   
   
   /*
-   * Helper function to insert pub and seckey to the enigne keyring.
+   * Helper function to insert pub and seckey to the engine keyring.
    */
   bool import_key(const char *filename){
     int fd;
@@ -365,7 +368,7 @@ static ssize_t pgp_packet_decrypt(const mandos_context *mc,
   return plaintext_length;
 }
 
-static const char * safer_gnutls_strerror(int value) {
+static const char * safer_gnutls_strerror(int value){
   const char *ret = gnutls_strerror(value); /* Spurious warning from
 					       -Wunreachable-code */
   if(ret == NULL)
@@ -389,7 +392,7 @@ static int init_gnutls_global(mandos_context *mc,
   }
   
   ret = gnutls_global_init();
-  if(ret != GNUTLS_E_SUCCESS) {
+  if(ret != GNUTLS_E_SUCCESS){
     fprintf(stderr, "GnuTLS global_init: %s\n",
 	    safer_gnutls_strerror(ret));
     return -1;
@@ -424,7 +427,7 @@ static int init_gnutls_global(mandos_context *mc,
   ret = gnutls_certificate_set_openpgp_key_file
     (mc->cred, pubkeyfilename, seckeyfilename,
      GNUTLS_OPENPGP_FMT_BASE64);
-  if(ret != GNUTLS_E_SUCCESS) {
+  if(ret != GNUTLS_E_SUCCESS){
     fprintf(stderr,
 	    "Error[%d] while reading the OpenPGP key pair ('%s',"
 	    " '%s')\n", ret, pubkeyfilename, seckeyfilename);
@@ -435,13 +438,13 @@ static int init_gnutls_global(mandos_context *mc,
   
   /* GnuTLS server initialization */
   ret = gnutls_dh_params_init(&mc->dh_params);
-  if(ret != GNUTLS_E_SUCCESS) {
+  if(ret != GNUTLS_E_SUCCESS){
     fprintf(stderr, "Error in GnuTLS DH parameter initialization:"
 	    " %s\n", safer_gnutls_strerror(ret));
     goto globalfail;
   }
   ret = gnutls_dh_params_generate2(mc->dh_params, mc->dh_bits);
-  if(ret != GNUTLS_E_SUCCESS) {
+  if(ret != GNUTLS_E_SUCCESS){
     fprintf(stderr, "Error in GnuTLS prime generation: %s\n",
 	    safer_gnutls_strerror(ret));
     goto globalfail;
@@ -472,7 +475,7 @@ static int init_gnutls_session(mandos_context *mc,
   {
     const char *err;
     ret = gnutls_priority_set_direct(*session, mc->priority, &err);
-    if(ret != GNUTLS_E_SUCCESS) {
+    if(ret != GNUTLS_E_SUCCESS){
       fprintf(stderr, "Syntax error at: %s\n", err);
       fprintf(stderr, "GnuTLS error: %s\n",
 	      safer_gnutls_strerror(ret));
@@ -483,7 +486,7 @@ static int init_gnutls_session(mandos_context *mc,
   
   ret = gnutls_credentials_set(*session, GNUTLS_CRD_CERTIFICATE,
 			       mc->cred);
-  if(ret != GNUTLS_E_SUCCESS) {
+  if(ret != GNUTLS_E_SUCCESS){
     fprintf(stderr, "Error setting GnuTLS credentials: %s\n",
 	    safer_gnutls_strerror(ret));
     gnutls_deinit(*session);
@@ -531,7 +534,7 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   }
   
   tcp_sd = socket(PF_INET6, SOCK_STREAM, 0);
-  if(tcp_sd < 0) {
+  if(tcp_sd < 0){
     perror("socket");
     return -1;
   }
@@ -734,14 +737,14 @@ static void resolve_callback(AvahiSServiceResolver *r,
 			     AVAHI_GCC_UNUSED AvahiStringList *txt,
 			     AVAHI_GCC_UNUSED AvahiLookupResultFlags
 			     flags,
-			     void* userdata) {
+			     void* userdata){
   mandos_context *mc = userdata;
   assert(r);
   
   /* Called whenever a service has been resolved successfully or
      timed out */
   
-  switch(event) {
+  switch(event){
   default:
   case AVAHI_RESOLVER_FAILURE:
     fprintf(stderr, "(Avahi Resolver) Failed to resolve service '%s'"
@@ -767,23 +770,23 @@ static void resolve_callback(AvahiSServiceResolver *r,
   avahi_s_service_resolver_free(r);
 }
 
-static void browse_callback( AvahiSServiceBrowser *b,
-			     AvahiIfIndex interface,
-			     AvahiProtocol protocol,
-			     AvahiBrowserEvent event,
-			     const char *name,
-			     const char *type,
-			     const char *domain,
-			     AVAHI_GCC_UNUSED AvahiLookupResultFlags
-			     flags,
-			     void* userdata) {
+static void browse_callback(AvahiSServiceBrowser *b,
+			    AvahiIfIndex interface,
+			    AvahiProtocol protocol,
+			    AvahiBrowserEvent event,
+			    const char *name,
+			    const char *type,
+			    const char *domain,
+			    AVAHI_GCC_UNUSED AvahiLookupResultFlags
+			    flags,
+			    void* userdata){
   mandos_context *mc = userdata;
   assert(b);
   
   /* Called whenever a new services becomes available on the LAN or
      is removed from the LAN */
   
-  switch(event) {
+  switch(event){
   default:
   case AVAHI_BROWSER_FAILURE:
     
@@ -819,388 +822,406 @@ static void browse_callback( AvahiSServiceBrowser *b,
 }
 
 int main(int argc, char *argv[]){
-    AvahiSServiceBrowser *sb = NULL;
-    int error;
-    int ret;
-    intmax_t tmpmax;
-    int numchars;
-    int exitcode = EXIT_SUCCESS;
-    const char *interface = "eth0";
-    struct ifreq network;
-    int sd;
-    uid_t uid;
-    gid_t gid;
-    char *connect_to = NULL;
-    char tempdir[] = "/tmp/mandosXXXXXX";
-    AvahiIfIndex if_index = AVAHI_IF_UNSPEC;
-    const char *seckey = PATHDIR "/" SECKEY;
-    const char *pubkey = PATHDIR "/" PUBKEY;
+  AvahiSServiceBrowser *sb = NULL;
+  int error;
+  int ret;
+  intmax_t tmpmax;
+  int numchars;
+  int exitcode = EXIT_SUCCESS;
+  const char *interface = "eth0";
+  struct ifreq network;
+  int sd;
+  uid_t uid;
+  gid_t gid;
+  char *connect_to = NULL;
+  char tempdir[] = "/tmp/mandosXXXXXX";
+  bool tempdir_created = false;
+  AvahiIfIndex if_index = AVAHI_IF_UNSPEC;
+  const char *seckey = PATHDIR "/" SECKEY;
+  const char *pubkey = PATHDIR "/" PUBKEY;
+  
+  mandos_context mc = { .simple_poll = NULL, .server = NULL,
+			.dh_bits = 1024, .priority = "SECURE256"
+			":!CTYPE-X.509:+CTYPE-OPENPGP" };
+  bool gnutls_initialized = false;
+  bool gpgme_initialized = false;
+  double delay = 2.5;
+  
+  {
+    struct argp_option options[] = {
+      { .name = "debug", .key = 128,
+	.doc = "Debug mode", .group = 3 },
+      { .name = "connect", .key = 'c',
+	.arg = "ADDRESS:PORT",
+	.doc = "Connect directly to a specific Mandos server",
+	.group = 1 },
+      { .name = "interface", .key = 'i',
+	.arg = "NAME",
+	.doc = "Interface that will be used to search for Mandos"
+	" servers",
+	.group = 1 },
+      { .name = "seckey", .key = 's',
+	.arg = "FILE",
+	.doc = "OpenPGP secret key file base name",
+	.group = 1 },
+      { .name = "pubkey", .key = 'p',
+	.arg = "FILE",
+	.doc = "OpenPGP public key file base name",
+	.group = 2 },
+      { .name = "dh-bits", .key = 129,
+	.arg = "BITS",
+	.doc = "Bit length of the prime number used in the"
+	" Diffie-Hellman key exchange",
+	.group = 2 },
+      { .name = "priority", .key = 130,
+	.arg = "STRING",
+	.doc = "GnuTLS priority string for the TLS handshake",
+	.group = 1 },
+      { .name = "delay", .key = 131,
+	.arg = "SECONDS",
+	.doc = "Maximum delay to wait for interface startup",
+	.group = 2 },
+      { .name = NULL }
+    };
     
-    mandos_context mc = { .simple_poll = NULL, .server = NULL,
-			  .dh_bits = 1024, .priority = "SECURE256"
-			  ":!CTYPE-X.509:+CTYPE-OPENPGP" };
-    bool gnutls_initalized = false;
-    bool gpgme_initalized = false;
-    double delay = 2.5;
-    
-    {
-      struct argp_option options[] = {
-	{ .name = "debug", .key = 128,
-	  .doc = "Debug mode", .group = 3 },
-	{ .name = "connect", .key = 'c',
-	  .arg = "ADDRESS:PORT",
-	  .doc = "Connect directly to a specific Mandos server",
-	  .group = 1 },
-	{ .name = "interface", .key = 'i',
-	  .arg = "NAME",
-	  .doc = "Interface that will be used to search for Mandos"
-	  " servers",
-	  .group = 1 },
-	{ .name = "seckey", .key = 's',
-	  .arg = "FILE",
-	  .doc = "OpenPGP secret key file base name",
-	  .group = 1 },
-	{ .name = "pubkey", .key = 'p',
-	  .arg = "FILE",
-	  .doc = "OpenPGP public key file base name",
-	  .group = 2 },
-	{ .name = "dh-bits", .key = 129,
-	  .arg = "BITS",
-	  .doc = "Bit length of the prime number used in the"
-	  " Diffie-Hellman key exchange",
-	  .group = 2 },
-	{ .name = "priority", .key = 130,
-	  .arg = "STRING",
-	  .doc = "GnuTLS priority string for the TLS handshake",
-	  .group = 1 },
-	{ .name = "delay", .key = 131,
-	  .arg = "SECONDS",
-	  .doc = "Maximum delay to wait for interface startup",
-	  .group = 2 },
-	{ .name = NULL }
-      };
-      
-      error_t parse_opt(int key, char *arg,
-			struct argp_state *state) {
-	switch(key) {
-	case 128:		/* --debug */
-	  debug = true;
-	  break;
-	case 'c':		/* --connect */
-	  connect_to = arg;
-	  break;
-	case 'i':		/* --interface */
-	  interface = arg;
-	  break;
-	case 's':		/* --seckey */
-	  seckey = arg;
-	  break;
-	case 'p':		/* --pubkey */
-	  pubkey = arg;
-	  break;
-	case 129:		/* --dh-bits */
-	  ret = sscanf(arg, "%" SCNdMAX "%n", &tmpmax, &numchars);
-	  if(ret < 1 or tmpmax != (typeof(mc.dh_bits))tmpmax
-	     or arg[numchars] != '\0'){
-	    fprintf(stderr, "Bad number of DH bits\n");
-	    exit(EXIT_FAILURE);
-	  }
-	  mc.dh_bits = (typeof(mc.dh_bits))tmpmax;
-	  break;
-	case 130:		/* --priority */
-	  mc.priority = arg;
-	  break;
-	case 131:		/* --delay */
-	  ret = sscanf(arg, "%lf%n", &delay, &numchars);
-	  if(ret < 1 or arg[numchars] != '\0'){
-	    fprintf(stderr, "Bad delay\n");
-	    exit(EXIT_FAILURE);
-	  }
-	  break;
-	case ARGP_KEY_ARG:
-	  argp_usage(state);
-	case ARGP_KEY_END:
-	  break;
-	default:
-	  return ARGP_ERR_UNKNOWN;
+    error_t parse_opt(int key, char *arg,
+		      struct argp_state *state){
+      switch(key){
+      case 128:			/* --debug */
+	debug = true;
+	break;
+      case 'c':			/* --connect */
+	connect_to = arg;
+	break;
+      case 'i':			/* --interface */
+	interface = arg;
+	break;
+      case 's':			/* --seckey */
+	seckey = arg;
+	break;
+      case 'p':			/* --pubkey */
+	pubkey = arg;
+	break;
+      case 129:			/* --dh-bits */
+	ret = sscanf(arg, "%" SCNdMAX "%n", &tmpmax, &numchars);
+	if(ret < 1 or tmpmax != (typeof(mc.dh_bits))tmpmax
+	   or arg[numchars] != '\0'){
+	  fprintf(stderr, "Bad number of DH bits\n");
+	  exit(EXIT_FAILURE);
 	}
-	return 0;
+	mc.dh_bits = (typeof(mc.dh_bits))tmpmax;
+	break;
+      case 130:			/* --priority */
+	mc.priority = arg;
+	break;
+      case 131:			/* --delay */
+	ret = sscanf(arg, "%lf%n", &delay, &numchars);
+	if(ret < 1 or arg[numchars] != '\0'){
+	  fprintf(stderr, "Bad delay\n");
+	  exit(EXIT_FAILURE);
+	}
+	break;
+      case ARGP_KEY_ARG:
+	argp_usage(state);
+      case ARGP_KEY_END:
+	break;
+      default:
+	return ARGP_ERR_UNKNOWN;
       }
-      
-      struct argp argp = { .options = options, .parser = parse_opt,
-			   .args_doc = "",
-			   .doc = "Mandos client -- Get and decrypt"
-			   " passwords from a Mandos server" };
-      ret = argp_parse(&argp, argc, argv, 0, 0, NULL);
-      if(ret == ARGP_ERR_UNKNOWN){
-	fprintf(stderr, "Unknown error while parsing arguments\n");
-	exitcode = EXIT_FAILURE;
-	goto end;
-      }
+      return 0;
     }
     
-    /* If the interface is down, bring it up */
-    {
-      // Lower kernel loglevel to KERN_NOTICE to avoid
-      // KERN_INFO messages to mess up the prompt
-      ret = klogctl(8, NULL, 5);
-      if(ret == -1){
-	perror("klogctl");
-      }
-
-      sd = socket(PF_INET6, SOCK_DGRAM, IPPROTO_IP);
-      if(sd < 0) {
-	perror("socket");
-	exitcode = EXIT_FAILURE;
-	ret = klogctl(7, NULL, 0);
-	if(ret == -1){
-	  perror("klogctl");
-	}
-	goto end;
-      }
-      strcpy(network.ifr_name, interface);
-      ret = ioctl(sd, SIOCGIFFLAGS, &network);
-      if(ret == -1){
-	perror("ioctl SIOCGIFFLAGS");
-	ret = klogctl(7, NULL, 0);
-	if(ret == -1){
-	  perror("klogctl");
-	}
-	exitcode = EXIT_FAILURE;
-	goto end;
-      }
-      if((network.ifr_flags & IFF_UP) == 0){
-	network.ifr_flags |= IFF_UP;
-	ret = ioctl(sd, SIOCSIFFLAGS, &network);
-	if(ret == -1){
-	  perror("ioctl SIOCSIFFLAGS");
-	  exitcode = EXIT_FAILURE;
-	  ret = klogctl(7, NULL, 0);
-	  if(ret == -1){
-	    perror("klogctl");
-	  }
-	  goto end;
-	}
-      }
-      // sleep checking until interface is running
-      for(int i=0; i < delay * 4; i++){
-	ret = ioctl(sd, SIOCGIFFLAGS, &network);
-	if(ret == -1){
-	  perror("ioctl SIOCGIFFLAGS");
-	} else if(network.ifr_flags & IFF_RUNNING){
-	  break;
-	}
-	struct timespec sleeptime = { .tv_nsec = 250000000 };
-	nanosleep(&sleeptime, NULL);
-      }
-      ret = (int)TEMP_FAILURE_RETRY(close(sd));
-      if(ret == -1){
-	perror("close");
-      }
-      // Restores kernel loglevel to default
+    struct argp argp = { .options = options, .parser = parse_opt,
+			 .args_doc = "",
+			 .doc = "Mandos client -- Get and decrypt"
+			 " passwords from a Mandos server" };
+    ret = argp_parse(&argp, argc, argv, 0, 0, NULL);
+    if(ret == ARGP_ERR_UNKNOWN){
+      fprintf(stderr, "Unknown error while parsing arguments\n");
+      exitcode = EXIT_FAILURE;
+      goto end;
+    }
+  }
+  
+  /* If the interface is down, bring it up */
+  {
+#ifdef __linux__
+    /* Lower kernel loglevel to KERN_NOTICE to avoid KERN_INFO
+       messages to mess up the prompt */
+    ret = klogctl(8, NULL, 5);
+    if(ret == -1){
+      perror("klogctl");
+    }
+#endif
+    
+    sd = socket(PF_INET6, SOCK_DGRAM, IPPROTO_IP);
+    if(sd < 0){
+      perror("socket");
+      exitcode = EXIT_FAILURE;
+#ifdef __linux__
       ret = klogctl(7, NULL, 0);
       if(ret == -1){
 	perror("klogctl");
       }
+#endif
+      goto end;
     }
-    
-    uid = getuid();
-    gid = getgid();
-    
-    ret = setuid(uid);
+    strcpy(network.ifr_name, interface);
+    ret = ioctl(sd, SIOCGIFFLAGS, &network);
     if(ret == -1){
-      perror("setuid");
-    }
-    
-    setgid(gid);
-    if(ret == -1){
-      perror("setgid");
-    }
-    
-    ret = init_gnutls_global(&mc, pubkey, seckey);
-    if(ret == -1){
-      fprintf(stderr, "init_gnutls_global failed\n");
+      perror("ioctl SIOCGIFFLAGS");
+#ifdef __linux__
+      ret = klogctl(7, NULL, 0);
+      if(ret == -1){
+	perror("klogctl");
+      }
+#endif
       exitcode = EXIT_FAILURE;
       goto end;
-    } else {
-      gnutls_initalized = true;
     }
-    
-    if(mkdtemp(tempdir) == NULL){
-      perror("mkdtemp");
-      tempdir[0] = '\0';
-      goto end;
+    if((network.ifr_flags & IFF_UP) == 0){
+      network.ifr_flags |= IFF_UP;
+      ret = ioctl(sd, SIOCSIFFLAGS, &network);
+      if(ret == -1){
+	perror("ioctl SIOCSIFFLAGS");
+	exitcode = EXIT_FAILURE;
+#ifdef __linux__
+	ret = klogctl(7, NULL, 0);
+	if(ret == -1){
+	  perror("klogctl");
+	}
+#endif
+	goto end;
+      }
     }
-    
-    if(not init_gpgme(&mc, pubkey, seckey, tempdir)){
-      fprintf(stderr, "gpgme_initalized failed\n");
+    /* sleep checking until interface is running */
+    for(int i=0; i < delay * 4; i++){
+      ret = ioctl(sd, SIOCGIFFLAGS, &network);
+      if(ret == -1){
+	perror("ioctl SIOCGIFFLAGS");
+      } else if(network.ifr_flags & IFF_RUNNING){
+	break;
+      }
+      struct timespec sleeptime = { .tv_nsec = 250000000 };
+      ret = nanosleep(&sleeptime, NULL);
+      if(ret == -1 and errno != EINTR){
+	perror("nanosleep");
+      }
+    }
+    ret = (int)TEMP_FAILURE_RETRY(close(sd));
+    if(ret == -1){
+      perror("close");
+    }
+#ifdef __linux__
+    /* Restores kernel loglevel to default */
+    ret = klogctl(7, NULL, 0);
+    if(ret == -1){
+      perror("klogctl");
+    }
+#endif
+  }
+  
+  uid = getuid();
+  gid = getgid();
+  
+  setgid(gid);
+  if(ret == -1){
+    perror("setgid");
+  }
+  
+  ret = setuid(uid);
+  if(ret == -1){
+    perror("setuid");
+  }
+  
+  ret = init_gnutls_global(&mc, pubkey, seckey);
+  if(ret == -1){
+    fprintf(stderr, "init_gnutls_global failed\n");
+    exitcode = EXIT_FAILURE;
+    goto end;
+  } else {
+    gnutls_initialized = true;
+  }
+  
+  if(mkdtemp(tempdir) == NULL){
+    perror("mkdtemp");
+    goto end;
+  }
+  tempdir_created = true;
+  
+  if(not init_gpgme(&mc, pubkey, seckey, tempdir)){
+    fprintf(stderr, "init_gpgme failed\n");
+    exitcode = EXIT_FAILURE;
+    goto end;
+  } else {
+    gpgme_initialized = true;
+  }
+  
+  if_index = (AvahiIfIndex) if_nametoindex(interface);
+  if(if_index == 0){
+    fprintf(stderr, "No such interface: \"%s\"\n", interface);
+    exitcode = EXIT_FAILURE;
+    goto end;
+  }
+  
+  if(connect_to != NULL){
+    /* Connect directly, do not use Zeroconf */
+    /* (Mainly meant for debugging) */
+    char *address = strrchr(connect_to, ':');
+    if(address == NULL){
+      fprintf(stderr, "No colon in address\n");
       exitcode = EXIT_FAILURE;
       goto end;
-    } else {
-      gpgme_initalized = true;
     }
-    
-    if_index = (AvahiIfIndex) if_nametoindex(interface);
-    if(if_index == 0){
-      fprintf(stderr, "No such interface: \"%s\"\n", interface);
-      exit(EXIT_FAILURE);
-    }
-    
-    if(connect_to != NULL){
-      /* Connect directly, do not use Zeroconf */
-      /* (Mainly meant for debugging) */
-      char *address = strrchr(connect_to, ':');
-      if(address == NULL){
-        fprintf(stderr, "No colon in address\n");
-	exitcode = EXIT_FAILURE;
-	goto end;
-      }
-      uint16_t port;
-      ret = sscanf(address+1, "%" SCNdMAX "%n", &tmpmax, &numchars);
-      if(ret < 1 or tmpmax != (uint16_t)tmpmax
-	 or address[numchars+1] != '\0'){
-	fprintf(stderr, "Bad port number\n");
-	exitcode = EXIT_FAILURE;
-	goto end;
-      }
-      port = (uint16_t)tmpmax;
-      *address = '\0';
-      address = connect_to;
-      ret = start_mandos_communication(address, port, if_index, &mc);
-      if(ret < 0){
-	exitcode = EXIT_FAILURE;
-      } else {
-	exitcode = EXIT_SUCCESS;
-      }
+    uint16_t port;
+    ret = sscanf(address+1, "%" SCNdMAX "%n", &tmpmax, &numchars);
+    if(ret < 1 or tmpmax != (uint16_t)tmpmax
+       or address[numchars+1] != '\0'){
+      fprintf(stderr, "Bad port number\n");
+      exitcode = EXIT_FAILURE;
       goto end;
     }
-    
-    if(not debug){
-      avahi_set_log_function(empty_log);
+    port = (uint16_t)tmpmax;
+    *address = '\0';
+    address = connect_to;
+    ret = start_mandos_communication(address, port, if_index, &mc);
+    if(ret < 0){
+      exitcode = EXIT_FAILURE;
+    } else {
+      exitcode = EXIT_SUCCESS;
     }
+    goto end;
+  }
+  
+  if(not debug){
+    avahi_set_log_function(empty_log);
+  }
+  
+  /* Initialize the pseudo-RNG for Avahi */
+  srand((unsigned int) time(NULL));
+  
+  /* Allocate main Avahi loop object */
+  mc.simple_poll = avahi_simple_poll_new();
+  if(mc.simple_poll == NULL){
+    fprintf(stderr, "Avahi: Failed to create simple poll object.\n");
+    exitcode = EXIT_FAILURE;
+    goto end;
+  }
+  
+  {
+    AvahiServerConfig config;
+    /* Do not publish any local Zeroconf records */
+    avahi_server_config_init(&config);
+    config.publish_hinfo = 0;
+    config.publish_addresses = 0;
+    config.publish_workstation = 0;
+    config.publish_domain = 0;
     
-    /* Initialize the pseudo-RNG for Avahi */
-    srand((unsigned int) time(NULL));
+    /* Allocate a new server */
+    mc.server = avahi_server_new(avahi_simple_poll_get
+				 (mc.simple_poll), &config, NULL,
+				 NULL, &error);
     
-    /* Allocate main Avahi loop object */
-    mc.simple_poll = avahi_simple_poll_new();
-    if(mc.simple_poll == NULL) {
-        fprintf(stderr, "Avahi: Failed to create simple poll"
-		" object.\n");
-	exitcode = EXIT_FAILURE;
-        goto end;
-    }
-    
-    {
-      AvahiServerConfig config;
-      /* Do not publish any local Zeroconf records */
-      avahi_server_config_init(&config);
-      config.publish_hinfo = 0;
-      config.publish_addresses = 0;
-      config.publish_workstation = 0;
-      config.publish_domain = 0;
-      
-      /* Allocate a new server */
-      mc.server = avahi_server_new(avahi_simple_poll_get
-				   (mc.simple_poll), &config, NULL,
-				   NULL, &error);
-      
-      /* Free the Avahi configuration data */
-      avahi_server_config_free(&config);
-    }
-    
-    /* Check if creating the Avahi server object succeeded */
-    if(mc.server == NULL) {
-        fprintf(stderr, "Failed to create Avahi server: %s\n",
-		avahi_strerror(error));
-	exitcode = EXIT_FAILURE;
-        goto end;
-    }
-    
-    /* Create the Avahi service browser */
-    sb = avahi_s_service_browser_new(mc.server, if_index,
-				     AVAHI_PROTO_INET6,
-				     "_mandos._tcp", NULL, 0,
-				     browse_callback, &mc);
-    if(sb == NULL) {
-        fprintf(stderr, "Failed to create service browser: %s\n",
-		avahi_strerror(avahi_server_errno(mc.server)));
-	exitcode = EXIT_FAILURE;
-        goto end;
-    }
-    
-    /* Run the main loop */
-    
-    if(debug){
-      fprintf(stderr, "Starting Avahi loop search\n");
-    }
-
-    avahi_simple_poll_loop(mc.simple_poll);
-    
+    /* Free the Avahi configuration data */
+    avahi_server_config_free(&config);
+  }
+  
+  /* Check if creating the Avahi server object succeeded */
+  if(mc.server == NULL){
+    fprintf(stderr, "Failed to create Avahi server: %s\n",
+	    avahi_strerror(error));
+    exitcode = EXIT_FAILURE;
+    goto end;
+  }
+  
+  /* Create the Avahi service browser */
+  sb = avahi_s_service_browser_new(mc.server, if_index,
+				   AVAHI_PROTO_INET6, "_mandos._tcp",
+				   NULL, 0, browse_callback, &mc);
+  if(sb == NULL){
+    fprintf(stderr, "Failed to create service browser: %s\n",
+	    avahi_strerror(avahi_server_errno(mc.server)));
+    exitcode = EXIT_FAILURE;
+    goto end;
+  }
+  
+  /* Run the main loop */
+  
+  if(debug){
+    fprintf(stderr, "Starting Avahi loop search\n");
+  }
+  
+  avahi_simple_poll_loop(mc.simple_poll);
+  
  end:
-    
-    if(debug){
-      fprintf(stderr, "%s exiting\n", argv[0]);
-    }
-    
-    /* Cleanup things */
-    if(sb != NULL)
-        avahi_s_service_browser_free(sb);
-    
-    if(mc.server != NULL)
-        avahi_server_free(mc.server);
-    
-    if(mc.simple_poll != NULL)
-        avahi_simple_poll_free(mc.simple_poll);
-    
-    if(gnutls_initalized){
-      gnutls_certificate_free_credentials(mc.cred);
-      gnutls_global_deinit();
-      gnutls_dh_params_deinit(mc.dh_params);
-    }
-    
-    if(gpgme_initalized){
-      gpgme_release(mc.ctx);
-    }
-    
-    /* Removes the temp directory used by GPGME */
-    if(tempdir[0] != '\0'){
-      DIR *d;
-      struct dirent *direntry;
-      d = opendir(tempdir);
-      if(d == NULL){
-	if(errno != ENOENT){
-	  perror("opendir");
-	}
-      } else {
-	while(true){
-	  direntry = readdir(d);
-	  if(direntry == NULL){
-	    break;
-	  }
-	  if(direntry->d_type == DT_REG){
-	    char *fullname = NULL;
-	    ret = asprintf(&fullname, "%s/%s", tempdir,
-			   direntry->d_name);
-	    if(ret < 0){
-	      perror("asprintf");
-	      continue;
-	    }
-	    ret = unlink(fullname);
-	    if(ret == -1){
-	      fprintf(stderr, "unlink(\"%s\"): %s",
-		      fullname, strerror(errno));
-	    }
-	    free(fullname);
-	  }
-	}
-	closedir(d);
+  
+  if(debug){
+    fprintf(stderr, "%s exiting\n", argv[0]);
+  }
+  
+  /* Cleanup things */
+  if(sb != NULL)
+    avahi_s_service_browser_free(sb);
+  
+  if(mc.server != NULL)
+    avahi_server_free(mc.server);
+  
+  if(mc.simple_poll != NULL)
+    avahi_simple_poll_free(mc.simple_poll);
+  
+  if(gnutls_initialized){
+    gnutls_certificate_free_credentials(mc.cred);
+    gnutls_global_deinit();
+    gnutls_dh_params_deinit(mc.dh_params);
+  }
+  
+  if(gpgme_initialized){
+    gpgme_release(mc.ctx);
+  }
+  
+  /* Removes the temp directory used by GPGME */
+  if(tempdir_created){
+    DIR *d;
+    struct dirent *direntry;
+    d = opendir(tempdir);
+    if(d == NULL){
+      if(errno != ENOENT){
+	perror("opendir");
       }
-      ret = rmdir(tempdir);
-      if(ret == -1 and errno != ENOENT){
-	perror("rmdir");
+    } else {
+      while(true){
+	direntry = readdir(d);
+	if(direntry == NULL){
+	  break;
+	}
+	/* Skip "." and ".." */
+	if(direntry->d_name[0] == '.'
+	   and (direntry->d_name[1] == '\0'
+		or (direntry->d_name[1] == '.'
+		    and direntry->d_name[2] == '\0'))){
+	  continue;
+	}
+	char *fullname = NULL;
+	ret = asprintf(&fullname, "%s/%s", tempdir,
+		       direntry->d_name);
+	if(ret < 0){
+	  perror("asprintf");
+	  continue;
+	}
+	ret = remove(fullname);
+	if(ret == -1){
+	  fprintf(stderr, "remove(\"%s\"): %s\n", fullname,
+		  strerror(errno));
+	}
+	free(fullname);
       }
+      closedir(d);
     }
-	  
-    return exitcode;
+    ret = rmdir(tempdir);
+    if(ret == -1 and errno != ENOENT){
+      perror("rmdir");
+    }
+  }
+  
+  return exitcode;
 }
