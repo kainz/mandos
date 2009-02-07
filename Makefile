@@ -285,7 +285,7 @@ install-client-nokey: all doc
 	install --mode=u=rw,go=r initramfs-tools-hook-conf \
 		$(INITRAMFSTOOLS)/conf-hooks.d/mandos
 	install initramfs-tools-script \
-		$(INITRAMFSTOOLS)/scripts/local-top/mandos
+		$(INITRAMFSTOOLS)/scripts/init-premount/mandos
 	install --mode=u=rw,go=r plugin-runner.conf $(CONFDIR)
 	gzip --best --to-stdout mandos-keygen.8 \
 		> $(MANDIR)/man8/mandos-keygen.8.gz
@@ -332,7 +332,7 @@ uninstall-client:
 		$(PREFIX)/lib/mandos/plugins.d/askpass-fifo \
 		$(INITRAMFSTOOLS)/hooks/mandos \
 		$(INITRAMFSTOOLS)/conf-hooks.d/mandos \
-		$(INITRAMFSTOOLS)/scripts/local-top/mandos \
+		$(INITRAMFSTOOLS)/scripts/init-premount/mandos \
 		$(MANDIR)/man8/plugin-runner.8mandos.gz \
 		$(MANDIR)/man8/mandos-keygen.8.gz \
 		$(MANDIR)/man8/password-prompt.8mandos.gz \
