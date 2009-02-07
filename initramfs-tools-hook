@@ -168,7 +168,9 @@ for dir in / /bin /etc /keyscripts /sbin /scripts /usr /usr/bin; do
 	chmod a+rX "${DESTDIR}$dir"
     fi
 done
-for dir in /lib /usr/lib; do
-    find "${DESTDIR}$dir" \! -perm -u+rw,g+r -prune -or -print0 \
-	| xargs --null --no-run-if-empty chmod a+rX
+for dir in "${DESTDIR}"/lib* "${DESTDIR}"/usr/lib*; do
+    if [ -d "$dir" ]; then
+	find "$dir" \! -perm -u+rw,g+r -prune -or -print0 \
+	    | xargs --null --no-run-if-empty chmod a+rX
+    fi
 done
