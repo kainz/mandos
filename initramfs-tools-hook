@@ -124,12 +124,18 @@ done
 
 if [ ${mandos_user} != 65534 ]; then
     PLUGINRUNNERCONF="${DESTDIR}${CONFDIR}/plugin-runner.conf"
-    echo "--userid=${mandos_user}" >> "$PLUGINRUNNERCONF"
+    cat <<-EOF >> "$PLUGINRUNNERCONF"
+	
+	--userid=${mandos_user}
+EOF
 fi
 
 if [ ${mandos_group} != 65534 ]; then
     PLUGINRUNNERCONF="${DESTDIR}${CONFDIR}/plugin-runner.conf"
-    echo "--groupid=${mandos_group}" >> "$PLUGINRUNNERCONF"
+    cat <<-EOF >> "$PLUGINRUNNERCONF"
+	
+	--groupid=${mandos_group}
+EOF
 fi
 
 # Key files 
