@@ -6,12 +6,12 @@
 # 
 
 # This script should be installed as
-# "/usr/share/initramfs-tools/scripts/local-top/mandos" which will
-# eventually be "/scripts/local-top/mandos" in the initrd.img file.
+# "/usr/share/initramfs-tools/scripts/init-premount/mandos" which will
+# eventually be "/scripts/init-premount/mandos" in the initrd.img
+# file.
 
-# No initramfs pre-requirements; we must instead run BEFORE cryptroot.
-# This is not a problem, since cryptroot forces itself to run LAST.
-PREREQ=""
+# No initramfs pre-requirements.
+PREREQ="udev"
 prereqs()
 {
     echo "$PREREQ"
