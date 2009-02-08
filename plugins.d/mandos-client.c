@@ -130,11 +130,11 @@ typedef struct {
 } mandos_context;
 
 /*
- * Make room in "buffer" for at least BUFFER_SIZE additional bytes.
- * "buffer_capacity" is how much is currently allocated,
- * "buffer_length" is how much is already used.
+ * Make additional room in "buffer" for at least BUFFER_SIZE
+ * additional bytes. "buffer_capacity" is how much is currently
+ * allocated, "buffer_length" is how much is already used.
  */
-size_t adjustbuffer(char **buffer, size_t buffer_length,
+size_t incbuffer(char **buffer, size_t buffer_length,
 		  size_t buffer_capacity){
   if(buffer_length + BUFFER_SIZE > buffer_capacity){
     *buffer = realloc(*buffer, buffer_capacity + BUFFER_SIZE);
@@ -326,11 +326,11 @@ static ssize_t pgp_packet_decrypt(const mandos_context *mc,
   
   *plaintext = NULL;
   while(true){
-    plaintext_capacity = adjustbuffer(plaintext,
+    plaintext_capacity = incbuffer(plaintext,
 				      (size_t)plaintext_length,
 				      plaintext_capacity);
     if(plaintext_capacity == 0){
-	perror("adjustbuffer");
+	perror("incbuffer");
 	plaintext_length = -1;
 	goto decrypt_end;
     }
@@ -637,10 +637,10 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   }
   
   while(true){
-    buffer_capacity = adjustbuffer(&buffer, buffer_length,
+    buffer_capacity = incbuffer(&buffer, buffer_length,
 				   buffer_capacity);
     if(buffer_capacity == 0){
-      perror("adjustbuffer");
+      perror("incbuffer");
       retval = -1;
       goto mandos_end;
     }
