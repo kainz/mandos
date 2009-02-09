@@ -2,41 +2,35 @@
 
 * mandos-client
 ** TODO [#A] Clean up /tmp directory on signal
-** TODO [#C] IPv4 support
 
 * plugin-runner
 ** TODO [#B] use scandir(3) instead of readdir(3)
 
 * mandos (server)
-** TODO [#B] Log level				:bugs:
+** TODO [#B] Log level				:BUGS:
 ** TODO /etc/mandos/clients.d/*.conf
    Watch this directory and add/remove/update clients?
 ** TODO config for TXT record
-** TODO [#B] Run-time communication with server :bugs:
+** TODO [#B] Run-time communication with server :BUGS:
    Probably using D-Bus
-   See also [[*Mandos-tools]]
 *** Client class
 *** Main server
     + SetLogLevel
       syslogger.setLevel(logging.WARNING)
-    + Quit
     + [[http://log.ometer.com/2007-05.html][Best D-Bus practices]]
-** TODO Implement --foreground			:bugs:
+** TODO Implement --foreground			:BUGS:
    [[info:standards:Option%20Table][Table of Long Options]]
 ** TODO Implement --socket
    [[info:standards:Option%20Table][Table of Long Options]]
-** TODO Date+time on console log messages	:bugs:
+** TODO Date+time on console log messages	:BUGS:
    Is this the default?
-** TODO delete hook when clients fall out by timeout
-   This will not be strictly necessary when the D-Bus interface is
-   implemented.
 
 * mandos.xml
 ** [[file:mandos.xml::XXX][Document D-Bus interface]]
 
 * Provide and install /etc/dbus-1/system.d/mandos.conf
 
-* mandos-list
+* mandos-ctl
 *** Handle "no D-Bus server" and/or "no Mandos server found" better
 *** [#B] --dump option
 
@@ -52,8 +46,7 @@
 * Package
 ** /usr/share/initramfs-tools/hooks/mandos
 *** TODO [#C] Do not install in initrd.img if configured not to.
-    Use "/etc/initramfs-tools/conf.d/mandos"?  Definitely a debconf
-    question.
+    Use "/etc/initramfs-tools/hooksconf.d/mandos"?
 ** TODO [#C] /etc/bash_completion.d/mandos
    From XML sources directly?
 

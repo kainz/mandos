@@ -62,7 +62,8 @@
 #include <signal.h> 		/* struct sigaction, sigemptyset(),
 				   sigaddset(), sigaction(),
 				   sigprocmask(), SIG_BLOCK, SIGCHLD,
-				   SIG_UNBLOCK, kill() */
+				   SIG_UNBLOCK, kill(), sig_atomic_t
+				*/
 #include <errno.h>		/* errno, EBADF */
 #include <inttypes.h>		/* intmax_t, SCNdMAX, PRIdMAX,  */
 
