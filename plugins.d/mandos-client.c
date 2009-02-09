@@ -76,11 +76,12 @@
 				   argp_parse(), ARGP_KEY_ARG,
 				   ARGP_KEY_END, ARGP_ERR_UNKNOWN */
 #include <signal.h>		/* sigemptyset(), sigaddset(),
-				   sigaction(), SIGTERM, sigaction */
+				   sigaction(), SIGTERM, sigaction,
+				   sig_atomic_t */
 
 #ifdef __linux__
 #include <sys/klog.h> 		/* klogctl() */
-#endif
+#endif	/* __linux__ */
 
 /* Avahi */
 /* All Avahi types, constants and functions
@@ -136,9 +137,9 @@ typedef struct {
 mandos_context mc;
 
 /*
- * Make additional room in "buffer" for at least BUFFER_SIZE
- * additional bytes. "buffer_capacity" is how much is currently
- * allocated, "buffer_length" is how much is already used.
+ * Make additional room in "buffer" for at least BUFFER_SIZE more
+ * bytes. "buffer_capacity" is how much is currently allocated,
+ * "buffer_length" is how much is already used.
  */
 size_t incbuffer(char **buffer, size_t buffer_length,
 		  size_t buffer_capacity){
@@ -871,9 +872,17 @@ static void browse_callback(AvahiSServiceBrowser *b,
   }
 }
 
+sig_atomic_t quit_now = 0;
+
 static void handle_sigterm(__attribute__((unused)) int sig){
+  if(quit_now){
+    return;
+  }
+  quit_now = 1;
   int old_errno = errno;
-  avahi_simple_poll_quit(mc.simple_poll);
+  if(mc.simple_poll != NULL){
+    avahi_simple_poll_quit(mc.simple_poll);
+  }
   errno = old_errno;
 }
 
@@ -1014,7 +1023,7 @@ int main(int argc, char *argv[]){
       restore_loglevel = false;
       perror("klogctl");
     }
-#endif
+#endif	/* __linux__ */
     
     sd = socket(PF_INET6, SOCK_DGRAM, IPPROTO_IP);
     if(sd < 0){
@@ -1027,7 +1036,7 @@ int main(int argc, char *argv[]){
 	  perror("klogctl");
 	}
       }
-#endif
+#endif	/* __linux__ */
       goto end;
     }
     strcpy(network.ifr_name, interface);
@@ -1041,7 +1050,7 @@ int main(int argc, char *argv[]){
 	  perror("klogctl");
 	}
       }
-#endif
+#endif	/* __linux__ */
       exitcode = EXIT_FAILURE;
       goto end;
     }
@@ -1058,7 +1067,7 @@ int main(int argc, char *argv[]){
 	    perror("klogctl");
 	  }
 	}
-#endif
+#endif	/* __linux__ */
 	goto end;
       }
     }
@@ -1088,7 +1097,7 @@ int main(int argc, char *argv[]){
 	perror("klogctl");
       }
     }
-#endif
+#endif	/* __linux__ */
   }
   
   uid = getuid();
@@ -1226,6 +1235,18 @@ int main(int argc, char *argv[]){
   }
   
   sigemptyset(&sigterm_action.sa_mask);
+  ret = sigaddset(&sigterm_action.sa_mask, SIGINT);
+  if(ret == -1){
+    perror("sigaddset");
+    exitcode = EXIT_FAILURE;
+    goto end;
+  }
+  ret = sigaddset(&sigterm_action.sa_mask, SIGHUP);
+  if(ret == -1){
+    perror("sigaddset");
+    exitcode = EXIT_FAILURE;
+    goto end;
+  }
   ret = sigaddset(&sigterm_action.sa_mask, SIGTERM);
   if(ret == -1){
     perror("sigaddset");
