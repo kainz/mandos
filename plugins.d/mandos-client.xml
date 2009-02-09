@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY COMMANDNAME "mandos-client">
-<!ENTITY TIMESTAMP "2009-01-24">
+<!ENTITY TIMESTAMP "2009-02-09">
 <!ENTITY % common SYSTEM "../common.ent">
 %common;
 ]>
@@ -195,14 +195,14 @@
       </varlistentry>
       
       <varlistentry>
-	<term><option>--interface=
-	<replaceable>NAME</replaceable></option></term>
+	<term><option>--interface=<replaceable
+	>NAME</replaceable></option></term>
 	<term><option>-i
 	<replaceable>NAME</replaceable></option></term>
 	<listitem>
 	  <para>
 	    Network interface that will be brought up and scanned for
-	    Mandos servers to connect to.  The default it
+	    Mandos servers to connect to.  The default is
 	    <quote><literal>eth0</literal></quote>.
 	  </para>
 	  <para>
@@ -218,6 +218,12 @@
 	    or <quote>tun0</quote>; such interfaces will not exist
 	    until much later in the boot process, and can not be used
 	    by this program.
+	  </para>
+	  <para>
+	    <replaceable>NAME</replaceable> can be the empty string;
+	    this will not use any specific interface, and will not
+	    bring up an interface on startup.  This is not
+	    recommended, and only meant for advanced users.
 	  </para>
 	</listitem>
       </varlistentry>
@@ -446,15 +452,15 @@
     <informalexample>
       <para>
 	Run in debug mode, with a custom key, and do not use Zeroconf
-	to locate a server; connect directly to the IPv6 address
-	<quote><systemitem class="ipaddress"
-	>2001:db8:f983:bd0b:30de:ae4a:71f2:f672</systemitem></quote>,
-	port 4711, using interface eth2:
+	to locate a server; connect directly to the IPv6 link-local
+	address <quote><systemitem class="ipaddress"
+	>fe80::aede:48ff:fe71:f6f2</systemitem></quote>, port 4711,
+	using interface eth2:
       </para>
       <para>
 
 <!-- do not wrap this line -->
-<userinput>&COMMANDNAME; --debug --pubkey keydir/pubkey.txt --seckey keydir/seckey.txt --connect 2001:db8:f983:bd0b:30de:ae4a:71f2:f672:4711 --interface eth2</userinput>
+<userinput>&COMMANDNAME; --debug --pubkey keydir/pubkey.txt --seckey keydir/seckey.txt --connect fe80::aede:48ff:fe71:f6f2:4711 --interface eth2</userinput>
 
       </para>
     </informalexample>

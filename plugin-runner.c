@@ -970,16 +970,18 @@ int main(int argc, char *argv[]){
 
 	  if(debug){
 	    if(WIFEXITED(proc->status)){
-	      fprintf(stderr, "Plugin %" PRIdMAX " exited with status"
-		      " %d\n", (intmax_t) (proc->pid),
+	      fprintf(stderr, "Plugin %s [%" PRIdMAX "] exited with"
+		      " status %d\n", proc->name,
+		      (intmax_t) (proc->pid),
 		      WEXITSTATUS(proc->status));
 	    } else if(WIFSIGNALED(proc->status)){
-	      fprintf(stderr, "Plugin %" PRIdMAX " killed by signal"
-		      " %d\n", (intmax_t) (proc->pid),
+	      fprintf(stderr, "Plugin %s [%" PRIdMAX "] killed by"
+		      " signal %d\n", proc->name,
+		      (intmax_t) (proc->pid),
 		      WTERMSIG(proc->status));
 	    } else if(WCOREDUMP(proc->status)){
-	      fprintf(stderr, "Plugin %" PRIdMAX " dumped core\n",
-		      (intmax_t) (proc->pid));
+	      fprintf(stderr, "Plugin %s [%" PRIdMAX "] dumped"
+		      " core\n", proc->name, (intmax_t) (proc->pid));
 	    }
 	  }
 	  
