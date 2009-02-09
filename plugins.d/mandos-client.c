@@ -131,7 +131,9 @@ typedef struct {
 } mandos_context;
 
 /* global context so signal handler can reach it*/
-mandos_context mc;
+mandos_context mc = { .simple_poll = NULL, .server = NULL,
+		      .dh_bits = 1024, .priority = "SECURE256"
+		      ":!CTYPE-X.509:+CTYPE-OPENPGP" };
 
 /*
  * Make additional room in "buffer" for at least BUFFER_SIZE
@@ -869,6 +871,7 @@ static void browse_callback(AvahiSServiceBrowser *b,
   }
 }
 
+/* stop main loop after sigterm has been called */
 static void handle_sigterm(__attribute__((unused)) int sig){
   int old_errno = errno;
   avahi_simple_poll_quit(mc.simple_poll);
@@ -901,11 +904,6 @@ int main(int argc, char *argv[]){
   struct sigaction old_sigterm_action;
   struct sigaction sigterm_action = { .sa_handler = handle_sigterm };
 
-  /* Initialize mandos context */
-  mc = (mandos_context){ .simple_poll = NULL, .server = NULL,
-			 .dh_bits = 1024, .priority = "SECURE256"
-			 ":!CTYPE-X.509:+CTYPE-OPENPGP" };
-  
   {
     struct argp_option options[] = {
       { .name = "debug", .key = 128,
@@ -1001,6 +999,36 @@ int main(int argc, char *argv[]){
       goto end;
     }
   }
+
+  if(not debug){
+    avahi_set_log_function(empty_log);
+  }
+
+  /* Initialize Avahi early so avahi_simple_poll_quit() can be called
+     from the signal handler */
+  /* Initialize the pseudo-RNG for Avahi */
+  srand((unsigned int) time(NULL));
+  mc.simple_poll = avahi_simple_poll_new();
+  if(mc.simple_poll == NULL){
+    fprintf(stderr, "Avahi: Failed to create simple poll object.\n");
+    exitcode = EXIT_FAILURE;
+    goto end;
+  }
+
+  sigemptyset(&sigterm_action.sa_mask);
+  ret = sigaddset(&sigterm_action.sa_mask, SIGTERM);
+  if(ret == -1){
+    perror("sigaddset");
+    exitcode = EXIT_FAILURE;
+    goto end;
+  }
+  ret = sigaction(SIGTERM, &sigterm_action, &old_sigterm_action);
+  if(ret == -1){
+    perror("sigaction");
+    exitcode = EXIT_FAILURE;
+    goto end;
+  }  
+
   
   /* If the interface is down, bring it up */
   if(interface[0] != '\0'){
@@ -1172,22 +1200,7 @@ int main(int argc, char *argv[]){
     }
     goto end;
   }
-  
-  if(not debug){
-    avahi_set_log_function(empty_log);
-  }
-  
-  /* Initialize the pseudo-RNG for Avahi */
-  srand((unsigned int) time(NULL));
-  
-  /* Allocate main Avahi loop object */
-  mc.simple_poll = avahi_simple_poll_new();
-  if(mc.simple_poll == NULL){
-    fprintf(stderr, "Avahi: Failed to create simple poll object.\n");
-    exitcode = EXIT_FAILURE;
-    goto end;
-  }
-  
+    
   {
     AvahiServerConfig config;
     /* Do not publish any local Zeroconf records */
@@ -1224,20 +1237,6 @@ int main(int argc, char *argv[]){
     exitcode = EXIT_FAILURE;
     goto end;
   }
-
-  sigemptyset(&sigterm_action.sa_mask);
-  ret = sigaddset(&sigterm_action.sa_mask, SIGTERM);
-  if(ret == -1){
-    perror("sigaddset");
-    exitcode = EXIT_FAILURE;
-    goto end;
-  }
-  ret = sigaction(SIGTERM, &sigterm_action, &old_sigterm_action);
-  if(ret == -1){
-    perror("sigaction");
-    exitcode = EXIT_FAILURE;
-    goto end;
-  }  
   
   /* Run the main loop */
   
