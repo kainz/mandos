@@ -75,6 +75,9 @@
 				   argp_state, struct argp,
 				   argp_parse(), ARGP_KEY_ARG,
 				   ARGP_KEY_END, ARGP_ERR_UNKNOWN */
+#include <signal.h>		/* sigemptyset(), sigaddset(),
+				   sigaction(), SIGTERM, sigaction */
+
 #ifdef __linux__
 #include <sys/klog.h> 		/* klogctl() */
 #endif
@@ -129,6 +132,9 @@ typedef struct {
   gpgme_ctx_t ctx;
 } mandos_context;
 
+/* global context so signal handler can reach it*/
+mandos_context mc;
+
 /*
  * Make additional room in "buffer" for at least BUFFER_SIZE
  * additional bytes. "buffer_capacity" is how much is currently
@@ -149,7 +155,7 @@ size_t incbuffer(char **buffer, size_t buffer_length,
 /* 
  * Initialize GPGME.
  */
-static bool init_gpgme(mandos_context *mc, const char *seckey,
+static bool init_gpgme(const char *seckey,
 		       const char *pubkey, const char *tempdir){
   int ret;
   gpgme_error_t rc;
@@ -176,7 +182,7 @@ static bool init_gpgme(mandos_context *mc, const char *seckey,
       return false;
     }
     
-    rc = gpgme_op_import(mc->ctx, pgp_data);
+    rc = gpgme_op_import(mc.ctx, pgp_data);
     if(rc != GPG_ERR_NO_ERROR){
       fprintf(stderr, "bad gpgme_op_import: %s: %s\n",
 	      gpgme_strsource(rc), gpgme_strerror(rc));
@@ -192,7 +198,7 @@ static bool init_gpgme(mandos_context *mc, const char *seckey,
   }
   
   if(debug){
-    fprintf(stderr, "Initialize gpgme\n");
+    fprintf(stderr, "Initializing GPGME\n");
   }
   
   /* Init GPGME */
@@ -225,7 +231,7 @@ static bool init_gpgme(mandos_context *mc, const char *seckey,
   }
   
   /* Create new GPGME "context" */
-  rc = gpgme_new(&(mc->ctx));
+  rc = gpgme_new(&(mc.ctx));
   if(rc != GPG_ERR_NO_ERROR){
     fprintf(stderr, "bad gpgme_new: %s: %s\n",
 	    gpgme_strsource(rc), gpgme_strerror(rc));
@@ -243,8 +249,7 @@ static bool init_gpgme(mandos_context *mc, const char *seckey,
  * Decrypt OpenPGP data.
  * Returns -1 on error
  */
-static ssize_t pgp_packet_decrypt(const mandos_context *mc,
-				  const char *cryptotext,
+static ssize_t pgp_packet_decrypt(const char *cryptotext,
 				  size_t crypto_size,
 				  char **plaintext){
   gpgme_data_t dh_crypto, dh_plain;
@@ -277,14 +282,14 @@ static ssize_t pgp_packet_decrypt(const mandos_context *mc,
   
   /* Decrypt data from the cryptotext data buffer to the plaintext
      data buffer */
-  rc = gpgme_op_decrypt(mc->ctx, dh_crypto, dh_plain);
+  rc = gpgme_op_decrypt(mc.ctx, dh_crypto, dh_plain);
   if(rc != GPG_ERR_NO_ERROR){
     fprintf(stderr, "bad gpgme_op_decrypt: %s: %s\n",
 	    gpgme_strsource(rc), gpgme_strerror(rc));
     plaintext_length = -1;
     if(debug){
       gpgme_decrypt_result_t result;
-      result = gpgme_op_decrypt_result(mc->ctx);
+      result = gpgme_op_decrypt_result(mc.ctx);
       if(result == NULL){
 	fprintf(stderr, "gpgme_op_decrypt_result failed\n");
       } else {
@@ -382,8 +387,7 @@ static void debuggnutls(__attribute__((unused)) int level,
   fprintf(stderr, "GnuTLS: %s", string);
 }
 
-static int init_gnutls_global(mandos_context *mc,
-			      const char *pubkeyfilename,
+static int init_gnutls_global(const char *pubkeyfilename,
 			      const char *seckeyfilename){
   int ret;
   
@@ -407,7 +411,7 @@ static int init_gnutls_global(mandos_context *mc,
   }
   
   /* OpenPGP credentials */
-  gnutls_certificate_allocate_credentials(&mc->cred);
+  gnutls_certificate_allocate_credentials(&mc.cred);
   if(ret != GNUTLS_E_SUCCESS){
     fprintf(stderr, "GnuTLS memory error: %s\n", /* Spurious warning
 						    from
@@ -425,7 +429,7 @@ static int init_gnutls_global(mandos_context *mc,
   }
   
   ret = gnutls_certificate_set_openpgp_key_file
-    (mc->cred, pubkeyfilename, seckeyfilename,
+    (mc.cred, pubkeyfilename, seckeyfilename,
      GNUTLS_OPENPGP_FMT_BASE64);
   if(ret != GNUTLS_E_SUCCESS){
     fprintf(stderr,
@@ -437,33 +441,32 @@ static int init_gnutls_global(mandos_context *mc,
   }
   
   /* GnuTLS server initialization */
-  ret = gnutls_dh_params_init(&mc->dh_params);
+  ret = gnutls_dh_params_init(&mc.dh_params);
   if(ret != GNUTLS_E_SUCCESS){
     fprintf(stderr, "Error in GnuTLS DH parameter initialization:"
 	    " %s\n", safer_gnutls_strerror(ret));
     goto globalfail;
   }
-  ret = gnutls_dh_params_generate2(mc->dh_params, mc->dh_bits);
+  ret = gnutls_dh_params_generate2(mc.dh_params, mc.dh_bits);
   if(ret != GNUTLS_E_SUCCESS){
     fprintf(stderr, "Error in GnuTLS prime generation: %s\n",
 	    safer_gnutls_strerror(ret));
     goto globalfail;
   }
   
-  gnutls_certificate_set_dh_params(mc->cred, mc->dh_params);
+  gnutls_certificate_set_dh_params(mc.cred, mc.dh_params);
   
   return 0;
   
  globalfail:
   
-  gnutls_certificate_free_credentials(mc->cred);
+  gnutls_certificate_free_credentials(mc.cred);
   gnutls_global_deinit();
-  gnutls_dh_params_deinit(mc->dh_params);
+  gnutls_dh_params_deinit(mc.dh_params);
   return -1;
 }
 
-static int init_gnutls_session(mandos_context *mc,
-			       gnutls_session_t *session){
+static int init_gnutls_session(gnutls_session_t *session){
   int ret;
   /* GnuTLS session creation */
   ret = gnutls_init(session, GNUTLS_SERVER);
@@ -474,7 +477,7 @@ static int init_gnutls_session(mandos_context *mc,
   
   {
     const char *err;
-    ret = gnutls_priority_set_direct(*session, mc->priority, &err);
+    ret = gnutls_priority_set_direct(*session, mc.priority, &err);
     if(ret != GNUTLS_E_SUCCESS){
       fprintf(stderr, "Syntax error at: %s\n", err);
       fprintf(stderr, "GnuTLS error: %s\n",
@@ -485,7 +488,7 @@ static int init_gnutls_session(mandos_context *mc,
   }
   
   ret = gnutls_credentials_set(*session, GNUTLS_CRD_CERTIFICATE,
-			       mc->cred);
+			       mc.cred);
   if(ret != GNUTLS_E_SUCCESS){
     fprintf(stderr, "Error setting GnuTLS credentials: %s\n",
 	    safer_gnutls_strerror(ret));
@@ -497,7 +500,7 @@ static int init_gnutls_session(mandos_context *mc,
   gnutls_certificate_server_set_request(*session,
 					GNUTLS_CERT_IGNORE);
   
-  gnutls_dh_set_prime_bits(*session, mc->dh_bits);
+  gnutls_dh_set_prime_bits(*session, mc.dh_bits);
   
   return 0;
 }
@@ -509,7 +512,7 @@ static void empty_log(__attribute__((unused)) AvahiLogLevel level,
 /* Called when a Mandos server is found */
 static int start_mandos_communication(const char *ip, uint16_t port,
 				      AvahiIfIndex if_index,
-				      mandos_context *mc, int af){
+				      int af){
   int ret, tcp_sd;
   ssize_t sret;
   union {
@@ -538,7 +541,7 @@ static int start_mandos_communication(const char *ip, uint16_t port,
     return -1;
   }
   
-  ret = init_gnutls_session(mc, &session);
+  ret = init_gnutls_session(&session);
   if(ret != 0){
     return -1;
   }
@@ -733,7 +736,7 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   gnutls_bye(session, GNUTLS_SHUT_RDWR);
   
   if(buffer_length > 0){
-    decrypted_buffer_size = pgp_packet_decrypt(mc, buffer,
+    decrypted_buffer_size = pgp_packet_decrypt(buffer,
 					       buffer_length,
 					       &decrypted_buffer);
     if(decrypted_buffer_size >= 0){
@@ -785,8 +788,7 @@ static void resolve_callback(AvahiSServiceResolver *r,
 			     AVAHI_GCC_UNUSED AvahiStringList *txt,
 			     AVAHI_GCC_UNUSED AvahiLookupResultFlags
 			     flags,
-			     void* userdata){
-  mandos_context *mc = userdata;
+			     AVAHI_GCC_UNUSED void* userdata){
   assert(r);
   
   /* Called whenever a service has been resolved successfully or
@@ -797,7 +799,7 @@ static void resolve_callback(AvahiSServiceResolver *r,
   case AVAHI_RESOLVER_FAILURE:
     fprintf(stderr, "(Avahi Resolver) Failed to resolve service '%s'"
 	    " of type '%s' in domain '%s': %s\n", name, type, domain,
-	    avahi_strerror(avahi_server_errno(mc->server)));
+	    avahi_strerror(avahi_server_errno(mc.server)));
     break;
     
   case AVAHI_RESOLVER_FOUND:
@@ -809,10 +811,10 @@ static void resolve_callback(AvahiSServiceResolver *r,
 		PRIdMAX ") on port %" PRIu16 "\n", name, host_name,
 		ip, (intmax_t)interface, port);
       }
-      int ret = start_mandos_communication(ip, port, interface, mc,
+      int ret = start_mandos_communication(ip, port, interface,
 					   avahi_proto_to_af(proto));
       if(ret == 0){
-	avahi_simple_poll_quit(mc->simple_poll);
+	avahi_simple_poll_quit(mc.simple_poll);
       }
     }
   }
@@ -828,8 +830,7 @@ static void browse_callback(AvahiSServiceBrowser *b,
 			    const char *domain,
 			    AVAHI_GCC_UNUSED AvahiLookupResultFlags
 			    flags,
-			    void* userdata){
-  mandos_context *mc = userdata;
+			    AVAHI_GCC_UNUSED void* userdata){
   assert(b);
   
   /* Called whenever a new services becomes available on the LAN or
@@ -840,8 +841,8 @@ static void browse_callback(AvahiSServiceBrowser *b,
   case AVAHI_BROWSER_FAILURE:
     
     fprintf(stderr, "(Avahi browser) %s\n",
-	    avahi_strerror(avahi_server_errno(mc->server)));
-    avahi_simple_poll_quit(mc->simple_poll);
+	    avahi_strerror(avahi_server_errno(mc.server)));
+    avahi_simple_poll_quit(mc.simple_poll);
     return;
     
   case AVAHI_BROWSER_NEW:
@@ -850,12 +851,12 @@ static void browse_callback(AvahiSServiceBrowser *b,
        the callback function is called the Avahi server will free the
        resolver for us. */
     
-    if(!(avahi_s_service_resolver_new(mc->server, interface,
+    if(!(avahi_s_service_resolver_new(mc.server, interface,
 				       protocol, name, type, domain,
 				       AVAHI_PROTO_INET6, 0,
-				       resolve_callback, mc)))
+				       resolve_callback, NULL)))
       fprintf(stderr, "Avahi: Failed to resolve service '%s': %s\n",
-	      name, avahi_strerror(avahi_server_errno(mc->server)));
+	      name, avahi_strerror(avahi_server_errno(mc.server)));
     break;
     
   case AVAHI_BROWSER_REMOVE:
@@ -868,6 +869,12 @@ static void browse_callback(AvahiSServiceBrowser *b,
     }
     break;
   }
+}
+
+static void handle_sigterm(__attribute__((unused)) int sig){
+  int old_errno = errno;
+  avahi_simple_poll_quit(mc.simple_poll);
+  errno = old_errno;
 }
 
 int main(int argc, char *argv[]){
@@ -889,12 +896,16 @@ int main(int argc, char *argv[]){
   const char *seckey = PATHDIR "/" SECKEY;
   const char *pubkey = PATHDIR "/" PUBKEY;
   
-  mandos_context mc = { .simple_poll = NULL, .server = NULL,
-			.dh_bits = 1024, .priority = "SECURE256"
-			":!CTYPE-X.509:+CTYPE-OPENPGP" };
+  /* Initialize Mandos context */
+  mc = (mandos_context){ .simple_poll = NULL, .server = NULL,
+			 .dh_bits = 1024, .priority = "SECURE256"
+			 ":!CTYPE-X.509:+CTYPE-OPENPGP" };
   bool gnutls_initialized = false;
   bool gpgme_initialized = false;
   double delay = 2.5;
+
+  struct sigaction old_sigterm_action;
+  struct sigaction sigterm_action = { .sa_handler = handle_sigterm };
   
   {
     struct argp_option options[] = {
@@ -1094,7 +1105,7 @@ int main(int argc, char *argv[]){
     perror("setuid");
   }
   
-  ret = init_gnutls_global(&mc, pubkey, seckey);
+  ret = init_gnutls_global(pubkey, seckey);
   if(ret == -1){
     fprintf(stderr, "init_gnutls_global failed\n");
     exitcode = EXIT_FAILURE;
@@ -1109,7 +1120,7 @@ int main(int argc, char *argv[]){
   }
   tempdir_created = true;
   
-  if(not init_gpgme(&mc, pubkey, seckey, tempdir)){
+  if(not init_gpgme(pubkey, seckey, tempdir)){
     fprintf(stderr, "init_gpgme failed\n");
     exitcode = EXIT_FAILURE;
     goto end;
@@ -1153,8 +1164,7 @@ int main(int argc, char *argv[]){
     } else {
       af = AF_INET;
     }
-    ret = start_mandos_communication(address, port, if_index, &mc,
-				     af);
+    ret = start_mandos_communication(address, port, if_index, af);
     if(ret < 0){
       exitcode = EXIT_FAILURE;
     } else {
@@ -1207,13 +1217,27 @@ int main(int argc, char *argv[]){
   /* Create the Avahi service browser */
   sb = avahi_s_service_browser_new(mc.server, if_index,
 				   AVAHI_PROTO_INET6, "_mandos._tcp",
-				   NULL, 0, browse_callback, &mc);
+				   NULL, 0, browse_callback, NULL);
   if(sb == NULL){
     fprintf(stderr, "Failed to create service browser: %s\n",
 	    avahi_strerror(avahi_server_errno(mc.server)));
     exitcode = EXIT_FAILURE;
     goto end;
   }
+  
+  sigemptyset(&sigterm_action.sa_mask);
+  ret = sigaddset(&sigterm_action.sa_mask, SIGTERM);
+  if(ret == -1){
+    perror("sigaddset");
+    exitcode = EXIT_FAILURE;
+    goto end;
+  }
+  ret = sigaction(SIGTERM, &sigterm_action, &old_sigterm_action);
+  if(ret == -1){
+    perror("sigaction");
+    exitcode = EXIT_FAILURE;
+    goto end;
+  }  
   
   /* Run the main loop */
   
