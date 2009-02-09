@@ -75,10 +75,13 @@
 				   argp_state, struct argp,
 				   argp_parse(), ARGP_KEY_ARG,
 				   ARGP_KEY_END, ARGP_ERR_UNKNOWN */
-#include <signal.h>		/* sigemptyset(), sigaddset(), sigaction(), SIGTERM, sigaction */
+#include <signal.h>		/* sigemptyset(), sigaddset(),
+				   sigaction(), SIGTERM, sigaction,
+				   sig_atomic_t */
+
 #ifdef __linux__
 #include <sys/klog.h> 		/* klogctl() */
-#endif
+#endif	/* __linux__ */
 
 /* Avahi */
 /* All Avahi types, constants and functions
@@ -136,9 +139,9 @@ mandos_context mc = { .simple_poll = NULL, .server = NULL,
 		      ":!CTYPE-X.509:+CTYPE-OPENPGP" };
 
 /*
- * Make additional room in "buffer" for at least BUFFER_SIZE
- * additional bytes. "buffer_capacity" is how much is currently
- * allocated, "buffer_length" is how much is already used.
+ * Make additional room in "buffer" for at least BUFFER_SIZE more
+ * bytes. "buffer_capacity" is how much is currently allocated,
+ * "buffer_length" is how much is already used.
  */
 size_t incbuffer(char **buffer, size_t buffer_length,
 		  size_t buffer_capacity){
@@ -198,7 +201,7 @@ static bool init_gpgme(const char *seckey,
   }
   
   if(debug){
-    fprintf(stderr, "Initialize gpgme\n");
+    fprintf(stderr, "Initializing GPGME\n");
   }
   
   /* Init GPGME */
@@ -788,7 +791,7 @@ static void resolve_callback(AvahiSServiceResolver *r,
 			     AVAHI_GCC_UNUSED AvahiStringList *txt,
 			     AVAHI_GCC_UNUSED AvahiLookupResultFlags
 			     flags,
-			     __attribute__((unused)) void* userdata){
+			     AVAHI_GCC_UNUSED void* userdata){
   assert(r);
   
   /* Called whenever a service has been resolved successfully or
@@ -830,7 +833,7 @@ static void browse_callback(AvahiSServiceBrowser *b,
 			    const char *domain,
 			    AVAHI_GCC_UNUSED AvahiLookupResultFlags
 			    flags,
-			    __attribute__((unused)) void* userdata){
+			    AVAHI_GCC_UNUSED void* userdata){
   assert(b);
   
   /* Called whenever a new services becomes available on the LAN or
@@ -871,10 +874,18 @@ static void browse_callback(AvahiSServiceBrowser *b,
   }
 }
 
+sig_atomic_t quit_now = 0;
+
 /* stop main loop after sigterm has been called */
 static void handle_sigterm(__attribute__((unused)) int sig){
+  if(quit_now){
+    return;
+  }
+  quit_now = 1;
   int old_errno = errno;
-  avahi_simple_poll_quit(mc.simple_poll);
+  if(mc.simple_poll != NULL){
+    avahi_simple_poll_quit(mc.simple_poll);
+  }
   errno = old_errno;
 }
 
@@ -897,13 +908,17 @@ int main(int argc, char *argv[]){
   const char *seckey = PATHDIR "/" SECKEY;
   const char *pubkey = PATHDIR "/" PUBKEY;
   
+  /* Initialize Mandos context */
+  mc = (mandos_context){ .simple_poll = NULL, .server = NULL,
+			 .dh_bits = 1024, .priority = "SECURE256"
+			 ":!CTYPE-X.509:+CTYPE-OPENPGP" };
   bool gnutls_initialized = false;
   bool gpgme_initialized = false;
   double delay = 2.5;
 
   struct sigaction old_sigterm_action;
   struct sigaction sigterm_action = { .sa_handler = handle_sigterm };
-
+  
   {
     struct argp_option options[] = {
       { .name = "debug", .key = 128,
@@ -999,11 +1014,11 @@ int main(int argc, char *argv[]){
       goto end;
     }
   }
-
+  
   if(not debug){
     avahi_set_log_function(empty_log);
   }
-
+  
   /* Initialize Avahi early so avahi_simple_poll_quit() can be called
      from the signal handler */
   /* Initialize the pseudo-RNG for Avahi */
@@ -1014,8 +1029,20 @@ int main(int argc, char *argv[]){
     exitcode = EXIT_FAILURE;
     goto end;
   }
-
+  
   sigemptyset(&sigterm_action.sa_mask);
+  ret = sigaddset(&sigterm_action.sa_mask, SIGINT);
+  if(ret == -1){
+    perror("sigaddset");
+    exitcode = EXIT_FAILURE;
+    goto end;
+  }
+  ret = sigaddset(&sigterm_action.sa_mask, SIGHUP);
+  if(ret == -1){
+    perror("sigaddset");
+    exitcode = EXIT_FAILURE;
+    goto end;
+  }
   ret = sigaddset(&sigterm_action.sa_mask, SIGTERM);
   if(ret == -1){
     perror("sigaddset");
@@ -1028,7 +1055,6 @@ int main(int argc, char *argv[]){
     exitcode = EXIT_FAILURE;
     goto end;
   }  
-
   
   /* If the interface is down, bring it up */
   if(interface[0] != '\0'){
@@ -1041,7 +1067,7 @@ int main(int argc, char *argv[]){
       restore_loglevel = false;
       perror("klogctl");
     }
-#endif
+#endif	/* __linux__ */
     
     sd = socket(PF_INET6, SOCK_DGRAM, IPPROTO_IP);
     if(sd < 0){
@@ -1054,7 +1080,7 @@ int main(int argc, char *argv[]){
 	  perror("klogctl");
 	}
       }
-#endif
+#endif	/* __linux__ */
       goto end;
     }
     strcpy(network.ifr_name, interface);
@@ -1068,7 +1094,7 @@ int main(int argc, char *argv[]){
 	  perror("klogctl");
 	}
       }
-#endif
+#endif	/* __linux__ */
       exitcode = EXIT_FAILURE;
       goto end;
     }
@@ -1085,7 +1111,7 @@ int main(int argc, char *argv[]){
 	    perror("klogctl");
 	  }
 	}
-#endif
+#endif	/* __linux__ */
 	goto end;
       }
     }
@@ -1115,7 +1141,7 @@ int main(int argc, char *argv[]){
 	perror("klogctl");
       }
     }
-#endif
+#endif	/* __linux__ */
   }
   
   uid = getuid();
@@ -1191,8 +1217,7 @@ int main(int argc, char *argv[]){
     } else {
       af = AF_INET;
     }
-    ret = start_mandos_communication(address, port, if_index,
-				     af);
+    ret = start_mandos_communication(address, port, if_index, af);
     if(ret < 0){
       exitcode = EXIT_FAILURE;
     } else {
