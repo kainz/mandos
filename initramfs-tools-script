@@ -24,16 +24,85 @@ prereqs)
 	;;
 esac
 
+. /scripts/functions
+
 for param in `cat /proc/cmdline`; do
     case "$param" in
-	mandos=off) exit 0;;
+        ip=*) IPOPTS="${param#ip=}" ;;
+        mandos=*)
+            # Split option line on commas
+            old_ifs="$IFS"
+            IFS="$IFS,"
+            for mpar in ${param#mandos=}; do
+                IFS="$old_ifs"
+                case "$mpar" in
+                    off) exit 0 ;;
+		    connect) connect="" ;;
+                    connect:*) connect="${mpar#connect:}" ;;
+                    *) log_warning_msg "$0: Bad option ${mpar}" ;;
+                esac
+            done
+	    unset mpar
+            IFS="$old_ifs"
+            unset old_ifs
+            ;;
     esac
 done
+unset param
 
 chmod a=rwxt /tmp
 
 test -r /conf/conf.d/cryptroot
 test -w /conf/conf.d
+
+# Get DEVICE from /conf/initramfs.conf and other files
+. /conf/initramfs.conf
+for conf in /conf/conf.d/*; do
+    [ -f ${conf} ] && . ${conf}
+done
+if [ -e /conf/param.conf ]; then
+    . /conf/param.conf
+fi
+
+# Override DEVICE from sixth field of ip= kernel option, if passed
+case "$IPOPTS" in
+    *:*:*:*:*:*)		# At least six fields
+        # Remove the first five fields
+	device="${IPOPTS#*:*:*:*:*:}"
+        # Remove all fields except the first one
+	DEVICE="${device%%:*}"
+	;;
+esac
+
+# Add device setting (if any) to plugin-runner.conf
+if [ "${DEVICE+set}" = set ]; then
+    # Did we get the device from an ip= option?
+    if [ "${device+set}" = set ]; then
+	# Let ip= option override local config; append:
+	cat <<-EOF >>/conf/conf.d/mandos/plugin-runner.conf
+	
+	--options-for=mandos-client:--interface=${DEVICE}
+EOF
+    else
+        # Prepend device setting so any later options would override:
+	sed -i -e \
+	    '1i--options-for=mandos-client:--interface='"${DEVICE}" \
+	    /conf/conf.d/mandos/plugin-runner.conf
+    fi
+fi
+unset device
+
+# If we are connecting directly, run "configure_networking" (from
+# /scripts/functions); it needs IPOPTS and DEVICE
+if [ "${connect+set}" = set ]; then
+    configure_networking
+    if [ -n "$connect" ]; then
+	cat <<-EOF >>/conf/conf.d/mandos/plugin-runner.conf
+	
+	--options-for=mandos-client:--connect=${connect}
+EOF
+    fi
+fi
 
 # Do not replace cryptroot file unless we need to.
 replace_cryptroot=no
