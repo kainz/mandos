@@ -936,6 +936,7 @@ int main(int argc, char *argv[]){
   
   closedir(dir);
   dir = NULL;
+  free_plugin(getplugin(NULL));
   
   for(plugin *p = plugin_list; p != NULL; p = p->next){
     if(p->pid != 0){
