@@ -382,12 +382,12 @@ int main(int argc, char *argv[]){
     switch(key){
     case 'g': 			/* --global-options */
       if(arg != NULL){
-	char *p;
-	while((p = strsep(&arg, ",")) != NULL){
-	  if(p[0] == '\0'){
+	char *plugin_option;
+	while((plugin_option = strsep(&arg, ",")) != NULL){
+	  if(plugin_option[0] == '\0'){
 	    continue;
 	  }
-	  if(not add_argument(getplugin(NULL), p)){
+	  if(not add_argument(getplugin(NULL), plugin_option)){
 	    perror("add_argument");
 	    return ARGP_ERR_UNKNOWN;
 	  }
@@ -404,20 +404,13 @@ int main(int argc, char *argv[]){
       break;
     case 'o':			/* --options-for */
       if(arg != NULL){
-	char *p_name = strsep(&arg, ":");
-	if(p_name[0] == '\0' or arg == NULL){
+	char *plugin_name = strsep(&arg, ":");
+	if(plugin_name[0] == '\0'){
 	  break;
 	}
-	char *opt = strsep(&arg, ":");
-	if(opt[0] == '\0' or opt == NULL){
-	  break;
-	}
-	char *p;
-	while((p = strsep(&opt, ",")) != NULL){
-	  if(p[0] == '\0'){
-	    continue;
-	  }
-	  if(not add_argument(getplugin(p_name), p)){
+	char *plugin_option;
+	while((plugin_option = strsep(&arg, ",")) != NULL){
+	  if(not add_argument(getplugin(plugin_name), plugin_option)){
 	    perror("add_argument");
 	    return ARGP_ERR_UNKNOWN;
 	  }
