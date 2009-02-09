@@ -1,6 +1,6 @@
 WARN=-O -Wall -Wformat=2 -Winit-self -Wmissing-include-dirs \
 	-Wswitch-default -Wswitch-enum -Wunused-parameter \
-	-Wstrict-aliasing=2 -Wextra -Wfloat-equal -Wundef -Wshadow \
+	-Wstrict-aliasing=1 -Wextra -Wfloat-equal -Wundef -Wshadow \
 	-Wunsafe-loop-optimizations -Wpointer-arith \
 	-Wbad-function-cast -Wcast-qual -Wcast-align -Wwrite-strings \
 	-Wconversion -Wstrict-prototypes -Wold-style-definition \
