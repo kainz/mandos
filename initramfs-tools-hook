@@ -92,8 +92,8 @@ for file in "$prefix"/lib/mandos/plugins.d/*; do
     fi
     case "$base" in
 	*~|.*|\#*\#|*.dpkg-old|*.dpkg-bak|*.dpkg-new|*.dpkg-divert) : ;;
-	"*") :;;
-	*) copy_exec "$file" "${PLUGINDIR}";;
+	"*") : ;;
+	*) copy_exec "$file" "${PLUGINDIR}" ;;
     esac
 done
 
@@ -102,8 +102,8 @@ for file in /etc/mandos/plugins.d/*; do
     base="`basename \"$file\"`"
     case "$base" in
 	*~|.*|\#*\#|*.dpkg-old|*.dpkg-bak|*.dpkg-new|*.dpkg-divert) : ;;
-	"*") :;;
-	*) copy_exec "$file" "${PLUGINDIR}";;
+	"*") : ;;
+	*) copy_exec "$file" "${PLUGINDIR}" ;;
     esac
 done
 
@@ -139,7 +139,7 @@ EOF
 fi
 
 # Key files 
-for file in  "$keydir"/*; do
+for file in "$keydir"/*; do
     if [ -d "$file" ]; then
 	continue
     fi
