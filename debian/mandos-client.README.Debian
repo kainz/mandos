@@ -7,10 +7,13 @@
 
 * Use the Correct Network Interface
   
-  If some other network interface than "eth0" is used, it will be
-  necessary to edit /etc/mandos/plugin-runner.conf to uncomment and
-  change the line there.  If this is done, it will be necessary to
-  update the initrd image by doing "update-initramfs -k all -u".
+  Make sure that the correct network interface is specified in the
+  DEVICE setting in the "/etc/initramfs-tools/initramfs.conf" file.
+  If this is changed, it will be necessary to update the initrd image
+  by doing "update-initramfs -k all -u".  This setting can be
+  overridden at boot time on the Linux kernel command line using the
+  sixth colon-separated field of the "ip=" option; for exact syntax,
+  see the file "Documentation/nfsroot.txt" in the Linux source tree.
 
 * Test the Server
   
@@ -23,19 +26,19 @@
 		--seckey=/etc/keys/mandos/seckey.txt; echo
   
   This command should retrieve the password from the server, decrypt
-  it, and output it to standard output.  It is now possible to verify
-  the correctness of the password before rebooting.
+  it, and output it to standard output.  There it can be verified to
+  be the correct password, before rebooting.
 
 * User-Supplied Plugins
-
+  
   Any plugins found in /etc/mandos/plugins.d will override and add to
   the normal Mandos plugins.  When adding or changing plugins, do not
   forget to update the initital RAM disk image:
-
+  
 	# update-initramfs -k all -u
 
 * Do *NOT* Edit /etc/crypttab
-
+  
   It is NOT necessary to edit /etc/crypttab to specify
   /usr/lib/mandos/plugin-runner as a keyscript for the root file
   system; if no keyscript is given for the root file system, the
@@ -48,4 +51,22 @@
   prevented from running at startup by passing the parameter
   "mandos=off" to the kernel.
 
- -- Teddy Hogeborn <teddy@fukt.bsnet.se>, Mon, 12 Jan 2009 02:29:10 +0100
+* Non-local Connection (Not Using ZeroConf)
+  
+  If the "ip=" kernel command line option is used to specify a
+  complete IP address and device name, as noted above, it then becomes
+  possible to specify a specific IP address and port to connect to,
+  instead of using ZeroConf.  The syntax for doing this is
+  "mandos=connect:<IP_ADDRESS>:<PORT_NUMBER>".
+  
+  Warning: this will cause the client to make exactly one attempt at
+  connecting, and then fail if it does not succeed.
+  
+  For very advanced users, it it possible to specify simply
+  "mandos=connect" on the kernel command line to make the system only
+  set up the network (using the data in the "ip=" option) and not pass
+  any extra "--connect" options to mandos-client at boot.  For this to
+  work, "--options-for=mandos-client:--connect=<ADDRESS>:<PORT>" needs
+  to be manually added to the file "/etc/mandos/plugin-runner.conf".
+
+ -- Teddy Hogeborn <teddy@fukt.bsnet.se>, Mon,  9 Feb 2009 00:36:55 +0100

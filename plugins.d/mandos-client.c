@@ -42,19 +42,17 @@
 #include <stddef.h>		/* NULL, size_t, ssize_t */
 #include <stdlib.h> 		/* free(), EXIT_SUCCESS, EXIT_FAILURE,
 				   srand() */
-#include <stdbool.h>		/* bool, true */
+#include <stdbool.h>		/* bool, false, true */
 #include <string.h>		/* memset(), strcmp(), strlen(),
 				   strerror(), asprintf(), strcpy() */
-#include <sys/ioctl.h>          /* ioctl */
+#include <sys/ioctl.h>		/* ioctl */
 #include <sys/types.h>		/* socket(), inet_pton(), sockaddr,
 				   sockaddr_in6, PF_INET6,
-				   SOCK_STREAM, INET6_ADDRSTRLEN,
-				   uid_t, gid_t, open(), opendir(),
-				   DIR */
+				   SOCK_STREAM, uid_t, gid_t, open(),
+				   opendir(), DIR */
 #include <sys/stat.h>		/* open() */
 #include <sys/socket.h>		/* socket(), struct sockaddr_in6,
-				   struct in6_addr, inet_pton(),
-				   connect() */
+				   inet_pton(), connect() */
 #include <fcntl.h>		/* open() */
 #include <dirent.h>		/* opendir(), struct dirent, readdir()
 				 */
@@ -65,12 +63,14 @@
 #include <net/if.h>		/* ioctl, ifreq, SIOCGIFFLAGS, IFF_UP,
 				   SIOCSIFFLAGS, if_indextoname(),
 				   if_nametoindex(), IF_NAMESIZE */
-#include <netinet/in.h>
+#include <netinet/in.h>		/* IN6_IS_ADDR_LINKLOCAL,
+				   INET_ADDRSTRLEN, INET6_ADDRSTRLEN
+				*/
 #include <unistd.h>		/* close(), SEEK_SET, off_t, write(),
 				   getuid(), getgid(), setuid(),
 				   setgid() */
 #include <arpa/inet.h>		/* inet_pton(), htons */
-#include <iso646.h>		/* not, and, or */
+#include <iso646.h>		/* not, or, and */
 #include <argp.h>		/* struct argp_option, error_t, struct
 				   argp_state, struct argp,
 				   argp_parse(), ARGP_KEY_ARG,
@@ -410,9 +410,9 @@ static int init_gnutls_global(mandos_context *mc,
   gnutls_certificate_allocate_credentials(&mc->cred);
   if(ret != GNUTLS_E_SUCCESS){
     fprintf(stderr, "GnuTLS memory error: %s\n", /* Spurious warning
-						  * from
-						  * -Wunreachable-code
-						  */
+						    from
+						    -Wunreachable-code
+						 */
 	    safer_gnutls_strerror(ret));
     gnutls_global_deinit();
     return -1;
@@ -509,10 +509,13 @@ static void empty_log(__attribute__((unused)) AvahiLogLevel level,
 /* Called when a Mandos server is found */
 static int start_mandos_communication(const char *ip, uint16_t port,
 				      AvahiIfIndex if_index,
-				      mandos_context *mc){
+				      mandos_context *mc, int af){
   int ret, tcp_sd;
   ssize_t sret;
-  union { struct sockaddr in; struct sockaddr_in6 in6; } to;
+  union {
+    struct sockaddr_in in;
+    struct sockaddr_in6 in6;
+  } to;
   char *buffer = NULL;
   char *decrypted_buffer;
   size_t buffer_length = 0;
@@ -520,8 +523,20 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   ssize_t decrypted_buffer_size;
   size_t written;
   int retval = 0;
-  char interface[IF_NAMESIZE];
   gnutls_session_t session;
+  int pf;			/* Protocol family */
+  
+  switch(af){
+  case AF_INET6:
+    pf = PF_INET6;
+    break;
+  case AF_INET:
+    pf = PF_INET;
+    break;
+  default:
+    fprintf(stderr, "Bad address family: %d\n", af);
+    return -1;
+  }
   
   ret = init_gnutls_session(mc, &session);
   if(ret != 0){
@@ -529,29 +544,24 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   }
   
   if(debug){
-    fprintf(stderr, "Setting up a tcp connection to %s, port %" PRIu16
+    fprintf(stderr, "Setting up a TCP connection to %s, port %" PRIu16
 	    "\n", ip, port);
   }
   
-  tcp_sd = socket(PF_INET6, SOCK_STREAM, 0);
+  tcp_sd = socket(pf, SOCK_STREAM, 0);
   if(tcp_sd < 0){
     perror("socket");
     return -1;
   }
   
-  if(debug){
-    if(if_indextoname((unsigned int)if_index, interface) == NULL){
-      perror("if_indextoname");
-      return -1;
-    }
-    fprintf(stderr, "Binding to interface %s\n", interface);
-  }
-  
   memset(&to, 0, sizeof(to));
-  to.in6.sin6_family = AF_INET6;
-  /* It would be nice to have a way to detect if we were passed an
-     IPv4 address here.   Now we assume an IPv6 address. */
-  ret = inet_pton(AF_INET6, ip, &to.in6.sin6_addr);
+  if(af == AF_INET6){
+    to.in6.sin6_family = (uint16_t)af;
+    ret = inet_pton(af, ip, &to.in6.sin6_addr);
+  } else {			/* IPv4 */
+    to.in.sin_family = (sa_family_t)af;
+    ret = inet_pton(af, ip, &to.in.sin_addr);
+  }
   if(ret < 0 ){
     perror("inet_pton");
     return -1;
@@ -560,18 +570,52 @@ static int start_mandos_communication(const char *ip, uint16_t port,
     fprintf(stderr, "Bad address: %s\n", ip);
     return -1;
   }
-  to.in6.sin6_port = htons(port); /* Spurious warnings from
+  if(af == AF_INET6){
+    to.in6.sin6_port = htons(port); /* Spurious warnings from
+				       -Wconversion and
+				       -Wunreachable-code */
+    
+    if(IN6_IS_ADDR_LINKLOCAL /* Spurious warnings from */
+       (&to.in6.sin6_addr)){ /* -Wstrict-aliasing=2 or lower and
+			      -Wunreachable-code*/
+      if(if_index == AVAHI_IF_UNSPEC){
+	fprintf(stderr, "An IPv6 link-local address is incomplete"
+		" without a network interface\n");
+	return -1;
+      }
+      /* Set the network interface number as scope */
+      to.in6.sin6_scope_id = (uint32_t)if_index;
+    }
+  } else {
+    to.in.sin_port = htons(port); /* Spurious warnings from
 				     -Wconversion and
 				     -Wunreachable-code */
-  
-  to.in6.sin6_scope_id = (uint32_t)if_index;
+  }
   
   if(debug){
-    fprintf(stderr, "Connection to: %s, port %" PRIu16 "\n", ip,
-	    port);
-    char addrstr[INET6_ADDRSTRLEN] = "";
-    if(inet_ntop(to.in6.sin6_family, &(to.in6.sin6_addr), addrstr,
-		 sizeof(addrstr)) == NULL){
+    if(af == AF_INET6 and if_index != AVAHI_IF_UNSPEC){
+      char interface[IF_NAMESIZE];
+      if(if_indextoname((unsigned int)if_index, interface) == NULL){
+	perror("if_indextoname");
+      } else {
+	fprintf(stderr, "Connection to: %s%%%s, port %" PRIu16 "\n",
+		ip, interface, port);
+      }
+    } else {
+      fprintf(stderr, "Connection to: %s, port %" PRIu16 "\n", ip,
+	      port);
+    }
+    char addrstr[(INET_ADDRSTRLEN > INET6_ADDRSTRLEN) ?
+		 INET_ADDRSTRLEN : INET6_ADDRSTRLEN] = "";
+    const char *pcret;
+    if(af == AF_INET6){
+      pcret = inet_ntop(af, &(to.in6.sin6_addr), addrstr,
+			sizeof(addrstr));
+    } else {
+      pcret = inet_ntop(af, &(to.in.sin_addr), addrstr,
+			sizeof(addrstr));
+    }
+    if(pcret == NULL){
       perror("inet_ntop");
     } else {
       if(strcmp(addrstr, ip) != 0){
@@ -580,7 +624,11 @@ static int start_mandos_communication(const char *ip, uint16_t port,
     }
   }
   
-  ret = connect(tcp_sd, &to.in, sizeof(to));
+  if(af == AF_INET6){
+    ret = connect(tcp_sd, &to.in6, sizeof(to));
+  } else {
+    ret = connect(tcp_sd, &to.in, sizeof(to)); /* IPv4 */
+  }
   if(ret < 0){
     perror("connect");
     return -1;
@@ -632,7 +680,7 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   /* Read OpenPGP packet that contains the wanted password */
   
   if(debug){
-    fprintf(stderr, "Retrieving pgp encrypted password from %s\n",
+    fprintf(stderr, "Retrieving OpenPGP encrypted password from %s\n",
 	    ip);
   }
   
@@ -726,7 +774,7 @@ static int start_mandos_communication(const char *ip, uint16_t port,
 
 static void resolve_callback(AvahiSServiceResolver *r,
 			     AvahiIfIndex interface,
-			     AVAHI_GCC_UNUSED AvahiProtocol protocol,
+			     AvahiProtocol proto,
 			     AvahiResolverEvent event,
 			     const char *name,
 			     const char *type,
@@ -761,7 +809,8 @@ static void resolve_callback(AvahiSServiceResolver *r,
 		PRIdMAX ") on port %" PRIu16 "\n", name, host_name,
 		ip, (intmax_t)interface, port);
       }
-      int ret = start_mandos_communication(ip, port, interface, mc);
+      int ret = start_mandos_communication(ip, port, interface, mc,
+					   avahi_proto_to_af(proto));
       if(ret == 0){
 	avahi_simple_poll_quit(mc->simple_poll);
       }
@@ -857,8 +906,8 @@ int main(int argc, char *argv[]){
 	.group = 1 },
       { .name = "interface", .key = 'i',
 	.arg = "NAME",
-	.doc = "Interface that will be used to search for Mandos"
-	" servers",
+	.doc = "Network interface that will be used to search for"
+	" Mandos servers",
 	.group = 1 },
       { .name = "seckey", .key = 's',
 	.arg = "FILE",
@@ -944,12 +993,14 @@ int main(int argc, char *argv[]){
   }
   
   /* If the interface is down, bring it up */
-  {
+  if(interface[0] != '\0'){
 #ifdef __linux__
     /* Lower kernel loglevel to KERN_NOTICE to avoid KERN_INFO
        messages to mess up the prompt */
     ret = klogctl(8, NULL, 5);
+    bool restore_loglevel = true;
     if(ret == -1){
+      restore_loglevel = false;
       perror("klogctl");
     }
 #endif
@@ -959,9 +1010,11 @@ int main(int argc, char *argv[]){
       perror("socket");
       exitcode = EXIT_FAILURE;
 #ifdef __linux__
-      ret = klogctl(7, NULL, 0);
-      if(ret == -1){
-	perror("klogctl");
+      if(restore_loglevel){
+	ret = klogctl(7, NULL, 0);
+	if(ret == -1){
+	  perror("klogctl");
+	}
       }
 #endif
       goto end;
@@ -971,9 +1024,11 @@ int main(int argc, char *argv[]){
     if(ret == -1){
       perror("ioctl SIOCGIFFLAGS");
 #ifdef __linux__
-      ret = klogctl(7, NULL, 0);
-      if(ret == -1){
-	perror("klogctl");
+      if(restore_loglevel){
+	ret = klogctl(7, NULL, 0);
+	if(ret == -1){
+	  perror("klogctl");
+	}
       }
 #endif
       exitcode = EXIT_FAILURE;
@@ -986,9 +1041,11 @@ int main(int argc, char *argv[]){
 	perror("ioctl SIOCSIFFLAGS");
 	exitcode = EXIT_FAILURE;
 #ifdef __linux__
-	ret = klogctl(7, NULL, 0);
-	if(ret == -1){
-	  perror("klogctl");
+	if(restore_loglevel){
+	  ret = klogctl(7, NULL, 0);
+	  if(ret == -1){
+	    perror("klogctl");
+	  }
 	}
 #endif
 	goto end;
@@ -1013,10 +1070,12 @@ int main(int argc, char *argv[]){
       perror("close");
     }
 #ifdef __linux__
-    /* Restores kernel loglevel to default */
-    ret = klogctl(7, NULL, 0);
-    if(ret == -1){
-      perror("klogctl");
+    if(restore_loglevel){
+      /* Restores kernel loglevel to default */
+      ret = klogctl(7, NULL, 0);
+      if(ret == -1){
+	perror("klogctl");
+      }
     }
 #endif
   }
@@ -1024,6 +1083,7 @@ int main(int argc, char *argv[]){
   uid = getuid();
   gid = getgid();
   
+  errno = 0;
   setgid(gid);
   if(ret == -1){
     perror("setgid");
@@ -1057,11 +1117,13 @@ int main(int argc, char *argv[]){
     gpgme_initialized = true;
   }
   
-  if_index = (AvahiIfIndex) if_nametoindex(interface);
-  if(if_index == 0){
-    fprintf(stderr, "No such interface: \"%s\"\n", interface);
-    exitcode = EXIT_FAILURE;
-    goto end;
+  if(interface[0] != '\0'){
+    if_index = (AvahiIfIndex) if_nametoindex(interface);
+    if(if_index == 0){
+      fprintf(stderr, "No such interface: \"%s\"\n", interface);
+      exitcode = EXIT_FAILURE;
+      goto end;
+    }
   }
   
   if(connect_to != NULL){
@@ -1084,7 +1146,15 @@ int main(int argc, char *argv[]){
     port = (uint16_t)tmpmax;
     *address = '\0';
     address = connect_to;
-    ret = start_mandos_communication(address, port, if_index, &mc);
+    /* Colon in address indicates IPv6 */
+    int af;
+    if(strchr(address, ':') != NULL){
+      af = AF_INET6;
+    } else {
+      af = AF_INET;
+    }
+    ret = start_mandos_communication(address, port, if_index, &mc,
+				     af);
     if(ret < 0){
       exitcode = EXIT_FAILURE;
     } else {
