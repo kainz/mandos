@@ -854,10 +854,9 @@ static void browse_callback(AvahiSServiceBrowser *b,
        the callback function is called the Avahi server will free the
        resolver for us. */
     
-    if(!(avahi_s_service_resolver_new(mc.server, interface,
-				       protocol, name, type, domain,
-				       AVAHI_PROTO_INET6, 0,
-				       resolve_callback, NULL)))
+    if(avahi_s_service_resolver_new(mc.server, interface, protocol,
+				    name, type, domain, protocol, 0,
+				    resolve_callback, NULL) == NULL)
       fprintf(stderr, "Avahi: Failed to resolve service '%s': %s\n",
 	      name, avahi_strerror(avahi_server_errno(mc.server)));
     break;
@@ -908,10 +907,6 @@ int main(int argc, char *argv[]){
   const char *seckey = PATHDIR "/" SECKEY;
   const char *pubkey = PATHDIR "/" PUBKEY;
   
-  /* Initialize Mandos context */
-  mc = (mandos_context){ .simple_poll = NULL, .server = NULL,
-			 .dh_bits = 1024, .priority = "SECURE256"
-			 ":!CTYPE-X.509:+CTYPE-OPENPGP" };
   bool gnutls_initialized = false;
   bool gpgme_initialized = false;
   float delay = 2.5f;
@@ -1257,7 +1252,7 @@ int main(int argc, char *argv[]){
   
   /* Create the Avahi service browser */
   sb = avahi_s_service_browser_new(mc.server, if_index,
-				   AVAHI_PROTO_INET6, "_mandos._tcp",
+				   AVAHI_PROTO_UNSPEC, "_mandos._tcp",
 				   NULL, 0, browse_callback, NULL);
   if(sb == NULL){
     fprintf(stderr, "Failed to create service browser: %s\n",
