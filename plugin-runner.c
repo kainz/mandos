@@ -82,7 +82,7 @@ typedef struct plugin{
   char **environ;
   int envc;
   bool disabled;
-
+  
   /* Variables used for running processes*/
   pid_t pid;
   int fd;
@@ -280,7 +280,7 @@ static void free_plugin(plugin *plugin_node){
   }
   free(plugin_node->environ);
   free(plugin_node->buffer);
-
+  
   /* Removes the plugin from the singly-linked list */
   if(plugin_node == plugin_list){
     /* First one - simple */
@@ -569,7 +569,7 @@ int main(int argc, char *argv[]){
     size_t size = 0;
     const char whitespace_delims[] = " \r\t\f\v\n";
     const char comment_delim[] = "#";
-
+    
     custom_argc = 1;
     custom_argv = malloc(sizeof(char*) * 2);
     if(custom_argv == NULL){
@@ -579,7 +579,7 @@ int main(int argc, char *argv[]){
     }
     custom_argv[0] = argv[0];
     custom_argv[1] = NULL;
-
+    
     /* for each line in the config file, strip whitespace and ignore
        commented text */
     while(true){
@@ -587,7 +587,7 @@ int main(int argc, char *argv[]){
       if(sret == -1){
 	break;
       }
-
+      
       line = org_line;
       arg = strsep(&line, comment_delim);
       while((p = strsep(&arg, whitespace_delims)) != NULL){
@@ -756,7 +756,7 @@ int main(int argc, char *argv[]){
 	continue;
       }
     }
-
+    
     char *filename;
     if(plugindir == NULL){
       ret = asprintf(&filename, PDIR "/%s", dirst->d_name);
@@ -774,7 +774,7 @@ int main(int argc, char *argv[]){
       free(filename);
       continue;
     }
-
+    
     /* Ignore non-executable files */
     if(not S_ISREG(st.st_mode) or (access(filename, X_OK) != 0)){
       if(debug){
@@ -964,7 +964,7 @@ int main(int argc, char *argv[]){
 	if(not WIFEXITED(proc->status)
 	   or WEXITSTATUS(proc->status) != 0){
 	  /* Bad exit by plugin */
-
+	  
 	  if(debug){
 	    if(WIFEXITED(proc->status)){
 	      fprintf(stderr, "Plugin %s [%" PRIdMAX "] exited with"
@@ -984,7 +984,7 @@ int main(int argc, char *argv[]){
 	  
 	  /* Remove the plugin */
 	  FD_CLR(proc->fd, &rfds_all);
-
+	  
 	  /* Block signal while modifying process_list */
 	  ret = sigprocmask(SIG_BLOCK, &sigchld_action.sa_mask, NULL);
 	  if(ret < 0){
@@ -1057,8 +1057,8 @@ int main(int argc, char *argv[]){
       }
     }
   }
-
-
+  
+  
  fallback:
   
   if(plugin_list == NULL or exitstatus != EXIT_SUCCESS){
