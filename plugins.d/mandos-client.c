@@ -36,12 +36,11 @@
 #define _GNU_SOURCE		/* TEMP_FAILURE_RETRY(), asprintf() */
 
 #include <stdio.h>		/* fprintf(), stderr, fwrite(),
-				   stdout, ferror(), sscanf(),
-				   remove() */
+				   stdout, ferror(), remove() */
 #include <stdint.h> 		/* uint16_t, uint32_t */
 #include <stddef.h>		/* NULL, size_t, ssize_t */
 #include <stdlib.h> 		/* free(), EXIT_SUCCESS, EXIT_FAILURE,
-				   srand() */
+				   srand(), strtof() */
 #include <stdbool.h>		/* bool, false, true */
 #include <string.h>		/* memset(), strcmp(), strlen(),
 				   strerror(), asprintf(), strcpy() */
@@ -56,7 +55,8 @@
 #include <fcntl.h>		/* open() */
 #include <dirent.h>		/* opendir(), struct dirent, readdir()
 				 */
-#include <inttypes.h>		/* PRIu16, intmax_t, SCNdMAX */
+#include <inttypes.h>		/* PRIu16, PRIdMAX, intmax_t,
+				   strtoimax() */
 #include <assert.h>		/* assert() */
 #include <errno.h>		/* perror(), errno */
 #include <time.h>		/* nanosleep(), time() */
@@ -894,7 +894,7 @@ int main(int argc, char *argv[]){
   int error;
   int ret;
   intmax_t tmpmax;
-  int numchars;
+  char *tmp;
   int exitcode = EXIT_SUCCESS;
   const char *interface = "eth0";
   struct ifreq network;
@@ -914,8 +914,8 @@ int main(int argc, char *argv[]){
 			 ":!CTYPE-X.509:+CTYPE-OPENPGP" };
   bool gnutls_initialized = false;
   bool gpgme_initialized = false;
-  double delay = 2.5;
-
+  float delay = 2.5f;
+  
   struct sigaction old_sigterm_action;
   struct sigaction sigterm_action = { .sa_handler = handle_sigterm };
   
@@ -975,9 +975,10 @@ int main(int argc, char *argv[]){
 	pubkey = arg;
 	break;
       case 129:			/* --dh-bits */
-	ret = sscanf(arg, "%" SCNdMAX "%n", &tmpmax, &numchars);
-	if(ret < 1 or tmpmax != (typeof(mc.dh_bits))tmpmax
-	   or arg[numchars] != '\0'){
+	errno = 0;
+	tmpmax = strtoimax(arg, &tmp, 10);
+	if(errno != 0 or tmp == arg or *tmp != '\0'
+	   or tmpmax != (typeof(mc.dh_bits))tmpmax){
 	  fprintf(stderr, "Bad number of DH bits\n");
 	  exit(EXIT_FAILURE);
 	}
@@ -987,8 +988,9 @@ int main(int argc, char *argv[]){
 	mc.priority = arg;
 	break;
       case 131:			/* --delay */
-	ret = sscanf(arg, "%lf%n", &delay, &numchars);
-	if(ret < 1 or arg[numchars] != '\0'){
+	errno = 0;
+	delay = strtof(arg, &tmp);
+	if(errno != 0 or tmp == arg or *tmp != '\0'){
 	  fprintf(stderr, "Bad delay\n");
 	  exit(EXIT_FAILURE);
 	}
@@ -1200,9 +1202,10 @@ int main(int argc, char *argv[]){
       goto end;
     }
     uint16_t port;
-    ret = sscanf(address+1, "%" SCNdMAX "%n", &tmpmax, &numchars);
-    if(ret < 1 or tmpmax != (uint16_t)tmpmax
-       or address[numchars+1] != '\0'){
+    errno = 0;
+    tmpmax = strtoimax(address+1, &tmp, 10);
+    if(errno != 0 or tmp == address+1 or *tmp != '\0'
+       or tmpmax != (uint16_t)tmpmax){
       fprintf(stderr, "Bad port number\n");
       exitcode = EXIT_FAILURE;
       goto end;

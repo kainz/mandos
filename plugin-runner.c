@@ -65,7 +65,7 @@
 				   SIG_UNBLOCK, kill(), sig_atomic_t
 				*/
 #include <errno.h>		/* errno, EBADF */
-#include <inttypes.h>		/* intmax_t, SCNdMAX, PRIdMAX,  */
+#include <inttypes.h>		/* intmax_t, PRIdMAX, strtoimax() */
 
 #define BUFFER_SIZE 256
 
@@ -313,7 +313,7 @@ int main(int argc, char *argv[]){
   struct dirent *dirst;
   struct stat st;
   fd_set rfds_all;
-  int ret, numchars, maxfd = 0;
+  int ret, maxfd = 0;
   ssize_t sret;
   intmax_t tmpmax;
   uid_t uid = 65534;
@@ -380,6 +380,7 @@ int main(int argc, char *argv[]){
   
   error_t parse_opt(int key, char *arg, __attribute__((unused))
 		    struct argp_state *state){
+    char *tmp;
     switch(key){
     case 'g': 			/* --global-options */
       if(arg != NULL){
@@ -462,9 +463,10 @@ int main(int argc, char *argv[]){
       /* This is already done by parse_opt_config_file() */
       break;
     case 130:			/* --userid */
-      ret = sscanf(arg, "%" SCNdMAX "%n", &tmpmax, &numchars);
-      if(ret < 1 or tmpmax != (uid_t)tmpmax
-	 or arg[numchars] != '\0'){
+      errno = 0;
+      tmpmax = strtoimax(arg, &tmp, 10);
+      if(errno != 0 or tmp == arg or *tmp != '\0'
+	 or tmpmax != (uid_t)tmpmax){
 	fprintf(stderr, "Bad user ID number: \"%s\", using %"
 		PRIdMAX "\n", arg, (intmax_t)uid);
       } else {
@@ -472,9 +474,10 @@ int main(int argc, char *argv[]){
       }
       break;
     case 131:			/* --groupid */
-      ret = sscanf(arg, "%" SCNdMAX "%n", &tmpmax, &numchars);
-      if(ret < 1 or tmpmax != (gid_t)tmpmax
-	 or arg[numchars] != '\0'){
+      errno = 0;
+      tmpmax = strtoimax(arg, &tmp, 10);
+      if(errno != 0 or tmp == arg or *tmp != '\0'
+	 or tmpmax != (gid_t)tmpmax){
 	fprintf(stderr, "Bad group ID number: \"%s\", using %"
 		PRIdMAX "\n", arg, (intmax_t)gid);
       } else {
