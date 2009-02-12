@@ -412,6 +412,12 @@ class Client(dbus.service.Object):
                                              (self.checker.pid,
                                               self.checker_callback,
                                               data=command))
+                # The checker may have completed before the gobject
+                # watch was added.  Check for this.
+                pid, status = os.waitpid(self.checker.pid, os.WNOHANG)
+                if pid:
+                    gobject.source_remove(self.checker_callback_tag)
+                    self.checker_callback(pid, status, command)
             except OSError, error:
                 logger.error(u"Failed to start subprocess: %s",
                              error)
