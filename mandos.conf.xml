@@ -3,7 +3,7 @@
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY CONFNAME "mandos.conf">
 <!ENTITY CONFPATH "<filename>/etc/mandos/mandos.conf</filename>">
-<!ENTITY TIMESTAMP "2009-01-04">
+<!ENTITY TIMESTAMP "2009-02-13">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -142,6 +142,17 @@
 	</listitem>
       </varlistentry>
       
+      <varlistentry>
+	<term><option>use_ipv6<literal> = </literal>{ <literal
+	  >1</literal> | <literal>yes</literal> | <literal
+	  >true</literal> | <literal>on</literal> | <literal
+	  >0</literal> | <literal>no</literal> | <literal
+	  >false</literal> | <literal>off</literal> }</option></term>
+	<listitem>
+	  <xi:include href="mandos-options.xml" xpointer="ipv6"/>
+	</listitem>
+      </varlistentry>
+      
     </variablelist>
   </refsect1>
   
@@ -179,12 +190,13 @@
 [DEFAULT]
 # A configuration example
 interface = eth0
-address = 2001:db8:f983:bd0b:30de:ae4a:71f2:f672
+address = fe80::aede:48ff:fe71:f6f2
 port = 1025
 debug = true
 priority = SECURE256:!CTYPE-X.509:+CTYPE-OPENPGP
 servicename = Daena
 use_dbus = False
+use_ipv6 = True
       </programlisting>
     </informalexample>
   </refsect1>
