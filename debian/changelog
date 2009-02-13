@@ -1,3 +1,26 @@
+mandos (1.0.6-1) unstable; urgency=low
+
+  * New upstream release.
+  * debian/mandos-client.postinst: Converted to Bourne shell.  Also
+    minor message change.
+  * debian/mandos-client.postrm: Minor message change.
+  * debian/mandos.postinst: Converted to Bourne shell.  Also minor
+    message change.
+  * debian/mandos.prerm: Minor message change.
+  * debian/rules (install-indep): Removed "--no-start" from
+    dh_installinit.
+  * debian/mandos-client.lintian-overrides: Remove obsolete override for
+    unbreakable line in plugin-runner manual page.
+  * debian/control (mandos/Depends): Added "python-gobject".
+  * debian/mandos-client.dirs: Change
+    "usr/share/initramfs-tools/scripts/local-top" to
+    "usr/share/initramfs-tools/scripts/init-premount".
+  * debian/mandos-client.README.Debian: Add reference to initramfs.conf
+    and nfsroot.txt.  New section about the new non-local connection
+    feature.
+
+ -- Teddy Hogeborn <teddy@fukt.bsnet.se>  Fri, 13 Feb 2009 09:27:25 +0100
+
 mandos (1.0.5-1) unstable; urgency=low
 
   * New upstream release.
