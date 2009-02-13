@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY COMMANDNAME "mandos">
-<!ENTITY TIMESTAMP "2009-01-04">
+<!ENTITY TIMESTAMP "2009-02-13">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -85,6 +85,8 @@
       <replaceable>DIRECTORY</replaceable></option></arg>
       <sbr/>
       <arg><option>--debug</option></arg>
+      <sbr/>
+      <arg><option>--no-ipv6</option></arg>
     </cmdsynopsis>
     <cmdsynopsis>
       <command>&COMMANDNAME;</command>
@@ -227,6 +229,13 @@
 	  <para>
 	    Prints the program version and exit.
 	  </para>
+	</listitem>
+      </varlistentry>
+      
+      <varlistentry>
+	<term><option>--no-ipv6</option></term>
+	<listitem>
+	  <xi:include href="mandos-options.xml" xpointer="ipv6"/>
 	</listitem>
       </varlistentry>
     </variablelist>

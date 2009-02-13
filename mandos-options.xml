@@ -26,10 +26,12 @@ It is also used for some texts by mandos-client(8mandos).
     specified IPv6 address.  If a link-local address is specified, an
     interface should be set, since a link-local address is only valid
     on a single interface.  By default, the server will listen to all
-    available addresses.  If set, this must be an IPv6 address; an
-    IPv4 address can only be specified using IPv4-mapped IPv6 address
-    syntax: <quote><systemitem class="ipaddress"
-    >::FFFF:192.0.2.3</systemitem ></quote>.
+    available addresses.  If set, this must normally be an IPv6
+    address; an IPv4 address can only be specified using IPv4-mapped
+    IPv6 address syntax: <quote><systemitem class="ipaddress"
+    >::FFFF:192.0.2.3</systemitem ></quote>.  (Only if IPv6 usage is
+    <emphasis>disabled</emphasis> (see below) must this be an IPv4
+    address.)
   </para>
   
   <para id="port">
@@ -65,11 +67,23 @@ It is also used for some texts by mandos-client(8mandos).
     rename itself to <quote><literal>Mandos #2</literal></quote>, and
     so on; therefore, this option is not needed in that case.
   </para>
-
+  
   <para id="dbus">
     This option controls whether the server will provide a D-Bus
     system bus interface.  The default is to provide such an
     interface.
+  </para>
+  
+  <para id="ipv6">
+    This option controls whether the server will use IPv6 sockets and
+    addresses.  The default is to use IPv6.  This option should
+    <emphasis>never</emphasis> normally be turned off, <emphasis>even in
+    IPv4-only environments</emphasis>.  This is because <citerefentry>
+    <refentrytitle>mandos-client</refentrytitle>
+    <manvolnum>8mandos</manvolnum></citerefentry> will normally use
+    IPv6 link-local addresses, and will not be able to find or connect
+    to the server if this option is turned off.  <emphasis>Only
+    advanced users should consider changing this option</emphasis>.
   </para>
   
 </section>

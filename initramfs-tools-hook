@@ -92,8 +92,8 @@ for file in "$prefix"/lib/mandos/plugins.d/*; do
     fi
     case "$base" in
 	*~|.*|\#*\#|*.dpkg-old|*.dpkg-bak|*.dpkg-new|*.dpkg-divert) : ;;
-	"*") :;;
-	*) copy_exec "$file" "${PLUGINDIR}";;
+	"*") : ;;
+	*) copy_exec "$file" "${PLUGINDIR}" ;;
     esac
 done
 
@@ -102,8 +102,8 @@ for file in /etc/mandos/plugins.d/*; do
     base="`basename \"$file\"`"
     case "$base" in
 	*~|.*|\#*\#|*.dpkg-old|*.dpkg-bak|*.dpkg-new|*.dpkg-divert) : ;;
-	"*") :;;
-	*) copy_exec "$file" "${PLUGINDIR}";;
+	"*") : ;;
+	*) copy_exec "$file" "${PLUGINDIR}" ;;
     esac
 done
 
@@ -124,16 +124,22 @@ done
 
 if [ ${mandos_user} != 65534 ]; then
     PLUGINRUNNERCONF="${DESTDIR}${CONFDIR}/plugin-runner.conf"
-    echo "--userid=${mandos_user}" >> "$PLUGINRUNNERCONF"
+    cat <<-EOF >> "$PLUGINRUNNERCONF"
+	
+	--userid=${mandos_user}
+EOF
 fi
 
 if [ ${mandos_group} != 65534 ]; then
     PLUGINRUNNERCONF="${DESTDIR}${CONFDIR}/plugin-runner.conf"
-    echo "--groupid=${mandos_group}" >> "$PLUGINRUNNERCONF"
+    cat <<-EOF >> "$PLUGINRUNNERCONF"
+	
+	--groupid=${mandos_group}
+EOF
 fi
 
 # Key files 
-for file in  "$keydir"/*; do
+for file in "$keydir"/*; do
     if [ -d "$file" ]; then
 	continue
     fi
@@ -168,7 +174,9 @@ for dir in / /bin /etc /keyscripts /sbin /scripts /usr /usr/bin; do
 	chmod a+rX "${DESTDIR}$dir"
     fi
 done
-for dir in /lib /usr/lib; do
-    find "${DESTDIR}$dir" \! -perm -u+rw,g+r -prune -or -print0 \
-	| xargs --null --no-run-if-empty chmod a+rX
+for dir in "${DESTDIR}"/lib* "${DESTDIR}"/usr/lib*; do
+    if [ -d "$dir" ]; then
+	find "$dir" \! -perm -u+rw,g+r -prune -or -print0 \
+	    | xargs --null --no-run-if-empty chmod a+rX
+    fi
 done
