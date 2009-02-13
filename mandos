@@ -73,12 +73,13 @@ syslogger = (logging.handlers.SysLogHandler
              (facility = logging.handlers.SysLogHandler.LOG_DAEMON,
               address = "/dev/log"))
 syslogger.setFormatter(logging.Formatter
-                       ('Mandos: %(levelname)s: %(message)s'))
+                       ('Mandos [%(process)d]: %(levelname)s:'
+                        ' %(message)s'))
 logger.addHandler(syslogger)
 
 console = logging.StreamHandler()
-console.setFormatter(logging.Formatter('%(name)s: %(levelname)s:'
-                                       ' %(message)s'))
+console.setFormatter(logging.Formatter('%(name)s [%(process)d]:'
+                                       ' %(levelname)s: %(message)s'))
 logger.addHandler(console)
 
 class AvahiError(Exception):
@@ -113,7 +114,8 @@ class AvahiService(object):
     """
     def __init__(self, interface = avahi.IF_UNSPEC, name = None,
                  servicetype = None, port = None, TXT = None,
-                 domain = "", host = "", max_renames = 32768):
+                 domain = "", host = "", max_renames = 32768,
+                 protocol = avahi.PROTO_UNSPEC):
         self.interface = interface
         self.name = name
         self.type = servicetype
@@ -123,6 +125,7 @@ class AvahiService(object):
         self.host = host
         self.rename_count = 0
         self.max_renames = max_renames
+        self.protocol = protocol
     def rename(self):
         """Derived from the Avahi example code"""
         if self.rename_count >= self.max_renames:
@@ -157,7 +160,7 @@ class AvahiService(object):
                      service.name, service.type)
         group.AddService(
                 self.interface,         # interface
-                avahi.PROTO_INET6,      # protocol
+                self.protocol,          # protocol
                 dbus.UInt32(0),         # flags
                 self.name, self.type,
                 self.domain, self.host,
@@ -202,6 +205,7 @@ class Client(dbus.service.Object):
                      client lives.  %() expansions are done at
                      runtime with vars(self) as dict, so that for
                      instance %(name)s can be used in the command.
+    current_checker_command: string; current running checker_command
     use_dbus: bool(); Whether to provide D-Bus interface and signals
     dbus_object_path: dbus.ObjectPath ; only set if self.use_dbus
     """
@@ -256,6 +260,7 @@ class Client(dbus.service.Object):
         self.disable_initiator_tag = None
         self.checker_callback_tag = None
         self.checker_command = config["checker"]
+        self.current_checker_command = None
         self.last_connect = None
         # Only now, when this client is initialized, can it show up on
         # the D-Bus
@@ -376,6 +381,16 @@ class Client(dbus.service.Object):
         # checkers alone, the checker would have to take more time
         # than 'timeout' for the client to be declared invalid, which
         # is as it should be.
+        
+        # If a checker exists, make sure it is not a zombie
+        if self.checker is not None:
+            pid, status = os.waitpid(self.checker.pid, os.WNOHANG)
+            if pid:
+                logger.warning("Checker was a zombie")
+                gobject.source_remove(self.checker_callback_tag)
+                self.checker_callback(pid, status,
+                                      self.current_checker_command)
+        # Start a new checker if needed
         if self.checker is None:
             try:
                 # In case checker_command has exactly one % operator
@@ -391,6 +406,7 @@ class Client(dbus.service.Object):
                     logger.error(u'Could not format string "%s":'
                                  u' %s', self.checker_command, error)
                     return True # Try again later
+                self.current_checker_command = command
             try:
                 logger.info(u"Starting checker %r for %s",
                             command, self.name)
@@ -411,6 +427,12 @@ class Client(dbus.service.Object):
                                              (self.checker.pid,
                                               self.checker_callback,
                                               data=command))
+                # The checker may have completed before the gobject
+                # watch was added.  Check for this.
+                pid, status = os.waitpid(self.checker.pid, os.WNOHANG)
+                if pid:
+                    gobject.source_remove(self.checker_callback_tag)
+                    self.checker_callback(pid, status, command)
             except OSError, error:
                 logger.error(u"Failed to start subprocess: %s",
                              error)
@@ -595,10 +617,13 @@ def peer_certificate(session):
         != gnutls.library.constants.GNUTLS_CRT_OPENPGP):
         # ...do the normal thing
         return session.peer_certificate
-    list_size = ctypes.c_uint()
+    list_size = ctypes.c_uint(1)
     cert_list = (gnutls.library.functions
                  .gnutls_certificate_get_peers
                  (session._c_object, ctypes.byref(list_size)))
+    if not bool(cert_list) and list_size.value != 0:
+        raise gnutls.errors.GNUTLSError("error getting peer"
+                                        " certificate")
     if list_size.value == 0:
         return None
     cert = cert_list[0]
@@ -673,8 +698,8 @@ class TCP_handler(SocketServer.BaseRequestHandler, object):
         # using OpenPGP certificates.
         
         #priority = ':'.join(("NONE", "+VERS-TLS1.1", "+AES-256-CBC",
-        #                "+SHA1", "+COMP-NULL", "+CTYPE-OPENPGP",
-        #                "+DHE-DSS"))
+        #                     "+SHA1", "+COMP-NULL", "+CTYPE-OPENPGP",
+        #                     "+DHE-DSS"))
         # Use a fallback default, since this MUST be set.
         priority = self.server.settings.get("priority", "NORMAL")
         (gnutls.library.functions
@@ -688,6 +713,7 @@ class TCP_handler(SocketServer.BaseRequestHandler, object):
             # Do not run session.bye() here: the session is not
             # established.  Just abandon the request.
             return
+        logger.debug(u"Handshake succeeded")
         try:
             fpr = fingerprint(peer_certificate(session))
         except (TypeError, gnutls.errors.GNUTLSError), error:
@@ -695,6 +721,7 @@ class TCP_handler(SocketServer.BaseRequestHandler, object):
             session.bye()
             return
         logger.debug(u"Fingerprint: %s", fpr)
+        
         for c in self.server.clients:
             if c.fingerprint == fpr:
                 client = c
@@ -726,7 +753,7 @@ class TCP_handler(SocketServer.BaseRequestHandler, object):
 
 class IPv6_TCPServer(SocketServer.ForkingMixIn,
                      SocketServer.TCPServer, object):
-    """IPv6 TCP server.  Accepts 'None' as address and/or port.
+    """IPv6-capable TCP server.  Accepts 'None' as address and/or port
     Attributes:
         settings:       Server settings
         clients:        Set() of Client objects
@@ -740,6 +767,10 @@ class IPv6_TCPServer(SocketServer.ForkingMixIn,
         if "clients" in kwargs:
             self.clients = kwargs["clients"]
             del kwargs["clients"]
+        if "use_ipv6" in kwargs:
+            if not kwargs["use_ipv6"]:
+                self.address_family = socket.AF_INET
+            del kwargs["use_ipv6"]
         self.enabled = False
         super(IPv6_TCPServer, self).__init__(*args, **kwargs)
     def server_bind(self):
@@ -759,12 +790,15 @@ class IPv6_TCPServer(SocketServer.ForkingMixIn,
                                  u" bind to interface %s",
                                  self.settings["interface"])
                 else:
-                    raise error
+                    raise
         # Only bind(2) the socket if we really need to.
         if self.server_address[0] or self.server_address[1]:
             if not self.server_address[0]:
-                in6addr_any = "::"
-                self.server_address = (in6addr_any,
+                if self.address_family == socket.AF_INET6:
+                    any_address = "::" # in6addr_any
+                else:
+                    any_address = socket.INADDR_ANY
+                self.server_address = (any_address,
                                        self.server_address[1])
             elif not self.server_address[1]:
                 self.server_address = (self.server_address[0],
@@ -786,7 +820,7 @@ class IPv6_TCPServer(SocketServer.ForkingMixIn,
 
 def string_to_delta(interval):
     """Parse a string and return a datetime.timedelta
-
+    
     >>> string_to_delta('7d')
     datetime.timedelta(7)
     >>> string_to_delta('60s')
@@ -916,6 +950,8 @@ def main():
     parser.add_option("--no-dbus", action="store_false",
                       dest="use_dbus",
                       help=optparse.SUPPRESS_HELP) # XXX: Not done yet
+    parser.add_option("--no-ipv6", action="store_false",
+                      dest="use_ipv6", help="Do not use IPv6")
     options = parser.parse_args()[0]
     
     if options.check:
@@ -932,6 +968,7 @@ def main():
                         "SECURE256:!CTYPE-X.509:+CTYPE-OPENPGP",
                         "servicename": "Mandos",
                         "use_dbus": "True",
+                        "use_ipv6": "True",
                         }
     
     # Parse config file for server-global settings
@@ -940,18 +977,23 @@ def main():
     server_config.read(os.path.join(options.configdir, "mandos.conf"))
     # Convert the SafeConfigParser object to a dict
     server_settings = server_config.defaults()
-    # Use getboolean on the boolean config options
-    server_settings["debug"] = (server_config.getboolean
-                                ("DEFAULT", "debug"))
-    server_settings["use_dbus"] = (server_config.getboolean
-                                   ("DEFAULT", "use_dbus"))
+    # Use the appropriate methods on the non-string config options
+    server_settings["debug"] = server_config.getboolean("DEFAULT",
+                                                        "debug")
+    server_settings["use_dbus"] = server_config.getboolean("DEFAULT",
+                                                           "use_dbus")
+    server_settings["use_ipv6"] = server_config.getboolean("DEFAULT",
+                                                           "use_ipv6")
+    if server_settings["port"]:
+        server_settings["port"] = server_config.getint("DEFAULT",
+                                                       "port")
     del server_config
     
     # Override the settings from the config file with command line
     # options, if set.
     for option in ("interface", "address", "port", "debug",
                    "priority", "servicename", "configdir",
-                   "use_dbus"):
+                   "use_dbus", "use_ipv6"):
         value = getattr(options, option)
         if value is not None:
             server_settings[option] = value
@@ -962,6 +1004,7 @@ def main():
     debug = server_settings["debug"]
     use_dbus = server_settings["use_dbus"]
     use_dbus = False            # XXX: Not done yet
+    use_ipv6 = server_settings["use_ipv6"]
     
     if not debug:
         syslogger.setLevel(logging.WARNING)
@@ -988,11 +1031,11 @@ def main():
                                  server_settings["port"]),
                                 TCP_handler,
                                 settings=server_settings,
-                                clients=clients)
+                                clients=clients, use_ipv6=use_ipv6)
     pidfilename = "/var/run/mandos.pid"
     try:
         pidfile = open(pidfilename, "w")
-    except IOError, error:
+    except IOError:
         logger.error("Could not open file %r", pidfilename)
     
     try:
@@ -1010,15 +1053,30 @@ def main():
                 uid = 65534
                 gid = 65534
     try:
-        os.setuid(uid)
         os.setgid(gid)
+        os.setuid(uid)
     except OSError, error:
         if error[0] != errno.EPERM:
             raise error
     
+    # Enable all possible GnuTLS debugging
+    if debug:
+        # "Use a log level over 10 to enable all debugging options."
+        # - GnuTLS manual
+        gnutls.library.functions.gnutls_global_set_log_level(11)
+        
+        @gnutls.library.types.gnutls_log_func
+        def debug_gnutls(level, string):
+            logger.debug("GnuTLS: %s", string[:-1])
+        
+        (gnutls.library.functions
+         .gnutls_global_set_log_function(debug_gnutls))
+    
     global service
+    protocol = avahi.PROTO_INET6 if use_ipv6 else avahi.PROTO_INET
     service = AvahiService(name = server_settings["servicename"],
-                           servicetype = "_mandos._tcp", )
+                           servicetype = "_mandos._tcp",
+                           protocol = protocol)
     if server_settings["interface"]:
         service.interface = (if_nametoindex
                              (server_settings["interface"]))
@@ -1110,10 +1168,12 @@ def main():
             
             @dbus.service.method(_interface, out_signature="ao")
             def GetAllClients(self):
+                "D-Bus method"
                 return dbus.Array(c.dbus_object_path for c in clients)
             
             @dbus.service.method(_interface, out_signature="a{oa{sv}}")
             def GetAllClientsWithProperties(self):
+                "D-Bus method"
                 return dbus.Dictionary(
                     ((c.dbus_object_path, c.GetAllProperties())
                      for c in clients),
@@ -1121,6 +1181,7 @@ def main():
             
             @dbus.service.method(_interface, in_signature="o")
             def RemoveClient(self, object_path):
+                "D-Bus method"
                 for c in clients:
                     if c.dbus_object_path == object_path:
                         clients.remove(c)
@@ -1148,8 +1209,13 @@ def main():
     
     # Find out what port we got
     service.port = tcp_server.socket.getsockname()[1]
-    logger.info(u"Now listening on address %r, port %d, flowinfo %d,"
-                u" scope_id %d" % tcp_server.socket.getsockname())
+    if use_ipv6:
+        logger.info(u"Now listening on address %r, port %d,"
+                    " flowinfo %d, scope_id %d"
+                    % tcp_server.socket.getsockname())
+    else:                       # IPv4
+        logger.info(u"Now listening on address %r, port %d"
+                    % tcp_server.socket.getsockname())
     
     #service.interface = tcp_server.socket.getsockname()[3]
     
@@ -1175,7 +1241,9 @@ def main():
         sys.exit(1)
     except KeyboardInterrupt:
         if debug:
-            print
+            print >> sys.stderr
+        logger.debug("Server received KeyboardInterrupt")
+    logger.debug("Server exiting")
 
 if __name__ == '__main__':
     main()

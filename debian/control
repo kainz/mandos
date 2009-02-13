@@ -15,7 +15,8 @@ Homepage: http://www.fukt.bsnet.se/mandos
 Package: mandos
 Architecture: all
 Depends: ${misc:Depends}, python (>=2.5), python-gnutls, python-dbus,
-	python-avahi, avahi-daemon, gnupg (< 2), adduser
+	python-avahi, python-gobject, avahi-daemon, gnupg (< 2),
+	adduser
 Recommends: fping
 Description: a server giving encrypted passwords to Mandos clients
  This is the server part of the Mandos system, which allows

@@ -51,13 +51,13 @@
 				   ARGP_KEY_ARG, ARGP_KEY_END,
 				   ARGP_ERR_UNKNOWN */
 
-volatile bool quit_now = false;
+volatile sig_atomic_t quit_now = 0;
 bool debug = false;
 const char *argp_program_version = "password-prompt " VERSION;
 const char *argp_program_bug_address = "<mandos@fukt.bsnet.se>";
 
 static void termination_handler(__attribute__((unused))int signum){
-  quit_now = true;
+  quit_now = 1;
 }
 
 int main(int argc, char **argv){
@@ -80,8 +80,8 @@ int main(int argc, char **argv){
       { .name = NULL }
     };
     
-    error_t parse_opt (int key, char *arg, struct argp_state *state) {
-      switch (key) {
+    error_t parse_opt (int key, char *arg, struct argp_state *state){
+      switch (key){
       case 'p':
 	prefix = arg;
 	break;
@@ -194,7 +194,7 @@ int main(int argc, char **argv){
       const char *cryptsource = getenv("cryptsource");
       const char *crypttarget = getenv("crypttarget");
       const char *const prompt
-	= "Enter passphrase to unlock the disk";
+	= "Enter passphrase to unlock the disk";      
       if(cryptsource == NULL){
 	if(crypttarget == NULL){
 	  fprintf(stderr, "%s: ", prompt);
@@ -242,8 +242,8 @@ int main(int argc, char **argv){
     /* if(ret == 0), then the only sensible thing to do is to retry to
        read from stdin */
     fputc('\n', stderr);
-    if(debug and not quit_now){
-      /* If quit_now is true, we were interrupted by a signal, and
+    if(debug and quit_now == 0){
+      /* If quit_now is nonzero, we were interrupted by a signal, and
 	 will print that later, so no need to show this too. */
       fprintf(stderr, "getline() returned 0, retrying.\n");
     }

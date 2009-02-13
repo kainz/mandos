@@ -1,6 +1,6 @@
 WARN=-O -Wall -Wformat=2 -Winit-self -Wmissing-include-dirs \
 	-Wswitch-default -Wswitch-enum -Wunused-parameter \
-	-Wstrict-aliasing=2 -Wextra -Wfloat-equal -Wundef -Wshadow \
+	-Wstrict-aliasing=1 -Wextra -Wfloat-equal -Wundef -Wshadow \
 	-Wunsafe-loop-optimizations -Wpointer-arith \
 	-Wbad-function-cast -Wcast-qual -Wcast-align -Wwrite-strings \
 	-Wconversion -Wstrict-prototypes -Wold-style-definition \
@@ -213,7 +213,7 @@ keydir/seckey.txt keydir/pubkey.txt: mandos-keygen
 
 # Run the server with a local config
 run-server: confdir/mandos.conf confdir/clients.conf
-	./mandos --debug --configdir=confdir $(SERVERARGS)
+	./mandos --debug --no-dbus --configdir=confdir $(SERVERARGS)
 
 # Used by run-server
 confdir/mandos.conf: mandos.conf
@@ -285,7 +285,7 @@ install-client-nokey: all doc
 	install --mode=u=rw,go=r initramfs-tools-hook-conf \
 		$(INITRAMFSTOOLS)/conf-hooks.d/mandos
 	install initramfs-tools-script \
-		$(INITRAMFSTOOLS)/scripts/local-top/mandos
+		$(INITRAMFSTOOLS)/scripts/init-premount/mandos
 	install --mode=u=rw,go=r plugin-runner.conf $(CONFDIR)
 	gzip --best --to-stdout mandos-keygen.8 \
 		> $(MANDIR)/man8/mandos-keygen.8.gz
@@ -332,7 +332,7 @@ uninstall-client:
 		$(PREFIX)/lib/mandos/plugins.d/askpass-fifo \
 		$(INITRAMFSTOOLS)/hooks/mandos \
 		$(INITRAMFSTOOLS)/conf-hooks.d/mandos \
-		$(INITRAMFSTOOLS)/scripts/local-top/mandos \
+		$(INITRAMFSTOOLS)/scripts/init-premount/mandos \
 		$(MANDIR)/man8/plugin-runner.8mandos.gz \
 		$(MANDIR)/man8/mandos-keygen.8.gz \
 		$(MANDIR)/man8/password-prompt.8mandos.gz \
