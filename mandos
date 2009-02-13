@@ -66,7 +66,7 @@ from dbus.mainloop.glib import DBusGMainLoop
 import ctypes
 import ctypes.util
 
-version = "1.0.5"
+version = "1.0.6"
 
 logger = logging.Logger('mandos')
 syslogger = (logging.handlers.SysLogHandler
@@ -753,7 +753,7 @@ class TCP_handler(SocketServer.BaseRequestHandler, object):
 
 class IPv6_TCPServer(SocketServer.ForkingMixIn,
                      SocketServer.TCPServer, object):
-    """IPv6-capable TCP server.  Accepts 'None' as address and/or port.
+    """IPv6-capable TCP server.  Accepts 'None' as address and/or port
     Attributes:
         settings:       Server settings
         clients:        Set() of Client objects

@@ -1,6 +1,34 @@
 This NEWS file records noteworthy changes, very tersely.
 See the manual for detailed information.
 
+Version 1.0.6 (2009-02-13)
+* Server
+** Fix bug where server would stop responding, with a zombie checker
+** Support for disabling IPv6 (only for advanced users)
+** Fix bug which made server not change group ID
+
+* Client
+** Bug fix: Fix permission for /lib64 (on relevant architechtures).
+** Add support for IPv4 addresses.
+** Add support in mandos-client for not bringing up a network
+   interface by specifying an empty string to "--interface".
+** Make password prompt on boot not be mangled by kernel log messages
+   about network interface.
+** Get network interface from initramfs.conf and/or from kernel
+   command line.
+** If set by "ip=" kernel command line, configure network on boot.
+** Support connecting directly using "mandos=connect" kernel command.
+   line option, provided network is configured using "ip=".
+** Fix bug which made plugin-runner and mandos-client not change group
+   ID.
+** Fix bug where the "--options-for" option of plugin-runner would
+   truncate the value at the first colon character.
+** Fix bug where plugin-runner would not go to fallback if all plugins
+   failed.
+** Fix bug where mandos-client would not clean temporary directory on
+   a signal or on certain file systems.
+** Bug fix: remove bashism in /bin/sh script "mandos-keygen".
+
 Version 1.0.5 (2009-01-17)
 * Client
 ** Fix small memory leak in plugin-runner.
