@@ -205,6 +205,7 @@ class Client(dbus.service.Object):
                      client lives.  %() expansions are done at
                      runtime with vars(self) as dict, so that for
                      instance %(name)s can be used in the command.
+    current_checker_command: string; current running checker_command
     use_dbus: bool(); Whether to provide D-Bus interface and signals
     dbus_object_path: dbus.ObjectPath ; only set if self.use_dbus
     """
@@ -259,6 +260,7 @@ class Client(dbus.service.Object):
         self.disable_initiator_tag = None
         self.checker_callback_tag = None
         self.checker_command = config["checker"]
+        self.current_checker_command = None
         self.last_connect = None
         # Only now, when this client is initialized, can it show up on
         # the D-Bus
@@ -379,6 +381,16 @@ class Client(dbus.service.Object):
         # checkers alone, the checker would have to take more time
         # than 'timeout' for the client to be declared invalid, which
         # is as it should be.
+        
+        # If a checker exists, make sure it is not a zombie
+        if self.checker is not None:
+            pid, status = os.waitpid(self.checker.pid, os.WNOHANG)
+            if pid:
+                logger.warning("Checker was a zombie")
+                gobject.source_remove(self.checker_callback_tag)
+                self.checker_callback(pid, status,
+                                      self.current_checker_command)
+        # Start a new checker if needed
         if self.checker is None:
             try:
                 # In case checker_command has exactly one % operator
@@ -394,6 +406,7 @@ class Client(dbus.service.Object):
                     logger.error(u'Could not format string "%s":'
                                  u' %s', self.checker_command, error)
                     return True # Try again later
+                self.current_checker_command = command
             try:
                 logger.info(u"Starting checker %r for %s",
                             command, self.name)
