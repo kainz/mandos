@@ -152,7 +152,7 @@ plugins.d/mandos-client.8mandos.xhtml: plugins.d/mandos-client.xml \
 # Update all these files with version number $(version)
 common.ent: Makefile
 	$(SED) --in-place \
-		--expression='s/^\(<ENTITY VERSION "\)[^"]*">$$/\1$(version)"/' \
+		--expression='s/^\(<!ENTITY version "\)[^"]*">$$/\1$(version)">/' \
 		$@
 
 mandos: Makefile
