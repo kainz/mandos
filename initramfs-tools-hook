@@ -55,12 +55,12 @@ mandos_user="`{ getent passwd _mandos \
 		|| getent passwd mandos \
 		|| getent passwd nobody \
 		|| echo ::65534::::; } \
-	| awk --field-separator=: '{ print $3 }'`" 
+	| cut --delimiter=: --fields=3 --only-delimited
 mandos_group="`{ getent group _mandos \
 		|| getent group mandos \
 		|| getent group nogroup \
 		|| echo ::65534:; } \
-	| awk --field-separator=: '{ print $3 }'`"
+	| cut --delimiter=: --fields=3 --only-delimited
 
 # The Mandos network client uses the network
 auto_add_modules net
