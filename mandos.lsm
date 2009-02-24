@@ -15,7 +15,7 @@ Primary-site: http://www.fukt.bsnet.se/mandos
 	      98K mandos_1.0.6.orig.tar.gz
 Alternate-site: ftp://ftp.fukt.bsnet.se/pub/mandos
 		98K mandos_1.0.6.orig.tar.gz
-Platforms:	Requires GCC, GNU libC, Avahi, GnuPG, Python 2.4, and
+Platforms:	Requires GCC, GNU libC, Avahi, GnuPG, Python 2.5, and
 various other libraries.  While made for Debian GNU/Linux, it is
 probably portable to other distributions, but not other Unixes.
 Copying-policy: GNU General Public License version 3.0 or later
