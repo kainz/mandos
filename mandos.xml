@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY COMMANDNAME "mandos">
-<!ENTITY TIMESTAMP "2009-02-13">
+<!ENTITY TIMESTAMP "2009-02-24">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -445,7 +445,7 @@
       Debug mode is conflated with running in the foreground.
     </para>
     <para>
-      The console log messages does not show a time stamp.
+      The console log messages do not show a time stamp.
     </para>
     <para>
       This server does not check the expire time of clients’ OpenPGP

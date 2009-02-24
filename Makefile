@@ -39,8 +39,9 @@ GNUTLS_CFLAGS=$(shell libgnutls-config --cflags)
 GNUTLS_LIBS=$(shell libgnutls-config --libs)
 AVAHI_CFLAGS=$(shell pkg-config --cflags-only-I avahi-core)
 AVAHI_LIBS=$(shell pkg-config --libs avahi-core)
-GPGME_CFLAGS=$(shell gpgme-config --cflags)
-GPGME_LIBS=$(shell gpgme-config --libs)
+GPGME_CFLAGS=$(shell gpgme-config --cflags; getconf LFS_CFLAGS)
+GPGME_LIBS=$(shell gpgme-config --libs; getconf LFS_LIBS; \
+	getconf LFS_LDFLAGS)
 
 # Do not change these two
 CFLAGS=$(WARN) $(DEBUG) $(FORTIFY) $(COVERAGE) $(OPTIMIZE) \
@@ -151,7 +152,7 @@ plugins.d/mandos-client.8mandos.xhtml: plugins.d/mandos-client.xml \
 # Update all these files with version number $(version)
 common.ent: Makefile
 	$(SED) --in-place \
-		--expression='s/^\(<ENTITY VERSION "\)[^"]*">$$/\1$(version)"/' \
+		--expression='s/^\(<!ENTITY version "\)[^"]*">$$/\1$(version)">/' \
 		$@
 
 mandos: Makefile

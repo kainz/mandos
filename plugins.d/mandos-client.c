@@ -30,8 +30,12 @@
  */
 
 /* Needed by GPGME, specifically gpgme_data_seek() */
+#ifndef _LARGEFILE_SOURCE
 #define _LARGEFILE_SOURCE
+#endif
+#ifndef _FILE_OFFSET_BITS
 #define _FILE_OFFSET_BITS 64
+#endif
 
 #define _GNU_SOURCE		/* TEMP_FAILURE_RETRY(), asprintf() */
 
