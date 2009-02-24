@@ -1,6 +1,10 @@
 This NEWS file records noteworthy changes, very tersely.
 See the manual for detailed information.
 
+Version 1.0.7 (2009-02-24)
+* Client
+** Bug fix: Do not depend on GNU awk.
+
 Version 1.0.6 (2009-02-13)
 * Server
 ** Fix bug where server would stop responding, with a zombie checker
