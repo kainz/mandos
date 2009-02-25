@@ -3,7 +3,7 @@
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY CONFNAME "mandos.conf">
 <!ENTITY CONFPATH "<filename>/etc/mandos/mandos.conf</filename>">
-<!ENTITY TIMESTAMP "2009-02-13">
+<!ENTITY TIMESTAMP "2009-02-25">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -237,7 +237,7 @@ use_ipv6 = True
 	      <para>
 		The clients use IPv6 link-local addresses, which are
 		immediately usable since a link-local addresses is
-		automatically assigned to a network interfaces when it
+		automatically assigned to a network interface when it
 		is brought up.
 	      </para>
 	    </listitem>
