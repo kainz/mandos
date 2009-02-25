@@ -566,7 +566,7 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   
   memset(&to, 0, sizeof(to));
   if(af == AF_INET6){
-    to.in6.sin6_family = (uint16_t)af;
+    to.in6.sin6_family = (sa_family_t)af;
     ret = inet_pton(af, ip, &to.in6.sin6_addr);
   } else {			/* IPv4 */
     to.in.sin_family = (sa_family_t)af;
