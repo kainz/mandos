@@ -1,6 +1,10 @@
 This NEWS file records noteworthy changes, very tersely.
 See the manual for detailed information.
 
+Version 1.0.8 (2009-02-25)
+* Client
+** Bug fix: Fix missing quote characters in initramfs-tools-hook.
+
 Version 1.0.7 (2009-02-24)
 * Client
 ** Bug fix: Do not depend on GNU awk.
