@@ -16,7 +16,7 @@ LINK_FORTIFY=-pie
 OPTIMIZE=-Os
 LANGUAGE=-std=gnu99
 htmldir=man
-version=1.0.7
+version=1.0.8
 SED=sed
 
 ## Use these settings for a traditional /usr/local install
