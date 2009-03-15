@@ -134,13 +134,15 @@
   In the early designs, the mandos-client(8mandos) program (which
   retrieves a password from the Mandos server) also prompted for a
   password on the terminal, in case a Mandos server could not be
-  found.  This duality of purpose was seen to be too complex to be a
-  viable way to continue.  Instead, the programs are now separated
-  into mandos-client(8mandos) and password-prompt(8mandos), and a
-  plugin-runner(8mandos) exist to run them both in parallel, allowing
-  the first plugin to succeed to provide the password.  This opened up
-  for any number of additional plugins to run, all competing to be the
-  first to find a password and provide it to the plugin runner.
+  found.  Other ways of retrieving a password could easily be
+  envisoned, but this multiplicity of purpose was seen to be too
+  complex to be a viable way to continue.  Instead, the original
+  program was separated into mandos-client(8mandos) and
+  password-prompt(8mandos), and a plugin-runner(8mandos) exist to run
+  them both in parallel, allowing the first successful plugin to
+  provide the password.  This opened up for any number of additional
+  plugins to run, all competing to be the first to find a password and
+  provide it to the plugin runner.
   
   Three additional plugins are provided:
   * usplash(8mandos)
@@ -152,7 +154,7 @@
     cryptsetup, this plugin listens to the same FIFO as askpass would
     do.
   
-  More plugins could easily be written and added by the system
+  More plugins can easily be written and added by the system
   administrator; see the section called "WRITING PLUGINS" in
   plugin-runner(8mandos) to learn the plugin requirements.
 
