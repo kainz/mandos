@@ -26,12 +26,12 @@ tablewords = {
     }
 defaultkeywords = ('name', 'enabled', 'timeout', 'last_checked_ok',
                    'checker')
-busname = 'org.mandos-system.Mandos'
-server_path = '/Mandos'
-server_interface = 'org.mandos_system.Mandos'
-client_interface = 'org.mandos_system.Mandos.Client'
-version = "1.0.5"
-
+domain = 'se.bsnet.fukt'
+busname = domain + '.Mandos'
+server_path = '/'
+server_interface = domain + '.Mandos'
+client_interface = domain + '.Mandos.Client'
+version = "1.0.8"
 bus = dbus.SystemBus()
 mandos_dbus_objc = bus.get_object(busname, server_path)
 mandos_serv = dbus.Interface(mandos_dbus_objc,
@@ -115,29 +115,32 @@ parser = OptionParser(version = "%%prog %s" % version)
 parser.add_option("-a", "--all", action="store_true",
                   help="Print all fields")
 parser.add_option("-e", "--enable", action="store_true",
-                  help="Enable specified client")
+                  help="Enable client")
 parser.add_option("-d", "--disable", action="store_true",
-                  help="disable specified client")
+                  help="disable client")
 parser.add_option("-b", "--bump-timeout", action="store_true",
-                  help="Bump timeout of specified client")
+                  help="Bump timeout for client")
 parser.add_option("--start-checker", action="store_true",
-                  help="Start checker for specified client")
+                  help="Start checker for client")
 parser.add_option("--stop-checker", action="store_true",
-                  help="Stop checker for specified client")
-parser.add_option("-v", "--is-valid", action="store_true",
-                  help="Stop checker for specified client")
+                  help="Stop checker for client")
+parser.add_option("-V", "--is-valid", action="store_true",
+                  help="Check if client is still valid")
+parser.add_option("-r", "--remove", action="store_true",
+                  help="Remove client")
 parser.add_option("-c", "--checker", type="string",
-                  help="Set checker command for specified client")
+                  help="Set checker command for client")
 parser.add_option("-t", "--timeout", type="string",
-                  help="Set timeout for specified client")
+                  help="Set timeout for client")
 parser.add_option("-i", "--interval", type="string",
-                  help="Set checker interval for specified client")
+                  help="Set checker interval for client")
 parser.add_option("-H", "--host", type="string",
-                  help="Set host for specified client")
+                  help="Set host for client")
 parser.add_option("-s", "--secret", type="string",
-                  help="Set password blob (file) for specified client")
+                  help="Set password blob (file) for client")
 options, client_names = parser.parse_args()
 
+# Compile list of clients to process
 clients=[]
 for name in client_names:
     for path, client in mandos_clients.iteritems():
@@ -151,15 +154,18 @@ for name in client_names:
         print >> sys.stderr, "Client not found on server: %r" % name
         sys.exit(1)
 
-if not clients:
+if not clients and mandos_clients.values():
     keywords = defaultkeywords
     if options.all:
         keywords = ('name', 'enabled', 'timeout', 'last_checked_ok',
                     'created', 'interval', 'host', 'fingerprint',
                     'checker_running', 'last_enabled', 'checker')
     print_clients(mandos_clients.values())
-    
+
+# Process each client in the list by all selected options
 for client in clients:
+    if options.remove:
+        mandos_serv.RemoveClient(client.__dbus_object_path__)
     if options.enable:
         client.Enable()
     if options.disable:

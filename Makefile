@@ -1,6 +1,6 @@
 WARN=-O -Wall -Wformat=2 -Winit-self -Wmissing-include-dirs \
 	-Wswitch-default -Wswitch-enum -Wunused-parameter \
-	-Wstrict-aliasing=2 -Wextra -Wfloat-equal -Wundef -Wshadow \
+	-Wstrict-aliasing=1 -Wextra -Wfloat-equal -Wundef -Wshadow \
 	-Wunsafe-loop-optimizations -Wpointer-arith \
 	-Wbad-function-cast -Wcast-qual -Wcast-align -Wwrite-strings \
 	-Wconversion -Wstrict-prototypes -Wold-style-definition \
@@ -16,7 +16,7 @@ LINK_FORTIFY=-pie
 OPTIMIZE=-Os
 LANGUAGE=-std=gnu99
 htmldir=man
-version=1.0.5
+version=1.0.8
 SED=sed
 
 ## Use these settings for a traditional /usr/local install
@@ -39,8 +39,9 @@ GNUTLS_CFLAGS=$(shell libgnutls-config --cflags)
 GNUTLS_LIBS=$(shell libgnutls-config --libs)
 AVAHI_CFLAGS=$(shell pkg-config --cflags-only-I avahi-core)
 AVAHI_LIBS=$(shell pkg-config --libs avahi-core)
-GPGME_CFLAGS=$(shell gpgme-config --cflags)
-GPGME_LIBS=$(shell gpgme-config --libs)
+GPGME_CFLAGS=$(shell gpgme-config --cflags; getconf LFS_CFLAGS)
+GPGME_LIBS=$(shell gpgme-config --libs; getconf LFS_LIBS; \
+	getconf LFS_LDFLAGS)
 
 # Do not change these two
 CFLAGS=$(WARN) $(DEBUG) $(FORTIFY) $(COVERAGE) $(OPTIMIZE) \
@@ -151,7 +152,7 @@ plugins.d/mandos-client.8mandos.xhtml: plugins.d/mandos-client.xml \
 # Update all these files with version number $(version)
 common.ent: Makefile
 	$(SED) --in-place \
-		--expression='s/^\(<ENTITY VERSION "\)[^"]*">$$/\1$(version)"/' \
+		--expression='s/^\(<!ENTITY version "\)[^"]*">$$/\1$(version)">/' \
 		$@
 
 mandos: Makefile
@@ -213,7 +214,7 @@ keydir/seckey.txt keydir/pubkey.txt: mandos-keygen
 
 # Run the server with a local config
 run-server: confdir/mandos.conf confdir/clients.conf
-	./mandos --debug --configdir=confdir $(SERVERARGS)
+	./mandos --debug --no-dbus --configdir=confdir $(SERVERARGS)
 
 # Used by run-server
 confdir/mandos.conf: mandos.conf
@@ -285,7 +286,7 @@ install-client-nokey: all doc
 	install --mode=u=rw,go=r initramfs-tools-hook-conf \
 		$(INITRAMFSTOOLS)/conf-hooks.d/mandos
 	install initramfs-tools-script \
-		$(INITRAMFSTOOLS)/scripts/local-top/mandos
+		$(INITRAMFSTOOLS)/scripts/init-premount/mandos
 	install --mode=u=rw,go=r plugin-runner.conf $(CONFDIR)
 	gzip --best --to-stdout mandos-keygen.8 \
 		> $(MANDIR)/man8/mandos-keygen.8.gz
@@ -332,7 +333,7 @@ uninstall-client:
 		$(PREFIX)/lib/mandos/plugins.d/askpass-fifo \
 		$(INITRAMFSTOOLS)/hooks/mandos \
 		$(INITRAMFSTOOLS)/conf-hooks.d/mandos \
-		$(INITRAMFSTOOLS)/scripts/local-top/mandos \
+		$(INITRAMFSTOOLS)/scripts/init-premount/mandos \
 		$(MANDIR)/man8/plugin-runner.8mandos.gz \
 		$(MANDIR)/man8/mandos-keygen.8.gz \
 		$(MANDIR)/man8/password-prompt.8mandos.gz \
