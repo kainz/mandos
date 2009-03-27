@@ -137,8 +137,9 @@ class AvahiService(object):
         logger.info(u"Changing Zeroconf service name to %r ...",
                     str(self.name))
         syslogger.setFormatter(logging.Formatter
-                               ('Mandos (%s): %%(levelname)s:'
-                                ' %%(message)s' % self.name))
+                               ('Mandos (%s) [%%(process)d]:'
+                                ' %%(levelname)s: %%(message)s'
+                                % self.name))
         self.remove()
         self.add()
         self.rename_count += 1
@@ -542,6 +543,18 @@ class Client(dbus.service.Object):
         "D-Bus signal"
         pass
     
+    # ReceivedSecret - signal
+    @dbus.service.signal(_interface)
+    def ReceivedSecret(self):
+        "D-Bus signal"
+        pass
+    
+    # Rejected - signal
+    @dbus.service.signal(_interface)
+    def Rejected(self):
+        "D-Bus signal"
+        pass
+    
     # SetChecker - method
     @dbus.service.method(_interface, in_signature="s")
     def SetChecker(self, checker):
@@ -678,80 +691,107 @@ class TCP_handler(SocketServer.BaseRequestHandler, object):
     def handle(self):
         logger.info(u"TCP connection from: %s",
                     unicode(self.client_address))
-        session = (gnutls.connection
-                   .ClientSession(self.request,
-                                  gnutls.connection
-                                  .X509Credentials()))
-        
-        line = self.request.makefile().readline()
-        logger.debug(u"Protocol version: %r", line)
-        try:
-            if int(line.strip().split()[0]) > 1:
-                raise RuntimeError
-        except (ValueError, IndexError, RuntimeError), error:
-            logger.error(u"Unknown protocol version: %s", error)
-            return
-        
-        # Note: gnutls.connection.X509Credentials is really a generic
-        # GnuTLS certificate credentials object so long as no X.509
-        # keys are added to it.  Therefore, we can use it here despite
-        # using OpenPGP certificates.
-        
-        #priority = ':'.join(("NONE", "+VERS-TLS1.1", "+AES-256-CBC",
-        #                     "+SHA1", "+COMP-NULL", "+CTYPE-OPENPGP",
-        #                     "+DHE-DSS"))
-        # Use a fallback default, since this MUST be set.
-        priority = self.server.settings.get("priority", "NORMAL")
-        (gnutls.library.functions
-         .gnutls_priority_set_direct(session._c_object,
-                                     priority, None))
-        
-        try:
-            session.handshake()
-        except gnutls.errors.GNUTLSError, error:
-            logger.warning(u"Handshake failed: %s", error)
-            # Do not run session.bye() here: the session is not
-            # established.  Just abandon the request.
-            return
-        logger.debug(u"Handshake succeeded")
-        try:
-            fpr = fingerprint(peer_certificate(session))
-        except (TypeError, gnutls.errors.GNUTLSError), error:
-            logger.warning(u"Bad certificate: %s", error)
+        logger.debug(u"IPC Pipe FD: %d", self.server.pipe[1])
+        # Open IPC pipe to parent process
+        with closing(os.fdopen(self.server.pipe[1], "w", 1)) as ipc:
+            session = (gnutls.connection
+                       .ClientSession(self.request,
+                                      gnutls.connection
+                                      .X509Credentials()))
+            
+            line = self.request.makefile().readline()
+            logger.debug(u"Protocol version: %r", line)
+            try:
+                if int(line.strip().split()[0]) > 1:
+                    raise RuntimeError
+            except (ValueError, IndexError, RuntimeError), error:
+                logger.error(u"Unknown protocol version: %s", error)
+                return
+            
+            # Note: gnutls.connection.X509Credentials is really a
+            # generic GnuTLS certificate credentials object so long as
+            # no X.509 keys are added to it.  Therefore, we can use it
+            # here despite using OpenPGP certificates.
+            
+            #priority = ':'.join(("NONE", "+VERS-TLS1.1",
+            #                     "+AES-256-CBC", "+SHA1",
+            #                     "+COMP-NULL", "+CTYPE-OPENPGP",
+            #                     "+DHE-DSS"))
+            # Use a fallback default, since this MUST be set.
+            priority = self.server.settings.get("priority", "NORMAL")
+            (gnutls.library.functions
+             .gnutls_priority_set_direct(session._c_object,
+                                         priority, None))
+            
+            try:
+                session.handshake()
+            except gnutls.errors.GNUTLSError, error:
+                logger.warning(u"Handshake failed: %s", error)
+                # Do not run session.bye() here: the session is not
+                # established.  Just abandon the request.
+                return
+            logger.debug(u"Handshake succeeded")
+            try:
+                fpr = fingerprint(peer_certificate(session))
+            except (TypeError, gnutls.errors.GNUTLSError), error:
+                logger.warning(u"Bad certificate: %s", error)
+                session.bye()
+                return
+            logger.debug(u"Fingerprint: %s", fpr)
+            
+            for c in self.server.clients:
+                if c.fingerprint == fpr:
+                    client = c
+                    break
+            else:
+                logger.warning(u"Client not found for fingerprint: %s",
+                               fpr)
+                ipc.write("NOTFOUND %s\n" % fpr)
+                session.bye()
+                return
+            # Have to check if client.still_valid(), since it is
+            # possible that the client timed out while establishing
+            # the GnuTLS session.
+            if not client.still_valid():
+                logger.warning(u"Client %(name)s is invalid",
+                               vars(client))
+                ipc.write("INVALID %s\n" % client.name)
+                session.bye()
+                return
+            ipc.write("SENDING %s\n" % client.name)
+            sent_size = 0
+            while sent_size < len(client.secret):
+                sent = session.send(client.secret[sent_size:])
+                logger.debug(u"Sent: %d, remaining: %d",
+                             sent, len(client.secret)
+                             - (sent_size + sent))
+                sent_size += sent
             session.bye()
-            return
-        logger.debug(u"Fingerprint: %s", fpr)
-        
-        for c in self.server.clients:
-            if c.fingerprint == fpr:
-                client = c
-                break
-        else:
-            logger.warning(u"Client not found for fingerprint: %s",
-                           fpr)
-            session.bye()
-            return
-        # Have to check if client.still_valid(), since it is possible
-        # that the client timed out while establishing the GnuTLS
-        # session.
-        if not client.still_valid():
-            logger.warning(u"Client %(name)s is invalid",
-                           vars(client))
-            session.bye()
-            return
-        ## This won't work here, since we're in a fork.
-        # client.checked_ok()
-        sent_size = 0
-        while sent_size < len(client.secret):
-            sent = session.send(client.secret[sent_size:])
-            logger.debug(u"Sent: %d, remaining: %d",
-                         sent, len(client.secret)
-                         - (sent_size + sent))
-            sent_size += sent
-        session.bye()
 
 
-class IPv6_TCPServer(SocketServer.ForkingMixIn,
+class ForkingMixInWithPipe(SocketServer.ForkingMixIn, object):
+    """Like SocketServer.ForkingMixIn, but also pass a pipe.
+    Assumes a gobject.MainLoop event loop.
+    """
+    def process_request(self, request, client_address):
+        """This overrides and wraps the original process_request().
+        This function creates a new pipe in self.pipe 
+        """
+        self.pipe = os.pipe()
+        super(ForkingMixInWithPipe,
+              self).process_request(request, client_address)
+        os.close(self.pipe[1])  # close write end
+        # Call "handle_ipc" for both data and EOF events
+        gobject.io_add_watch(self.pipe[0],
+                             gobject.IO_IN | gobject.IO_HUP,
+                             self.handle_ipc)
+    def handle_ipc(source, condition):
+        """Dummy function; override as necessary"""
+        os.close(source)
+        return False
+
+
+class IPv6_TCPServer(ForkingMixInWithPipe,
                      SocketServer.TCPServer, object):
     """IPv6-capable TCP server.  Accepts 'None' as address and/or port
     Attributes:
@@ -816,6 +856,66 @@ class IPv6_TCPServer(SocketServer.ForkingMixIn,
             return super(IPv6_TCPServer, self).server_activate()
     def enable(self):
         self.enabled = True
+    def handle_ipc(self, source, condition, file_objects={}):
+        condition_names = {
+            gobject.IO_IN: "IN", # There is data to read.
+            gobject.IO_OUT: "OUT", # Data can be written (without
+                                   # blocking).
+            gobject.IO_PRI: "PRI", # There is urgent data to read.
+            gobject.IO_ERR: "ERR", # Error condition.
+            gobject.IO_HUP: "HUP"  # Hung up (the connection has been
+                                   # broken, usually for pipes and
+                                   # sockets).
+            }
+        conditions_string = ' | '.join(name
+                                       for cond, name in
+                                       condition_names.iteritems()
+                                       if cond & condition)
+        logger.debug("Handling IPC: FD = %d, condition = %s", source,
+                     conditions_string)
+        
+        # Turn the pipe file descriptor into a Python file object
+        if source not in file_objects:
+            file_objects[source] = os.fdopen(source, "r", 1)
+        
+        # Read a line from the file object
+        cmdline = file_objects[source].readline()
+        if not cmdline:             # Empty line means end of file
+            # close the IPC pipe
+            file_objects[source].close()
+            del file_objects[source]
+            
+            # Stop calling this function
+            return False
+        
+        logger.debug("IPC command: %r\n" % cmdline)
+        
+        # Parse and act on command
+        cmd, args = cmdline.split(None, 1)
+        if cmd == "NOTFOUND":
+            if self.settings["use_dbus"]:
+                # Emit D-Bus signal
+                mandos_dbus_service.ClientNotFound(args)
+        elif cmd == "INVALID":
+            if self.settings["use_dbus"]:
+                for client in self.clients:
+                    if client.name == args:
+                        # Emit D-Bus signal
+                        client.Rejected()
+                        break
+        elif cmd == "SENDING":
+            for client in self.clients:
+                if client.name == args:
+                    client.checked_ok()
+                    if self.settings["use_dbus"]:
+                        # Emit D-Bus signal
+                        client.ReceivedSecret()
+                    break
+        else:
+            logger.error("Unknown IPC command: %r", cmdline)
+        
+        # Keep calling this function
+        return True
 
 
 def string_to_delta(interval):
@@ -927,6 +1027,10 @@ def daemon(nochdir = False, noclose = False):
 
 
 def main():
+    
+    ######################################################################
+    # Parsing of options, both command line and config file
+    
     parser = optparse.OptionParser(version = "%%prog %s" % version)
     parser.add_option("-i", "--interface", type="string",
                       metavar="IF", help="Bind to interface IF")
@@ -1001,6 +1105,8 @@ def main():
     del options
     # Now we have our good server settings in "server_settings"
     
+    ##################################################################
+    
     # For convenience
     debug = server_settings["debug"]
     use_dbus = server_settings["use_dbus"]
@@ -1012,8 +1118,8 @@ def main():
     
     if server_settings["servicename"] != "Mandos":
         syslogger.setFormatter(logging.Formatter
-                               ('Mandos (%s): %%(levelname)s:'
-                                ' %%(message)s'
+                               ('Mandos (%s) [%%(process)d]:'
+                                ' %%(levelname)s: %%(message)s'
                                 % server_settings["servicename"]))
     
     # Parse config file with clients
@@ -1025,6 +1131,9 @@ def main():
     client_config = ConfigParser.SafeConfigParser(client_defaults)
     client_config.read(os.path.join(server_settings["configdir"],
                                     "clients.conf"))
+
+    global mandos_dbus_service
+    mandos_dbus_service = None
     
     clients = Set()
     tcp_server = IPv6_TCPServer((server_settings["address"],
@@ -1116,9 +1225,9 @@ def main():
         daemon()
     
     try:
-        pid = os.getpid()
-        pidfile.write(str(pid) + "\n")
-        pidfile.close()
+        with closing(pidfile):
+            pid = os.getpid()
+            pidfile.write(str(pid) + "\n")
         del pidfile
     except IOError:
         logger.error(u"Could not write to file %r with PID %d",
@@ -1150,7 +1259,7 @@ def main():
     signal.signal(signal.SIGTERM, lambda signum, frame: sys.exit())
     
     if use_dbus:
-        class MandosServer(dbus.service.Object):
+        class MandosDBusService(dbus.service.Object):
             """A D-Bus proxy object"""
             def __init__(self):
                 dbus.service.Object.__init__(self, bus, "/")
@@ -1158,6 +1267,11 @@ def main():
             
             @dbus.service.signal(_interface, signature="oa{sv}")
             def ClientAdded(self, objpath, properties):
+                "D-Bus signal"
+                pass
+            
+            @dbus.service.signal(_interface, signature="s")
+            def ClientNotFound(self, fingerprint):
                 "D-Bus signal"
                 pass
             
@@ -1195,13 +1309,13 @@ def main():
             
             del _interface
         
-        mandos_server = MandosServer()
+        mandos_dbus_service = MandosDBusService()
     
     for client in clients:
         if use_dbus:
             # Emit D-Bus signal
-            mandos_server.ClientAdded(client.dbus_object_path,
-                                      client.GetAllProperties())
+            mandos_dbus_service.ClientAdded(client.dbus_object_path,
+                                            client.GetAllProperties())
         client.enable()
     
     tcp_server.enable()

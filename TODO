@@ -24,6 +24,11 @@
    [[info:standards:Option%20Table][Table of Long Options]]
 ** TODO Date+time on console log messages	:BUGS:
    Is this the default?
+** DBusClient inheriting from Client
+** fingerprint as a member of TCP_handler
+** peer_certificate as a member of TCP_handler
+** TCP_handler needs a better name!
+** move handle_ipc out of IPv6_TCPServer
 
 * mandos.xml
 ** [[file:mandos.xml::XXX][Document D-Bus interface]]
@@ -34,7 +39,12 @@
 *** Handle "no D-Bus server" and/or "no Mandos server found" better
 *** [#B] --dump option
 
-* Curses interface
+* mandos-name
+** D-Bus mail loop w/ signal receiver
+** Urwid client data displayer
+*** Urwid scaffolding
+*** Client Widgets
+*** Properties popup
 
 * mandos-keygen
 ** TODO Loop until passwords match when run interactively
