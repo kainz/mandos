@@ -179,7 +179,7 @@ def _datetime_to_dbus(dt, variant_level=0):
     return dbus.String(dt.isoformat(), variant_level=variant_level)
 
 
-class Client(dbus.service.Object):
+class Client(object):
     """A representation of a client host served by this server.
     Attributes:
     name:       string; from the config file, used in log messages and
@@ -207,8 +207,6 @@ class Client(dbus.service.Object):
                      runtime with vars(self) as dict, so that for
                      instance %(name)s can be used in the command.
     current_checker_command: string; current running checker_command
-    use_dbus: bool(); Whether to provide D-Bus interface and signals
-    dbus_object_path: dbus.ObjectPath ; only set if self.use_dbus
     """
     def timeout_milliseconds(self):
         "Return the 'timeout' attribute in milliseconds"
@@ -222,8 +220,7 @@ class Client(dbus.service.Object):
                 + (self.interval.seconds * 1000)
                 + (self.interval.microseconds // 1000))
     
-    def __init__(self, name = None, disable_hook=None, config=None,
-                 use_dbus=True):
+    def __init__(self, name = None, disable_hook=None, config=None):
         """Note: the 'checker' key in 'config' sets the
         'checker_command' attribute and *not* the 'checker'
         attribute."""
@@ -231,7 +228,6 @@ class Client(dbus.service.Object):
         if config is None:
             config = {}
         logger.debug(u"Creating client %r", self.name)
-        self.use_dbus = False   # During __init__
         # Uppercase and remove spaces from fingerprint for later
         # comparison purposes with return value from the fingerprint()
         # function
@@ -263,15 +259,6 @@ class Client(dbus.service.Object):
         self.checker_command = config["checker"]
         self.current_checker_command = None
         self.last_connect = None
-        # Only now, when this client is initialized, can it show up on
-        # the D-Bus
-        self.use_dbus = use_dbus
-        if self.use_dbus:
-            self.dbus_object_path = (dbus.ObjectPath
-                                     ("/clients/"
-                                      + self.name.replace(".", "_")))
-            dbus.service.Object.__init__(self, bus,
-                                         self.dbus_object_path)
     
     def enable(self):
         """Start this client's checker and timeout hooks"""
@@ -288,13 +275,6 @@ class Client(dbus.service.Object):
                                    (self.timeout_milliseconds(),
                                     self.disable))
         self.enabled = True
-        if self.use_dbus:
-            # Emit D-Bus signals
-            self.PropertyChanged(dbus.String(u"enabled"),
-                                 dbus.Boolean(True, variant_level=1))
-            self.PropertyChanged(dbus.String(u"last_enabled"),
-                                 (_datetime_to_dbus(self.last_enabled,
-                                                    variant_level=1)))
     
     def disable(self):
         """Disable this client."""
@@ -311,10 +291,6 @@ class Client(dbus.service.Object):
         if self.disable_hook:
             self.disable_hook(self)
         self.enabled = False
-        if self.use_dbus:
-            # Emit D-Bus signal
-            self.PropertyChanged(dbus.String(u"enabled"),
-                                 dbus.Boolean(False, variant_level=1))
         # Do not run this again if called by a gobject.timeout_add
         return False
     
@@ -326,10 +302,6 @@ class Client(dbus.service.Object):
         """The checker has completed, so take appropriate actions."""
         self.checker_callback_tag = None
         self.checker = None
-        if self.use_dbus:
-            # Emit D-Bus signal
-            self.PropertyChanged(dbus.String(u"checker_running"),
-                                 dbus.Boolean(False, variant_level=1))
         if os.WIFEXITED(condition):
             exitstatus = os.WEXITSTATUS(condition)
             if exitstatus == 0:
@@ -339,19 +311,9 @@ class Client(dbus.service.Object):
             else:
                 logger.info(u"Checker for %(name)s failed",
                             vars(self))
-            if self.use_dbus:
-                # Emit D-Bus signal
-                self.CheckerCompleted(dbus.Int16(exitstatus),
-                                      dbus.Int64(condition),
-                                      dbus.String(command))
         else:
             logger.warning(u"Checker for %(name)s crashed?",
                            vars(self))
-            if self.use_dbus:
-                # Emit D-Bus signal
-                self.CheckerCompleted(dbus.Int16(-1),
-                                      dbus.Int64(condition),
-                                      dbus.String(command))
     
     def checked_ok(self):
         """Bump up the timeout for this client.
@@ -363,12 +325,6 @@ class Client(dbus.service.Object):
         self.disable_initiator_tag = (gobject.timeout_add
                                       (self.timeout_milliseconds(),
                                        self.disable))
-        if self.use_dbus:
-            # Emit D-Bus signal
-            self.PropertyChanged(
-                dbus.String(u"last_checked_ok"),
-                (_datetime_to_dbus(self.last_checked_ok,
-                                   variant_level=1)))
     
     def start_checker(self):
         """Start a new checker subprocess if one is not running.
@@ -407,7 +363,7 @@ class Client(dbus.service.Object):
                     logger.error(u'Could not format string "%s":'
                                  u' %s', self.checker_command, error)
                     return True # Try again later
-                self.current_checker_command = command
+            self.current_checker_command = command
             try:
                 logger.info(u"Starting checker %r for %s",
                             command, self.name)
@@ -418,12 +374,6 @@ class Client(dbus.service.Object):
                 self.checker = subprocess.Popen(command,
                                                 close_fds=True,
                                                 shell=True, cwd="/")
-                if self.use_dbus:
-                    # Emit D-Bus signal
-                    self.CheckerStarted(command)
-                    self.PropertyChanged(
-                        dbus.String("checker_running"),
-                        dbus.Boolean(True, variant_level=1))
                 self.checker_callback_tag = (gobject.child_watch_add
                                              (self.checker.pid,
                                               self.checker_callback,
@@ -457,9 +407,6 @@ class Client(dbus.service.Object):
             if error.errno != errno.ESRCH: # No such process
                 raise
         self.checker = None
-        if self.use_dbus:
-            self.PropertyChanged(dbus.String(u"checker_running"),
-                                 dbus.Boolean(False, variant_level=1))
     
     def still_valid(self):
         """Has the timeout not yet passed for this client?"""
@@ -470,6 +417,109 @@ class Client(dbus.service.Object):
             return now < (self.created + self.timeout)
         else:
             return now < (self.last_checked_ok + self.timeout)
+
+
+class ClientDBus(Client, dbus.service.Object):
+    """A Client class using D-Bus
+    Attributes:
+    dbus_object_path: dbus.ObjectPath ; only set if self.use_dbus
+    """
+    # dbus.service.Object doesn't use super(), so we can't either.
+    
+    def __init__(self, *args, **kwargs):
+        Client.__init__(self, *args, **kwargs)
+        # Only now, when this client is initialized, can it show up on
+        # the D-Bus
+        self.dbus_object_path = (dbus.ObjectPath
+                                 ("/clients/"
+                                  + self.name.replace(".", "_")))
+        dbus.service.Object.__init__(self, bus,
+                                     self.dbus_object_path)
+    def enable(self):
+        oldstate = getattr(self, "enabled", False)
+        r = Client.enable(self)
+        if oldstate != self.enabled:
+            # Emit D-Bus signals
+            self.PropertyChanged(dbus.String(u"enabled"),
+                                 dbus.Boolean(True, variant_level=1))
+            self.PropertyChanged(dbus.String(u"last_enabled"),
+                                 (_datetime_to_dbus(self.last_enabled,
+                                                    variant_level=1)))
+        return r
+    
+    def disable(self, signal = True):
+        oldstate = getattr(self, "enabled", False)
+        r = Client.disable(self)
+        if signal and oldstate != self.enabled:
+            # Emit D-Bus signal
+            self.PropertyChanged(dbus.String(u"enabled"),
+                                 dbus.Boolean(False, variant_level=1))
+        return r
+    
+    def __del__(self, *args, **kwargs):
+        try:
+            self.remove_from_connection()
+        except org.freedesktop.DBus.Python.LookupError:
+            pass
+        dbus.service.Object.__del__(self, *args, **kwargs)
+        Client.__del__(self, *args, **kwargs)
+    
+    def checker_callback(self, pid, condition, command,
+                         *args, **kwargs):
+        self.checker_callback_tag = None
+        self.checker = None
+        # Emit D-Bus signal
+        self.PropertyChanged(dbus.String(u"checker_running"),
+                             dbus.Boolean(False, variant_level=1))
+        if os.WIFEXITED(condition):
+            exitstatus = os.WEXITSTATUS(condition)
+            # Emit D-Bus signal
+            self.CheckerCompleted(dbus.Int16(exitstatus),
+                                  dbus.Int64(condition),
+                                  dbus.String(command))
+        else:
+            # Emit D-Bus signal
+            self.CheckerCompleted(dbus.Int16(-1),
+                                  dbus.Int64(condition),
+                                  dbus.String(command))
+        
+        return Client.checker_callback(self, pid, condition, command,
+                                       *args, **kwargs)
+    
+    def checked_ok(self, *args, **kwargs):
+        r = Client.checked_ok(self, *args, **kwargs)
+        # Emit D-Bus signal
+        self.PropertyChanged(
+            dbus.String(u"last_checked_ok"),
+            (_datetime_to_dbus(self.last_checked_ok,
+                               variant_level=1)))
+        return r
+    
+    def start_checker(self, *args, **kwargs):
+        old_checker = self.checker
+        if self.checker is not None:
+            old_checker_pid = self.checker.pid
+        else:
+            old_checker_pid = None
+        r = Client.start_checker(self, *args, **kwargs)
+        # Only emit D-Bus signal if new checker process was started
+        if ((self.checker is not None)
+            and not (old_checker is not None
+                     and old_checker_pid == self.checker.pid)):
+            self.CheckerStarted(self.current_checker_command)
+            self.PropertyChanged(
+                dbus.String("checker_running"),
+                dbus.Boolean(True, variant_level=1))
+        return r
+    
+    def stop_checker(self, *args, **kwargs):
+        old_checker = getattr(self, "checker", None)
+        r = Client.stop_checker(self, *args, **kwargs)
+        if (old_checker is not None
+            and getattr(self, "checker", None) is None):
+            self.PropertyChanged(dbus.String(u"checker_running"),
+                                 dbus.Boolean(False, variant_level=1))
+        return r
     
     ## D-Bus methods & signals
     _interface = u"se.bsnet.fukt.Mandos.Client"
@@ -533,9 +583,9 @@ class Client(dbus.service.Object):
                 }, signature="sv")
     
     # IsStillValid - method
-    IsStillValid = (dbus.service.method(_interface, out_signature="b")
-                    (still_valid))
-    IsStillValid.__name__ = "IsStillValid"
+    @dbus.service.method(_interface, out_signature="b")
+    def IsStillValid(self):
+        return self.still_valid()
     
     # PropertyChanged - signal
     @dbus.service.signal(_interface, signature="sv")
@@ -1204,11 +1254,13 @@ def main():
     if use_dbus:
         bus_name = dbus.service.BusName(u"se.bsnet.fukt.Mandos", bus)
     
-    clients.update(Set(Client(name = section,
-                              config
-                              = dict(client_config.items(section)),
-                              use_dbus = use_dbus)
-                       for section in client_config.sections()))
+    client_class = Client
+    if use_dbus:
+        client_class = ClientDBus
+    clients.update(Set(
+            client_class(name = section,
+                         config= dict(client_config.items(section)))
+            for section in client_config.sections()))
     if not clients:
         logger.warning(u"No clients defined")
     
@@ -1299,9 +1351,9 @@ def main():
                 for c in clients:
                     if c.dbus_object_path == object_path:
                         clients.remove(c)
+                        c.remove_from_connection()
                         # Don't signal anything except ClientRemoved
-                        c.use_dbus = False
-                        c.disable()
+                        c.disable(signal=False)
                         # Emit D-Bus signal
                         self.ClientRemoved(object_path, c.name)
                         return
