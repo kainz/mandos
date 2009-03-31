@@ -55,12 +55,12 @@ mandos_user="`{ getent passwd _mandos \
 		|| getent passwd mandos \
 		|| getent passwd nobody \
 		|| echo ::65534::::; } \
-	| awk --field-separator=: '{ print $3 }'`" 
+	| cut --delimiter=: --fields=3 --only-delimited`"
 mandos_group="`{ getent group _mandos \
 		|| getent group mandos \
 		|| getent group nogroup \
 		|| echo ::65534:; } \
-	| awk --field-separator=: '{ print $3 }'`"
+	| cut --delimiter=: --fields=3 --only-delimited`"
 
 # The Mandos network client uses the network
 auto_add_modules net
@@ -92,7 +92,7 @@ for file in "$prefix"/lib/mandos/plugins.d/*; do
     fi
     case "$base" in
 	*~|.*|\#*\#|*.dpkg-old|*.dpkg-bak|*.dpkg-new|*.dpkg-divert) : ;;
-	"*") : ;;
+	*/"*") echo "W: Mandos client plugin directory is empty." >&2 ;;
 	*) copy_exec "$file" "${PLUGINDIR}" ;;
     esac
 done
@@ -102,7 +102,7 @@ for file in /etc/mandos/plugins.d/*; do
     base="`basename \"$file\"`"
     case "$base" in
 	*~|.*|\#*\#|*.dpkg-old|*.dpkg-bak|*.dpkg-new|*.dpkg-divert) : ;;
-	"*") : ;;
+	*/"*") : ;;
 	*) copy_exec "$file" "${PLUGINDIR}" ;;
     esac
 done

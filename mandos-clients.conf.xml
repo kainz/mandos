@@ -3,7 +3,7 @@
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY CONFNAME "mandos-clients.conf">
 <!ENTITY CONFPATH "<filename>/etc/mandos/clients.conf</filename>">
-<!ENTITY TIMESTAMP "2009-01-08">
+<!ENTITY TIMESTAMP "2009-02-15">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -257,7 +257,7 @@
 	    This option is <emphasis>optional</emphasis>, but highly
 	    <emphasis>recommended</emphasis> unless the
 	    <option>checker</option> option is modified to a
-	    non-standard value without <quote>%(host)s</quote> in it.
+	    non-standard value without <quote>%%(host)s</quote> in it.
 	  </para>
 	  <para>
 	    Host name for this client.  This is not used by the server

@@ -66,7 +66,7 @@ from dbus.mainloop.glib import DBusGMainLoop
 import ctypes
 import ctypes.util
 
-version = "1.0.5"
+version = "1.0.8"
 
 logger = logging.Logger('mandos')
 syslogger = (logging.handlers.SysLogHandler
@@ -114,7 +114,8 @@ class AvahiService(object):
     """
     def __init__(self, interface = avahi.IF_UNSPEC, name = None,
                  servicetype = None, port = None, TXT = None,
-                 domain = "", host = "", max_renames = 32768):
+                 domain = "", host = "", max_renames = 32768,
+                 protocol = avahi.PROTO_UNSPEC):
         self.interface = interface
         self.name = name
         self.type = servicetype
@@ -124,6 +125,7 @@ class AvahiService(object):
         self.host = host
         self.rename_count = 0
         self.max_renames = max_renames
+        self.protocol = protocol
     def rename(self):
         """Derived from the Avahi example code"""
         if self.rename_count >= self.max_renames:
@@ -135,8 +137,9 @@ class AvahiService(object):
         logger.info(u"Changing Zeroconf service name to %r ...",
                     str(self.name))
         syslogger.setFormatter(logging.Formatter
-                               ('Mandos (%s): %%(levelname)s:'
-                                ' %%(message)s' % self.name))
+                               ('Mandos (%s) [%%(process)d]:'
+                                ' %%(levelname)s: %%(message)s'
+                                % self.name))
         self.remove()
         self.add()
         self.rename_count += 1
@@ -158,7 +161,7 @@ class AvahiService(object):
                      service.name, service.type)
         group.AddService(
                 self.interface,         # interface
-                avahi.PROTO_INET6,      # protocol
+                self.protocol,          # protocol
                 dbus.UInt32(0),         # flags
                 self.name, self.type,
                 self.domain, self.host,
@@ -176,7 +179,7 @@ def _datetime_to_dbus(dt, variant_level=0):
     return dbus.String(dt.isoformat(), variant_level=variant_level)
 
 
-class Client(dbus.service.Object):
+class Client(object):
     """A representation of a client host served by this server.
     Attributes:
     name:       string; from the config file, used in log messages and
@@ -203,8 +206,7 @@ class Client(dbus.service.Object):
                      client lives.  %() expansions are done at
                      runtime with vars(self) as dict, so that for
                      instance %(name)s can be used in the command.
-    use_dbus: bool(); Whether to provide D-Bus interface and signals
-    dbus_object_path: dbus.ObjectPath ; only set if self.use_dbus
+    current_checker_command: string; current running checker_command
     """
     def timeout_milliseconds(self):
         "Return the 'timeout' attribute in milliseconds"
@@ -218,8 +220,7 @@ class Client(dbus.service.Object):
                 + (self.interval.seconds * 1000)
                 + (self.interval.microseconds // 1000))
     
-    def __init__(self, name = None, disable_hook=None, config=None,
-                 use_dbus=True):
+    def __init__(self, name = None, disable_hook=None, config=None):
         """Note: the 'checker' key in 'config' sets the
         'checker_command' attribute and *not* the 'checker'
         attribute."""
@@ -227,7 +228,6 @@ class Client(dbus.service.Object):
         if config is None:
             config = {}
         logger.debug(u"Creating client %r", self.name)
-        self.use_dbus = False   # During __init__
         # Uppercase and remove spaces from fingerprint for later
         # comparison purposes with return value from the fingerprint()
         # function
@@ -257,16 +257,8 @@ class Client(dbus.service.Object):
         self.disable_initiator_tag = None
         self.checker_callback_tag = None
         self.checker_command = config["checker"]
+        self.current_checker_command = None
         self.last_connect = None
-        # Only now, when this client is initialized, can it show up on
-        # the D-Bus
-        self.use_dbus = use_dbus
-        if self.use_dbus:
-            self.dbus_object_path = (dbus.ObjectPath
-                                     ("/clients/"
-                                      + self.name.replace(".", "_")))
-            dbus.service.Object.__init__(self, bus,
-                                         self.dbus_object_path)
     
     def enable(self):
         """Start this client's checker and timeout hooks"""
@@ -283,13 +275,6 @@ class Client(dbus.service.Object):
                                    (self.timeout_milliseconds(),
                                     self.disable))
         self.enabled = True
-        if self.use_dbus:
-            # Emit D-Bus signals
-            self.PropertyChanged(dbus.String(u"enabled"),
-                                 dbus.Boolean(True, variant_level=1))
-            self.PropertyChanged(dbus.String(u"last_enabled"),
-                                 (_datetime_to_dbus(self.last_enabled,
-                                                    variant_level=1)))
     
     def disable(self):
         """Disable this client."""
@@ -306,10 +291,6 @@ class Client(dbus.service.Object):
         if self.disable_hook:
             self.disable_hook(self)
         self.enabled = False
-        if self.use_dbus:
-            # Emit D-Bus signal
-            self.PropertyChanged(dbus.String(u"enabled"),
-                                 dbus.Boolean(False, variant_level=1))
         # Do not run this again if called by a gobject.timeout_add
         return False
     
@@ -321,10 +302,6 @@ class Client(dbus.service.Object):
         """The checker has completed, so take appropriate actions."""
         self.checker_callback_tag = None
         self.checker = None
-        if self.use_dbus:
-            # Emit D-Bus signal
-            self.PropertyChanged(dbus.String(u"checker_running"),
-                                 dbus.Boolean(False, variant_level=1))
         if os.WIFEXITED(condition):
             exitstatus = os.WEXITSTATUS(condition)
             if exitstatus == 0:
@@ -334,19 +311,9 @@ class Client(dbus.service.Object):
             else:
                 logger.info(u"Checker for %(name)s failed",
                             vars(self))
-            if self.use_dbus:
-                # Emit D-Bus signal
-                self.CheckerCompleted(dbus.Int16(exitstatus),
-                                      dbus.Int64(condition),
-                                      dbus.String(command))
         else:
             logger.warning(u"Checker for %(name)s crashed?",
                            vars(self))
-            if self.use_dbus:
-                # Emit D-Bus signal
-                self.CheckerCompleted(dbus.Int16(-1),
-                                      dbus.Int64(condition),
-                                      dbus.String(command))
     
     def checked_ok(self):
         """Bump up the timeout for this client.
@@ -358,12 +325,6 @@ class Client(dbus.service.Object):
         self.disable_initiator_tag = (gobject.timeout_add
                                       (self.timeout_milliseconds(),
                                        self.disable))
-        if self.use_dbus:
-            # Emit D-Bus signal
-            self.PropertyChanged(
-                dbus.String(u"last_checked_ok"),
-                (_datetime_to_dbus(self.last_checked_ok,
-                                   variant_level=1)))
     
     def start_checker(self):
         """Start a new checker subprocess if one is not running.
@@ -377,6 +338,16 @@ class Client(dbus.service.Object):
         # checkers alone, the checker would have to take more time
         # than 'timeout' for the client to be declared invalid, which
         # is as it should be.
+        
+        # If a checker exists, make sure it is not a zombie
+        if self.checker is not None:
+            pid, status = os.waitpid(self.checker.pid, os.WNOHANG)
+            if pid:
+                logger.warning("Checker was a zombie")
+                gobject.source_remove(self.checker_callback_tag)
+                self.checker_callback(pid, status,
+                                      self.current_checker_command)
+        # Start a new checker if needed
         if self.checker is None:
             try:
                 # In case checker_command has exactly one % operator
@@ -392,6 +363,7 @@ class Client(dbus.service.Object):
                     logger.error(u'Could not format string "%s":'
                                  u' %s', self.checker_command, error)
                     return True # Try again later
+            self.current_checker_command = command
             try:
                 logger.info(u"Starting checker %r for %s",
                             command, self.name)
@@ -402,16 +374,16 @@ class Client(dbus.service.Object):
                 self.checker = subprocess.Popen(command,
                                                 close_fds=True,
                                                 shell=True, cwd="/")
-                if self.use_dbus:
-                    # Emit D-Bus signal
-                    self.CheckerStarted(command)
-                    self.PropertyChanged(
-                        dbus.String("checker_running"),
-                        dbus.Boolean(True, variant_level=1))
                 self.checker_callback_tag = (gobject.child_watch_add
                                              (self.checker.pid,
                                               self.checker_callback,
                                               data=command))
+                # The checker may have completed before the gobject
+                # watch was added.  Check for this.
+                pid, status = os.waitpid(self.checker.pid, os.WNOHANG)
+                if pid:
+                    gobject.source_remove(self.checker_callback_tag)
+                    self.checker_callback(pid, status, command)
             except OSError, error:
                 logger.error(u"Failed to start subprocess: %s",
                              error)
@@ -435,9 +407,6 @@ class Client(dbus.service.Object):
             if error.errno != errno.ESRCH: # No such process
                 raise
         self.checker = None
-        if self.use_dbus:
-            self.PropertyChanged(dbus.String(u"checker_running"),
-                                 dbus.Boolean(False, variant_level=1))
     
     def still_valid(self):
         """Has the timeout not yet passed for this client?"""
@@ -448,6 +417,109 @@ class Client(dbus.service.Object):
             return now < (self.created + self.timeout)
         else:
             return now < (self.last_checked_ok + self.timeout)
+
+
+class ClientDBus(Client, dbus.service.Object):
+    """A Client class using D-Bus
+    Attributes:
+    dbus_object_path: dbus.ObjectPath ; only set if self.use_dbus
+    """
+    # dbus.service.Object doesn't use super(), so we can't either.
+    
+    def __init__(self, *args, **kwargs):
+        Client.__init__(self, *args, **kwargs)
+        # Only now, when this client is initialized, can it show up on
+        # the D-Bus
+        self.dbus_object_path = (dbus.ObjectPath
+                                 ("/clients/"
+                                  + self.name.replace(".", "_")))
+        dbus.service.Object.__init__(self, bus,
+                                     self.dbus_object_path)
+    def enable(self):
+        oldstate = getattr(self, "enabled", False)
+        r = Client.enable(self)
+        if oldstate != self.enabled:
+            # Emit D-Bus signals
+            self.PropertyChanged(dbus.String(u"enabled"),
+                                 dbus.Boolean(True, variant_level=1))
+            self.PropertyChanged(dbus.String(u"last_enabled"),
+                                 (_datetime_to_dbus(self.last_enabled,
+                                                    variant_level=1)))
+        return r
+    
+    def disable(self, signal = True):
+        oldstate = getattr(self, "enabled", False)
+        r = Client.disable(self)
+        if signal and oldstate != self.enabled:
+            # Emit D-Bus signal
+            self.PropertyChanged(dbus.String(u"enabled"),
+                                 dbus.Boolean(False, variant_level=1))
+        return r
+    
+    def __del__(self, *args, **kwargs):
+        try:
+            self.remove_from_connection()
+        except org.freedesktop.DBus.Python.LookupError:
+            pass
+        dbus.service.Object.__del__(self, *args, **kwargs)
+        Client.__del__(self, *args, **kwargs)
+    
+    def checker_callback(self, pid, condition, command,
+                         *args, **kwargs):
+        self.checker_callback_tag = None
+        self.checker = None
+        # Emit D-Bus signal
+        self.PropertyChanged(dbus.String(u"checker_running"),
+                             dbus.Boolean(False, variant_level=1))
+        if os.WIFEXITED(condition):
+            exitstatus = os.WEXITSTATUS(condition)
+            # Emit D-Bus signal
+            self.CheckerCompleted(dbus.Int16(exitstatus),
+                                  dbus.Int64(condition),
+                                  dbus.String(command))
+        else:
+            # Emit D-Bus signal
+            self.CheckerCompleted(dbus.Int16(-1),
+                                  dbus.Int64(condition),
+                                  dbus.String(command))
+        
+        return Client.checker_callback(self, pid, condition, command,
+                                       *args, **kwargs)
+    
+    def checked_ok(self, *args, **kwargs):
+        r = Client.checked_ok(self, *args, **kwargs)
+        # Emit D-Bus signal
+        self.PropertyChanged(
+            dbus.String(u"last_checked_ok"),
+            (_datetime_to_dbus(self.last_checked_ok,
+                               variant_level=1)))
+        return r
+    
+    def start_checker(self, *args, **kwargs):
+        old_checker = self.checker
+        if self.checker is not None:
+            old_checker_pid = self.checker.pid
+        else:
+            old_checker_pid = None
+        r = Client.start_checker(self, *args, **kwargs)
+        # Only emit D-Bus signal if new checker process was started
+        if ((self.checker is not None)
+            and not (old_checker is not None
+                     and old_checker_pid == self.checker.pid)):
+            self.CheckerStarted(self.current_checker_command)
+            self.PropertyChanged(
+                dbus.String("checker_running"),
+                dbus.Boolean(True, variant_level=1))
+        return r
+    
+    def stop_checker(self, *args, **kwargs):
+        old_checker = getattr(self, "checker", None)
+        r = Client.stop_checker(self, *args, **kwargs)
+        if (old_checker is not None
+            and getattr(self, "checker", None) is None):
+            self.PropertyChanged(dbus.String(u"checker_running"),
+                                 dbus.Boolean(False, variant_level=1))
+        return r
     
     ## D-Bus methods & signals
     _interface = u"se.bsnet.fukt.Mandos.Client"
@@ -511,13 +583,25 @@ class Client(dbus.service.Object):
                 }, signature="sv")
     
     # IsStillValid - method
-    IsStillValid = (dbus.service.method(_interface, out_signature="b")
-                    (still_valid))
-    IsStillValid.__name__ = "IsStillValid"
+    @dbus.service.method(_interface, out_signature="b")
+    def IsStillValid(self):
+        return self.still_valid()
     
     # PropertyChanged - signal
     @dbus.service.signal(_interface, signature="sv")
     def PropertyChanged(self, property, value):
+        "D-Bus signal"
+        pass
+    
+    # ReceivedSecret - signal
+    @dbus.service.signal(_interface)
+    def ReceivedSecret(self):
+        "D-Bus signal"
+        pass
+    
+    # Rejected - signal
+    @dbus.service.signal(_interface)
+    def Rejected(self):
         "D-Bus signal"
         pass
     
@@ -657,82 +741,109 @@ class TCP_handler(SocketServer.BaseRequestHandler, object):
     def handle(self):
         logger.info(u"TCP connection from: %s",
                     unicode(self.client_address))
-        session = (gnutls.connection
-                   .ClientSession(self.request,
-                                  gnutls.connection
-                                  .X509Credentials()))
-        
-        line = self.request.makefile().readline()
-        logger.debug(u"Protocol version: %r", line)
-        try:
-            if int(line.strip().split()[0]) > 1:
-                raise RuntimeError
-        except (ValueError, IndexError, RuntimeError), error:
-            logger.error(u"Unknown protocol version: %s", error)
-            return
-        
-        # Note: gnutls.connection.X509Credentials is really a generic
-        # GnuTLS certificate credentials object so long as no X.509
-        # keys are added to it.  Therefore, we can use it here despite
-        # using OpenPGP certificates.
-        
-        #priority = ':'.join(("NONE", "+VERS-TLS1.1", "+AES-256-CBC",
-        #                     "+SHA1", "+COMP-NULL", "+CTYPE-OPENPGP",
-        #                     "+DHE-DSS"))
-        # Use a fallback default, since this MUST be set.
-        priority = self.server.settings.get("priority", "NORMAL")
-        (gnutls.library.functions
-         .gnutls_priority_set_direct(session._c_object,
-                                     priority, None))
-        
-        try:
-            session.handshake()
-        except gnutls.errors.GNUTLSError, error:
-            logger.warning(u"Handshake failed: %s", error)
-            # Do not run session.bye() here: the session is not
-            # established.  Just abandon the request.
-            return
-        logger.debug(u"Handshake succeeded")
-        try:
-            fpr = fingerprint(peer_certificate(session))
-        except (TypeError, gnutls.errors.GNUTLSError), error:
-            logger.warning(u"Bad certificate: %s", error)
+        logger.debug(u"IPC Pipe FD: %d", self.server.pipe[1])
+        # Open IPC pipe to parent process
+        with closing(os.fdopen(self.server.pipe[1], "w", 1)) as ipc:
+            session = (gnutls.connection
+                       .ClientSession(self.request,
+                                      gnutls.connection
+                                      .X509Credentials()))
+            
+            line = self.request.makefile().readline()
+            logger.debug(u"Protocol version: %r", line)
+            try:
+                if int(line.strip().split()[0]) > 1:
+                    raise RuntimeError
+            except (ValueError, IndexError, RuntimeError), error:
+                logger.error(u"Unknown protocol version: %s", error)
+                return
+            
+            # Note: gnutls.connection.X509Credentials is really a
+            # generic GnuTLS certificate credentials object so long as
+            # no X.509 keys are added to it.  Therefore, we can use it
+            # here despite using OpenPGP certificates.
+            
+            #priority = ':'.join(("NONE", "+VERS-TLS1.1",
+            #                     "+AES-256-CBC", "+SHA1",
+            #                     "+COMP-NULL", "+CTYPE-OPENPGP",
+            #                     "+DHE-DSS"))
+            # Use a fallback default, since this MUST be set.
+            priority = self.server.settings.get("priority", "NORMAL")
+            (gnutls.library.functions
+             .gnutls_priority_set_direct(session._c_object,
+                                         priority, None))
+            
+            try:
+                session.handshake()
+            except gnutls.errors.GNUTLSError, error:
+                logger.warning(u"Handshake failed: %s", error)
+                # Do not run session.bye() here: the session is not
+                # established.  Just abandon the request.
+                return
+            logger.debug(u"Handshake succeeded")
+            try:
+                fpr = fingerprint(peer_certificate(session))
+            except (TypeError, gnutls.errors.GNUTLSError), error:
+                logger.warning(u"Bad certificate: %s", error)
+                session.bye()
+                return
+            logger.debug(u"Fingerprint: %s", fpr)
+            
+            for c in self.server.clients:
+                if c.fingerprint == fpr:
+                    client = c
+                    break
+            else:
+                logger.warning(u"Client not found for fingerprint: %s",
+                               fpr)
+                ipc.write("NOTFOUND %s\n" % fpr)
+                session.bye()
+                return
+            # Have to check if client.still_valid(), since it is
+            # possible that the client timed out while establishing
+            # the GnuTLS session.
+            if not client.still_valid():
+                logger.warning(u"Client %(name)s is invalid",
+                               vars(client))
+                ipc.write("INVALID %s\n" % client.name)
+                session.bye()
+                return
+            ipc.write("SENDING %s\n" % client.name)
+            sent_size = 0
+            while sent_size < len(client.secret):
+                sent = session.send(client.secret[sent_size:])
+                logger.debug(u"Sent: %d, remaining: %d",
+                             sent, len(client.secret)
+                             - (sent_size + sent))
+                sent_size += sent
             session.bye()
-            return
-        logger.debug(u"Fingerprint: %s", fpr)
-        
-        for c in self.server.clients:
-            if c.fingerprint == fpr:
-                client = c
-                break
-        else:
-            logger.warning(u"Client not found for fingerprint: %s",
-                           fpr)
-            session.bye()
-            return
-        # Have to check if client.still_valid(), since it is possible
-        # that the client timed out while establishing the GnuTLS
-        # session.
-        if not client.still_valid():
-            logger.warning(u"Client %(name)s is invalid",
-                           vars(client))
-            session.bye()
-            return
-        ## This won't work here, since we're in a fork.
-        # client.checked_ok()
-        sent_size = 0
-        while sent_size < len(client.secret):
-            sent = session.send(client.secret[sent_size:])
-            logger.debug(u"Sent: %d, remaining: %d",
-                         sent, len(client.secret)
-                         - (sent_size + sent))
-            sent_size += sent
-        session.bye()
 
 
-class IPv6_TCPServer(SocketServer.ForkingMixIn,
+class ForkingMixInWithPipe(SocketServer.ForkingMixIn, object):
+    """Like SocketServer.ForkingMixIn, but also pass a pipe.
+    Assumes a gobject.MainLoop event loop.
+    """
+    def process_request(self, request, client_address):
+        """This overrides and wraps the original process_request().
+        This function creates a new pipe in self.pipe 
+        """
+        self.pipe = os.pipe()
+        super(ForkingMixInWithPipe,
+              self).process_request(request, client_address)
+        os.close(self.pipe[1])  # close write end
+        # Call "handle_ipc" for both data and EOF events
+        gobject.io_add_watch(self.pipe[0],
+                             gobject.IO_IN | gobject.IO_HUP,
+                             self.handle_ipc)
+    def handle_ipc(source, condition):
+        """Dummy function; override as necessary"""
+        os.close(source)
+        return False
+
+
+class IPv6_TCPServer(ForkingMixInWithPipe,
                      SocketServer.TCPServer, object):
-    """IPv6 TCP server.  Accepts 'None' as address and/or port.
+    """IPv6-capable TCP server.  Accepts 'None' as address and/or port
     Attributes:
         settings:       Server settings
         clients:        Set() of Client objects
@@ -746,6 +857,10 @@ class IPv6_TCPServer(SocketServer.ForkingMixIn,
         if "clients" in kwargs:
             self.clients = kwargs["clients"]
             del kwargs["clients"]
+        if "use_ipv6" in kwargs:
+            if not kwargs["use_ipv6"]:
+                self.address_family = socket.AF_INET
+            del kwargs["use_ipv6"]
         self.enabled = False
         super(IPv6_TCPServer, self).__init__(*args, **kwargs)
     def server_bind(self):
@@ -769,8 +884,11 @@ class IPv6_TCPServer(SocketServer.ForkingMixIn,
         # Only bind(2) the socket if we really need to.
         if self.server_address[0] or self.server_address[1]:
             if not self.server_address[0]:
-                in6addr_any = "::"
-                self.server_address = (in6addr_any,
+                if self.address_family == socket.AF_INET6:
+                    any_address = "::" # in6addr_any
+                else:
+                    any_address = socket.INADDR_ANY
+                self.server_address = (any_address,
                                        self.server_address[1])
             elif not self.server_address[1]:
                 self.server_address = (self.server_address[0],
@@ -788,6 +906,66 @@ class IPv6_TCPServer(SocketServer.ForkingMixIn,
             return super(IPv6_TCPServer, self).server_activate()
     def enable(self):
         self.enabled = True
+    def handle_ipc(self, source, condition, file_objects={}):
+        condition_names = {
+            gobject.IO_IN: "IN", # There is data to read.
+            gobject.IO_OUT: "OUT", # Data can be written (without
+                                   # blocking).
+            gobject.IO_PRI: "PRI", # There is urgent data to read.
+            gobject.IO_ERR: "ERR", # Error condition.
+            gobject.IO_HUP: "HUP"  # Hung up (the connection has been
+                                   # broken, usually for pipes and
+                                   # sockets).
+            }
+        conditions_string = ' | '.join(name
+                                       for cond, name in
+                                       condition_names.iteritems()
+                                       if cond & condition)
+        logger.debug("Handling IPC: FD = %d, condition = %s", source,
+                     conditions_string)
+        
+        # Turn the pipe file descriptor into a Python file object
+        if source not in file_objects:
+            file_objects[source] = os.fdopen(source, "r", 1)
+        
+        # Read a line from the file object
+        cmdline = file_objects[source].readline()
+        if not cmdline:             # Empty line means end of file
+            # close the IPC pipe
+            file_objects[source].close()
+            del file_objects[source]
+            
+            # Stop calling this function
+            return False
+        
+        logger.debug("IPC command: %r\n" % cmdline)
+        
+        # Parse and act on command
+        cmd, args = cmdline.split(None, 1)
+        if cmd == "NOTFOUND":
+            if self.settings["use_dbus"]:
+                # Emit D-Bus signal
+                mandos_dbus_service.ClientNotFound(args)
+        elif cmd == "INVALID":
+            if self.settings["use_dbus"]:
+                for client in self.clients:
+                    if client.name == args:
+                        # Emit D-Bus signal
+                        client.Rejected()
+                        break
+        elif cmd == "SENDING":
+            for client in self.clients:
+                if client.name == args:
+                    client.checked_ok()
+                    if self.settings["use_dbus"]:
+                        # Emit D-Bus signal
+                        client.ReceivedSecret()
+                    break
+        else:
+            logger.error("Unknown IPC command: %r", cmdline)
+        
+        # Keep calling this function
+        return True
 
 
 def string_to_delta(interval):
@@ -899,6 +1077,10 @@ def daemon(nochdir = False, noclose = False):
 
 
 def main():
+    
+    ######################################################################
+    # Parsing of options, both command line and config file
+    
     parser = optparse.OptionParser(version = "%%prog %s" % version)
     parser.add_option("-i", "--interface", type="string",
                       metavar="IF", help="Bind to interface IF")
@@ -923,6 +1105,8 @@ def main():
                       dest="use_dbus",
                       help="Do not provide D-Bus system bus"
                       " interface")
+    parser.add_option("--no-ipv6", action="store_false",
+                      dest="use_ipv6", help="Do not use IPv6")
     options = parser.parse_args()[0]
     
     if options.check:
@@ -939,6 +1123,7 @@ def main():
                         "SECURE256:!CTYPE-X.509:+CTYPE-OPENPGP",
                         "servicename": "Mandos",
                         "use_dbus": "True",
+                        "use_ipv6": "True",
                         }
     
     # Parse config file for server-global settings
@@ -952,6 +1137,8 @@ def main():
                                                         "debug")
     server_settings["use_dbus"] = server_config.getboolean("DEFAULT",
                                                            "use_dbus")
+    server_settings["use_ipv6"] = server_config.getboolean("DEFAULT",
+                                                           "use_ipv6")
     if server_settings["port"]:
         server_settings["port"] = server_config.getint("DEFAULT",
                                                        "port")
@@ -961,16 +1148,19 @@ def main():
     # options, if set.
     for option in ("interface", "address", "port", "debug",
                    "priority", "servicename", "configdir",
-                   "use_dbus"):
+                   "use_dbus", "use_ipv6"):
         value = getattr(options, option)
         if value is not None:
             server_settings[option] = value
     del options
     # Now we have our good server settings in "server_settings"
     
+    ##################################################################
+    
     # For convenience
     debug = server_settings["debug"]
     use_dbus = server_settings["use_dbus"]
+    use_ipv6 = server_settings["use_ipv6"]
     
     if not debug:
         syslogger.setLevel(logging.WARNING)
@@ -978,8 +1168,8 @@ def main():
     
     if server_settings["servicename"] != "Mandos":
         syslogger.setFormatter(logging.Formatter
-                               ('Mandos (%s): %%(levelname)s:'
-                                ' %%(message)s'
+                               ('Mandos (%s) [%%(process)d]:'
+                                ' %%(levelname)s: %%(message)s'
                                 % server_settings["servicename"]))
     
     # Parse config file with clients
@@ -991,13 +1181,16 @@ def main():
     client_config = ConfigParser.SafeConfigParser(client_defaults)
     client_config.read(os.path.join(server_settings["configdir"],
                                     "clients.conf"))
+
+    global mandos_dbus_service
+    mandos_dbus_service = None
     
     clients = Set()
     tcp_server = IPv6_TCPServer((server_settings["address"],
                                  server_settings["port"]),
                                 TCP_handler,
                                 settings=server_settings,
-                                clients=clients)
+                                clients=clients, use_ipv6=use_ipv6)
     pidfilename = "/var/run/mandos.pid"
     try:
         pidfile = open(pidfilename, "w")
@@ -1039,8 +1232,10 @@ def main():
          .gnutls_global_set_log_function(debug_gnutls))
     
     global service
+    protocol = avahi.PROTO_INET6 if use_ipv6 else avahi.PROTO_INET
     service = AvahiService(name = server_settings["servicename"],
-                           servicetype = "_mandos._tcp", )
+                           servicetype = "_mandos._tcp",
+                           protocol = protocol)
     if server_settings["interface"]:
         service.interface = (if_nametoindex
                              (server_settings["interface"]))
@@ -1059,11 +1254,13 @@ def main():
     if use_dbus:
         bus_name = dbus.service.BusName(u"se.bsnet.fukt.Mandos", bus)
     
-    clients.update(Set(Client(name = section,
-                              config
-                              = dict(client_config.items(section)),
-                              use_dbus = use_dbus)
-                       for section in client_config.sections()))
+    client_class = Client
+    if use_dbus:
+        client_class = ClientDBus
+    clients.update(Set(
+            client_class(name = section,
+                         config= dict(client_config.items(section)))
+            for section in client_config.sections()))
     if not clients:
         logger.warning(u"No clients defined")
     
@@ -1080,9 +1277,9 @@ def main():
         daemon()
     
     try:
-        pid = os.getpid()
-        pidfile.write(str(pid) + "\n")
-        pidfile.close()
+        with closing(pidfile):
+            pid = os.getpid()
+            pidfile.write(str(pid) + "\n")
         del pidfile
     except IOError:
         logger.error(u"Could not write to file %r with PID %d",
@@ -1114,7 +1311,7 @@ def main():
     signal.signal(signal.SIGTERM, lambda signum, frame: sys.exit())
     
     if use_dbus:
-        class MandosServer(dbus.service.Object):
+        class MandosDBusService(dbus.service.Object):
             """A D-Bus proxy object"""
             def __init__(self):
                 dbus.service.Object.__init__(self, bus, "/")
@@ -1122,6 +1319,11 @@ def main():
             
             @dbus.service.signal(_interface, signature="oa{sv}")
             def ClientAdded(self, objpath, properties):
+                "D-Bus signal"
+                pass
+            
+            @dbus.service.signal(_interface, signature="s")
+            def ClientNotFound(self, fingerprint):
                 "D-Bus signal"
                 pass
             
@@ -1149,9 +1351,9 @@ def main():
                 for c in clients:
                     if c.dbus_object_path == object_path:
                         clients.remove(c)
+                        c.remove_from_connection()
                         # Don't signal anything except ClientRemoved
-                        c.use_dbus = False
-                        c.disable()
+                        c.disable(signal=False)
                         # Emit D-Bus signal
                         self.ClientRemoved(object_path, c.name)
                         return
@@ -1159,13 +1361,13 @@ def main():
             
             del _interface
         
-        mandos_server = MandosServer()
+        mandos_dbus_service = MandosDBusService()
     
     for client in clients:
         if use_dbus:
             # Emit D-Bus signal
-            mandos_server.ClientAdded(client.dbus_object_path,
-                                      client.GetAllProperties())
+            mandos_dbus_service.ClientAdded(client.dbus_object_path,
+                                            client.GetAllProperties())
         client.enable()
     
     tcp_server.enable()
@@ -1173,8 +1375,13 @@ def main():
     
     # Find out what port we got
     service.port = tcp_server.socket.getsockname()[1]
-    logger.info(u"Now listening on address %r, port %d, flowinfo %d,"
-                u" scope_id %d" % tcp_server.socket.getsockname())
+    if use_ipv6:
+        logger.info(u"Now listening on address %r, port %d,"
+                    " flowinfo %d, scope_id %d"
+                    % tcp_server.socket.getsockname())
+    else:                       # IPv4
+        logger.info(u"Now listening on address %r, port %d"
+                    % tcp_server.socket.getsockname())
     
     #service.interface = tcp_server.socket.getsockname()[3]
     

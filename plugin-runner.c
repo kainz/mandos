@@ -65,7 +65,7 @@
 				   SIG_UNBLOCK, kill(), sig_atomic_t
 				*/
 #include <errno.h>		/* errno, EBADF */
-#include <inttypes.h>		/* intmax_t, SCNdMAX, PRIdMAX,  */
+#include <inttypes.h>		/* intmax_t, PRIdMAX, strtoimax() */
 
 #define BUFFER_SIZE 256
 
@@ -82,7 +82,7 @@ typedef struct plugin{
   char **environ;
   int envc;
   bool disabled;
-
+  
   /* Variables used for running processes*/
   pid_t pid;
   int fd;
@@ -280,7 +280,7 @@ static void free_plugin(plugin *plugin_node){
   }
   free(plugin_node->environ);
   free(plugin_node->buffer);
-
+  
   /* Removes the plugin from the singly-linked list */
   if(plugin_node == plugin_list){
     /* First one - simple */
@@ -313,7 +313,7 @@ int main(int argc, char *argv[]){
   struct dirent *dirst;
   struct stat st;
   fd_set rfds_all;
-  int ret, numchars, maxfd = 0;
+  int ret, maxfd = 0;
   ssize_t sret;
   intmax_t tmpmax;
   uid_t uid = 65534;
@@ -380,6 +380,7 @@ int main(int argc, char *argv[]){
   
   error_t parse_opt(int key, char *arg, __attribute__((unused))
 		    struct argp_state *state){
+    char *tmp;
     switch(key){
     case 'g': 			/* --global-options */
       if(arg != NULL){
@@ -462,9 +463,10 @@ int main(int argc, char *argv[]){
       /* This is already done by parse_opt_config_file() */
       break;
     case 130:			/* --userid */
-      ret = sscanf(arg, "%" SCNdMAX "%n", &tmpmax, &numchars);
-      if(ret < 1 or tmpmax != (uid_t)tmpmax
-	 or arg[numchars] != '\0'){
+      errno = 0;
+      tmpmax = strtoimax(arg, &tmp, 10);
+      if(errno != 0 or tmp == arg or *tmp != '\0'
+	 or tmpmax != (uid_t)tmpmax){
 	fprintf(stderr, "Bad user ID number: \"%s\", using %"
 		PRIdMAX "\n", arg, (intmax_t)uid);
       } else {
@@ -472,9 +474,10 @@ int main(int argc, char *argv[]){
       }
       break;
     case 131:			/* --groupid */
-      ret = sscanf(arg, "%" SCNdMAX "%n", &tmpmax, &numchars);
-      if(ret < 1 or tmpmax != (gid_t)tmpmax
-	 or arg[numchars] != '\0'){
+      errno = 0;
+      tmpmax = strtoimax(arg, &tmp, 10);
+      if(errno != 0 or tmp == arg or *tmp != '\0'
+	 or tmpmax != (gid_t)tmpmax){
 	fprintf(stderr, "Bad group ID number: \"%s\", using %"
 		PRIdMAX "\n", arg, (intmax_t)gid);
       } else {
@@ -566,7 +569,7 @@ int main(int argc, char *argv[]){
     size_t size = 0;
     const char whitespace_delims[] = " \r\t\f\v\n";
     const char comment_delim[] = "#";
-
+    
     custom_argc = 1;
     custom_argv = malloc(sizeof(char*) * 2);
     if(custom_argv == NULL){
@@ -576,7 +579,7 @@ int main(int argc, char *argv[]){
     }
     custom_argv[0] = argv[0];
     custom_argv[1] = NULL;
-
+    
     /* for each line in the config file, strip whitespace and ignore
        commented text */
     while(true){
@@ -584,7 +587,7 @@ int main(int argc, char *argv[]){
       if(sret == -1){
 	break;
       }
-
+      
       line = org_line;
       arg = strsep(&line, comment_delim);
       while((p = strsep(&arg, whitespace_delims)) != NULL){
@@ -753,7 +756,7 @@ int main(int argc, char *argv[]){
 	continue;
       }
     }
-
+    
     char *filename;
     if(plugindir == NULL){
       ret = asprintf(&filename, PDIR "/%s", dirst->d_name);
@@ -771,7 +774,7 @@ int main(int argc, char *argv[]){
       free(filename);
       continue;
     }
-
+    
     /* Ignore non-executable files */
     if(not S_ISREG(st.st_mode) or (access(filename, X_OK) != 0)){
       if(debug){
@@ -961,7 +964,7 @@ int main(int argc, char *argv[]){
 	if(not WIFEXITED(proc->status)
 	   or WEXITSTATUS(proc->status) != 0){
 	  /* Bad exit by plugin */
-
+	  
 	  if(debug){
 	    if(WIFEXITED(proc->status)){
 	      fprintf(stderr, "Plugin %s [%" PRIdMAX "] exited with"
@@ -981,7 +984,7 @@ int main(int argc, char *argv[]){
 	  
 	  /* Remove the plugin */
 	  FD_CLR(proc->fd, &rfds_all);
-
+	  
 	  /* Block signal while modifying process_list */
 	  ret = sigprocmask(SIG_BLOCK, &sigchld_action.sa_mask, NULL);
 	  if(ret < 0){
@@ -1054,8 +1057,8 @@ int main(int argc, char *argv[]){
       }
     }
   }
-
-
+  
+  
  fallback:
   
   if(plugin_list == NULL or exitstatus != EXIT_SUCCESS){
