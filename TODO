@@ -29,6 +29,7 @@
 ** peer_certificate as a member of TCP_handler
 ** TCP_handler needs a better name!
 ** move handle_ipc out of IPv6_TCPServer
+** DBusServiceObjectUsingSuper
 
 * mandos.xml
 ** [[file:mandos.xml::XXX][Document D-Bus interface]]
