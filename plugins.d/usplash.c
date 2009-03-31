@@ -36,7 +36,7 @@
 				   dirent */
 #include <stddef.h>		/* NULL */
 #include <string.h>		/* strlen(), memcmp() */
-#include <stdio.h>		/* asprintf(), perror(), sscanf() */
+#include <stdio.h>		/* asprintf(), perror() */
 #include <unistd.h>		/* close(), write(), readlink(),
 				   read(), STDOUT_FILENO, sleep(),
 				   fork(), setuid(), geteuid(),
@@ -46,7 +46,7 @@
 				   EXIT_SUCCESS, malloc(), _exit() */
 #include <stdlib.h>		/* getenv() */
 #include <dirent.h>		/* opendir(), readdir(), closedir() */
-#include <inttypes.h>		/* intmax_t, SCNdMAX */
+#include <inttypes.h>		/* intmax_t, strtoimax() */
 #include <sys/stat.h>		/* struct stat, lstat(), S_ISLNK */
 
 sig_atomic_t interrupted_by_signal = 0;
@@ -173,11 +173,11 @@ int main(__attribute__((unused))int argc,
       pid_t pid;
       {
 	intmax_t tmpmax;
-	int numchars;
-	ret = sscanf(proc_ent->d_name, "%" SCNdMAX "%n", &tmpmax,
-		     &numchars);
-	if(ret < 1 or tmpmax != (pid_t)tmpmax
-	   or proc_ent->d_name[numchars] != '\0'){
+	char *tmp;
+	errno = 0;
+	tmpmax = strtoimax(proc_ent->d_name, &tmp, 10);
+	if(errno != 0 or tmp == proc_ent->d_name or *tmp != '\0'
+	   or tmpmax != (pid_t)tmpmax){
 	  /* Not a process */
 	  continue;
 	}

@@ -30,18 +30,21 @@
  */
 
 /* Needed by GPGME, specifically gpgme_data_seek() */
+#ifndef _LARGEFILE_SOURCE
 #define _LARGEFILE_SOURCE
+#endif
+#ifndef _FILE_OFFSET_BITS
 #define _FILE_OFFSET_BITS 64
+#endif
 
 #define _GNU_SOURCE		/* TEMP_FAILURE_RETRY(), asprintf() */
 
 #include <stdio.h>		/* fprintf(), stderr, fwrite(),
-				   stdout, ferror(), sscanf(),
-				   remove() */
+				   stdout, ferror(), remove() */
 #include <stdint.h> 		/* uint16_t, uint32_t */
 #include <stddef.h>		/* NULL, size_t, ssize_t */
 #include <stdlib.h> 		/* free(), EXIT_SUCCESS, EXIT_FAILURE,
-				   srand() */
+				   srand(), strtof() */
 #include <stdbool.h>		/* bool, false, true */
 #include <string.h>		/* memset(), strcmp(), strlen(),
 				   strerror(), asprintf(), strcpy() */
@@ -56,7 +59,8 @@
 #include <fcntl.h>		/* open() */
 #include <dirent.h>		/* opendir(), struct dirent, readdir()
 				 */
-#include <inttypes.h>		/* PRIu16, intmax_t, SCNdMAX */
+#include <inttypes.h>		/* PRIu16, PRIdMAX, intmax_t,
+				   strtoimax() */
 #include <assert.h>		/* assert() */
 #include <errno.h>		/* perror(), errno */
 #include <time.h>		/* nanosleep(), time() */
@@ -562,7 +566,7 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   
   memset(&to, 0, sizeof(to));
   if(af == AF_INET6){
-    to.in6.sin6_family = (uint16_t)af;
+    to.in6.sin6_family = (sa_family_t)af;
     ret = inet_pton(af, ip, &to.in6.sin6_addr);
   } else {			/* IPv4 */
     to.in.sin_family = (sa_family_t)af;
@@ -854,10 +858,9 @@ static void browse_callback(AvahiSServiceBrowser *b,
        the callback function is called the Avahi server will free the
        resolver for us. */
     
-    if(!(avahi_s_service_resolver_new(mc.server, interface,
-				       protocol, name, type, domain,
-				       AVAHI_PROTO_INET6, 0,
-				       resolve_callback, NULL)))
+    if(avahi_s_service_resolver_new(mc.server, interface, protocol,
+				    name, type, domain, protocol, 0,
+				    resolve_callback, NULL) == NULL)
       fprintf(stderr, "Avahi: Failed to resolve service '%s': %s\n",
 	      name, avahi_strerror(avahi_server_errno(mc.server)));
     break;
@@ -894,7 +897,7 @@ int main(int argc, char *argv[]){
   int error;
   int ret;
   intmax_t tmpmax;
-  int numchars;
+  char *tmp;
   int exitcode = EXIT_SUCCESS;
   const char *interface = "eth0";
   struct ifreq network;
@@ -908,14 +911,10 @@ int main(int argc, char *argv[]){
   const char *seckey = PATHDIR "/" SECKEY;
   const char *pubkey = PATHDIR "/" PUBKEY;
   
-  /* Initialize Mandos context */
-  mc = (mandos_context){ .simple_poll = NULL, .server = NULL,
-			 .dh_bits = 1024, .priority = "SECURE256"
-			 ":!CTYPE-X.509:+CTYPE-OPENPGP" };
   bool gnutls_initialized = false;
   bool gpgme_initialized = false;
-  double delay = 2.5;
-
+  float delay = 2.5f;
+  
   struct sigaction old_sigterm_action;
   struct sigaction sigterm_action = { .sa_handler = handle_sigterm };
   
@@ -975,9 +974,10 @@ int main(int argc, char *argv[]){
 	pubkey = arg;
 	break;
       case 129:			/* --dh-bits */
-	ret = sscanf(arg, "%" SCNdMAX "%n", &tmpmax, &numchars);
-	if(ret < 1 or tmpmax != (typeof(mc.dh_bits))tmpmax
-	   or arg[numchars] != '\0'){
+	errno = 0;
+	tmpmax = strtoimax(arg, &tmp, 10);
+	if(errno != 0 or tmp == arg or *tmp != '\0'
+	   or tmpmax != (typeof(mc.dh_bits))tmpmax){
 	  fprintf(stderr, "Bad number of DH bits\n");
 	  exit(EXIT_FAILURE);
 	}
@@ -987,8 +987,9 @@ int main(int argc, char *argv[]){
 	mc.priority = arg;
 	break;
       case 131:			/* --delay */
-	ret = sscanf(arg, "%lf%n", &delay, &numchars);
-	if(ret < 1 or arg[numchars] != '\0'){
+	errno = 0;
+	delay = strtof(arg, &tmp);
+	if(errno != 0 or tmp == arg or *tmp != '\0'){
 	  fprintf(stderr, "Bad delay\n");
 	  exit(EXIT_FAILURE);
 	}
@@ -1200,9 +1201,10 @@ int main(int argc, char *argv[]){
       goto end;
     }
     uint16_t port;
-    ret = sscanf(address+1, "%" SCNdMAX "%n", &tmpmax, &numchars);
-    if(ret < 1 or tmpmax != (uint16_t)tmpmax
-       or address[numchars+1] != '\0'){
+    errno = 0;
+    tmpmax = strtoimax(address+1, &tmp, 10);
+    if(errno != 0 or tmp == address+1 or *tmp != '\0'
+       or tmpmax != (uint16_t)tmpmax){
       fprintf(stderr, "Bad port number\n");
       exitcode = EXIT_FAILURE;
       goto end;
@@ -1254,7 +1256,7 @@ int main(int argc, char *argv[]){
   
   /* Create the Avahi service browser */
   sb = avahi_s_service_browser_new(mc.server, if_index,
-				   AVAHI_PROTO_INET6, "_mandos._tcp",
+				   AVAHI_PROTO_UNSPEC, "_mandos._tcp",
 				   NULL, 0, browse_callback, NULL);
   if(sb == NULL){
     fprintf(stderr, "Failed to create service browser: %s\n",

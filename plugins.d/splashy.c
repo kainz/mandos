@@ -30,13 +30,13 @@
 				   SIG_IGN, kill(), SIGKILL */
 #include <stddef.h>		/* NULL */
 #include <stdlib.h>		/* getenv() */
-#include <stdio.h>		/* asprintf(), perror(), sscanf() */
+#include <stdio.h>		/* asprintf(), perror() */
 #include <stdlib.h>		/* EXIT_FAILURE, free(),
 				   EXIT_SUCCESS */
 #include <sys/types.h>		/* pid_t, DIR, struct dirent,
 				   ssize_t */
 #include <dirent.h>		/* opendir(), readdir(), closedir() */
-#include <inttypes.h>		/* intmax_t, SCNdMAX */
+#include <inttypes.h>		/* intmax_t, strtoimax() */
 #include <sys/stat.h>		/* struct stat, lstat(), S_ISLNK */
 #include <iso646.h>		/* not, or, and */
 #include <unistd.h>		/* readlink(), fork(), execl(),
@@ -101,11 +101,11 @@ int main(__attribute__((unused))int argc,
       pid_t pid;
       {
 	intmax_t tmpmax;
-	int numchars;
-	ret = sscanf(proc_ent->d_name, "%" SCNdMAX "%n", &tmpmax,
-		     &numchars);
-	if(ret < 1 or tmpmax != (pid_t)tmpmax
-	   or proc_ent->d_name[numchars] != '\0'){
+	char *tmp;
+	errno = 0;
+	tmpmax = strtoimax(proc_ent->d_name, &tmp, 10);
+	if(errno != 0 or tmp == proc_ent->d_name or *tmp != '\0'
+	   or tmpmax != (pid_t)tmpmax){
 	  /* Not a process */
 	  continue;
 	}
