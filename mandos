@@ -459,9 +459,10 @@ class ClientDBus(Client, dbus.service.Object):
     def __del__(self, *args, **kwargs):
         try:
             self.remove_from_connection()
-        except org.freedesktop.DBus.Python.LookupError:
+        except LookupError:
             pass
-        dbus.service.Object.__del__(self, *args, **kwargs)
+        if hasattr(dbus.service.Object, "__del__"):
+            dbus.service.Object.__del__(self, *args, **kwargs)
         Client.__del__(self, *args, **kwargs)
     
     def checker_callback(self, pid, condition, command,
@@ -502,10 +503,10 @@ class ClientDBus(Client, dbus.service.Object):
         else:
             old_checker_pid = None
         r = Client.start_checker(self, *args, **kwargs)
-        # Only emit D-Bus signal if new checker process was started
-        if ((self.checker is not None)
-            and not (old_checker is not None
-                     and old_checker_pid == self.checker.pid)):
+        # Only if new checker process was started
+        if (self.checker is not None
+            and old_checker_pid != self.checker.pid):
+            # Emit D-Bus signal
             self.CheckerStarted(self.current_checker_command)
             self.PropertyChanged(
                 dbus.String("checker_running"),
