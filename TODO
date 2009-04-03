@@ -24,9 +24,6 @@
    [[info:standards:Option%20Table][Table of Long Options]]
 ** TODO Date+time on console log messages	:BUGS:
    Is this the default?
-** DBusClient inheriting from Client
-** fingerprint as a member of TCP_handler
-** peer_certificate as a member of TCP_handler
 ** TCP_handler needs a better name!
 ** move handle_ipc out of IPv6_TCPServer
 ** DBusServiceObjectUsingSuper
