@@ -24,7 +24,7 @@
    [[info:standards:Option%20Table][Table of Long Options]]
 ** TODO Date+time on console log messages	:BUGS:
    Is this the default?
-** TCP_handler needs a better name!
+** Split IPv6_TCPServer into a generic and Mandos-specific class
 ** move handle_ipc out of IPv6_TCPServer
 ** DBusServiceObjectUsingSuper
 
@@ -39,7 +39,7 @@
 
 * mandos-name
 ** D-Bus mail loop w/ signal receiver
-** Urwid client data displayer
+** Urwid/Newt client data displayer
 *** Urwid scaffolding
 *** Client Widgets
 *** Properties popup

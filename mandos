@@ -66,6 +66,16 @@ from dbus.mainloop.glib import DBusGMainLoop
 import ctypes
 import ctypes.util
 
+try:
+    SO_BINDTODEVICE = socket.SO_BINDTODEVICE
+except AttributeError:
+    try:
+        from IN import SO_BINDTODEVICE
+    except ImportError:
+        # From /usr/include/asm/socket.h
+        SO_BINDTODEVICE = 25
+
+
 version = "1.0.8"
 
 logger = logging.Logger('mandos')
@@ -98,6 +108,7 @@ class AvahiGroupError(AvahiError):
 
 class AvahiService(object):
     """An Avahi (Zeroconf) service.
+    
     Attributes:
     interface: integer; avahi.IF_UNSPEC or an interface index.
                Used to optionally bind to the specified interface.
@@ -181,6 +192,7 @@ def _datetime_to_dbus(dt, variant_level=0):
 
 class Client(object):
     """A representation of a client host served by this server.
+    
     Attributes:
     name:       string; from the config file, used in log messages and
                         D-Bus identifiers
@@ -317,6 +329,7 @@ class Client(object):
     
     def checked_ok(self):
         """Bump up the timeout for this client.
+        
         This should only be called when the client has been seen,
         alive and well.
         """
@@ -328,6 +341,7 @@ class Client(object):
     
     def start_checker(self):
         """Start a new checker subprocess if one is not running.
+        
         If a checker already exists, leave it running and do
         nothing."""
         # The reason for not killing a running checker is that if we
@@ -421,6 +435,7 @@ class Client(object):
 
 class ClientDBus(Client, dbus.service.Object):
     """A Client class using D-Bus
+    
     Attributes:
     dbus_object_path: dbus.ObjectPath ; only set if self.use_dbus
     """
@@ -673,9 +688,10 @@ class ClientDBus(Client, dbus.service.Object):
     del _interface
 
 
-class TCP_handler(SocketServer.BaseRequestHandler, object):
-    """A TCP request handler class.
-    Instantiated by IPv6_TCPServer for each request to handle it.
+class ClientHandler(SocketServer.BaseRequestHandler, object):
+    """A class to handle client connections.
+    
+    Instantiated once for each connection to handle it.
     Note: This will run in its own forked process."""
     
     def handle(self):
@@ -708,7 +724,9 @@ class TCP_handler(SocketServer.BaseRequestHandler, object):
             #                     "+COMP-NULL", "+CTYPE-OPENPGP",
             #                     "+DHE-DSS"))
             # Use a fallback default, since this MUST be set.
-            priority = self.server.settings.get("priority", "NORMAL")
+            priority = self.server.gnutls_priority
+            if priority is None:
+                priority = "NORMAL"
             (gnutls.library.functions
              .gnutls_priority_set_direct(session._c_object,
                                          priority, None))
@@ -820,10 +838,12 @@ class TCP_handler(SocketServer.BaseRequestHandler, object):
 
 class ForkingMixInWithPipe(SocketServer.ForkingMixIn, object):
     """Like SocketServer.ForkingMixIn, but also pass a pipe.
+    
     Assumes a gobject.MainLoop event loop.
     """
     def process_request(self, request, client_address):
-        """This overrides and wraps the original process_request().
+        """Overrides and wraps the original process_request().
+        
         This function creates a new pipe in self.pipe 
         """
         self.pipe = os.pipe()
@@ -843,41 +863,42 @@ class ForkingMixInWithPipe(SocketServer.ForkingMixIn, object):
 class IPv6_TCPServer(ForkingMixInWithPipe,
                      SocketServer.TCPServer, object):
     """IPv6-capable TCP server.  Accepts 'None' as address and/or port
+    
     Attributes:
-        settings:       Server settings
-        clients:        Set() of Client objects
         enabled:        Boolean; whether this server is activated yet
+        interface:      None or a network interface name (string)
+        use_ipv6:       Boolean; to use IPv6 or not
+        ----
+        clients:        Set() of Client objects
+        gnutls_priority GnuTLS priority string
+        use_dbus:       Boolean; to emit D-Bus signals or not
     """
-    address_family = socket.AF_INET6
-    def __init__(self, *args, **kwargs):
-        if "settings" in kwargs:
-            self.settings = kwargs["settings"]
-            del kwargs["settings"]
-        if "clients" in kwargs:
-            self.clients = kwargs["clients"]
-            del kwargs["clients"]
-        if "use_ipv6" in kwargs:
-            if not kwargs["use_ipv6"]:
-                self.address_family = socket.AF_INET
-            del kwargs["use_ipv6"]
+    def __init__(self, server_address, RequestHandlerClass,
+                 interface=None, use_ipv6=True, clients=None,
+                 gnutls_priority=None, use_dbus=True):
         self.enabled = False
-        super(IPv6_TCPServer, self).__init__(*args, **kwargs)
+        self.interface = interface
+        if use_ipv6:
+            self.address_family = socket.AF_INET6
+        self.clients = clients
+        self.use_dbus = use_dbus
+        self.gnutls_priority = gnutls_priority
+        SocketServer.TCPServer.__init__(self, server_address,
+                                        RequestHandlerClass)
     def server_bind(self):
         """This overrides the normal server_bind() function
         to bind to an interface if one was specified, and also NOT to
         bind to an address or port if they were not specified."""
-        if self.settings["interface"]:
-            # 25 is from /usr/include/asm-i486/socket.h
-            SO_BINDTODEVICE = getattr(socket, "SO_BINDTODEVICE", 25)
+        if self.interface is not None:
             try:
                 self.socket.setsockopt(socket.SOL_SOCKET,
                                        SO_BINDTODEVICE,
-                                       self.settings["interface"])
+                                       self.interface + '\0')
             except socket.error, error:
                 if error[0] == errno.EPERM:
                     logger.error(u"No permission to"
                                  u" bind to interface %s",
-                                 self.settings["interface"])
+                                 self.interface)
                 else:
                     raise
         # Only bind(2) the socket if we really need to.
@@ -892,17 +913,16 @@ class IPv6_TCPServer(ForkingMixInWithPipe,
             elif not self.server_address[1]:
                 self.server_address = (self.server_address[0],
                                        0)
-#                 if self.settings["interface"]:
+#                 if self.interface:
 #                     self.server_address = (self.server_address[0],
 #                                            0, # port
 #                                            0, # flowinfo
 #                                            if_nametoindex
-#                                            (self.settings
-#                                             ["interface"]))
-            return super(IPv6_TCPServer, self).server_bind()
+#                                            (self.interface))
+            return SocketServer.TCPServer.server_bind(self)
     def server_activate(self):
         if self.enabled:
-            return super(IPv6_TCPServer, self).server_activate()
+            return SocketServer.TCPServer.server_activate(self)
     def enable(self):
         self.enabled = True
     def handle_ipc(self, source, condition, file_objects={}):
@@ -945,14 +965,14 @@ class IPv6_TCPServer(ForkingMixInWithPipe,
         if cmd == "NOTFOUND":
             logger.warning(u"Client not found for fingerprint: %s",
                            args)
-            if self.settings["use_dbus"]:
+            if self.use_dbus:
                 # Emit D-Bus signal
                 mandos_dbus_service.ClientNotFound(args)
         elif cmd == "INVALID":
             for client in self.clients:
                 if client.name == args:
                     logger.warning(u"Client %s is invalid", args)
-                    if self.settings["use_dbus"]:
+                    if self.use_dbus:
                         # Emit D-Bus signal
                         client.Rejected()
                     break
@@ -963,7 +983,7 @@ class IPv6_TCPServer(ForkingMixInWithPipe,
                 if client.name == args:
                     logger.info(u"Sending secret to %s", client.name)
                     client.checked_ok()
-                    if self.settings["use_dbus"]:
+                    if self.use_dbus:
                         # Emit D-Bus signal
                         client.ReceivedSecret()
                     break
@@ -1064,6 +1084,7 @@ def if_nametoindex(interface):
 
 def daemon(nochdir = False, noclose = False):
     """See daemon(3).  Standard BSD Unix function.
+    
     This should really exist as os.daemon, but it doesn't (yet)."""
     if os.fork():
         sys.exit()
@@ -1197,9 +1218,14 @@ def main():
     clients = Set()
     tcp_server = IPv6_TCPServer((server_settings["address"],
                                  server_settings["port"]),
-                                TCP_handler,
-                                settings=server_settings,
-                                clients=clients, use_ipv6=use_ipv6)
+                                ClientHandler,
+                                interface=
+                                server_settings["interface"],
+                                use_ipv6=use_ipv6,
+                                clients=clients,
+                                gnutls_priority=
+                                server_settings["priority"],
+                                use_dbus=use_dbus)
     pidfilename = "/var/run/mandos.pid"
     try:
         pidfile = open(pidfilename, "w")
