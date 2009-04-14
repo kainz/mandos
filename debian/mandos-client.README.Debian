@@ -14,6 +14,11 @@
   overridden at boot time on the Linux kernel command line using the
   sixth colon-separated field of the "ip=" option; for exact syntax,
   see the file "Documentation/nfsroot.txt" in the Linux source tree.
+  
+  Note that since this is used in the initial RAM disk environment,
+  the network interface must exist at that stage.  Thus, the interface
+  can *not* be a pseudo-interface such as "br0" or "tun0"; instead, a
+  real interface (such as "eth0") must be used.
 
 * Test the Server
   
@@ -69,4 +74,4 @@
   work, "--options-for=mandos-client:--connect=<ADDRESS>:<PORT>" needs
   to be manually added to the file "/etc/mandos/plugin-runner.conf".
 
- -- Teddy Hogeborn <teddy@fukt.bsnet.se>, Mon,  9 Feb 2009 00:36:55 +0100
+ -- Teddy Hogeborn <teddy@fukt.bsnet.se>, Tue, 14 Apr 2009 16:51:18 +0200
