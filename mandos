@@ -33,7 +33,7 @@
 
 from __future__ import division, with_statement, absolute_import
 
-import SocketServer
+import SocketServer as socketserver
 import socket
 import optparse
 import datetime
@@ -44,7 +44,7 @@ import gnutls.errors
 import gnutls.library.functions
 import gnutls.library.constants
 import gnutls.library.types
-import ConfigParser
+import ConfigParser as configparser
 import sys
 import re
 import os
@@ -701,7 +701,7 @@ class ClientDBus(Client, dbus.service.Object):
     del _interface
 
 
-class ClientHandler(SocketServer.BaseRequestHandler, object):
+class ClientHandler(socketserver.BaseRequestHandler, object):
     """A class to handle client connections.
     
     Instantiated once for each connection to handle it.
@@ -849,8 +849,8 @@ class ClientHandler(SocketServer.BaseRequestHandler, object):
         return hex_fpr
 
 
-class ForkingMixInWithPipe(SocketServer.ForkingMixIn, object):
-    """Like SocketServer.ForkingMixIn, but also pass a pipe.
+class ForkingMixInWithPipe(socketserver.ForkingMixIn, object):
+    """Like socketserver.ForkingMixIn, but also pass a pipe.
     
     Assumes a gobject.MainLoop event loop.
     """
@@ -874,7 +874,7 @@ class ForkingMixInWithPipe(SocketServer.ForkingMixIn, object):
 
 
 class IPv6_TCPServer(ForkingMixInWithPipe,
-                     SocketServer.TCPServer, object):
+                     socketserver.TCPServer, object):
     """IPv6-capable TCP server.  Accepts 'None' as address and/or port
     
     Attributes:
@@ -896,7 +896,7 @@ class IPv6_TCPServer(ForkingMixInWithPipe,
         self.clients = clients
         self.use_dbus = use_dbus
         self.gnutls_priority = gnutls_priority
-        SocketServer.TCPServer.__init__(self, server_address,
+        socketserver.TCPServer.__init__(self, server_address,
                                         RequestHandlerClass)
     def server_bind(self):
         """This overrides the normal server_bind() function
@@ -932,10 +932,10 @@ class IPv6_TCPServer(ForkingMixInWithPipe,
 #                                            0, # flowinfo
 #                                            if_nametoindex
 #                                            (self.interface))
-            return SocketServer.TCPServer.server_bind(self)
+            return socketserver.TCPServer.server_bind(self)
     def server_activate(self):
         if self.enabled:
-            return SocketServer.TCPServer.server_activate(self)
+            return socketserver.TCPServer.server_activate(self)
     def enable(self):
         self.enabled = True
     def handle_ipc(self, source, condition, file_objects={}):
@@ -1170,7 +1170,7 @@ def main():
                         }
     
     # Parse config file for server-global settings
-    server_config = ConfigParser.SafeConfigParser(server_defaults)
+    server_config = configparser.SafeConfigParser(server_defaults)
     del server_defaults
     server_config.read(os.path.join(options.configdir,
                                     u"mandos.conf"))
@@ -1223,7 +1223,7 @@ def main():
                         u"checker": u"fping -q -- %%(host)s",
                         u"host": u"",
                         }
-    client_config = ConfigParser.SafeConfigParser(client_defaults)
+    client_config = configparser.SafeConfigParser(client_defaults)
     client_config.read(os.path.join(server_settings[u"configdir"],
                                     u"clients.conf"))
     
