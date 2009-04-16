@@ -49,7 +49,6 @@ import sys
 import re
 import os
 import signal
-from sets import Set
 import subprocess
 import atexit
 import stat
@@ -883,7 +882,7 @@ class IPv6_TCPServer(ForkingMixInWithPipe,
         interface:      None or a network interface name (string)
         use_ipv6:       Boolean; to use IPv6 or not
         ----
-        clients:        Set() of Client objects
+        clients:        set of Client objects
         gnutls_priority GnuTLS priority string
         use_dbus:       Boolean; to emit D-Bus signals or not
     """
@@ -1231,7 +1230,7 @@ def main():
     global mandos_dbus_service
     mandos_dbus_service = None
     
-    clients = Set()
+    clients = set()
     tcp_server = IPv6_TCPServer((server_settings[u"address"],
                                  server_settings[u"port"]),
                                 ClientHandler,
@@ -1308,7 +1307,7 @@ def main():
     client_class = Client
     if use_dbus:
         client_class = ClientDBus
-    clients.update(Set(
+    clients.update(set(
             client_class(name = section,
                          config= dict(client_config.items(section)))
             for section in client_config.sections()))
