@@ -893,10 +893,7 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
 
 
 class ForkingMixInWithPipe(socketserver.ForkingMixIn, object):
-    """Like socketserver.ForkingMixIn, but also pass a pipe.
-    
-    Assumes a gobject.MainLoop event loop.
-    """
+    """Like socketserver.ForkingMixIn, but also pass a pipe."""
     def process_request(self, request, client_address):
         """Overrides and wraps the original process_request().
         
@@ -906,14 +903,10 @@ class ForkingMixInWithPipe(socketserver.ForkingMixIn, object):
         super(ForkingMixInWithPipe,
               self).process_request(request, client_address)
         os.close(self.pipe[1])  # close write end
-        # Call "handle_ipc" for both data and EOF events
-        gobject.io_add_watch(self.pipe[0],
-                             gobject.IO_IN | gobject.IO_HUP,
-                             self.handle_ipc)
-    def handle_ipc(self, source, condition):
+        self.add_pipe(self.pipe[0])
+    def add_pipe(self, pipe):
         """Dummy function; override as necessary"""
-        os.close(source)
-        return False
+        os.close(pipe)
 
 
 class IPv6_TCPServer(ForkingMixInWithPipe,
@@ -924,10 +917,6 @@ class IPv6_TCPServer(ForkingMixInWithPipe,
         enabled:        Boolean; whether this server is activated yet
         interface:      None or a network interface name (string)
         use_ipv6:       Boolean; to use IPv6 or not
-        ----
-        clients:        set of Client objects
-        gnutls_priority GnuTLS priority string
-        use_dbus:       Boolean; to emit D-Bus signals or not
     """
     def __init__(self, server_address, RequestHandlerClass,
                  interface=None, use_ipv6=True):
@@ -990,6 +979,11 @@ class MandosServer(IPv6_TCPServer):
         clients:        set of Client objects
         gnutls_priority GnuTLS priority string
         use_dbus:       Boolean; to emit D-Bus signals or not
+        clients:        set of Client objects
+        gnutls_priority GnuTLS priority string
+        use_dbus:       Boolean; to emit D-Bus signals or not
+    
+    Assumes a gobject.MainLoop event loop.
     """
     def __init__(self, server_address, RequestHandlerClass,
                  interface=None, use_ipv6=True, clients=None,
@@ -1007,6 +1001,10 @@ class MandosServer(IPv6_TCPServer):
             return socketserver.TCPServer.server_activate(self)
     def enable(self):
         self.enabled = True
+    def add_pipe(self, pipe):
+        # Call "handle_ipc" for both data and EOF events
+        gobject.io_add_watch(pipe, gobject.IO_IN | gobject.IO_HUP,
+                             self.handle_ipc)
     def handle_ipc(self, source, condition, file_objects={}):
         condition_names = {
             gobject.IO_IN: u"IN",   # There is data to read.
