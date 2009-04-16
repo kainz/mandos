@@ -6,9 +6,9 @@
 # This program is partly derived from an example program for an Avahi
 # service publisher, downloaded from
 # <http://avahi.org/wiki/PythonPublishExample>.  This includes the
-# methods "add" and "remove" in the "AvahiService" class, the
-# "server_state_changed" and "entry_group_state_changed" functions,
-# and some lines in "main".
+# methods "add", "remove", "server_state_changed",
+# "entry_group_state_changed", "cleanup", and "activate" in the
+# "AvahiService" class, and some lines in "main".
 # 
 # Everything else is
 # Copyright © 2008,2009 Teddy Hogeborn
@@ -124,6 +124,8 @@ class AvahiService(object):
     max_renames: integer; maximum number of renames
     rename_count: integer; counter so we only rename after collisions
                   a sensible number of times
+    group: D-Bus Entry Group
+    server: D-Bus Server
     """
     def __init__(self, interface = avahi.IF_UNSPEC, name = None,
                  servicetype = None, port = None, TXT = None,
@@ -139,6 +141,8 @@ class AvahiService(object):
         self.rename_count = 0
         self.max_renames = max_renames
         self.protocol = protocol
+        self.group = None       # our entry group
+        self.server = None
     def rename(self):
         """Derived from the Avahi example code"""
         if self.rename_count >= self.max_renames:
@@ -146,9 +150,9 @@ class AvahiService(object):
                             u" after %i retries, exiting.",
                             self.rename_count)
             raise AvahiServiceError(u"Too many renames")
-        self.name = server.GetAlternativeServiceName(self.name)
+        self.name = self.server.GetAlternativeServiceName(self.name)
         logger.info(u"Changing Zeroconf service name to %r ...",
-                    self.name)
+                    unicode(self.name))
         syslogger.setFormatter(logging.Formatter
                                (u'Mandos (%s) [%%(process)d]:'
                                 u' %%(levelname)s: %%(message)s'
@@ -158,38 +162,64 @@ class AvahiService(object):
         self.rename_count += 1
     def remove(self):
         """Derived from the Avahi example code"""
-        if group is not None:
-            group.Reset()
+        if self.group is not None:
+            self.group.Reset()
     def add(self):
         """Derived from the Avahi example code"""
-        global group
-        if group is None:
-            group = dbus.Interface(bus.get_object
-                                   (avahi.DBUS_NAME,
-                                    server.EntryGroupNew()),
-                                   avahi.DBUS_INTERFACE_ENTRY_GROUP)
-            group.connect_to_signal('StateChanged',
-                                    entry_group_state_changed)
+        if self.group is None:
+            self.group = dbus.Interface(
+                bus.get_object(avahi.DBUS_NAME,
+                               self.server.EntryGroupNew()),
+                avahi.DBUS_INTERFACE_ENTRY_GROUP)
+            self.group.connect_to_signal('StateChanged',
+                                         self.entry_group_state_changed)
         logger.debug(u"Adding Zeroconf service '%s' of type '%s' ...",
-                     service.name, service.type)
-        group.AddService(
-                self.interface,         # interface
-                self.protocol,          # protocol
-                dbus.UInt32(0),         # flags
-                self.name, self.type,
-                self.domain, self.host,
-                dbus.UInt16(self.port),
-                avahi.string_array_to_txt_array(self.TXT))
-        group.Commit()
-
-# From the Avahi example code:
-group = None                            # our entry group
-# End of Avahi example code
-
-
-def _datetime_to_dbus(dt, variant_level=0):
-    """Convert a UTC datetime.datetime() to a D-Bus type."""
-    return dbus.String(dt.isoformat(), variant_level=variant_level)
+                     self.name, self.type)
+        self.group.AddService(
+            self.interface,
+            self.protocol,
+            dbus.UInt32(0),     # flags
+            self.name, self.type,
+            self.domain, self.host,
+            dbus.UInt16(self.port),
+            avahi.string_array_to_txt_array(self.TXT))
+        self.group.Commit()
+    def entry_group_state_changed(self, state, error):
+        """Derived from the Avahi example code"""
+        logger.debug(u"Avahi state change: %i", state)
+        
+        if state == avahi.ENTRY_GROUP_ESTABLISHED:
+            logger.debug(u"Zeroconf service established.")
+        elif state == avahi.ENTRY_GROUP_COLLISION:
+            logger.warning(u"Zeroconf service name collision.")
+            self.rename()
+        elif state == avahi.ENTRY_GROUP_FAILURE:
+            logger.critical(u"Avahi: Error in group state changed %s",
+                            unicode(error))
+            raise AvahiGroupError(u"State changed: %s"
+                                  % unicode(error))
+    def cleanup(self):
+        """Derived from the Avahi example code"""
+        if self.group is not None:
+            self.group.Free()
+            self.group = None
+    def server_state_changed(self, state):
+        """Derived from the Avahi example code"""
+        if state == avahi.SERVER_COLLISION:
+            logger.error(u"Zeroconf server name collision")
+            self.remove()
+        elif state == avahi.SERVER_RUNNING:
+            self.add()
+    def activate(self):
+        """Derived from the Avahi example code"""
+        if self.server is None:
+            self.server = dbus.Interface(
+                bus.get_object(avahi.DBUS_NAME,
+                               avahi.DBUS_PATH_SERVER),
+                avahi.DBUS_INTERFACE_SERVER)
+        self.server.connect_to_signal(u"StateChanged",
+                                 self.server_state_changed)
+        self.server_state_changed(self.server.GetState())
 
 
 class Client(object):
@@ -459,6 +489,13 @@ class ClientDBus(Client, dbus.service.Object):
                                   + self.name.replace(u".", u"_")))
         dbus.service.Object.__init__(self, bus,
                                      self.dbus_object_path)
+    
+    @staticmethod
+    def _datetime_to_dbus(dt, variant_level=0):
+        """Convert a UTC datetime.datetime() to a D-Bus type."""
+        return dbus.String(dt.isoformat(),
+                           variant_level=variant_level)
+    
     def enable(self):
         oldstate = getattr(self, u"enabled", False)
         r = Client.enable(self)
@@ -466,9 +503,10 @@ class ClientDBus(Client, dbus.service.Object):
             # Emit D-Bus signals
             self.PropertyChanged(dbus.String(u"enabled"),
                                  dbus.Boolean(True, variant_level=1))
-            self.PropertyChanged(dbus.String(u"last_enabled"),
-                                 (_datetime_to_dbus(self.last_enabled,
-                                                    variant_level=1)))
+            self.PropertyChanged(
+                dbus.String(u"last_enabled"),
+                self._datetime_to_dbus(self.last_enabled,
+                                       variant_level=1))
         return r
     
     def disable(self, signal = True):
@@ -516,8 +554,8 @@ class ClientDBus(Client, dbus.service.Object):
         # Emit D-Bus signal
         self.PropertyChanged(
             dbus.String(u"last_checked_ok"),
-            (_datetime_to_dbus(self.last_checked_ok,
-                               variant_level=1)))
+            (self._datetime_to_dbus(self.last_checked_ok,
+                                    variant_level=1)))
         return r
     
     def start_checker(self, *args, **kwargs):
@@ -578,17 +616,18 @@ class ClientDBus(Client, dbus.service.Object):
                 dbus.String(u"host"):
                     dbus.String(self.host, variant_level=1),
                 dbus.String(u"created"):
-                    _datetime_to_dbus(self.created, variant_level=1),
+                    self._datetime_to_dbus(self.created,
+                                           variant_level=1),
                 dbus.String(u"last_enabled"):
-                    (_datetime_to_dbus(self.last_enabled,
-                                       variant_level=1)
+                    (self._datetime_to_dbus(self.last_enabled,
+                                            variant_level=1)
                      if self.last_enabled is not None
                      else dbus.Boolean(False, variant_level=1)),
                 dbus.String(u"enabled"):
                     dbus.Boolean(self.enabled, variant_level=1),
                 dbus.String(u"last_checked_ok"):
-                    (_datetime_to_dbus(self.last_checked_ok,
-                                       variant_level=1)
+                    (self._datetime_to_dbus(self.last_checked_ok,
+                                            variant_level=1)
                      if self.last_checked_ok is not None
                      else dbus.Boolean (False, variant_level=1)),
                 dbus.String(u"timeout"):
@@ -1049,29 +1088,6 @@ def string_to_delta(interval):
     return timevalue
 
 
-def server_state_changed(state):
-    """Derived from the Avahi example code"""
-    if state == avahi.SERVER_COLLISION:
-        logger.error(u"Zeroconf server name collision")
-        service.remove()
-    elif state == avahi.SERVER_RUNNING:
-        service.add()
-
-
-def entry_group_state_changed(state, error):
-    """Derived from the Avahi example code"""
-    logger.debug(u"Avahi state change: %i", state)
-    
-    if state == avahi.ENTRY_GROUP_ESTABLISHED:
-        logger.debug(u"Zeroconf service established.")
-    elif state == avahi.ENTRY_GROUP_COLLISION:
-        logger.warning(u"Zeroconf service name collision.")
-        service.rename()
-    elif state == avahi.ENTRY_GROUP_FAILURE:
-        logger.critical(u"Avahi: Error in group state changed %s",
-                        unicode(error))
-        raise AvahiGroupError(u"State changed: %s" % unicode(error))
-
 def if_nametoindex(interface):
     """Call the C function if_nametoindex(), or equivalent
     
@@ -1292,14 +1308,10 @@ def main():
     
     global main_loop
     global bus
-    global server
     # From the Avahi example code
     DBusGMainLoop(set_as_default=True )
     main_loop = gobject.MainLoop()
     bus = dbus.SystemBus()
-    server = dbus.Interface(bus.get_object(avahi.DBUS_NAME,
-                                           avahi.DBUS_PATH_SERVER),
-                            avahi.DBUS_INTERFACE_SERVER)
     # End of Avahi example code
     if use_dbus:
         bus_name = dbus.service.BusName(u"se.bsnet.fukt.Mandos", bus)
@@ -1341,12 +1353,7 @@ def main():
     
     def cleanup():
         "Cleanup function; run on exit"
-        global group
-        # From the Avahi example code
-        if not group is None:
-            group.Free()
-            group = None
-        # End of Avahi example code
+        service.cleanup()
         
         while clients:
             client = clients.pop()
@@ -1438,9 +1445,8 @@ def main():
     
     try:
         # From the Avahi example code
-        server.connect_to_signal(u"StateChanged", server_state_changed)
         try:
-            server_state_changed(server.GetState())
+            service.activate()
         except dbus.exceptions.DBusException, error:
             logger.critical(u"DBusException: %s", error)
             sys.exit(1)
