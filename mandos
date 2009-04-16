@@ -74,8 +74,7 @@ except AttributeError:
     try:
         from IN import SO_BINDTODEVICE
     except ImportError:
-        # From /usr/include/asm/socket.h
-        SO_BINDTODEVICE = 25
+        SO_BINDTODEVICE = None
 
 
 version = "1.0.8"
@@ -127,6 +126,7 @@ class AvahiService(object):
                   a sensible number of times
     group: D-Bus Entry Group
     server: D-Bus Server
+    bus: dbus.SystemBus()
     """
     def __init__(self, interface = avahi.IF_UNSPEC, name = None,
                  servicetype = None, port = None, TXT = None,
@@ -478,7 +478,8 @@ class ClientDBus(Client, dbus.service.Object):
     """A Client class using D-Bus
     
     Attributes:
-    dbus_object_path: dbus.ObjectPath ; only set if self.use_dbus
+    dbus_object_path: dbus.ObjectPath
+    bus: dbus.SystemBus()
     """
     # dbus.service.Object doesn't use super(), so we can't either.
     
@@ -945,17 +946,27 @@ class IPv6_TCPServer(ForkingMixInWithPipe,
         to bind to an interface if one was specified, and also NOT to
         bind to an address or port if they were not specified."""
         if self.interface is not None:
-            try:
-                self.socket.setsockopt(socket.SOL_SOCKET,
-                                       SO_BINDTODEVICE,
-                                       str(self.interface + u'\0'))
-            except socket.error, error:
-                if error[0] == errno.EPERM:
-                    logger.error(u"No permission to"
-                                 u" bind to interface %s",
-                                 self.interface)
-                else:
-                    raise
+            if SO_BINDTODEVICE is None:
+                logger.error(u"SO_BINDTODEVICE does not exist;"
+                             u" cannot bind to interface %s",
+                             self.interface)
+            else:
+                try:
+                    self.socket.setsockopt(socket.SOL_SOCKET,
+                                           SO_BINDTODEVICE,
+                                           str(self.interface
+                                               + u'\0'))
+                except socket.error, error:
+                    if error[0] == errno.EPERM:
+                        logger.error(u"No permission to"
+                                     u" bind to interface %s",
+                                     self.interface)
+                    elif error[0] == errno.ENOPROTOOPT:
+                        logger.error(u"SO_BINDTODEVICE not available;"
+                                     u" cannot bind to interface %s",
+                                     self.interface)
+                    else:
+                        raise
         # Only bind(2) the socket if we really need to.
         if self.server_address[0] or self.server_address[1]:
             if not self.server_address[0]:
