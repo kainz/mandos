@@ -58,6 +58,7 @@ import pwd
 from contextlib import closing
 import struct
 import fcntl
+import functools
 
 import dbus
 import dbus.service
@@ -130,7 +131,7 @@ class AvahiService(object):
     def __init__(self, interface = avahi.IF_UNSPEC, name = None,
                  servicetype = None, port = None, TXT = None,
                  domain = u"", host = u"", max_renames = 32768,
-                 protocol = avahi.PROTO_UNSPEC):
+                 protocol = avahi.PROTO_UNSPEC, bus = None):
         self.interface = interface
         self.name = name
         self.type = servicetype
@@ -143,6 +144,7 @@ class AvahiService(object):
         self.protocol = protocol
         self.group = None       # our entry group
         self.server = None
+        self.bus = bus
     def rename(self):
         """Derived from the Avahi example code"""
         if self.rename_count >= self.max_renames:
@@ -168,8 +170,8 @@ class AvahiService(object):
         """Derived from the Avahi example code"""
         if self.group is None:
             self.group = dbus.Interface(
-                bus.get_object(avahi.DBUS_NAME,
-                               self.server.EntryGroupNew()),
+                self.bus.get_object(avahi.DBUS_NAME,
+                                    self.server.EntryGroupNew()),
                 avahi.DBUS_INTERFACE_ENTRY_GROUP)
             self.group.connect_to_signal('StateChanged',
                                          self.entry_group_state_changed)
@@ -214,8 +216,8 @@ class AvahiService(object):
         """Derived from the Avahi example code"""
         if self.server is None:
             self.server = dbus.Interface(
-                bus.get_object(avahi.DBUS_NAME,
-                               avahi.DBUS_PATH_SERVER),
+                self.bus.get_object(avahi.DBUS_NAME,
+                                    avahi.DBUS_PATH_SERVER),
                 avahi.DBUS_INTERFACE_SERVER)
         self.server.connect_to_signal(u"StateChanged",
                                  self.server_state_changed)
@@ -480,14 +482,15 @@ class ClientDBus(Client, dbus.service.Object):
     """
     # dbus.service.Object doesn't use super(), so we can't either.
     
-    def __init__(self, *args, **kwargs):
+    def __init__(self, bus = None, *args, **kwargs):
+        self.bus = bus
         Client.__init__(self, *args, **kwargs)
         # Only now, when this client is initialized, can it show up on
         # the D-Bus
         self.dbus_object_path = (dbus.ObjectPath
                                  (u"/clients/"
                                   + self.name.replace(u".", u"_")))
-        dbus.service.Object.__init__(self, bus,
+        dbus.service.Object.__init__(self, self.bus,
                                      self.dbus_object_path)
     
     @staticmethod
@@ -1297,17 +1300,7 @@ def main():
         (gnutls.library.functions
          .gnutls_global_set_log_function(debug_gnutls))
     
-    global service
-    protocol = avahi.PROTO_INET6 if use_ipv6 else avahi.PROTO_INET
-    service = AvahiService(name = server_settings[u"servicename"],
-                           servicetype = u"_mandos._tcp",
-                           protocol = protocol)
-    if server_settings["interface"]:
-        service.interface = (if_nametoindex
-                             (str(server_settings[u"interface"])))
-    
     global main_loop
-    global bus
     # From the Avahi example code
     DBusGMainLoop(set_as_default=True )
     main_loop = gobject.MainLoop()
@@ -1315,10 +1308,17 @@ def main():
     # End of Avahi example code
     if use_dbus:
         bus_name = dbus.service.BusName(u"se.bsnet.fukt.Mandos", bus)
+    protocol = avahi.PROTO_INET6 if use_ipv6 else avahi.PROTO_INET
+    service = AvahiService(name = server_settings[u"servicename"],
+                           servicetype = u"_mandos._tcp",
+                           protocol = protocol, bus = bus)
+    if server_settings["interface"]:
+        service.interface = (if_nametoindex
+                             (str(server_settings[u"interface"])))
     
     client_class = Client
     if use_dbus:
-        client_class = ClientDBus
+        client_class = functools.partial(ClientDBus, bus = bus)
     clients.update(set(
             client_class(name = section,
                          config= dict(client_config.items(section)))
