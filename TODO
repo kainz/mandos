@@ -24,9 +24,9 @@
    [[info:standards:Option%20Table][Table of Long Options]]
 ** TODO Date+time on console log messages	:BUGS:
    Is this the default?
-** Split IPv6_TCPServer into a generic and Mandos-specific class
-** move handle_ipc out of IPv6_TCPServer
-** DBusServiceObjectUsingSuper
+** TODO Split IPv6_TCPServer into a generic and Mandos-specific class
+** TODO move handle_ipc out of IPv6_TCPServer
+** TODO DBusServiceObjectUsingSuper
 
 * mandos.xml
 ** [[file:mandos.xml::XXX][Document D-Bus interface]]
