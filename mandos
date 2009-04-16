@@ -910,7 +910,7 @@ class ForkingMixInWithPipe(socketserver.ForkingMixIn, object):
         gobject.io_add_watch(self.pipe[0],
                              gobject.IO_IN | gobject.IO_HUP,
                              self.handle_ipc)
-    def handle_ipc(source, condition):
+    def handle_ipc(self, source, condition):
         """Dummy function; override as necessary"""
         os.close(source)
         return False
@@ -930,15 +930,10 @@ class IPv6_TCPServer(ForkingMixInWithPipe,
         use_dbus:       Boolean; to emit D-Bus signals or not
     """
     def __init__(self, server_address, RequestHandlerClass,
-                 interface=None, use_ipv6=True, clients=None,
-                 gnutls_priority=None, use_dbus=True):
-        self.enabled = False
+                 interface=None, use_ipv6=True):
         self.interface = interface
         if use_ipv6:
             self.address_family = socket.AF_INET6
-        self.clients = clients
-        self.use_dbus = use_dbus
-        self.gnutls_priority = gnutls_priority
         socketserver.TCPServer.__init__(self, server_address,
                                         RequestHandlerClass)
     def server_bind(self):
@@ -986,6 +981,27 @@ class IPv6_TCPServer(ForkingMixInWithPipe,
 #                                            if_nametoindex
 #                                            (self.interface))
             return socketserver.TCPServer.server_bind(self)
+
+
+class MandosServer(IPv6_TCPServer):
+    """Mandos server.
+    
+    Attributes:
+        clients:        set of Client objects
+        gnutls_priority GnuTLS priority string
+        use_dbus:       Boolean; to emit D-Bus signals or not
+    """
+    def __init__(self, server_address, RequestHandlerClass,
+                 interface=None, use_ipv6=True, clients=None,
+                 gnutls_priority=None, use_dbus=True):
+        self.enabled = False
+        self.clients = clients
+        self.use_dbus = use_dbus
+        self.gnutls_priority = gnutls_priority
+        IPv6_TCPServer.__init__(self, server_address,
+                                RequestHandlerClass,
+                                interface = interface,
+                                use_ipv6 = use_ipv6)
     def server_activate(self):
         if self.enabled:
             return socketserver.TCPServer.server_activate(self)
@@ -1261,16 +1277,15 @@ def main():
     mandos_dbus_service = None
     
     clients = set()
-    tcp_server = IPv6_TCPServer((server_settings[u"address"],
-                                 server_settings[u"port"]),
-                                ClientHandler,
-                                interface=
-                                server_settings[u"interface"],
-                                use_ipv6=use_ipv6,
-                                clients=clients,
-                                gnutls_priority=
-                                server_settings[u"priority"],
-                                use_dbus=use_dbus)
+    tcp_server = MandosServer((server_settings[u"address"],
+                               server_settings[u"port"]),
+                              ClientHandler,
+                              interface=server_settings[u"interface"],
+                              use_ipv6=use_ipv6,
+                              clients=clients,
+                              gnutls_priority=
+                              server_settings[u"priority"],
+                              use_dbus=use_dbus)
     pidfilename = u"/var/run/mandos.pid"
     try:
         pidfile = open(pidfilename, u"w")
