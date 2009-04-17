@@ -312,6 +312,9 @@ class Client(object):
     
     def enable(self):
         """Start this client's checker and timeout hooks"""
+        if getattr(self, u"enabled", False):
+            # Already enabled
+            return
         self.last_enabled = datetime.datetime.utcnow()
         # Schedule a new checker to be started an 'interval' from now,
         # and every interval from then on.
@@ -990,6 +993,8 @@ class MandosServer(IPv6_TCPServer):
                  gnutls_priority=None, use_dbus=True):
         self.enabled = False
         self.clients = clients
+        if self.clients is None:
+            self.clients = set()
         self.use_dbus = use_dbus
         self.gnutls_priority = gnutls_priority
         IPv6_TCPServer.__init__(self, server_address,
@@ -1274,13 +1279,11 @@ def main():
     global mandos_dbus_service
     mandos_dbus_service = None
     
-    clients = set()
     tcp_server = MandosServer((server_settings[u"address"],
                                server_settings[u"port"]),
                               ClientHandler,
                               interface=server_settings[u"interface"],
                               use_ipv6=use_ipv6,
-                              clients=clients,
                               gnutls_priority=
                               server_settings[u"priority"],
                               use_dbus=use_dbus)
@@ -1343,11 +1346,11 @@ def main():
     client_class = Client
     if use_dbus:
         client_class = functools.partial(ClientDBus, bus = bus)
-    clients.update(set(
+    tcp_server.clients.update(set(
             client_class(name = section,
                          config= dict(client_config.items(section)))
             for section in client_config.sections()))
-    if not clients:
+    if not tcp_server.clients:
         logger.warning(u"No clients defined")
     
     if debug:
@@ -1379,8 +1382,8 @@ def main():
         "Cleanup function; run on exit"
         service.cleanup()
         
-        while clients:
-            client = clients.pop()
+        while tcp_server.clients:
+            client = tcp_server.clients.pop()
             client.disable_hook = None
             client.disable()
     
@@ -1416,7 +1419,8 @@ def main():
             @dbus.service.method(_interface, out_signature=u"ao")
             def GetAllClients(self):
                 "D-Bus method"
-                return dbus.Array(c.dbus_object_path for c in clients)
+                return dbus.Array(c.dbus_object_path
+                                  for c in tcp_server.clients)
             
             @dbus.service.method(_interface,
                                  out_signature=u"a{oa{sv}}")
@@ -1424,15 +1428,15 @@ def main():
                 "D-Bus method"
                 return dbus.Dictionary(
                     ((c.dbus_object_path, c.GetAllProperties())
-                     for c in clients),
+                     for c in tcp_server.clients),
                     signature=u"oa{sv}")
             
             @dbus.service.method(_interface, in_signature=u"o")
             def RemoveClient(self, object_path):
                 "D-Bus method"
-                for c in clients:
+                for c in tcp_server.clients:
                     if c.dbus_object_path == object_path:
-                        clients.remove(c)
+                        tcp_server.clients.remove(c)
                         c.remove_from_connection()
                         # Don't signal anything except ClientRemoved
                         c.disable(signal=False)
@@ -1445,7 +1449,7 @@ def main():
         
         mandos_dbus_service = MandosDBusService()
     
-    for client in clients:
+    for client in tcp_server.clients:
         if use_dbus:
             # Emit D-Bus signal
             mandos_dbus_service.ClientAdded(client.dbus_object_path,
