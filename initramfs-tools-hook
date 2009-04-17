@@ -123,19 +123,13 @@ for file in /etc/mandos/*; do
 done
 
 if [ ${mandos_user} != 65534 ]; then
-    PLUGINRUNNERCONF="${DESTDIR}${CONFDIR}/plugin-runner.conf"
-    cat <<-EOF >> "$PLUGINRUNNERCONF"
-	
-	--userid=${mandos_user}
-EOF
+    sed --in-place --expression="1i--userid=${mandos_user}" \
+	"${DESTDIR}${CONFDIR}/plugin-runner.conf"
 fi
 
 if [ ${mandos_group} != 65534 ]; then
-    PLUGINRUNNERCONF="${DESTDIR}${CONFDIR}/plugin-runner.conf"
-    cat <<-EOF >> "$PLUGINRUNNERCONF"
-	
-	--groupid=${mandos_group}
-EOF
+    sed --in-place --expression="1i--groupid=${mandos_group}" \
+	"${DESTDIR}${CONFDIR}/plugin-runner.conf"
 fi
 
 # Key files 
