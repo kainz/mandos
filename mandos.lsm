@@ -1,7 +1,7 @@
 Begin4
 Title:		Mandos
-Version:	1.0.8
-Entered-date:	2009-02-25
+Version:	1.0.10
+Entered-date:	2009-05-17
 Description:	The Mandos system allows computers to have encrypted
 root file systems and at the same time be capable of remote and/or
 unattended reboots.
@@ -12,9 +12,9 @@ Author:		teddy@fukt.bsnet.se (Teddy Hogeborn),
 Maintained-by:	teddy@fukt.bsnet.se (Teddy Hogeborn),
 		belorn@fukt.bsnet.se (Björn Påhlsson)
 Primary-site: http://www.fukt.bsnet.se/mandos
-	      98K mandos_1.0.8.orig.tar.gz
+	      99K mandos_1.0.10.orig.tar.gz
 Alternate-site: ftp://ftp.fukt.bsnet.se/pub/mandos
-		98K mandos_1.0.8.orig.tar.gz
+		99K mandos_1.0.10.orig.tar.gz
 Platforms:	Requires GCC, GNU libC, Avahi, GnuPG, Python 2.5, and
 various other libraries.  While made for Debian GNU/Linux, it is
 probably portable to other distributions, but not other Unixes.
