@@ -21,7 +21,7 @@
 # Contact the authors at <mandos@fukt.bsnet.se>.
 # 
 
-VERSION="1.0.9"
+VERSION="1.0.10"
 
 KEYDIR="/etc/keys/mandos"
 KEYTYPE=DSA
