@@ -25,8 +25,8 @@ update_initramfs()
     if dpkg --compare-versions "$2" lt-nl "1.0.10-1"; then
         # Make old initrd.img files unreadable too, in case they were
         # created with mandos-client 1.0.8 or older.
-	find /boot -maxdepth 1 -name "initrd.img-*.bak"-print0 \
-	    | xargs --null --no-run-if-empty chmod o-r
+	find /boot -maxdepth 1 -type f -name "initrd.img-*.bak" \
+	    -print0 | xargs --null --no-run-if-empty chmod o-r
     fi
 }
 
