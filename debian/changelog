@@ -1,3 +1,17 @@
+mandos (1.0.10-1) unstable; urgency=low
+
+  * New upstream release.
+  * debian/mandos-client.postinst (update_initramfs): Fix permissions of
+    old initrd.img-*.bak files.
+
+ -- Teddy Hogeborn <teddy@fukt.bsnet.se>  Sun, 17 May 2009 04:56:35 +0200
+
+mandos (1.0.9-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Teddy Hogeborn <teddy@fukt.bsnet.se>  Sun, 17 May 2009 02:59:45 +0200
+
 mandos (1.0.8-1) unstable; urgency=low
 
   * New upstream release.
