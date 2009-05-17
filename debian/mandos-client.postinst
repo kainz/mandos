@@ -21,6 +21,13 @@ update_initramfs()
     if [ -x /usr/sbin/update-initramfs ]; then
 	update-initramfs -u -k all
     fi
+    
+    if dpkg --compare-versions "$2" lt-nl "1.0.10-1"; then
+        # Make old initrd.img files unreadable too, in case they were
+        # created with mandos-client 1.0.8 or older.
+	find /boot -maxdepth 1 -name "initrd.img-*.bak"-print0 \
+	    | xargs --null --no-run-if-empty chmod o-r
+    fi
 }
 
 # Add user and group
@@ -54,9 +61,9 @@ create_key(){
 
 case "$1" in
     configure)
-	add_mandos_user
-	create_key
-	update_initramfs
+	add_mandos_user "$@"
+	create_key "$@"
+	update_initramfs "$@"
 	;;
     abort-upgrade|abort-deconfigure|abort-remove)
 	;;
