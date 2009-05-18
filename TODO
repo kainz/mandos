@@ -5,6 +5,7 @@
 
 * plugin-runner
 ** TODO [#B] use scandir(3) instead of readdir(3)
+** TODO [#C] use same file name rules as run-parts(8)
 
 * mandos (server)
 ** TODO [#B] Log level				:BUGS:
@@ -53,6 +54,7 @@
 
 * Package
 ** /usr/share/initramfs-tools/hooks/mandos
+*** TODO [#C] use same file name rules as run-parts(8)
 *** TODO [#C] Do not install in initrd.img if configured not to.
     Use "/etc/initramfs-tools/hooksconf.d/mandos"?
 ** TODO [#C] /etc/bash_completion.d/mandos
