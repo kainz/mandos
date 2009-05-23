@@ -1,6 +1,10 @@
 This NEWS file records noteworthy changes, very tersely.
 See the manual for detailed information.
 
+Version 1.0.11 (2009-05-23)
+* Client
+** Bug fix: Use "pkg-config" instead of old "libgnutls-config".
+
 Version 1.0.10 (2009-05-17)
 * Client
 ** Security bug fix: Fix permissions on initrd.img-*.bak files when
