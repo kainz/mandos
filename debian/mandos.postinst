@@ -18,12 +18,14 @@
 case "$1" in
     configure)
 	# Rename old "mandos" user and group
-	case "`getent passwd mandos`" in
-	    *:Mandos\ password\ system,,,:/nonexistent:/bin/false)
-		usermod --login _mandos mandos
-		groupmod --new-name _mandos mandos
-		;;
-	esac
+	if dpkg --compare-versions "$2" lt "1.0.3-1"; then
+	    case "`getent passwd mandos`" in
+		*:Mandos\ password\ system,,,:/nonexistent:/bin/false)
+		    usermod --login _mandos mandos
+		    groupmod --new-name _mandos mandos
+		    ;;
+	    esac
+	fi
 	# Create new user and group
 	if ! getent passwd _mandos >/dev/null; then
 	    adduser --system --force-badname --quiet \
