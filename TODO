@@ -1,6 +1,7 @@
 -*- org -*-
 
 * mandos-client
+** TODO [#A] Take down network interface if it was initially down
 ** TODO [#A] Clean up /tmp directory on signal
 
 * plugin-runner

@@ -309,16 +309,14 @@ static ssize_t pgp_packet_decrypt(const char *cryptotext,
 	}
 	gpgme_recipient_t recipient;
 	recipient = result->recipients;
-	if(recipient){
-	  while(recipient != NULL){
-	    fprintf(stderr, "Public key algorithm: %s\n",
-		    gpgme_pubkey_algo_name(recipient->pubkey_algo));
-	    fprintf(stderr, "Key ID: %s\n", recipient->keyid);
-	    fprintf(stderr, "Secret key available: %s\n",
-		    recipient->status == GPG_ERR_NO_SECKEY
-		    ? "No" : "Yes");
-	    recipient = recipient->next;
-	  }
+	while(recipient != NULL){
+	  fprintf(stderr, "Public key algorithm: %s\n",
+		  gpgme_pubkey_algo_name(recipient->pubkey_algo));
+	  fprintf(stderr, "Key ID: %s\n", recipient->keyid);
+	  fprintf(stderr, "Secret key available: %s\n",
+		  recipient->status == GPG_ERR_NO_SECKEY
+		  ? "No" : "Yes");
+	  recipient = recipient->next;
 	}
       }
     }
