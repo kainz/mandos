@@ -51,16 +51,13 @@ if [ -z "$keydir" ]; then
     exit 1
 fi
 
-mandos_user="`{ getent passwd _mandos \
-		|| getent passwd mandos \
-		|| getent passwd nobody \
-		|| echo ::65534::::; } \
-	| cut --delimiter=: --fields=3 --only-delimited`"
-mandos_group="`{ getent group _mandos \
-		|| getent group mandos \
-		|| getent group nogroup \
-		|| echo ::65534:; } \
-	| cut --delimiter=: --fields=3 --only-delimited`"
+set `{ getent passwd _mandos \
+    || getent passwd nobody \
+    || echo ::65534:65534:::; } \
+    | cut --delimiter=: --fields=3,4 --only-delimited \
+    --output-delimiter=" "`
+mandos_user="$1"
+mandos_group="$2"
 
 # The Mandos network client uses the network
 auto_add_modules net
@@ -91,8 +88,10 @@ for file in "$prefix"/lib/mandos/plugins.d/*; do
 	continue
     fi
     case "$base" in
-	*~|.*|\#*\#|*.dpkg-old|*.dpkg-bak|*.dpkg-new|*.dpkg-divert) : ;;
-	*/"*") echo "W: Mandos client plugin directory is empty." >&2 ;;
+	*~|.*|\#*\#|*.dpkg-old|*.dpkg-bak|*.dpkg-new|*.dpkg-divert)
+	    : ;;
+	*/"*")
+	    echo "W: Mandos client plugin directory is empty." >&2 ;;
 	*) copy_exec "$file" "${PLUGINDIR}" ;;
     esac
 done
@@ -101,7 +100,8 @@ done
 for file in /etc/mandos/plugins.d/*; do
     base="`basename \"$file\"`"
     case "$base" in
-	*~|.*|\#*\#|*.dpkg-old|*.dpkg-bak|*.dpkg-new|*.dpkg-divert) : ;;
+	*~|.*|\#*\#|*.dpkg-old|*.dpkg-bak|*.dpkg-new|*.dpkg-divert)
+	    : ;;
 	*/"*") : ;;
 	*) copy_exec "$file" "${PLUGINDIR}" ;;
     esac
@@ -123,19 +123,13 @@ for file in /etc/mandos/*; do
 done
 
 if [ ${mandos_user} != 65534 ]; then
-    PLUGINRUNNERCONF="${DESTDIR}${CONFDIR}/plugin-runner.conf"
-    cat <<-EOF >> "$PLUGINRUNNERCONF"
-	
-	--userid=${mandos_user}
-EOF
+    sed --in-place --expression="1i--userid=${mandos_user}" \
+	"${DESTDIR}${CONFDIR}/plugin-runner.conf"
 fi
 
 if [ ${mandos_group} != 65534 ]; then
-    PLUGINRUNNERCONF="${DESTDIR}${CONFDIR}/plugin-runner.conf"
-    cat <<-EOF >> "$PLUGINRUNNERCONF"
-	
-	--groupid=${mandos_group}
-EOF
+    sed --in-place --expression="1i--groupid=${mandos_group}" \
+	"${DESTDIR}${CONFDIR}/plugin-runner.conf"
 fi
 
 # Key files 

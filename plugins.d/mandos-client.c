@@ -309,16 +309,14 @@ static ssize_t pgp_packet_decrypt(const char *cryptotext,
 	}
 	gpgme_recipient_t recipient;
 	recipient = result->recipients;
-	if(recipient){
-	  while(recipient != NULL){
-	    fprintf(stderr, "Public key algorithm: %s\n",
-		    gpgme_pubkey_algo_name(recipient->pubkey_algo));
-	    fprintf(stderr, "Key ID: %s\n", recipient->keyid);
-	    fprintf(stderr, "Secret key available: %s\n",
-		    recipient->status == GPG_ERR_NO_SECKEY
-		    ? "No" : "Yes");
-	    recipient = recipient->next;
-	  }
+	while(recipient != NULL){
+	  fprintf(stderr, "Public key algorithm: %s\n",
+		  gpgme_pubkey_algo_name(recipient->pubkey_algo));
+	  fprintf(stderr, "Key ID: %s\n", recipient->keyid);
+	  fprintf(stderr, "Secret key available: %s\n",
+		  recipient->status == GPG_ERR_NO_SECKEY
+		  ? "No" : "Yes");
+	  recipient = recipient->next;
 	}
       }
     }
@@ -901,7 +899,8 @@ int main(int argc, char *argv[]){
   int exitcode = EXIT_SUCCESS;
   const char *interface = "eth0";
   struct ifreq network;
-  int sd;
+  int sd = -1;
+  bool interface_taken_up = false;
   uid_t uid;
   gid_t gid;
   char *connect_to = NULL;
@@ -1115,6 +1114,7 @@ int main(int argc, char *argv[]){
 #endif	/* __linux__ */
 	goto end;
       }
+      interface_taken_up = true;
     }
     /* sleep checking until interface is running */
     for(int i=0; i < delay * 4; i++){
@@ -1130,9 +1130,11 @@ int main(int argc, char *argv[]){
 	perror("nanosleep");
       }
     }
-    ret = (int)TEMP_FAILURE_RETRY(close(sd));
-    if(ret == -1){
-      perror("close");
+    if(not interface_taken_up){
+      ret = (int)TEMP_FAILURE_RETRY(close(sd));
+      if(ret == -1){
+	perror("close");
+      }
     }
 #ifdef __linux__
     if(restore_loglevel){
@@ -1297,6 +1299,24 @@ int main(int argc, char *argv[]){
   
   if(gpgme_initialized){
     gpgme_release(mc.ctx);
+  }
+  
+  /* Take down the network interface */
+  if(interface_taken_up){
+    ret = ioctl(sd, SIOCGIFFLAGS, &network);
+    if(ret == -1){
+      perror("ioctl SIOCGIFFLAGS");
+    } else if(network.ifr_flags & IFF_UP) {
+      network.ifr_flags &= ~IFF_UP; /* clear flag */
+      ret = ioctl(sd, SIOCSIFFLAGS, &network);
+      if(ret == -1){
+	perror("ioctl SIOCSIFFLAGS");
+      }
+    }
+    ret = (int)TEMP_FAILURE_RETRY(close(sd));
+    if(ret == -1){
+      perror("close");
+    }
   }
   
   /* Removes the temp directory used by GPGME */

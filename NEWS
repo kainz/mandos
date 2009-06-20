@@ -1,6 +1,21 @@
 This NEWS file records noteworthy changes, very tersely.
 See the manual for detailed information.
 
+Version 1.0.11 (2009-05-23)
+* Client
+** Bug fix: Use "pkg-config" instead of old "libgnutls-config".
+
+Version 1.0.10 (2009-05-17)
+* Client
+** Security bug fix: Fix permissions on initrd.img-*.bak files when
+   upgrading from older versions.
+
+Version 1.0.9 (2009-05-17)
+* Client
+** Security bug fix: Fix permissions on initrd.img file when
+   installing new linux-image-* packages calling mkinitramfs-kpkg (all
+   version lower than 2.6.28-1-* does this).
+
 Version 1.0.8 (2009-02-25)
 * Client
 ** Bug fix: Fix missing quote characters in initramfs-tools-hook.
