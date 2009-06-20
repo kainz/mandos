@@ -16,7 +16,7 @@ LINK_FORTIFY=-pie
 OPTIMIZE=-Os
 LANGUAGE=-std=gnu99
 htmldir=man
-version=1.0.8
+version=1.0.11
 SED=sed
 
 ## Use these settings for a traditional /usr/local install
@@ -35,8 +35,8 @@ MANDIR=$(PREFIX)/share/man
 INITRAMFSTOOLS=$(DESTDIR)/usr/share/initramfs-tools
 ##
 
-GNUTLS_CFLAGS=$(shell libgnutls-config --cflags)
-GNUTLS_LIBS=$(shell libgnutls-config --libs)
+GNUTLS_CFLAGS=$(shell pkg-config --cflags-only-I gnutls)
+GNUTLS_LIBS=$(shell pkg-config --libs gnutls)
 AVAHI_CFLAGS=$(shell pkg-config --cflags-only-I avahi-core)
 AVAHI_LIBS=$(shell pkg-config --libs avahi-core)
 GPGME_CFLAGS=$(shell gpgme-config --cflags; getconf LFS_CFLAGS)

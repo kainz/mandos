@@ -1,10 +1,11 @@
 -*- org -*-
 
 * mandos-client
-** TODO [#A] Clean up /tmp directory on signal
+** TODO [#A] Clean up /tmp directory and take down interface on signal
 
 * plugin-runner
 ** TODO [#B] use scandir(3) instead of readdir(3)
+** TODO [#C] use same file name rules as run-parts(8)
 
 * mandos (server)
 ** TODO [#B] Log level				:BUGS:
@@ -24,12 +25,9 @@
    [[info:standards:Option%20Table][Table of Long Options]]
 ** TODO Date+time on console log messages	:BUGS:
    Is this the default?
-** DBusClient inheriting from Client
-** fingerprint as a member of TCP_handler
-** peer_certificate as a member of TCP_handler
-** TCP_handler needs a better name!
-** move handle_ipc out of IPv6_TCPServer
-** DBusServiceObjectUsingSuper
+** TODO Split IPv6_TCPServer into a generic and Mandos-specific class
+** TODO move handle_ipc out of IPv6_TCPServer
+** TODO DBusServiceObjectUsingSuper
 
 * mandos.xml
 ** [[file:mandos.xml::XXX][Document D-Bus interface]]
@@ -42,7 +40,7 @@
 
 * mandos-name
 ** D-Bus mail loop w/ signal receiver
-** Urwid client data displayer
+** Urwid/Newt client data displayer
 *** Urwid scaffolding
 *** Client Widgets
 *** Properties popup
@@ -56,6 +54,7 @@
 
 * Package
 ** /usr/share/initramfs-tools/hooks/mandos
+*** TODO [#C] use same file name rules as run-parts(8)
 *** TODO [#C] Do not install in initrd.img if configured not to.
     Use "/etc/initramfs-tools/hooksconf.d/mandos"?
 ** TODO [#C] /etc/bash_completion.d/mandos
