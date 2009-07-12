@@ -811,7 +811,8 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
                     client = c
                     break
             else:
-                ipc.write(u"NOTFOUND %s\n" % fpr)
+                ipc.write(u"NOTFOUND %s %s\n"
+                          % (fpr, unicode(self.client_address))
                 session.bye()
                 return
             # Have to check if client.still_valid(), since it is
