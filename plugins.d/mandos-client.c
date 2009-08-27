@@ -780,6 +780,8 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   return retval;
 }
 
+sig_atomic_t quit_now = 0;
+
 static void resolve_callback(AvahiSServiceResolver *r,
 			     AvahiIfIndex interface,
 			     AvahiProtocol proto,
@@ -798,6 +800,10 @@ static void resolve_callback(AvahiSServiceResolver *r,
   
   /* Called whenever a service has been resolved successfully or
      timed out */
+  
+  if(quit_now){
+    return;
+  }
   
   switch(event){
   default:
@@ -875,8 +881,6 @@ static void browse_callback(AvahiSServiceBrowser *b,
   }
 }
 
-sig_atomic_t quit_now = 0;
-
 /* stop main loop after sigterm has been called */
 static void handle_sigterm(__attribute__((unused)) int sig){
   if(quit_now){
@@ -900,7 +904,7 @@ int main(int argc, char *argv[]){
   const char *interface = "eth0";
   struct ifreq network;
   int sd = -1;
-  bool interface_taken_up = false;
+  bool take_down_interface = false;
   uid_t uid;
   gid_t gid;
   char *connect_to = NULL;
@@ -1058,6 +1062,17 @@ int main(int argc, char *argv[]){
   
   /* If the interface is down, bring it up */
   if(interface[0] != '\0'){
+    if_index = (AvahiIfIndex) if_nametoindex(interface);
+    if(if_index == 0){
+      fprintf(stderr, "No such interface: \"%s\"\n", interface);
+      exitcode = EXIT_FAILURE;
+      goto end;
+    }
+    
+    if(quit_now){
+      goto end;
+    }
+    
 #ifdef __linux__
     /* Lower kernel loglevel to KERN_NOTICE to avoid KERN_INFO
        messages to mess up the prompt */
@@ -1100,8 +1115,10 @@ int main(int argc, char *argv[]){
     }
     if((network.ifr_flags & IFF_UP) == 0){
       network.ifr_flags |= IFF_UP;
+      take_down_interface = true;
       ret = ioctl(sd, SIOCSIFFLAGS, &network);
       if(ret == -1){
+	take_down_interface = false;
 	perror("ioctl SIOCSIFFLAGS");
 	exitcode = EXIT_FAILURE;
 #ifdef __linux__
@@ -1114,7 +1131,6 @@ int main(int argc, char *argv[]){
 #endif	/* __linux__ */
 	goto end;
       }
-      interface_taken_up = true;
     }
     /* sleep checking until interface is running */
     for(int i=0; i < delay * 4; i++){
@@ -1130,7 +1146,8 @@ int main(int argc, char *argv[]){
 	perror("nanosleep");
       }
     }
-    if(not interface_taken_up){
+    if(not take_down_interface){
+      /* We won't need the socket anymore */
       ret = (int)TEMP_FAILURE_RETRY(close(sd));
       if(ret == -1){
 	perror("close");
@@ -1147,6 +1164,10 @@ int main(int argc, char *argv[]){
 #endif	/* __linux__ */
   }
   
+  if(quit_now){
+    goto end;
+  }
+  
   uid = getuid();
   gid = getgid();
   
@@ -1161,6 +1182,10 @@ int main(int argc, char *argv[]){
     perror("setuid");
   }
   
+  if(quit_now){
+    goto end;
+  }
+  
   ret = init_gnutls_global(pubkey, seckey);
   if(ret == -1){
     fprintf(stderr, "init_gnutls_global failed\n");
@@ -1170,11 +1195,20 @@ int main(int argc, char *argv[]){
     gnutls_initialized = true;
   }
   
+  if(quit_now){
+    goto end;
+  }
+  
+  tempdir_created = true;
   if(mkdtemp(tempdir) == NULL){
+    tempdir_created = false;
     perror("mkdtemp");
     goto end;
   }
-  tempdir_created = true;
+  
+  if(quit_now){
+    goto end;
+  }
   
   if(not init_gpgme(pubkey, seckey, tempdir)){
     fprintf(stderr, "init_gpgme failed\n");
@@ -1184,13 +1218,8 @@ int main(int argc, char *argv[]){
     gpgme_initialized = true;
   }
   
-  if(interface[0] != '\0'){
-    if_index = (AvahiIfIndex) if_nametoindex(interface);
-    if(if_index == 0){
-      fprintf(stderr, "No such interface: \"%s\"\n", interface);
-      exitcode = EXIT_FAILURE;
-      goto end;
-    }
+  if(quit_now){
+    goto end;
   }
   
   if(connect_to != NULL){
@@ -1202,6 +1231,11 @@ int main(int argc, char *argv[]){
       exitcode = EXIT_FAILURE;
       goto end;
     }
+    
+    if(quit_now){
+      goto end;
+    }
+    
     uint16_t port;
     errno = 0;
     tmpmax = strtoimax(address+1, &tmp, 10);
@@ -1211,6 +1245,11 @@ int main(int argc, char *argv[]){
       exitcode = EXIT_FAILURE;
       goto end;
     }
+  
+    if(quit_now){
+      goto end;
+    }
+    
     port = (uint16_t)tmpmax;
     *address = '\0';
     address = connect_to;
@@ -1221,6 +1260,11 @@ int main(int argc, char *argv[]){
     } else {
       af = AF_INET;
     }
+    
+    if(quit_now){
+      goto end;
+    }
+    
     ret = start_mandos_communication(address, port, if_index, af);
     if(ret < 0){
       exitcode = EXIT_FAILURE;
@@ -1229,7 +1273,11 @@ int main(int argc, char *argv[]){
     }
     goto end;
   }
-    
+  
+  if(quit_now){
+    goto end;
+  }
+  
   {
     AvahiServerConfig config;
     /* Do not publish any local Zeroconf records */
@@ -1256,6 +1304,10 @@ int main(int argc, char *argv[]){
     goto end;
   }
   
+  if(quit_now){
+    goto end;
+  }
+  
   /* Create the Avahi service browser */
   sb = avahi_s_service_browser_new(mc.server, if_index,
 				   AVAHI_PROTO_UNSPEC, "_mandos._tcp",
@@ -1264,6 +1316,10 @@ int main(int argc, char *argv[]){
     fprintf(stderr, "Failed to create service browser: %s\n",
 	    avahi_strerror(avahi_server_errno(mc.server)));
     exitcode = EXIT_FAILURE;
+    goto end;
+  }
+  
+  if(quit_now){
     goto end;
   }
   
@@ -1302,7 +1358,7 @@ int main(int argc, char *argv[]){
   }
   
   /* Take down the network interface */
-  if(interface_taken_up){
+  if(take_down_interface){
     ret = ioctl(sd, SIOCGIFFLAGS, &network);
     if(ret == -1){
       perror("ioctl SIOCGIFFLAGS");
