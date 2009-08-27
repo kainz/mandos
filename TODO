@@ -28,6 +28,8 @@
 ** TODO Split IPv6_TCPServer into a generic and Mandos-specific class
 ** TODO move handle_ipc out of IPv6_TCPServer
 ** TODO DBusServiceObjectUsingSuper
+** Global enable/disable flag
+** By-client countdown on secrets given
 
 * mandos.xml
 ** [[file:mandos.xml::XXX][Document D-Bus interface]]
