@@ -901,7 +901,7 @@ class ForkingMixInWithPipe(socketserver.ForkingMixIn, object):
     def process_request(self, request, client_address):
         """Overrides and wraps the original process_request().
         
-        This function creates a new pipe in self.pipe 
+        This function creates a new pipe in self.pipe
         """
         self.pipe = os.pipe()
         super(ForkingMixInWithPipe,

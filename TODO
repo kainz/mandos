@@ -2,6 +2,18 @@
 
 * mandos-client
 ** TODO [#A] Clean up /tmp directory and take down interface on signal
+** TODO [#B] use scandir(3) instead of readdir(3)
+
+* splashy
+** TODO [#A] Re-raise signal received when exiting due to handled signal.
+** TODO [#B] use scandir(3) instead of readdir(3)
+
+* usplash
+** TODO [#A] Re-raise signal received when exiting due to handled signal.
+** TODO [#B] use scandir(3) instead of readdir(3)
+
+* password-prompt
+** TODO [#A] Re-raise signal received when exiting due to handled signal.
 
 * plugin-runner
 ** TODO [#B] use scandir(3) instead of readdir(3)
