@@ -457,7 +457,7 @@ int main(int argc, char *argv[]){
       plugindir = strdup(arg);
       if(plugindir == NULL){
 	perror("strdup");
-      }      
+      }
       break;
     case 129:			/* --config-file */
       /* This is already done by parse_opt_config_file() */
@@ -527,7 +527,7 @@ int main(int argc, char *argv[]){
       if(argfile == NULL){
 	perror("strdup");
       }
-      break;      
+      break;
     case 130:			/* --userid */
     case 131:			/* --groupid */
     case 132:			/* --debug */
@@ -562,7 +562,7 @@ int main(int argc, char *argv[]){
     conffp = fopen(AFILE, "r");
   } else {
     conffp = fopen(argfile, "r");
-  }  
+  }
   if(conffp != NULL){
     char *org_line = NULL;
     char *p, *arg, *new_arg, *line;
@@ -612,7 +612,7 @@ int main(int argc, char *argv[]){
 	  goto fallback;
 	}
 	custom_argv[custom_argc-1] = new_arg;
-	custom_argv[custom_argc] = NULL;	
+	custom_argv[custom_argc] = NULL;
       }
     }
     free(org_line);

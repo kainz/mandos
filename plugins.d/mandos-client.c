@@ -249,7 +249,7 @@ static bool init_gpgme(const char *seckey,
     return false;
   }
   
-  return true; 
+  return true;
 }
 
 /* 

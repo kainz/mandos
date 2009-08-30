@@ -29,7 +29,7 @@
 #include <iso646.h>		/* and */
 #include <errno.h>		/* errno, EEXIST */
 #include <stdio.h>		/* perror() */
-#include <stdlib.h>		/* EXIT_FAILURE, NULL, size_t, free(), 
+#include <stdlib.h>		/* EXIT_FAILURE, NULL, size_t, free(),
 				   realloc(), EXIT_SUCCESS */
 #include <fcntl.h>		/* open(), O_RDONLY */
 #include <unistd.h>		/* read(), close(), write(),
