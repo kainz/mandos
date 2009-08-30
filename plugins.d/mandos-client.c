@@ -80,8 +80,8 @@
 				   argp_parse(), ARGP_KEY_ARG,
 				   ARGP_KEY_END, ARGP_ERR_UNKNOWN */
 #include <signal.h>		/* sigemptyset(), sigaddset(),
-				   sigaction(), SIGTERM, sigaction,
-				   sig_atomic_t */
+				   sigaction(), SIGTERM, sig_atomic_t,
+				   raise() */
 
 #ifdef __linux__
 #include <sys/klog.h> 		/* klogctl() */
@@ -514,6 +514,9 @@ static int init_gnutls_session(gnutls_session_t *session){
 static void empty_log(__attribute__((unused)) AvahiLogLevel level,
 		      __attribute__((unused)) const char *txt){}
 
+sig_atomic_t quit_now = 0;
+int signal_received = 0;
+
 /* Called when a Mandos server is found */
 static int start_mandos_communication(const char *ip, uint16_t port,
 				      AvahiIfIndex if_index,
@@ -780,8 +783,6 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   return retval;
 }
 
-sig_atomic_t quit_now = 0;
-
 static void resolve_callback(AvahiSServiceResolver *r,
 			     AvahiIfIndex interface,
 			     AvahiProtocol proto,
@@ -882,11 +883,12 @@ static void browse_callback(AvahiSServiceBrowser *b,
 }
 
 /* stop main loop after sigterm has been called */
-static void handle_sigterm(__attribute__((unused)) int sig){
+static void handle_sigterm(int sig){
   if(quit_now){
     return;
   }
   quit_now = 1;
+  signal_received = sig;
   int old_errno = errno;
   if(mc.simple_poll != NULL){
     avahi_simple_poll_quit(mc.simple_poll);
@@ -1053,12 +1055,24 @@ int main(int argc, char *argv[]){
     exitcode = EXIT_FAILURE;
     goto end;
   }
-  ret = sigaction(SIGTERM, &sigterm_action, &old_sigterm_action);
+  ret = sigaction(SIGINT, &sigterm_action, &old_sigterm_action);
   if(ret == -1){
     perror("sigaction");
     exitcode = EXIT_FAILURE;
     goto end;
-  }  
+  }
+  ret = sigaction(SIGHUP, &sigterm_action, NULL);
+  if(ret == -1){
+    perror("sigaction");
+    exitcode = EXIT_FAILURE;
+    goto end;
+  }
+  ret = sigaction(SIGTERM, &sigterm_action, NULL);
+  if(ret == -1){
+    perror("sigaction");
+    exitcode = EXIT_FAILURE;
+    goto end;
+  }
   
   /* If the interface is down, bring it up */
   if(interface[0] != '\0'){
@@ -1417,6 +1431,14 @@ int main(int argc, char *argv[]){
     if(ret == -1 and errno != ENOENT){
       perror("rmdir");
     }
+  }
+  
+  if(quit_now){
+    ret = sigaction(signal_received, &old_sigterm_action, NULL);
+    if(ret == -1){
+      perror("sigaction");
+    }
+    raise(signal_received);
   }
   
   return exitcode;
