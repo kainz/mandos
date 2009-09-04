@@ -1,4 +1,4 @@
-/*  -*- coding: utf-8 -*- */
+/*  -*- coding: utf-8; mode: c; mode: orgtbl -*- */
 /*
  * Password-prompt - Read a password from the terminal and print it
  * 
@@ -33,7 +33,8 @@
 #include <signal.h>		/* sig_atomic_t, raise(), struct
 				   sigaction, sigemptyset(),
 				   sigaction(), sigaddset(), SIGINT,
-				   SIGQUIT, SIGHUP, SIGTERM */
+				   SIGQUIT, SIGHUP, SIGTERM,
+				   raise() */
 #include <stddef.h>		/* NULL, size_t, ssize_t */
 #include <sys/types.h>		/* ssize_t */
 #include <stdlib.h>		/* EXIT_SUCCESS, EXIT_FAILURE,
@@ -52,12 +53,17 @@
 				   ARGP_ERR_UNKNOWN */
 
 volatile sig_atomic_t quit_now = 0;
+int signal_received;
 bool debug = false;
 const char *argp_program_version = "password-prompt " VERSION;
 const char *argp_program_bug_address = "<mandos@fukt.bsnet.se>";
 
-static void termination_handler(__attribute__((unused))int signum){
+static void termination_handler(int signum){
+  if(quit_now){
+    return;
+  }
   quit_now = 1;
+  signal_received = signum;
 }
 
 int main(int argc, char **argv){
@@ -131,6 +137,10 @@ int main(int argc, char **argv){
     perror("sigaction");
     return EXIT_FAILURE;
   }
+  /* Need to check if the handler is SIG_IGN before handling:
+     | [[info:libc:Initial Signal Actions]] |
+     | [[info:libc:Basic Signal Handling]]  |
+  */
   if(old_action.sa_handler != SIG_IGN){
     ret = sigaction(SIGINT, &new_action, NULL);
     if(ret == -1){
@@ -242,7 +252,7 @@ int main(int argc, char **argv){
     /* if(ret == 0), then the only sensible thing to do is to retry to
        read from stdin */
     fputc('\n', stderr);
-    if(debug and quit_now == 0){
+    if(debug and not quit_now){
       /* If quit_now is nonzero, we were interrupted by a signal, and
 	 will print that later, so no need to show this too. */
       fprintf(stderr, "getline() returned 0, retrying.\n");
@@ -256,6 +266,16 @@ int main(int argc, char **argv){
   }
   if(tcsetattr(STDIN_FILENO, TCSAFLUSH, &t_old) != 0){
     perror("tcsetattr+echo");
+  }
+  
+  if(quit_now){
+    sigemptyset(&old_action.sa_mask);
+    old_action.sa_handler = SIG_DFL;
+    ret = sigaction(signal_received, &old_action, NULL);
+    if(ret == -1){
+      perror("sigaction");
+    }
+    raise(signal_received);
   }
   
   if(debug){
