@@ -1,4 +1,4 @@
-/*  -*- coding: utf-8 -*- */
+/*  -*- coding: utf-8; mode: c; mode: orgtbl -*- */
 /*
  * Mandos plugin runner - Run Mandos plugins
  *
@@ -210,7 +210,7 @@ static bool add_environment(plugin *p, const char *def, bool replace){
 /*
  * Based on the example in the GNU LibC manual chapter 13.13 "File
  * Descriptor Flags".
- * *Note File Descriptor Flags:(libc)Descriptor Flags.
+ | [[info:libc:Descriptor%20Flags][File Descriptor Flags]] |
  */
 static int set_cloexec_flag(int fd){
   int ret = fcntl(fd, F_GETFD, 0);
@@ -616,6 +616,14 @@ int main(int argc, char *argv[]){
 	custom_argv[custom_argc-1] = new_arg;
 	custom_argv[custom_argc] = NULL;
       }
+    }
+    do{
+      ret = fclose(conffp);
+    }while(ret == EOF and errno == EINTR);
+    if(ret == EOF){
+      perror("fclose");
+      exitstatus = EXIT_FAILURE;
+      goto fallback;
     }
     free(org_line);
   } else {
