@@ -1055,23 +1055,48 @@ int main(int argc, char *argv[]){
     exitcode = EXIT_FAILURE;
     goto end;
   }
-  ret = sigaction(SIGINT, &sigterm_action, &old_sigterm_action);
+  /* Need to check if the handler is SIG_IGN before handling:
+     | [[info:libc:Initial Signal Actions]] |
+     | [[info:libc:Basic Signal Handling]]  |
+  */
+  ret = sigaction(SIGINT, NULL, &old_sigterm_action);
   if(ret == -1){
     perror("sigaction");
-    exitcode = EXIT_FAILURE;
-    goto end;
+    return EXIT_FAILURE;
   }
-  ret = sigaction(SIGHUP, &sigterm_action, NULL);
-  if(ret == -1){
-    perror("sigaction");
-    exitcode = EXIT_FAILURE;
-    goto end;
+  if(old_sigterm_action.sa_handler != SIG_IGN){
+    ret = sigaction(SIGINT, &sigterm_action, NULL);
+    if(ret == -1){
+      perror("sigaction");
+      exitcode = EXIT_FAILURE;
+      goto end;
+    }
   }
-  ret = sigaction(SIGTERM, &sigterm_action, NULL);
+  ret = sigaction(SIGHUP, NULL, &old_sigterm_action);
   if(ret == -1){
     perror("sigaction");
-    exitcode = EXIT_FAILURE;
-    goto end;
+    return EXIT_FAILURE;
+  }
+  if(old_sigterm_action.sa_handler != SIG_IGN){
+    ret = sigaction(SIGHUP, &sigterm_action, NULL);
+    if(ret == -1){
+      perror("sigaction");
+      exitcode = EXIT_FAILURE;
+      goto end;
+    }
+  }
+  ret = sigaction(SIGTERM, NULL, &old_sigterm_action);
+  if(ret == -1){
+    perror("sigaction");
+    return EXIT_FAILURE;
+  }
+  if(old_sigterm_action.sa_handler != SIG_IGN){
+    ret = sigaction(SIGTERM, &sigterm_action, NULL);
+    if(ret == -1){
+      perror("sigaction");
+      exitcode = EXIT_FAILURE;
+      goto end;
+    }
   }
   
   /* If the interface is down, bring it up */
@@ -1434,6 +1459,8 @@ int main(int argc, char *argv[]){
   }
   
   if(quit_now){
+    sigemptyset(&old_sigterm_action.sa_mask);
+    old_sigterm_action.sa_handler = SIG_DFL;
     ret = sigaction(signal_received, &old_sigterm_action, NULL);
     if(ret == -1){
       perror("sigaction");
