@@ -129,18 +129,30 @@ int main(int argc, char **argv){
   }
   
   sigemptyset(&new_action.sa_mask);
-  sigaddset(&new_action.sa_mask, SIGINT);
-  sigaddset(&new_action.sa_mask, SIGHUP);
-  sigaddset(&new_action.sa_mask, SIGTERM);
-  ret = sigaction(SIGINT, NULL, &old_action);
+  ret = sigaddset(&new_action.sa_mask, SIGINT);
   if(ret == -1){
-    perror("sigaction");
+    perror("sigaddset");
+    return EXIT_FAILURE;
+  }
+  ret = sigaddset(&new_action.sa_mask, SIGHUP);
+  if(ret == -1){
+    perror("sigaddset");
+    return EXIT_FAILURE;
+  }
+  ret = sigaddset(&new_action.sa_mask, SIGTERM);
+  if(ret == -1){
+    perror("sigaddset");
     return EXIT_FAILURE;
   }
   /* Need to check if the handler is SIG_IGN before handling:
      | [[info:libc:Initial Signal Actions]] |
      | [[info:libc:Basic Signal Handling]]  |
   */
+  ret = sigaction(SIGINT, NULL, &old_action);
+  if(ret == -1){
+    perror("sigaction");
+    return EXIT_FAILURE;
+  }
   if(old_action.sa_handler != SIG_IGN){
     ret = sigaction(SIGINT, &new_action, NULL);
     if(ret == -1){
