@@ -317,7 +317,6 @@ int main(int argc, char *argv[]){
   fd_set rfds_all;
   int ret, maxfd = 0;
   ssize_t sret;
-  intmax_t tmpmax;
   uid_t uid = 65534;
   gid_t gid = 65534;
   bool debug = false;
@@ -382,8 +381,9 @@ int main(int argc, char *argv[]){
   
   error_t parse_opt(int key, char *arg, __attribute__((unused))
 		    struct argp_state *state){
-    char *tmp;
     switch(key){
+      char *tmp;
+      intmax_t tmpmax;
     case 'g': 			/* --global-options */
       if(arg != NULL){
 	char *plugin_option;
