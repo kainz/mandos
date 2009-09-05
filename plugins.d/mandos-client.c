@@ -521,7 +521,7 @@ int signal_received = 0;
 static int start_mandos_communication(const char *ip, uint16_t port,
 				      AvahiIfIndex if_index,
 				      int af){
-  int ret, tcp_sd;
+  int ret, tcp_sd = -1;
   ssize_t sret;
   union {
     struct sockaddr_in in;
@@ -536,6 +536,10 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   int retval = 0;
   gnutls_session_t session;
   int pf;			/* Protocol family */
+  
+  if(quit_now){
+    return -1;
+  }
   
   switch(af){
   case AF_INET6:
@@ -562,7 +566,12 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   tcp_sd = socket(pf, SOCK_STREAM, 0);
   if(tcp_sd < 0){
     perror("socket");
-    return -1;
+    retval = -1;
+    goto mandos_end;
+  }
+  
+  if(quit_now){
+    goto mandos_end;
   }
   
   memset(&to, 0, sizeof(to));
@@ -575,11 +584,13 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   }
   if(ret < 0 ){
     perror("inet_pton");
-    return -1;
+    retval = -1;
+    goto mandos_end;
   }
   if(ret == 0){
     fprintf(stderr, "Bad address: %s\n", ip);
-    return -1;
+    retval = -1;
+    goto mandos_end;
   }
   if(af == AF_INET6){
     to.in6.sin6_port = htons(port); /* Spurious warnings from
@@ -592,7 +603,8 @@ static int start_mandos_communication(const char *ip, uint16_t port,
       if(if_index == AVAHI_IF_UNSPEC){
 	fprintf(stderr, "An IPv6 link-local address is incomplete"
 		" without a network interface\n");
-	return -1;
+	retval = -1;
+	goto mandos_end;
       }
       /* Set the network interface number as scope */
       to.in6.sin6_scope_id = (uint32_t)if_index;
@@ -601,6 +613,10 @@ static int start_mandos_communication(const char *ip, uint16_t port,
     to.in.sin_port = htons(port); /* Spurious warnings from
 				     -Wconversion and
 				     -Wunreachable-code */
+  }
+  
+  if(quit_now){
+    goto mandos_end;
   }
   
   if(debug){
@@ -635,6 +651,10 @@ static int start_mandos_communication(const char *ip, uint16_t port,
     }
   }
   
+  if(quit_now){
+    goto mandos_end;
+  }
+  
   if(af == AF_INET6){
     ret = connect(tcp_sd, &to.in6, sizeof(to));
   } else {
@@ -642,7 +662,12 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   }
   if(ret < 0){
     perror("connect");
-    return -1;
+    retval = -1;
+    goto mandos_end;
+  }
+  
+  if(quit_now){
+    goto mandos_end;
   }
   
   const char *out = mandos_protocol_version;
@@ -667,16 +692,31 @@ static int start_mandos_communication(const char *ip, uint16_t port,
 	break;
       }
     }
+  
+    if(quit_now){
+      goto mandos_end;
+    }
   }
   
   if(debug){
     fprintf(stderr, "Establishing TLS session with %s\n", ip);
   }
   
+  if(quit_now){
+    goto mandos_end;
+  }
+  
   gnutls_transport_set_ptr(session, (gnutls_transport_ptr_t) tcp_sd);
+  
+  if(quit_now){
+    goto mandos_end;
+  }
   
   do{
     ret = gnutls_handshake(session);
+    if(quit_now){
+      goto mandos_end;
+    }
   } while(ret == GNUTLS_E_AGAIN or ret == GNUTLS_E_INTERRUPTED);
   
   if(ret != GNUTLS_E_SUCCESS){
@@ -696,11 +736,20 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   }
   
   while(true){
+    
+    if(quit_now){
+      goto mandos_end;
+    }
+    
     buffer_capacity = incbuffer(&buffer, buffer_length,
 				   buffer_capacity);
     if(buffer_capacity == 0){
       perror("incbuffer");
       retval = -1;
+      goto mandos_end;
+    }
+    
+    if(quit_now){
       goto mandos_end;
     }
     
@@ -717,6 +766,10 @@ static int start_mandos_communication(const char *ip, uint16_t port,
       case GNUTLS_E_REHANDSHAKE:
 	do{
 	  ret = gnutls_handshake(session);
+	  
+	  if(quit_now){
+	    goto mandos_end;
+	  }
 	} while(ret == GNUTLS_E_AGAIN or ret == GNUTLS_E_INTERRUPTED);
 	if(ret < 0){
 	  fprintf(stderr, "*** GnuTLS Re-handshake failed ***\n");
@@ -741,7 +794,15 @@ static int start_mandos_communication(const char *ip, uint16_t port,
     fprintf(stderr, "Closing TLS session\n");
   }
   
+  if(quit_now){
+    goto mandos_end;
+  }
+  
   gnutls_bye(session, GNUTLS_SHUT_RDWR);
+  
+  if(quit_now){
+    goto mandos_end;
+  }
   
   if(buffer_length > 0){
     decrypted_buffer_size = pgp_packet_decrypt(buffer,
@@ -750,6 +811,10 @@ static int start_mandos_communication(const char *ip, uint16_t port,
     if(decrypted_buffer_size >= 0){
       written = 0;
       while(written < (size_t) decrypted_buffer_size){
+	if(quit_now){
+	  goto mandos_end;
+	}
+	
 	ret = (int)fwrite(decrypted_buffer + written, 1,
 			  (size_t)decrypted_buffer_size - written,
 			  stdout);
@@ -775,11 +840,16 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   
  mandos_end:
   free(buffer);
-  ret = (int)TEMP_FAILURE_RETRY(close(tcp_sd));
+  if(tcp_sd >= 0){
+    ret = (int)TEMP_FAILURE_RETRY(close(tcp_sd));
+  }
   if(ret == -1){
     perror("close");
   }
   gnutls_deinit(session);
+  if(quit_now){
+    retval = -1;
+  }
   return retval;
 }
 
@@ -847,6 +917,10 @@ static void browse_callback(AvahiSServiceBrowser *b,
   
   /* Called whenever a new services becomes available on the LAN or
      is removed from the LAN */
+  
+  if(quit_now){
+    return;
+  }
   
   switch(event){
   default:
