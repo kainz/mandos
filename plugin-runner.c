@@ -110,13 +110,18 @@ static plugin *getplugin(char *name){
     }
   }
   /* Create a new plugin */
-  plugin *new_plugin = malloc(sizeof(plugin));
+  plugin *new_plugin = NULL;
+  do{
+    new_plugin = malloc(sizeof(plugin));
+  }while(new_plugin == NULL and errno == EINTR);
   if(new_plugin == NULL){
     return NULL;
   }
   char *copy_name = NULL;
   if(name != NULL){
-    copy_name = strdup(name);
+    do{
+      copy_name = strdup(name);
+    }while(copy_name == NULL and errno == EINTR);
     if(copy_name == NULL){
       free(new_plugin);
       return NULL;
@@ -128,7 +133,9 @@ static plugin *getplugin(char *name){
 			  .disabled = false,
 			  .next = plugin_list };
   
-  new_plugin->argv = malloc(sizeof(char *) * 2);
+  do{
+    new_plugin->argv = malloc(sizeof(char *) * 2);
+  }while(new_plugin->argv == NULL and errno == EINTR);
   if(new_plugin->argv == NULL){
     free(copy_name);
     free(new_plugin);
@@ -137,7 +144,9 @@ static plugin *getplugin(char *name){
   new_plugin->argv[0] = copy_name;
   new_plugin->argv[1] = NULL;
   
-  new_plugin->environ = malloc(sizeof(char *));
+  do{
+    new_plugin->environ = malloc(sizeof(char *));
+  }while(new_plugin->environ == NULL and errno == EINTR);
   if(new_plugin->environ == NULL){
     free(copy_name);
     free(new_plugin->argv);
@@ -155,14 +164,19 @@ static plugin *getplugin(char *name){
 static bool add_to_char_array(const char *new, char ***array,
 			      int *len){
   /* Resize the pointed-to array to hold one more pointer */
-  *array = realloc(*array, sizeof(char *)
-		   * (size_t) ((*len) + 2));
+  do{
+    *array = realloc(*array, sizeof(char *)
+		     * (size_t) ((*len) + 2));
+  }while(*array == NULL and errno == EINTR);
   /* Malloc check */
   if(*array == NULL){
     return false;
   }
   /* Make a copy of the new string */
-  char *copy = strdup(new);
+  char *copy;
+  do{
+    copy = strdup(new);
+  }while(copy == NULL and errno == EINTR);
   if(copy == NULL){
     return false;
   }
@@ -194,7 +208,10 @@ static bool add_environment(plugin *p, const char *def, bool replace){
     if(strncmp(*e, def, namelen + 1) == 0){
       /* It already exists */
       if(replace){
-	char *new = realloc(*e, strlen(def) + 1);
+	char *new;
+	do{
+	  new = realloc(*e, strlen(def) + 1);
+	}while(new == NULL and errno == EINTR);
 	if(new == NULL){
 	  return false;
 	}
@@ -213,13 +230,13 @@ static bool add_environment(plugin *p, const char *def, bool replace){
  | [[info:libc:Descriptor%20Flags][File Descriptor Flags]] |
  */
 static int set_cloexec_flag(int fd){
-  int ret = fcntl(fd, F_GETFD, 0);
+  int ret = TEMP_FAILURE_RETRY(fcntl(fd, F_GETFD, 0));
   /* If reading the flags failed, return error indication now. */
   if(ret < 0){
     return ret;
   }
   /* Store modified flag word in the descriptor. */
-  return fcntl(fd, F_SETFD, ret | FD_CLOEXEC);
+  return TEMP_FAILURE_RETRY(fcntl(fd, F_SETFD, ret | FD_CLOEXEC));
 }
 
 
@@ -709,7 +726,9 @@ int main(int argc, char *argv[]){
   
   /* Read and execute any executable in the plugin directory*/
   while(true){
-    dirst = readdir(dir);
+    do{
+      dirst = readdir(dir);
+    }while(dirst == NULL and errno == EINTR);
     
     /* All directory entries have been processed */
     if(dirst == NULL){
@@ -769,16 +788,18 @@ int main(int argc, char *argv[]){
     
     char *filename;
     if(plugindir == NULL){
-      ret = asprintf(&filename, PDIR "/%s", dirst->d_name);
+      ret = TEMP_FAILURE_RETRY(asprintf(&filename, PDIR "/%s",
+					dirst->d_name));
     } else {
-      ret = asprintf(&filename, "%s/%s", plugindir, dirst->d_name);
+      ret = TEMP_FAILURE_RETRY(asprintf(&filename, "%s/%s", plugindir,
+					dirst->d_name));
     }
     if(ret < 0){
       perror("asprintf");
       continue;
     }
     
-    ret = stat(filename, &st);
+    ret = TEMP_FAILURE_RETRY(stat(filename, &st));
     if(ret == -1){
       perror("stat");
       free(filename);
@@ -786,7 +807,8 @@ int main(int argc, char *argv[]){
     }
     
     /* Ignore non-executable files */
-    if(not S_ISREG(st.st_mode) or (access(filename, X_OK) != 0)){
+    if(not S_ISREG(st.st_mode)
+       or (TEMP_FAILURE_RETRY(access(filename, X_OK)) != 0)){
       if(debug){
 	fprintf(stderr, "Ignoring plugin dir entry \"%s\""
 		" with bad type or mode\n", filename);
@@ -838,7 +860,7 @@ int main(int argc, char *argv[]){
     }
     
     int pipefd[2];
-    ret = pipe(pipefd);
+    ret = TEMP_FAILURE_RETRY(pipe(pipefd));
     if(ret == -1){
       perror("pipe");
       exitstatus = EXIT_FAILURE;
@@ -858,14 +880,19 @@ int main(int argc, char *argv[]){
       goto fallback;
     }
     /* Block SIGCHLD until process is safely in process list */
-    ret = sigprocmask(SIG_BLOCK, &sigchld_action.sa_mask, NULL);
+    ret = TEMP_FAILURE_RETRY(sigprocmask(SIG_BLOCK,
+					 &sigchld_action.sa_mask,
+					 NULL));
     if(ret < 0){
       perror("sigprocmask");
       exitstatus = EXIT_FAILURE;
       goto fallback;
     }
     /* Starting a new process to be watched */
-    pid_t pid = fork();
+    pid_t pid;
+    do{
+      pid = fork();
+    }while(pid == -1 and errno == EINTR);
     if(pid == -1){
       perror("fork");
       exitstatus = EXIT_FAILURE;
@@ -909,12 +936,15 @@ int main(int argc, char *argv[]){
       /* no return */
     }
     /* Parent process */
-    close(pipefd[1]);		/* Close unused write end of pipe */
+    TEMP_FAILURE_RETRY(close(pipefd[1])); /* Close unused write end of
+					     pipe */
     free(filename);
     plugin *new_plugin = getplugin(dirst->d_name);
     if(new_plugin == NULL){
       perror("getplugin");
-      ret = sigprocmask(SIG_UNBLOCK, &sigchld_action.sa_mask, NULL);
+      ret = TEMP_FAILURE_RETRY(sigprocmask(SIG_UNBLOCK,
+					   &sigchld_action.sa_mask,
+					   NULL));
       if(ret < 0){
         perror("sigprocmask");
       }
@@ -927,7 +957,9 @@ int main(int argc, char *argv[]){
     
     /* Unblock SIGCHLD so signal handler can be run if this process
        has already completed */
-    ret = sigprocmask(SIG_UNBLOCK, &sigchld_action.sa_mask, NULL);
+    ret = TEMP_FAILURE_RETRY(sigprocmask(SIG_UNBLOCK,
+					 &sigchld_action.sa_mask,
+					 NULL));
     if(ret < 0){
       perror("sigprocmask");
       exitstatus = EXIT_FAILURE;
@@ -941,7 +973,7 @@ int main(int argc, char *argv[]){
     }
   }
   
-  closedir(dir);
+  TEMP_FAILURE_RETRY(closedir(dir));
   dir = NULL;
   free_plugin(getplugin(NULL));
   
@@ -960,7 +992,7 @@ int main(int argc, char *argv[]){
   while(plugin_list){
     fd_set rfds = rfds_all;
     int select_ret = select(maxfd+1, &rfds, NULL, NULL, NULL);
-    if(select_ret == -1){
+    if(select_ret == -1 and errno != EINTR){
       perror("select");
       exitstatus = EXIT_FAILURE;
       goto fallback;
@@ -997,7 +1029,9 @@ int main(int argc, char *argv[]){
 	  FD_CLR(proc->fd, &rfds_all);
 	  
 	  /* Block signal while modifying process_list */
-	  ret = sigprocmask(SIG_BLOCK, &sigchld_action.sa_mask, NULL);
+	  ret = TEMP_FAILURE_RETRY(sigprocmask(SIG_BLOCK,
+					       &sigchld_action.sa_mask,
+					       NULL));
 	  if(ret < 0){
 	    perror("sigprocmask");
 	    exitstatus = EXIT_FAILURE;
@@ -1009,8 +1043,9 @@ int main(int argc, char *argv[]){
 	  proc = next_plugin;
 	  
 	  /* We are done modifying process list, so unblock signal */
-	  ret = sigprocmask(SIG_UNBLOCK, &sigchld_action.sa_mask,
-			    NULL);
+	  ret = TEMP_FAILURE_RETRY(sigprocmask(SIG_UNBLOCK,
+					       &sigchld_action.sa_mask,
+					       NULL));
 	  if(ret < 0){
 	    perror("sigprocmask");
 	    exitstatus = EXIT_FAILURE;
@@ -1053,8 +1088,10 @@ int main(int argc, char *argv[]){
 	proc->buffer_size += BUFFER_SIZE;
       }
       /* Read from the process */
-      sret = read(proc->fd, proc->buffer + proc->buffer_length,
-		  BUFFER_SIZE);
+      sret = TEMP_FAILURE_RETRY(read(proc->fd,
+				     proc->buffer
+				     + proc->buffer_length,
+				     BUFFER_SIZE));
       if(sret < 0){
 	/* Read error from this process; ignore the error */
 	proc = proc->next;
