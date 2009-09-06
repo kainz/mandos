@@ -48,9 +48,14 @@
 				   WEXITSTATUS() */
 
 sig_atomic_t interrupted_by_signal = 0;
+int signal_received;
 
-static void termination_handler(__attribute__((unused))int signum){
+static void termination_handler(int signum){
+  if(interrupted_by_signal){
+    return;
+  }
   interrupted_by_signal = 1;
+  signal_received = signum;
 }
 
 int main(__attribute__((unused))int argc,
@@ -170,8 +175,23 @@ int main(__attribute__((unused))int argc,
 		     .sa_flags = 0 };
     sigemptyset(&new_action.sa_mask);
     sigaddset(&new_action.sa_mask, SIGINT);
+    if(ret == -1){
+      perror("sigaddset");
+      free(prompt);
+      return EXIT_FAILURE;
+    }
     sigaddset(&new_action.sa_mask, SIGHUP);
+    if(ret == -1){
+      perror("sigaddset");
+      free(prompt);
+      return EXIT_FAILURE;
+    }
     sigaddset(&new_action.sa_mask, SIGTERM);
+    if(ret == -1){
+      perror("sigaddset");
+      free(prompt);
+      return EXIT_FAILURE;
+    }
     ret = sigaction(SIGINT, NULL, &old_action);
     if(ret == -1){
       perror("sigaction");

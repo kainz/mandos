@@ -804,11 +804,11 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   }
   
   if(buffer_length > 0){
+    ssize_t decrypted_buffer_size;
     decrypted_buffer_size = pgp_packet_decrypt(buffer,
 					       buffer_length,
 					       &decrypted_buffer);
     if(decrypted_buffer_size >= 0){
-      ssize_t decrypted_buffer_size;
       
       written = 0;
       while(written < (size_t) decrypted_buffer_size){
