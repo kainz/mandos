@@ -19,8 +19,7 @@
  * along with this program.  If not, see
  * <http://www.gnu.org/licenses/>.
  * 
- * Contact the authors at <https://www.fukt.bsnet.se/~belorn/> and
- * <https://www.fukt.bsnet.se/~teddy/>.
+ * Contact the authors at <mandos@fukt.bsnet.se>.
  */
 
 #define _GNU_SOURCE		/* asprintf() */
@@ -64,12 +63,12 @@ static bool usplash_write(const char *cmd, const char *arg){
    */
   int ret;
   int fifo_fd;
-  do{
+  do {
     fifo_fd = open("/dev/.initramfs/usplash_fifo", O_WRONLY);
     if((fifo_fd == -1) and (errno != EINTR or interrupted_by_signal)){
       return false;
     }
-  }while(fifo_fd == -1);
+  } while(fifo_fd == -1);
   
   const char *cmd_line;
   size_t cmd_line_len;
@@ -77,8 +76,8 @@ static bool usplash_write(const char *cmd, const char *arg){
   if(arg == NULL){
     cmd_line = cmd;
     cmd_line_len = strlen(cmd);
-  }else{
-    do{
+  } else {
+    do {
       ret = asprintf(&cmd_line_alloc, "%s %s", cmd, arg);
       if(ret == -1 and (errno != EINTR or interrupted_by_signal)){
 	int e = errno;
@@ -86,7 +85,7 @@ static bool usplash_write(const char *cmd, const char *arg){
 	errno = e;
 	return false;
       }
-    }while(ret == -1);
+    } while(ret == -1);
     cmd_line = cmd_line_alloc;
     cmd_line_len = (size_t)ret + 1;
   }
@@ -110,12 +109,12 @@ static bool usplash_write(const char *cmd, const char *arg){
     written += (size_t)sret;
   }
   free(cmd_line_alloc);
-  do{
+  do {
     ret = close(fifo_fd);
     if(ret == -1 and (errno != EINTR or interrupted_by_signal)){
       return false;
     }
-  }while(ret == -1);
+  } while(ret == -1);
   if(interrupted_by_signal){
     return false;
   }
@@ -252,7 +251,7 @@ int main(__attribute__((unused))int argc,
 	  size_t cmdline_allocated = 0;
 	  char *tmp;
 	  const size_t blocksize = 1024;
-	  do{
+	  do {
 	    if(cmdline_len + blocksize > cmdline_allocated){
 	      tmp = realloc(cmdline, cmdline_allocated + blocksize);
 	      if(tmp == NULL){
@@ -366,7 +365,7 @@ int main(__attribute__((unused))int argc,
     
     /* Open FIFO */
     int fifo_fd;
-    do{
+    do {
       fifo_fd = open("/dev/.initramfs/usplash_outfifo", O_RDONLY);
       if(fifo_fd == -1){
 	if(errno != EINTR){
@@ -378,7 +377,7 @@ int main(__attribute__((unused))int argc,
 	  break;
 	}
       }
-    }while(fifo_fd == -1);
+    } while(fifo_fd == -1);
     if(interrupted_by_signal or an_error_occured){
       break;			/* Big */
     }
@@ -386,7 +385,7 @@ int main(__attribute__((unused))int argc,
     /* Read from FIFO */
     size_t buf_allocated = 0;
     const size_t blocksize = 1024;
-    do{
+    do {
       if(buf_len + blocksize > buf_allocated){
 	char *tmp = realloc(buf, buf_allocated + blocksize);
 	if(tmp == NULL){
@@ -397,7 +396,7 @@ int main(__attribute__((unused))int argc,
 	buf = tmp;
 	buf_allocated += blocksize;
       }
-      do{
+      do {
 	sret = read(fifo_fd, buf + buf_len, buf_allocated - buf_len);
 	if(sret == -1){
 	  if(errno != EINTR){
@@ -409,13 +408,13 @@ int main(__attribute__((unused))int argc,
 	    break;
 	  }
 	}
-      }while(sret == -1);
+      } while(sret == -1);
       if(interrupted_by_signal or an_error_occured){
 	break;
       }
       
       buf_len += (size_t)sret;
-    }while(sret != 0);
+    } while(sret != 0);
     close(fifo_fd);
     if(interrupted_by_signal or an_error_occured){
       break;			/* Big */
@@ -433,7 +432,7 @@ int main(__attribute__((unused))int argc,
     /* Print password to stdout */
     size_t written = 0;
     while(written < buf_len){
-      do{
+      do {
 	sret = write(STDOUT_FILENO, buf + written, buf_len - written);
 	if(sret == -1){
 	  if(errno != EINTR){
@@ -445,7 +444,7 @@ int main(__attribute__((unused))int argc,
 	    break;
 	  }
 	}
-      }while(sret == -1);
+      } while(sret == -1);
       if(interrupted_by_signal or an_error_occured){
 	break;
       }

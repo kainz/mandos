@@ -164,7 +164,6 @@ size_t incbuffer(char **buffer, size_t buffer_length,
  */
 static bool init_gpgme(const char *seckey,
 		       const char *pubkey, const char *tempdir){
-  int ret;
   gpgme_error_t rc;
   gpgme_engine_info_t engine_info;
   
@@ -173,6 +172,7 @@ static bool init_gpgme(const char *seckey,
    * Helper function to insert pub and seckey to the engine keyring.
    */
   bool import_key(const char *filename){
+    int ret;
     int fd;
     gpgme_data_t pgp_data;
     
@@ -531,7 +531,6 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   char *decrypted_buffer;
   size_t buffer_length = 0;
   size_t buffer_capacity = 0;
-  ssize_t decrypted_buffer_size;
   size_t written;
   int retval = 0;
   gnutls_session_t session;
@@ -712,7 +711,7 @@ static int start_mandos_communication(const char *ip, uint16_t port,
     goto mandos_end;
   }
   
-  do{
+  do {
     ret = gnutls_handshake(session);
     if(quit_now){
       goto mandos_end;
@@ -764,7 +763,7 @@ static int start_mandos_communication(const char *ip, uint16_t port,
       case GNUTLS_E_AGAIN:
 	break;
       case GNUTLS_E_REHANDSHAKE:
-	do{
+	do {
 	  ret = gnutls_handshake(session);
 	  
 	  if(quit_now){
@@ -805,10 +804,12 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   }
   
   if(buffer_length > 0){
+    ssize_t decrypted_buffer_size;
     decrypted_buffer_size = pgp_packet_decrypt(buffer,
 					       buffer_length,
 					       &decrypted_buffer);
     if(decrypted_buffer_size >= 0){
+      
       written = 0;
       while(written < (size_t) decrypted_buffer_size){
 	if(quit_now){
