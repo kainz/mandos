@@ -711,7 +711,7 @@ static int start_mandos_communication(const char *ip, uint16_t port,
     goto mandos_end;
   }
   
-  do{
+  do {
     ret = gnutls_handshake(session);
     if(quit_now){
       goto mandos_end;
@@ -763,7 +763,7 @@ static int start_mandos_communication(const char *ip, uint16_t port,
       case GNUTLS_E_AGAIN:
 	break;
       case GNUTLS_E_REHANDSHAKE:
-	do{
+	do {
 	  ret = gnutls_handshake(session);
 	  
 	  if(quit_now){

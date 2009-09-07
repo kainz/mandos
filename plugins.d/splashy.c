@@ -19,11 +19,10 @@
  * along with this program.  If not, see
  * <http://www.gnu.org/licenses/>.
  * 
- * Contact the authors at <https://www.fukt.bsnet.se/~belorn/> and
- * <https://www.fukt.bsnet.se/~teddy/>.
+ * Contact the authors at <mandos@fukt.bsnet.se>.
  */
 
-#define _GNU_SOURCE		/* asprintf() */
+#define _GNU_SOURCE		/* TEMP_FAILURE_RETRY(), asprintf() */
 #include <signal.h>		/* sig_atomic_t, struct sigaction,
 				   sigemptyset(), sigaddset(), SIGINT,
 				   SIGHUP, SIGTERM, sigaction,
@@ -41,7 +40,8 @@
 #include <iso646.h>		/* not, or, and */
 #include <unistd.h>		/* readlink(), fork(), execl(),
 				   sleep(), dup2() STDERR_FILENO,
-				   STDOUT_FILENO, _exit() */
+				   STDOUT_FILENO, _exit(),
+				   pause() */
 #include <string.h>		/* memcmp() */
 #include <errno.h>		/* errno */
 #include <sys/wait.h>		/* waitpid(), WIFEXITED(),
@@ -61,9 +61,12 @@ static void termination_handler(int signum){
 int main(__attribute__((unused))int argc,
 	 __attribute__((unused))char **argv){
   int ret = 0;
+  char *prompt = NULL;
+  DIR *proc_dir = NULL;
+  pid_t splashy_pid = 0;
+  pid_t splashy_command_pid = 0;
   
   /* Create prompt string */
-  char *prompt = NULL;
   {
     const char *const cryptsource = getenv("cryptsource");
     const char *const crypttarget = getenv("crypttarget");
@@ -86,19 +89,18 @@ int main(__attribute__((unused))int argc,
       }
     }
     if(ret == -1){
-      return EXIT_FAILURE;
+      prompt = NULL;
+      goto failure;
     }
   }
   
   /* Find splashy process */
-  pid_t splashy_pid = 0;
   {
     const char splashy_name[] = "/sbin/splashy";
-    DIR *proc_dir = opendir("/proc");
+    proc_dir = opendir("/proc");
     if(proc_dir == NULL){
-      free(prompt);
       perror("opendir");
-      return EXIT_FAILURE;
+      goto failure;
     }
     for(struct dirent *proc_ent = readdir(proc_dir);
 	proc_ent != NULL;
@@ -125,9 +127,7 @@ int main(__attribute__((unused))int argc,
 	ret = asprintf(&exe_link, "/proc/%s/exe", proc_ent->d_name);
 	if(ret == -1){
 	  perror("asprintf");
-	  free(prompt);
-	  closedir(proc_dir);
-	  return EXIT_FAILURE;
+	  goto failure;
 	}
 	
 	/* Check that it refers to a symlink owned by root:root */
@@ -140,9 +140,7 @@ int main(__attribute__((unused))int argc,
 	  }
 	  perror("lstat");
 	  free(exe_link);
-	  free(prompt);
-	  closedir(proc_dir);
-	  return EXIT_FAILURE;
+	  goto failure;
 	}
 	if(not S_ISLNK(exe_stat.st_mode)
 	   or exe_stat.st_uid != 0
@@ -162,10 +160,10 @@ int main(__attribute__((unused))int argc,
       }
     }
     closedir(proc_dir);
+    proc_dir = NULL;
   }
   if(splashy_pid == 0){
-    free(prompt);
-    return EXIT_FAILURE;
+    goto failure;
   }
   
   /* Set up the signal handler */
@@ -177,147 +175,177 @@ int main(__attribute__((unused))int argc,
     sigaddset(&new_action.sa_mask, SIGINT);
     if(ret == -1){
       perror("sigaddset");
-      free(prompt);
-      return EXIT_FAILURE;
+      goto failure;
     }
     sigaddset(&new_action.sa_mask, SIGHUP);
     if(ret == -1){
       perror("sigaddset");
-      free(prompt);
-      return EXIT_FAILURE;
+      goto failure;
     }
     sigaddset(&new_action.sa_mask, SIGTERM);
     if(ret == -1){
       perror("sigaddset");
-      free(prompt);
-      return EXIT_FAILURE;
+      goto failure;
     }
     ret = sigaction(SIGINT, NULL, &old_action);
     if(ret == -1){
       perror("sigaction");
-      free(prompt);
-      return EXIT_FAILURE;
+      goto failure;
     }
     if(old_action.sa_handler != SIG_IGN){
       ret = sigaction(SIGINT, &new_action, NULL);
       if(ret == -1){
 	perror("sigaction");
-	free(prompt);
-	return EXIT_FAILURE;
+	goto failure;
       }
     }
     ret = sigaction(SIGHUP, NULL, &old_action);
     if(ret == -1){
       perror("sigaction");
-      free(prompt);
-      return EXIT_FAILURE;
+      goto failure;
     }
     if(old_action.sa_handler != SIG_IGN){
       ret = sigaction(SIGHUP, &new_action, NULL);
       if(ret == -1){
 	perror("sigaction");
-	free(prompt);
-	return EXIT_FAILURE;
+	goto failure;
       }
     }
     ret = sigaction(SIGTERM, NULL, &old_action);
     if(ret == -1){
       perror("sigaction");
-      free(prompt);
-      return EXIT_FAILURE;
+      goto failure;
     }
     if(old_action.sa_handler != SIG_IGN){
       ret = sigaction(SIGTERM, &new_action, NULL);
       if(ret == -1){
 	perror("sigaction");
-	free(prompt);
-	return EXIT_FAILURE;
+	goto failure;
       }
     }
   }
   
+  if(interrupted_by_signal){
+    goto failure;
+  }
+  
   /* Fork off the splashy command to prompt for password */
-  pid_t splashy_command_pid = 0;
-  if(not interrupted_by_signal){
-    splashy_command_pid = fork();
-    if(splashy_command_pid == -1){
-      if(not interrupted_by_signal){
-	perror("fork");
-      }
-      return EXIT_FAILURE;
-    }
-    /* Child */
-    if(splashy_command_pid == 0){
+  splashy_command_pid = fork();
+  if(splashy_command_pid != 0 and interrupted_by_signal){
+    goto failure;
+  }
+  if(splashy_command_pid == -1){
+    perror("fork");
+    goto failure;
+  }
+  /* Child */
+  if(splashy_command_pid == 0){
+    if(not interrupted_by_signal){
       const char splashy_command[] = "/sbin/splashy_update";
-      ret = execl(splashy_command, splashy_command, prompt,
-		  (char *)NULL);
-      if(not interrupted_by_signal){
-	perror("execl");
-      }
-      free(prompt);
-      _exit(EXIT_FAILURE);
+      execl(splashy_command, splashy_command, prompt, (char *)NULL);
+      perror("execl");
     }
+    free(prompt);
+    _exit(EXIT_FAILURE);
   }
   
   /* Parent */
   free(prompt);
+  prompt = NULL;
+  
+  if(interrupted_by_signal){
+    goto failure;
+  }
   
   /* Wait for command to complete */
-  if(not interrupted_by_signal and splashy_command_pid != 0){
+  {
     int status;
-    ret = waitpid(splashy_command_pid, &status, 0);
+    do {
+      ret = waitpid(splashy_command_pid, &status, 0);
+    } while(ret == -1 and errno == EINTR
+	    and not interrupted_by_signal);
+    if(interrupted_by_signal){
+      goto failure;
+    }
     if(ret == -1){
-      if(errno != EINTR){
-	perror("waitpid");
-      }
+      perror("waitpid");
       if(errno == ECHILD){
 	splashy_command_pid = 0;
       }
     } else {
       /* The child process has exited */
       splashy_command_pid = 0;
-      if(not interrupted_by_signal and WIFEXITED(status)
-	 and WEXITSTATUS(status)==0){
+      if(WIFEXITED(status) and WEXITSTATUS(status) == 0){
 	return EXIT_SUCCESS;
       }
     }
   }
-  kill(splashy_pid, SIGTERM);
-  if(interrupted_by_signal and splashy_command_pid != 0){
-    kill(splashy_command_pid, SIGTERM);
+  
+ failure:
+  
+  free(prompt);
+  
+  if(proc_dir != NULL){
+    TEMP_FAILURE_RETRY(closedir(proc_dir));
   }
-  sleep(2);
-  while(kill(splashy_pid, 0) == 0){
-    kill(splashy_pid, SIGKILL);
-    sleep(1);
-  }
-  pid_t new_splashy_pid = fork();
-  if(new_splashy_pid == 0){
-    /* Child; will become new splashy process */
+  
+  if(splashy_command_pid != 0){
+    TEMP_FAILURE_RETRY(kill(splashy_command_pid, SIGTERM));
     
-    /* Make the effective user ID (root) the only user ID instead of
-       the real user ID (_mandos) */
-    ret = setuid(geteuid());
-    if(ret == -1){
-      perror("setuid");
+    TEMP_FAILURE_RETRY(kill(splashy_pid, SIGTERM));
+    sleep(2);
+    while(TEMP_FAILURE_RETRY(kill(splashy_pid, 0)) == 0){
+      TEMP_FAILURE_RETRY(kill(splashy_pid, SIGKILL));
+      sleep(1);
     }
+    pid_t new_splashy_pid = TEMP_FAILURE_RETRY(fork());
+    if(new_splashy_pid == 0){
+      /* Child; will become new splashy process */
+      
+      /* Make the effective user ID (root) the only user ID instead of
+	 the real user ID (_mandos) */
+      ret = setuid(geteuid());
+      if(ret == -1){
+	perror("setuid");
+      }
+      
+      setsid();
+      ret = chdir("/");
+      if(ret == -1){
+	perror("chdir");
+      }
+/*       if(fork() != 0){ */
+/* 	_exit(EXIT_SUCCESS); */
+/*       } */
+      ret = dup2(STDERR_FILENO, STDOUT_FILENO); /* replace stdout */
+      if(ret == -1){
+	perror("dup2");
+	_exit(EXIT_FAILURE);
+      }
     
-    setsid();
-    ret = chdir("/");
-/*     if(fork() != 0){ */
-/*       _exit(EXIT_SUCCESS); */
-/*     } */
-    ret = dup2(STDERR_FILENO, STDOUT_FILENO); /* replace our stdout */
-    if(ret == -1){
-      perror("dup2");
+      execl("/sbin/splashy", "/sbin/splashy", "boot", (char *)NULL);
+      perror("execl");
       _exit(EXIT_FAILURE);
     }
-    
-    execl("/sbin/splashy", "/sbin/splashy", "boot", (char *)NULL);
-    if(not interrupted_by_signal){
-      perror("execl");
+  }
+  
+  if(interrupted_by_signal){
+    struct sigaction signal_action;
+    sigemptyset(&signal_action.sa_mask);
+    signal_action.sa_handler = SIG_DFL;
+    ret = TEMP_FAILURE_RETRY(sigaction(signal_received,
+				       &signal_action, NULL));
+    if(ret == -1){
+      perror("sigaction");
     }
-    _exit(EXIT_FAILURE);
+    do {
+      ret = raise(signal_received);
+    } while(ret != 0 and errno == EINTR);
+    if(ret != 0){
+      perror("raise");
+      abort();
+    }
+    TEMP_FAILURE_RETRY(pause());
   }
   
   return EXIT_FAILURE;

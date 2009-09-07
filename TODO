@@ -4,9 +4,12 @@
 ** TODO [#A] Clean up /tmp directory and take down interface on signal	  :test:
 ** TODO [#B] use scandir(3) instead of readdir(3)
 ** TODO [#B] Prefix all debug output with argv[0]
+** TODO [#B] Retry a server which has a non-definite reply.
+*** A closed connection during the TLS handshake
+*** A TCP timeout
 
 * splashy
-** TODO [#A] Re-raise signal received when exiting due to handled signal.
+** TODO [#A] Re-raise signal received when exiting due to handled signal  :test:
 ** TODO [#B] use scandir(3) instead of readdir(3)
 ** TODO [#B] Prefix all debug output with argv[0]
 

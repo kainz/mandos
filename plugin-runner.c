@@ -111,17 +111,17 @@ static plugin *getplugin(char *name){
   }
   /* Create a new plugin */
   plugin *new_plugin = NULL;
-  do{
+  do {
     new_plugin = malloc(sizeof(plugin));
-  }while(new_plugin == NULL and errno == EINTR);
+  } while(new_plugin == NULL and errno == EINTR);
   if(new_plugin == NULL){
     return NULL;
   }
   char *copy_name = NULL;
   if(name != NULL){
-    do{
+    do {
       copy_name = strdup(name);
-    }while(copy_name == NULL and errno == EINTR);
+    } while(copy_name == NULL and errno == EINTR);
     if(copy_name == NULL){
       free(new_plugin);
       return NULL;
@@ -133,9 +133,9 @@ static plugin *getplugin(char *name){
 			  .disabled = false,
 			  .next = plugin_list };
   
-  do{
+  do {
     new_plugin->argv = malloc(sizeof(char *) * 2);
-  }while(new_plugin->argv == NULL and errno == EINTR);
+  } while(new_plugin->argv == NULL and errno == EINTR);
   if(new_plugin->argv == NULL){
     free(copy_name);
     free(new_plugin);
@@ -144,9 +144,9 @@ static plugin *getplugin(char *name){
   new_plugin->argv[0] = copy_name;
   new_plugin->argv[1] = NULL;
   
-  do{
+  do {
     new_plugin->environ = malloc(sizeof(char *));
-  }while(new_plugin->environ == NULL and errno == EINTR);
+  } while(new_plugin->environ == NULL and errno == EINTR);
   if(new_plugin->environ == NULL){
     free(copy_name);
     free(new_plugin->argv);
@@ -164,19 +164,19 @@ static plugin *getplugin(char *name){
 static bool add_to_char_array(const char *new, char ***array,
 			      int *len){
   /* Resize the pointed-to array to hold one more pointer */
-  do{
+  do {
     *array = realloc(*array, sizeof(char *)
 		     * (size_t) ((*len) + 2));
-  }while(*array == NULL and errno == EINTR);
+  } while(*array == NULL and errno == EINTR);
   /* Malloc check */
   if(*array == NULL){
     return false;
   }
   /* Make a copy of the new string */
   char *copy;
-  do{
+  do {
     copy = strdup(new);
-  }while(copy == NULL and errno == EINTR);
+  } while(copy == NULL and errno == EINTR);
   if(copy == NULL){
     return false;
   }
@@ -209,9 +209,9 @@ static bool add_environment(plugin *p, const char *def, bool replace){
       /* It already exists */
       if(replace){
 	char *new;
-	do{
+	do {
 	  new = realloc(*e, strlen(def) + 1);
-	}while(new == NULL and errno == EINTR);
+	} while(new == NULL and errno == EINTR);
 	if(new == NULL){
 	  return false;
 	}
@@ -634,9 +634,9 @@ int main(int argc, char *argv[]){
 	custom_argv[custom_argc] = NULL;
       }
     }
-    do{
+    do {
       ret = fclose(conffp);
-    }while(ret == EOF and errno == EINTR);
+    } while(ret == EOF and errno == EINTR);
     if(ret == EOF){
       perror("fclose");
       exitstatus = EXIT_FAILURE;
@@ -726,9 +726,9 @@ int main(int argc, char *argv[]){
   
   /* Read and execute any executable in the plugin directory*/
   while(true){
-    do{
+    do {
       dirst = readdir(dir);
-    }while(dirst == NULL and errno == EINTR);
+    } while(dirst == NULL and errno == EINTR);
     
     /* All directory entries have been processed */
     if(dirst == NULL){
@@ -890,9 +890,9 @@ int main(int argc, char *argv[]){
     }
     /* Starting a new process to be watched */
     pid_t pid;
-    do{
+    do {
       pid = fork();
-    }while(pid == -1 and errno == EINTR);
+    } while(pid == -1 and errno == EINTR);
     if(pid == -1){
       perror("fork");
       exitstatus = EXIT_FAILURE;
@@ -1159,7 +1159,7 @@ int main(int argc, char *argv[]){
   }
   
   /* Wait for any remaining child processes to terminate */
-  do{
+  do {
     ret = wait(NULL);
   } while(ret >= 0);
   if(errno != ECHILD){
