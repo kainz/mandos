@@ -811,7 +811,8 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
                     client = c
                     break
             else:
-                ipc.write(u"NOTFOUND %s\n" % fpr)
+                ipc.write(u"NOTFOUND %s %s\n"
+                          % (fpr, unicode(self.client_address)))
                 session.bye()
                 return
             # Have to check if client.still_valid(), since it is
@@ -900,7 +901,7 @@ class ForkingMixInWithPipe(socketserver.ForkingMixIn, object):
     def process_request(self, request, client_address):
         """Overrides and wraps the original process_request().
         
-        This function creates a new pipe in self.pipe 
+        This function creates a new pipe in self.pipe
         """
         self.pipe = os.pipe()
         super(ForkingMixInWithPipe,

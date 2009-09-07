@@ -1,9 +1,25 @@
 -*- org -*-
 
 * mandos-client
-** TODO [#A] Clean up /tmp directory and take down interface on signal
+** TODO [#A] Clean up /tmp directory and take down interface on signal	  :test:
+** TODO [#B] use scandir(3) instead of readdir(3)
+** TODO [#B] Prefix all debug output with argv[0]
+
+* splashy
+** TODO [#A] Re-raise signal received when exiting due to handled signal.
+** TODO [#B] use scandir(3) instead of readdir(3)
+** TODO [#B] Prefix all debug output with argv[0]
+
+* usplash
+** TODO [#A] Re-raise signal received when exiting due to handled signal.
+** TODO [#B] use scandir(3) instead of readdir(3)
+** TODO [#B] Prefix all debug output with argv[0]
+
+* password-prompt
+** TODO [#B] Prefix all debug output with argv[0]
 
 * plugin-runner
+** TODO [#A] Do not handle ignored signals
 ** TODO [#B] use scandir(3) instead of readdir(3)
 ** TODO [#C] use same file name rules as run-parts(8)
 
@@ -28,6 +44,8 @@
 ** TODO Split IPv6_TCPServer into a generic and Mandos-specific class
 ** TODO move handle_ipc out of IPv6_TCPServer
 ** TODO DBusServiceObjectUsingSuper
+** Global enable/disable flag
+** By-client countdown on secrets given
 
 * mandos.xml
 ** [[file:mandos.xml::XXX][Document D-Bus interface]]

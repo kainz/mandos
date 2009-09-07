@@ -66,7 +66,7 @@ static bool usplash_write(const char *cmd, const char *arg){
   int fifo_fd;
   do{
     fifo_fd = open("/dev/.initramfs/usplash_fifo", O_WRONLY);
-    if(fifo_fd == -1 and (errno != EINTR or interrupted_by_signal)){
+    if((fifo_fd == -1) and (errno != EINTR or interrupted_by_signal)){
       return false;
     }
   }while(fifo_fd == -1);

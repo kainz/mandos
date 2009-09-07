@@ -38,7 +38,8 @@
 #include <sys/select.h>		/* fd_set, select(), FD_ZERO(),
 				   FD_SET(), FD_ISSET(), FD_CLR */
 #include <sys/wait.h>		/* wait(), waitpid(), WIFEXITED(),
-				   WEXITSTATUS() */
+				   WEXITSTATUS(), WTERMSIG(),
+				   WCOREDUMP() */
 #include <sys/stat.h>		/* struct stat, stat(), S_ISREG() */
 #include <iso646.h>		/* and, or, not */
 #include <dirent.h>		/* DIR, struct dirent, opendir(),
@@ -52,7 +53,8 @@
 				   close() */
 #include <fcntl.h>		/* fcntl(), F_GETFD, F_SETFD,
 				   FD_CLOEXEC */
-#include <string.h>		/* strsep, strlen(), asprintf() */
+#include <string.h>		/* strsep, strlen(), asprintf(),
+				   strsignal() */
 #include <errno.h>		/* errno */
 #include <argp.h>		/* struct argp_option, struct
 				   argp_state, struct argp,
@@ -457,7 +459,7 @@ int main(int argc, char *argv[]){
       plugindir = strdup(arg);
       if(plugindir == NULL){
 	perror("strdup");
-      }      
+      }
       break;
     case 129:			/* --config-file */
       /* This is already done by parse_opt_config_file() */
@@ -527,7 +529,7 @@ int main(int argc, char *argv[]){
       if(argfile == NULL){
 	perror("strdup");
       }
-      break;      
+      break;
     case 130:			/* --userid */
     case 131:			/* --groupid */
     case 132:			/* --debug */
@@ -562,7 +564,7 @@ int main(int argc, char *argv[]){
     conffp = fopen(AFILE, "r");
   } else {
     conffp = fopen(argfile, "r");
-  }  
+  }
   if(conffp != NULL){
     char *org_line = NULL;
     char *p, *arg, *new_arg, *line;
@@ -612,7 +614,7 @@ int main(int argc, char *argv[]){
 	  goto fallback;
 	}
 	custom_argv[custom_argc-1] = new_arg;
-	custom_argv[custom_argc] = NULL;	
+	custom_argv[custom_argc] = NULL;
       }
     }
     free(org_line);
@@ -973,9 +975,10 @@ int main(int argc, char *argv[]){
 		      WEXITSTATUS(proc->status));
 	    } else if(WIFSIGNALED(proc->status)){
 	      fprintf(stderr, "Plugin %s [%" PRIdMAX "] killed by"
-		      " signal %d\n", proc->name,
+		      " signal %d: %s\n", proc->name,
 		      (intmax_t) (proc->pid),
-		      WTERMSIG(proc->status));
+		      WTERMSIG(proc->status),
+		      strsignal(WTERMSIG(proc->status)));
 	    } else if(WCOREDUMP(proc->status)){
 	      fprintf(stderr, "Plugin %s [%" PRIdMAX "] dumped"
 		      " core\n", proc->name, (intmax_t) (proc->pid));

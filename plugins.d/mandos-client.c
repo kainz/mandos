@@ -80,8 +80,8 @@
 				   argp_parse(), ARGP_KEY_ARG,
 				   ARGP_KEY_END, ARGP_ERR_UNKNOWN */
 #include <signal.h>		/* sigemptyset(), sigaddset(),
-				   sigaction(), SIGTERM, sigaction,
-				   sig_atomic_t */
+				   sigaction(), SIGTERM, sig_atomic_t,
+				   raise() */
 
 #ifdef __linux__
 #include <sys/klog.h> 		/* klogctl() */
@@ -249,7 +249,7 @@ static bool init_gpgme(const char *seckey,
     return false;
   }
   
-  return true; 
+  return true;
 }
 
 /* 
@@ -514,11 +514,14 @@ static int init_gnutls_session(gnutls_session_t *session){
 static void empty_log(__attribute__((unused)) AvahiLogLevel level,
 		      __attribute__((unused)) const char *txt){}
 
+sig_atomic_t quit_now = 0;
+int signal_received = 0;
+
 /* Called when a Mandos server is found */
 static int start_mandos_communication(const char *ip, uint16_t port,
 				      AvahiIfIndex if_index,
 				      int af){
-  int ret, tcp_sd;
+  int ret, tcp_sd = -1;
   ssize_t sret;
   union {
     struct sockaddr_in in;
@@ -533,6 +536,10 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   int retval = 0;
   gnutls_session_t session;
   int pf;			/* Protocol family */
+  
+  if(quit_now){
+    return -1;
+  }
   
   switch(af){
   case AF_INET6:
@@ -559,7 +566,12 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   tcp_sd = socket(pf, SOCK_STREAM, 0);
   if(tcp_sd < 0){
     perror("socket");
-    return -1;
+    retval = -1;
+    goto mandos_end;
+  }
+  
+  if(quit_now){
+    goto mandos_end;
   }
   
   memset(&to, 0, sizeof(to));
@@ -572,11 +584,13 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   }
   if(ret < 0 ){
     perror("inet_pton");
-    return -1;
+    retval = -1;
+    goto mandos_end;
   }
   if(ret == 0){
     fprintf(stderr, "Bad address: %s\n", ip);
-    return -1;
+    retval = -1;
+    goto mandos_end;
   }
   if(af == AF_INET6){
     to.in6.sin6_port = htons(port); /* Spurious warnings from
@@ -589,7 +603,8 @@ static int start_mandos_communication(const char *ip, uint16_t port,
       if(if_index == AVAHI_IF_UNSPEC){
 	fprintf(stderr, "An IPv6 link-local address is incomplete"
 		" without a network interface\n");
-	return -1;
+	retval = -1;
+	goto mandos_end;
       }
       /* Set the network interface number as scope */
       to.in6.sin6_scope_id = (uint32_t)if_index;
@@ -598,6 +613,10 @@ static int start_mandos_communication(const char *ip, uint16_t port,
     to.in.sin_port = htons(port); /* Spurious warnings from
 				     -Wconversion and
 				     -Wunreachable-code */
+  }
+  
+  if(quit_now){
+    goto mandos_end;
   }
   
   if(debug){
@@ -632,6 +651,10 @@ static int start_mandos_communication(const char *ip, uint16_t port,
     }
   }
   
+  if(quit_now){
+    goto mandos_end;
+  }
+  
   if(af == AF_INET6){
     ret = connect(tcp_sd, &to.in6, sizeof(to));
   } else {
@@ -639,7 +662,12 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   }
   if(ret < 0){
     perror("connect");
-    return -1;
+    retval = -1;
+    goto mandos_end;
+  }
+  
+  if(quit_now){
+    goto mandos_end;
   }
   
   const char *out = mandos_protocol_version;
@@ -664,16 +692,31 @@ static int start_mandos_communication(const char *ip, uint16_t port,
 	break;
       }
     }
+  
+    if(quit_now){
+      goto mandos_end;
+    }
   }
   
   if(debug){
     fprintf(stderr, "Establishing TLS session with %s\n", ip);
   }
   
+  if(quit_now){
+    goto mandos_end;
+  }
+  
   gnutls_transport_set_ptr(session, (gnutls_transport_ptr_t) tcp_sd);
+  
+  if(quit_now){
+    goto mandos_end;
+  }
   
   do{
     ret = gnutls_handshake(session);
+    if(quit_now){
+      goto mandos_end;
+    }
   } while(ret == GNUTLS_E_AGAIN or ret == GNUTLS_E_INTERRUPTED);
   
   if(ret != GNUTLS_E_SUCCESS){
@@ -693,11 +736,20 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   }
   
   while(true){
+    
+    if(quit_now){
+      goto mandos_end;
+    }
+    
     buffer_capacity = incbuffer(&buffer, buffer_length,
 				   buffer_capacity);
     if(buffer_capacity == 0){
       perror("incbuffer");
       retval = -1;
+      goto mandos_end;
+    }
+    
+    if(quit_now){
       goto mandos_end;
     }
     
@@ -714,6 +766,10 @@ static int start_mandos_communication(const char *ip, uint16_t port,
       case GNUTLS_E_REHANDSHAKE:
 	do{
 	  ret = gnutls_handshake(session);
+	  
+	  if(quit_now){
+	    goto mandos_end;
+	  }
 	} while(ret == GNUTLS_E_AGAIN or ret == GNUTLS_E_INTERRUPTED);
 	if(ret < 0){
 	  fprintf(stderr, "*** GnuTLS Re-handshake failed ***\n");
@@ -738,7 +794,15 @@ static int start_mandos_communication(const char *ip, uint16_t port,
     fprintf(stderr, "Closing TLS session\n");
   }
   
+  if(quit_now){
+    goto mandos_end;
+  }
+  
   gnutls_bye(session, GNUTLS_SHUT_RDWR);
+  
+  if(quit_now){
+    goto mandos_end;
+  }
   
   if(buffer_length > 0){
     decrypted_buffer_size = pgp_packet_decrypt(buffer,
@@ -747,6 +811,10 @@ static int start_mandos_communication(const char *ip, uint16_t port,
     if(decrypted_buffer_size >= 0){
       written = 0;
       while(written < (size_t) decrypted_buffer_size){
+	if(quit_now){
+	  goto mandos_end;
+	}
+	
 	ret = (int)fwrite(decrypted_buffer + written, 1,
 			  (size_t)decrypted_buffer_size - written,
 			  stdout);
@@ -772,11 +840,16 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   
  mandos_end:
   free(buffer);
-  ret = (int)TEMP_FAILURE_RETRY(close(tcp_sd));
+  if(tcp_sd >= 0){
+    ret = (int)TEMP_FAILURE_RETRY(close(tcp_sd));
+  }
   if(ret == -1){
     perror("close");
   }
   gnutls_deinit(session);
+  if(quit_now){
+    retval = -1;
+  }
   return retval;
 }
 
@@ -798,6 +871,10 @@ static void resolve_callback(AvahiSServiceResolver *r,
   
   /* Called whenever a service has been resolved successfully or
      timed out */
+  
+  if(quit_now){
+    return;
+  }
   
   switch(event){
   default:
@@ -841,6 +918,10 @@ static void browse_callback(AvahiSServiceBrowser *b,
   /* Called whenever a new services becomes available on the LAN or
      is removed from the LAN */
   
+  if(quit_now){
+    return;
+  }
+  
   switch(event){
   default:
   case AVAHI_BROWSER_FAILURE:
@@ -875,14 +956,13 @@ static void browse_callback(AvahiSServiceBrowser *b,
   }
 }
 
-sig_atomic_t quit_now = 0;
-
 /* stop main loop after sigterm has been called */
-static void handle_sigterm(__attribute__((unused)) int sig){
+static void handle_sigterm(int sig){
   if(quit_now){
     return;
   }
   quit_now = 1;
+  signal_received = sig;
   int old_errno = errno;
   if(mc.simple_poll != NULL){
     avahi_simple_poll_quit(mc.simple_poll);
@@ -900,7 +980,7 @@ int main(int argc, char *argv[]){
   const char *interface = "eth0";
   struct ifreq network;
   int sd = -1;
-  bool interface_taken_up = false;
+  bool take_down_interface = false;
   uid_t uid;
   gid_t gid;
   char *connect_to = NULL;
@@ -1049,15 +1129,63 @@ int main(int argc, char *argv[]){
     exitcode = EXIT_FAILURE;
     goto end;
   }
-  ret = sigaction(SIGTERM, &sigterm_action, &old_sigterm_action);
+  /* Need to check if the handler is SIG_IGN before handling:
+     | [[info:libc:Initial Signal Actions]] |
+     | [[info:libc:Basic Signal Handling]]  |
+  */
+  ret = sigaction(SIGINT, NULL, &old_sigterm_action);
   if(ret == -1){
     perror("sigaction");
-    exitcode = EXIT_FAILURE;
-    goto end;
-  }  
+    return EXIT_FAILURE;
+  }
+  if(old_sigterm_action.sa_handler != SIG_IGN){
+    ret = sigaction(SIGINT, &sigterm_action, NULL);
+    if(ret == -1){
+      perror("sigaction");
+      exitcode = EXIT_FAILURE;
+      goto end;
+    }
+  }
+  ret = sigaction(SIGHUP, NULL, &old_sigterm_action);
+  if(ret == -1){
+    perror("sigaction");
+    return EXIT_FAILURE;
+  }
+  if(old_sigterm_action.sa_handler != SIG_IGN){
+    ret = sigaction(SIGHUP, &sigterm_action, NULL);
+    if(ret == -1){
+      perror("sigaction");
+      exitcode = EXIT_FAILURE;
+      goto end;
+    }
+  }
+  ret = sigaction(SIGTERM, NULL, &old_sigterm_action);
+  if(ret == -1){
+    perror("sigaction");
+    return EXIT_FAILURE;
+  }
+  if(old_sigterm_action.sa_handler != SIG_IGN){
+    ret = sigaction(SIGTERM, &sigterm_action, NULL);
+    if(ret == -1){
+      perror("sigaction");
+      exitcode = EXIT_FAILURE;
+      goto end;
+    }
+  }
   
   /* If the interface is down, bring it up */
   if(interface[0] != '\0'){
+    if_index = (AvahiIfIndex) if_nametoindex(interface);
+    if(if_index == 0){
+      fprintf(stderr, "No such interface: \"%s\"\n", interface);
+      exitcode = EXIT_FAILURE;
+      goto end;
+    }
+    
+    if(quit_now){
+      goto end;
+    }
+    
 #ifdef __linux__
     /* Lower kernel loglevel to KERN_NOTICE to avoid KERN_INFO
        messages to mess up the prompt */
@@ -1100,8 +1228,10 @@ int main(int argc, char *argv[]){
     }
     if((network.ifr_flags & IFF_UP) == 0){
       network.ifr_flags |= IFF_UP;
+      take_down_interface = true;
       ret = ioctl(sd, SIOCSIFFLAGS, &network);
       if(ret == -1){
+	take_down_interface = false;
 	perror("ioctl SIOCSIFFLAGS");
 	exitcode = EXIT_FAILURE;
 #ifdef __linux__
@@ -1114,7 +1244,6 @@ int main(int argc, char *argv[]){
 #endif	/* __linux__ */
 	goto end;
       }
-      interface_taken_up = true;
     }
     /* sleep checking until interface is running */
     for(int i=0; i < delay * 4; i++){
@@ -1130,7 +1259,8 @@ int main(int argc, char *argv[]){
 	perror("nanosleep");
       }
     }
-    if(not interface_taken_up){
+    if(not take_down_interface){
+      /* We won't need the socket anymore */
       ret = (int)TEMP_FAILURE_RETRY(close(sd));
       if(ret == -1){
 	perror("close");
@@ -1147,6 +1277,10 @@ int main(int argc, char *argv[]){
 #endif	/* __linux__ */
   }
   
+  if(quit_now){
+    goto end;
+  }
+  
   uid = getuid();
   gid = getgid();
   
@@ -1161,6 +1295,10 @@ int main(int argc, char *argv[]){
     perror("setuid");
   }
   
+  if(quit_now){
+    goto end;
+  }
+  
   ret = init_gnutls_global(pubkey, seckey);
   if(ret == -1){
     fprintf(stderr, "init_gnutls_global failed\n");
@@ -1170,11 +1308,20 @@ int main(int argc, char *argv[]){
     gnutls_initialized = true;
   }
   
+  if(quit_now){
+    goto end;
+  }
+  
+  tempdir_created = true;
   if(mkdtemp(tempdir) == NULL){
+    tempdir_created = false;
     perror("mkdtemp");
     goto end;
   }
-  tempdir_created = true;
+  
+  if(quit_now){
+    goto end;
+  }
   
   if(not init_gpgme(pubkey, seckey, tempdir)){
     fprintf(stderr, "init_gpgme failed\n");
@@ -1184,13 +1331,8 @@ int main(int argc, char *argv[]){
     gpgme_initialized = true;
   }
   
-  if(interface[0] != '\0'){
-    if_index = (AvahiIfIndex) if_nametoindex(interface);
-    if(if_index == 0){
-      fprintf(stderr, "No such interface: \"%s\"\n", interface);
-      exitcode = EXIT_FAILURE;
-      goto end;
-    }
+  if(quit_now){
+    goto end;
   }
   
   if(connect_to != NULL){
@@ -1202,6 +1344,11 @@ int main(int argc, char *argv[]){
       exitcode = EXIT_FAILURE;
       goto end;
     }
+    
+    if(quit_now){
+      goto end;
+    }
+    
     uint16_t port;
     errno = 0;
     tmpmax = strtoimax(address+1, &tmp, 10);
@@ -1211,6 +1358,11 @@ int main(int argc, char *argv[]){
       exitcode = EXIT_FAILURE;
       goto end;
     }
+  
+    if(quit_now){
+      goto end;
+    }
+    
     port = (uint16_t)tmpmax;
     *address = '\0';
     address = connect_to;
@@ -1221,6 +1373,11 @@ int main(int argc, char *argv[]){
     } else {
       af = AF_INET;
     }
+    
+    if(quit_now){
+      goto end;
+    }
+    
     ret = start_mandos_communication(address, port, if_index, af);
     if(ret < 0){
       exitcode = EXIT_FAILURE;
@@ -1229,7 +1386,11 @@ int main(int argc, char *argv[]){
     }
     goto end;
   }
-    
+  
+  if(quit_now){
+    goto end;
+  }
+  
   {
     AvahiServerConfig config;
     /* Do not publish any local Zeroconf records */
@@ -1256,6 +1417,10 @@ int main(int argc, char *argv[]){
     goto end;
   }
   
+  if(quit_now){
+    goto end;
+  }
+  
   /* Create the Avahi service browser */
   sb = avahi_s_service_browser_new(mc.server, if_index,
 				   AVAHI_PROTO_UNSPEC, "_mandos._tcp",
@@ -1264,6 +1429,10 @@ int main(int argc, char *argv[]){
     fprintf(stderr, "Failed to create service browser: %s\n",
 	    avahi_strerror(avahi_server_errno(mc.server)));
     exitcode = EXIT_FAILURE;
+    goto end;
+  }
+  
+  if(quit_now){
     goto end;
   }
   
@@ -1302,7 +1471,7 @@ int main(int argc, char *argv[]){
   }
   
   /* Take down the network interface */
-  if(interface_taken_up){
+  if(take_down_interface){
     ret = ioctl(sd, SIOCGIFFLAGS, &network);
     if(ret == -1){
       perror("ioctl SIOCGIFFLAGS");
@@ -1361,6 +1530,16 @@ int main(int argc, char *argv[]){
     if(ret == -1 and errno != ENOENT){
       perror("rmdir");
     }
+  }
+  
+  if(quit_now){
+    sigemptyset(&old_sigterm_action.sa_mask);
+    old_sigterm_action.sa_handler = SIG_DFL;
+    ret = sigaction(signal_received, &old_sigterm_action, NULL);
+    if(ret == -1){
+      perror("sigaction");
+    }
+    raise(signal_received);
   }
   
   return exitcode;
