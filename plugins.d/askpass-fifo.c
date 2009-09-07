@@ -19,8 +19,7 @@
  * along with this program.  If not, see
  * <http://www.gnu.org/licenses/>.
  * 
- * Contact the authors at <https://www.fukt.bsnet.se/~belorn/> and
- * <https://www.fukt.bsnet.se/~teddy/>.
+ * Contact the authors at <mandos@fukt.bsnet.se>.
  */
 
 #define _GNU_SOURCE		/* TEMP_FAILURE_RETRY() */
@@ -62,7 +61,7 @@ int main(__attribute__((unused))int argc,
   {
     size_t buf_allocated = 0;
     const size_t blocksize = 1024;
-    do{
+    do {
       if(buf_len + blocksize > buf_allocated){
 	char *tmp = realloc(buf, buf_allocated + blocksize);
 	if(tmp == NULL){
@@ -81,7 +80,7 @@ int main(__attribute__((unused))int argc,
 	return EXIT_FAILURE;
       }
       buf_len += (size_t)sret;
-    }while(sret != 0);
+    } while(sret != 0);
   }
   
   /* Close FIFO */
