@@ -106,7 +106,7 @@ def print_clients(clients):
                                       for client in
                                       clients))
                               for key in keywords)
-    print format_string % tuple(tablewords[key] for key in keywords) 
+    print format_string % tuple(tablewords[key] for key in keywords)
     for client in clients:
         print format_string % tuple(valuetostring(client[key], key)
                                     for key in keywords)
