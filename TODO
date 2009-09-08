@@ -4,22 +4,27 @@
 ** TODO [#A] Clean up /tmp directory and take down interface on signal	  :test:
 ** TODO [#B] use scandir(3) instead of readdir(3)
 ** TODO [#B] Prefix all debug output with argv[0]
-** TODO [#B] Retry a server which has a non-definite reply.
+** TODO [#B] Retry a server which has a non-definite reply:
 *** A closed connection during the TLS handshake
 *** A TCP timeout
+** TODO [#B] Use capabilities instead of seteuid().
 
 * splashy
 ** TODO [#A] Re-raise signal received when exiting due to handled signal  :test:
 ** TODO [#B] use scandir(3) instead of readdir(3)
-** TODO [#B] Prefix all debug output with argv[0]
+** TODO [#B] Prefix all debug output with "Mandos plugin " + argv[0]
 
 * usplash
 ** TODO [#A] Re-raise signal received when exiting due to handled signal.
 ** TODO [#B] use scandir(3) instead of readdir(3)
-** TODO [#B] Prefix all debug output with argv[0]
+** TODO [#B] Prefix all debug output with "Mandos plugin " + argv[0]
+
+* askpass-fifo
+** TODO [#B] Prefix all debug output with "Mandos plugin " + argv[0]
+** TODO [#B] Drop privileges after opening FIFO.
 
 * password-prompt
-** TODO [#B] Prefix all debug output with argv[0]
+** TODO [#B] Prefix all debug output with "Mandos plugin " + argv[0]
 
 * plugin-runner
 ** TODO [#B] use scandir(3) instead of readdir(3)

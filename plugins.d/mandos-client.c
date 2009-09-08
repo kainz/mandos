@@ -71,7 +71,7 @@
 				   INET_ADDRSTRLEN, INET6_ADDRSTRLEN
 				*/
 #include <unistd.h>		/* close(), SEEK_SET, off_t, write(),
-				   getuid(), getgid(), setuid(),
+				   getuid(), getgid(), seteuid(),
 				   setgid() */
 #include <arpa/inet.h>		/* inet_pton(), htons */
 #include <iso646.h>		/* not, or, and */
@@ -1285,15 +1285,28 @@ int main(int argc, char *argv[]){
   uid = getuid();
   gid = getgid();
   
+  /* Drop any group privileges we might have, just to be safe */
   errno = 0;
-  setgid(gid);
+  ret = setgid(gid);
   if(ret == -1){
     perror("setgid");
   }
   
-  ret = setuid(uid);
-  if(ret == -1){
-    perror("setuid");
+  /* Drop user privileges */
+  errno = 0;
+  /* Will we need privileges later? */
+  if(take_down_interface){
+    /* Drop user privileges temporarily */
+    ret = seteuid(uid);
+    if(ret == -1){
+      perror("seteuid");
+    }
+  } else {
+    /* Drop user privileges permanently */
+    ret = setuid(uid);
+    if(ret == -1){
+      perror("setuid");
+    }
   }
   
   if(quit_now){
@@ -1473,19 +1486,33 @@ int main(int argc, char *argv[]){
   
   /* Take down the network interface */
   if(take_down_interface){
-    ret = ioctl(sd, SIOCGIFFLAGS, &network);
+    /* Re-raise priviliges */
+    errno = 0;
+    ret = seteuid(0);
     if(ret == -1){
-      perror("ioctl SIOCGIFFLAGS");
-    } else if(network.ifr_flags & IFF_UP) {
-      network.ifr_flags &= ~IFF_UP; /* clear flag */
-      ret = ioctl(sd, SIOCSIFFLAGS, &network);
-      if(ret == -1){
-	perror("ioctl SIOCSIFFLAGS");
-      }
+      perror("seteuid");
     }
-    ret = (int)TEMP_FAILURE_RETRY(close(sd));
-    if(ret == -1){
-      perror("close");
+    if(geteuid() == 0){
+      ret = ioctl(sd, SIOCGIFFLAGS, &network);
+      if(ret == -1){
+	perror("ioctl SIOCGIFFLAGS");
+      } else if(network.ifr_flags & IFF_UP) {
+	network.ifr_flags &= ~IFF_UP; /* clear flag */
+	ret = ioctl(sd, SIOCSIFFLAGS, &network);
+	if(ret == -1){
+	  perror("ioctl SIOCSIFFLAGS");
+	}
+      }
+      ret = (int)TEMP_FAILURE_RETRY(close(sd));
+      if(ret == -1){
+	perror("close");
+      }
+      /* Lower privileges, permanently this time */
+      errno = 0;
+      ret = setuid(uid);
+      if(ret == -1){
+	perror("setuid");
+      }
     }
   }
   
