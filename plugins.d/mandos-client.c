@@ -474,7 +474,9 @@ static int init_gnutls_global(const char *pubkeyfilename,
 static int init_gnutls_session(gnutls_session_t *session){
   int ret;
   /* GnuTLS session creation */
-  ret = gnutls_init(session, GNUTLS_SERVER);
+  do {
+    ret = gnutls_init(session, GNUTLS_SERVER);
+  } while(ret == GNUTLS_E_INTERRUPTED or ret == GNUTLS_E_AGAIN);
   if(ret != GNUTLS_E_SUCCESS){
     fprintf(stderr, "Error in GnuTLS session initialization: %s\n",
 	    safer_gnutls_strerror(ret));
@@ -482,7 +484,9 @@ static int init_gnutls_session(gnutls_session_t *session){
   
   {
     const char *err;
-    ret = gnutls_priority_set_direct(*session, mc.priority, &err);
+    do {
+      ret = gnutls_priority_set_direct(*session, mc.priority, &err);
+    } while(ret == GNUTLS_E_INTERRUPTED or ret == GNUTLS_E_AGAIN);
     if(ret != GNUTLS_E_SUCCESS){
       fprintf(stderr, "Syntax error at: %s\n", err);
       fprintf(stderr, "GnuTLS error: %s\n",
@@ -492,8 +496,10 @@ static int init_gnutls_session(gnutls_session_t *session){
     }
   }
   
-  ret = gnutls_credentials_set(*session, GNUTLS_CRD_CERTIFICATE,
-			       mc.cred);
+  do {
+    ret = gnutls_credentials_set(*session, GNUTLS_CRD_CERTIFICATE,
+				 mc.cred);
+  } while(ret == GNUTLS_E_INTERRUPTED or ret == GNUTLS_E_AGAIN);
   if(ret != GNUTLS_E_SUCCESS){
     fprintf(stderr, "Error setting GnuTLS credentials: %s\n",
 	    safer_gnutls_strerror(ret));
@@ -502,8 +508,7 @@ static int init_gnutls_session(gnutls_session_t *session){
   }
   
   /* ignore client certificate if any. */
-  gnutls_certificate_server_set_request(*session,
-					GNUTLS_CERT_IGNORE);
+  gnutls_certificate_server_set_request(*session, GNUTLS_CERT_IGNORE);
   
   gnutls_dh_set_prime_bits(*session, mc.dh_bits);
   
@@ -998,6 +1003,27 @@ int main(int argc, char *argv[]){
   struct sigaction old_sigterm_action;
   struct sigaction sigterm_action = { .sa_handler = handle_sigterm };
   
+  uid = getuid();
+  gid = getgid();
+  
+  /* Lower any group privileges we might have, just to be safe */
+  errno = 0;
+  ret = setgid(gid);
+  if(ret == -1){
+    perror("setgid");
+  }
+  
+  /* Lower user privileges (temporarily) */
+  errno = 0;
+  ret = seteuid(uid);
+  if(ret == -1){
+    perror("seteuid");
+  }
+  
+  if(quit_now){
+    goto end;
+  }
+  
   {
     struct argp_option options[] = {
       { .name = "debug", .key = 128,
@@ -1187,6 +1213,13 @@ int main(int argc, char *argv[]){
       goto end;
     }
     
+    /* Re-raise priviliges */
+    errno = 0;
+    ret = seteuid(0);
+    if(ret == -1){
+      perror("seteuid");
+    }
+    
 #ifdef __linux__
     /* Lower kernel loglevel to KERN_NOTICE to avoid KERN_INFO
        messages to mess up the prompt */
@@ -1210,6 +1243,12 @@ int main(int argc, char *argv[]){
 	}
       }
 #endif	/* __linux__ */
+      /* Lower privileges */
+      errno = 0;
+      ret = seteuid(uid);
+      if(ret == -1){
+	perror("seteuid");
+      }
       goto end;
     }
     strcpy(network.ifr_name, interface);
@@ -1225,6 +1264,12 @@ int main(int argc, char *argv[]){
       }
 #endif	/* __linux__ */
       exitcode = EXIT_FAILURE;
+      /* Lower privileges */
+      errno = 0;
+      ret = seteuid(uid);
+      if(ret == -1){
+	perror("seteuid");
+      }
       goto end;
     }
     if((network.ifr_flags & IFF_UP) == 0){
@@ -1243,6 +1288,12 @@ int main(int argc, char *argv[]){
 	  }
 	}
 #endif	/* __linux__ */
+	/* Lower privileges */
+	errno = 0;
+	ret = seteuid(uid);
+	if(ret == -1){
+	  perror("seteuid");
+	}
 	goto end;
       }
     }
@@ -1276,36 +1327,20 @@ int main(int argc, char *argv[]){
       }
     }
 #endif	/* __linux__ */
-  }
-  
-  if(quit_now){
-    goto end;
-  }
-  
-  uid = getuid();
-  gid = getgid();
-  
-  /* Drop any group privileges we might have, just to be safe */
-  errno = 0;
-  ret = setgid(gid);
-  if(ret == -1){
-    perror("setgid");
-  }
-  
-  /* Drop user privileges */
-  errno = 0;
-  /* Will we need privileges later? */
-  if(take_down_interface){
-    /* Drop user privileges temporarily */
-    ret = seteuid(uid);
-    if(ret == -1){
-      perror("seteuid");
-    }
-  } else {
-    /* Drop user privileges permanently */
-    ret = setuid(uid);
-    if(ret == -1){
-      perror("setuid");
+    /* Lower privileges */
+    errno = 0;
+    if(take_down_interface){
+      /* Lower privileges */
+      ret = seteuid(uid);
+      if(ret == -1){
+	perror("seteuid");
+      }
+    } else {
+      /* Lower privileges permanently */
+      ret = setuid(uid);
+      if(ret == -1){
+	perror("setuid");
+      }
     }
   }
   
@@ -1507,7 +1542,7 @@ int main(int argc, char *argv[]){
       if(ret == -1){
 	perror("close");
       }
-      /* Lower privileges, permanently this time */
+      /* Lower privileges permanently */
       errno = 0;
       ret = setuid(uid);
       if(ret == -1){
