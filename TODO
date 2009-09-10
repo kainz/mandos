@@ -1,7 +1,6 @@
 -*- org -*-
 
 * mandos-client
-** TODO [#A] Clean up /tmp directory and take down interface on signal	  :test:
 ** TODO [#B] use scandir(3) instead of readdir(3)
 ** TODO [#B] Prefix all debug output with argv[0]
 ** TODO [#B] Retry a server which has a non-definite reply:
@@ -53,6 +52,9 @@
 ** TODO DBusServiceObjectUsingSuper
 ** Global enable/disable flag
 ** By-client countdown on secrets given
+** Fix problem with fsck taking a really long time
+   Whenever a client successfully gets a secret it could get a
+   one-time timeout boost to allow for an fsck-incurred delay
 
 * mandos.xml
 ** [[file:mandos.xml::XXX][Document D-Bus interface]]
