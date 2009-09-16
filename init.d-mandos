@@ -1,8 +1,8 @@
 #! /bin/sh
 ### BEGIN INIT INFO
 # Provides:          mandos
-# Required-Start:    $remote_fs avahi
-# Required-Stop:     $remote_fs avahi
+# Required-Start:    $remote_fs $syslog avahi
+# Required-Stop:     $remote_fs $syslog avahi
 # Default-Start:     2 3 4 5
 # Default-Stop:      0 1 6
 # Short-Description: Mandos server

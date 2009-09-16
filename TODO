@@ -9,12 +9,10 @@
 ** TODO [#B] Use capabilities instead of seteuid().
 
 * splashy
-** TODO [#A] Re-raise signal received when exiting due to handled signal  :test:
 ** TODO [#B] use scandir(3) instead of readdir(3)
 ** TODO [#B] Prefix all debug output with "Mandos plugin " + argv[0]
 
 * usplash
-** TODO [#A] Re-raise signal received when exiting due to handled signal.
 ** TODO [#B] use scandir(3) instead of readdir(3)
 ** TODO [#B] Prefix all debug output with "Mandos plugin " + argv[0]
 

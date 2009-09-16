@@ -42,14 +42,14 @@ int main(__attribute__((unused))int argc,
   
   /* Create FIFO */
   const char passfifo[] = "/lib/cryptsetup/passfifo";
-  ret = (int)TEMP_FAILURE_RETRY(mkfifo(passfifo, S_IRUSR | S_IWUSR));
+  ret = mkfifo(passfifo, S_IRUSR | S_IWUSR);
   if(ret == -1 and errno != EEXIST){
     perror("mkfifo");
     return EXIT_FAILURE;
   }
   
   /* Open FIFO */
-  int fifo_fd = (int)TEMP_FAILURE_RETRY(open(passfifo, O_RDONLY));
+  int fifo_fd = open(passfifo, O_RDONLY);
   if(fifo_fd == -1){
     perror("open");
     return EXIT_FAILURE;
@@ -72,8 +72,7 @@ int main(__attribute__((unused))int argc,
 	buf = tmp;
 	buf_allocated += blocksize;
       }
-      sret = TEMP_FAILURE_RETRY(read(fifo_fd, buf + buf_len,
-				     buf_allocated - buf_len));
+      sret = read(fifo_fd, buf + buf_len, buf_allocated - buf_len);
       if(sret == -1){
 	perror("read");
 	free(buf);
@@ -84,13 +83,12 @@ int main(__attribute__((unused))int argc,
   }
   
   /* Close FIFO */
-  TEMP_FAILURE_RETRY(close(fifo_fd));
+  close(fifo_fd);
   
   /* Print password to stdout */
   size_t written = 0;
   while(written < buf_len){
-    sret = TEMP_FAILURE_RETRY(write(STDOUT_FILENO, buf + written,
-				    buf_len - written));
+    sret = write(STDOUT_FILENO, buf + written, buf_len - written);
     if(sret == -1){
       perror("write");
       free(buf);

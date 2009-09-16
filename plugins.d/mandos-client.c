@@ -1000,7 +1000,7 @@ int main(int argc, char *argv[]){
   bool gpgme_initialized = false;
   float delay = 2.5f;
   
-  struct sigaction old_sigterm_action;
+  struct sigaction old_sigterm_action = { .sa_handler = SIG_DFL };
   struct sigaction sigterm_action = { .sa_handler = handle_sigterm };
   
   uid = getuid();
