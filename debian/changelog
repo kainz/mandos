@@ -1,3 +1,19 @@
+mandos (1.0.12-1) unstable; urgency=low
+
+  * New upstream release.
+  * init.d-mandos: Correct dependencies (Closes: #546928)
+  * debian/control (Standards-Version): Changed to "3.8.3".
+  * debian/mandos-client.README.Debian: Improved wording and formatting.
+    Updated location of nfsroot.txt.
+  * debian/mandos.README.Debian: Improved wording and formatting.
+  * debian/mandos-client.postinst (configure): Don't look for user and
+    group with the old name if upgrading from a new enough version.
+  * debian/mandos.postinst (configure): - '' -
+  * debian/mandos-client.README.Debian: Added text about non-usability of
+    pseudo-network interfaces.
+
+ -- Teddy Hogeborn <teddy@fukt.bsnet.se>  Thu, 17 Sep 2009 15:03:59 +0200
+
 mandos (1.0.11-1) unstable; urgency=low
 
   * debian/control (Standards-Version): Changed to "3.8.1".
