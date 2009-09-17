@@ -544,11 +544,11 @@ static int start_mandos_communication(const char *ip, uint16_t port,
     struct sockaddr_in6 in6;
   } to;
   char *buffer = NULL;
-  char *decrypted_buffer;
+  char *decrypted_buffer = NULL;
   size_t buffer_length = 0;
   size_t buffer_capacity = 0;
   size_t written;
-  int retval = 0;
+  int retval = -1;
   gnutls_session_t session;
   int pf;			/* Protocol family */
   
@@ -581,12 +581,10 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   tcp_sd = socket(pf, SOCK_STREAM, 0);
   if(tcp_sd < 0){
     perror("socket");
-    retval = -1;
     goto mandos_end;
   }
   
   if(quit_now){
-    retval = -1;
     goto mandos_end;
   }
   
@@ -600,12 +598,10 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   }
   if(ret < 0 ){
     perror("inet_pton");
-    retval = -1;
     goto mandos_end;
   }
   if(ret == 0){
     fprintf(stderr, "Bad address: %s\n", ip);
-    retval = -1;
     goto mandos_end;
   }
   if(af == AF_INET6){
@@ -619,7 +615,6 @@ static int start_mandos_communication(const char *ip, uint16_t port,
       if(if_index == AVAHI_IF_UNSPEC){
 	fprintf(stderr, "An IPv6 link-local address is incomplete"
 		" without a network interface\n");
-	retval = -1;
 	goto mandos_end;
       }
       /* Set the network interface number as scope */
@@ -632,7 +627,6 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   }
   
   if(quit_now){
-    retval = -1;
     goto mandos_end;
   }
   
@@ -669,7 +663,6 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   }
   
   if(quit_now){
-    retval = -1;
     goto mandos_end;
   }
   
@@ -680,12 +673,10 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   }
   if(ret < 0){
     perror("connect");
-    retval = -1;
     goto mandos_end;
   }
   
   if(quit_now){
-    retval = -1;
     goto mandos_end;
   }
   
@@ -697,7 +688,6 @@ static int start_mandos_communication(const char *ip, uint16_t port,
 				   out_size - written));
     if(ret == -1){
       perror("write");
-      retval = -1;
       goto mandos_end;
     }
     written += (size_t)ret;
@@ -713,7 +703,6 @@ static int start_mandos_communication(const char *ip, uint16_t port,
     }
   
     if(quit_now){
-      retval = -1;
       goto mandos_end;
     }
   }
@@ -723,21 +712,18 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   }
   
   if(quit_now){
-    retval = -1;
     goto mandos_end;
   }
   
   gnutls_transport_set_ptr(session, (gnutls_transport_ptr_t) tcp_sd);
   
   if(quit_now){
-    retval = -1;
     goto mandos_end;
   }
   
   do {
     ret = gnutls_handshake(session);
     if(quit_now){
-      retval = -1;
       goto mandos_end;
     }
   } while(ret == GNUTLS_E_AGAIN or ret == GNUTLS_E_INTERRUPTED);
@@ -747,7 +733,6 @@ static int start_mandos_communication(const char *ip, uint16_t port,
       fprintf(stderr, "*** GnuTLS Handshake failed ***\n");
       gnutls_perror(ret);
     }
-    retval = -1;
     goto mandos_end;
   }
   
@@ -761,7 +746,6 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   while(true){
     
     if(quit_now){
-      retval = -1;
       goto mandos_end;
     }
     
@@ -769,12 +753,10 @@ static int start_mandos_communication(const char *ip, uint16_t port,
 				   buffer_capacity);
     if(buffer_capacity == 0){
       perror("incbuffer");
-      retval = -1;
       goto mandos_end;
     }
     
     if(quit_now){
-      retval = -1;
       goto mandos_end;
     }
     
@@ -793,21 +775,18 @@ static int start_mandos_communication(const char *ip, uint16_t port,
 	  ret = gnutls_handshake(session);
 	  
 	  if(quit_now){
-	    retval = -1;
 	    goto mandos_end;
 	  }
 	} while(ret == GNUTLS_E_AGAIN or ret == GNUTLS_E_INTERRUPTED);
 	if(ret < 0){
 	  fprintf(stderr, "*** GnuTLS Re-handshake failed ***\n");
 	  gnutls_perror(ret);
-	  retval = -1;
 	  goto mandos_end;
 	}
 	break;
       default:
 	fprintf(stderr, "Unknown error while reading data from"
 		" encrypted session with Mandos server\n");
-	retval = -1;
 	gnutls_bye(session, GNUTLS_SHUT_RDWR);
 	goto mandos_end;
       }
@@ -821,14 +800,12 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   }
   
   if(quit_now){
-    retval = -1;
     goto mandos_end;
   }
   
   do {
     ret = gnutls_bye(session, GNUTLS_SHUT_RDWR);
     if(quit_now){
-      retval = -1;
       goto mandos_end;
     }
   } while(ret == GNUTLS_E_AGAIN or ret == GNUTLS_E_INTERRUPTED);
@@ -843,7 +820,6 @@ static int start_mandos_communication(const char *ip, uint16_t port,
       written = 0;
       while(written < (size_t) decrypted_buffer_size){
 	if(quit_now){
-	  retval = -1;
 	  goto mandos_end;
 	}
 	
@@ -855,22 +831,18 @@ static int start_mandos_communication(const char *ip, uint16_t port,
 	    fprintf(stderr, "Error writing encrypted data: %s\n",
 		    strerror(errno));
 	  }
-	  retval = -1;
-	  break;
+	  goto mandos_end;
 	}
 	written += (size_t)ret;
       }
-      free(decrypted_buffer);
-    } else {
-      retval = -1;
+      retval = 0;
     }
-  } else {
-    retval = -1;
   }
   
   /* Shutdown procedure */
   
  mandos_end:
+  free(decrypted_buffer);
   free(buffer);
   if(tcp_sd >= 0){
     ret = (int)TEMP_FAILURE_RETRY(close(tcp_sd));
