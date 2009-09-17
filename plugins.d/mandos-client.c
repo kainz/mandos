@@ -44,7 +44,7 @@
 #include <stdint.h> 		/* uint16_t, uint32_t */
 #include <stddef.h>		/* NULL, size_t, ssize_t */
 #include <stdlib.h> 		/* free(), EXIT_SUCCESS, EXIT_FAILURE,
-				   srand(), strtof() */
+				   srand(), strtof(), abort() */
 #include <stdbool.h>		/* bool, false, true */
 #include <string.h>		/* memset(), strcmp(), strlen(),
 				   strerror(), asprintf(), strcpy() */
@@ -71,8 +71,8 @@
 				   INET_ADDRSTRLEN, INET6_ADDRSTRLEN
 				*/
 #include <unistd.h>		/* close(), SEEK_SET, off_t, write(),
-				   getuid(), getgid(), setuid(),
-				   setgid() */
+				   getuid(), getgid(), seteuid(),
+				   setgid(), pause() */
 #include <arpa/inet.h>		/* inet_pton(), htons */
 #include <iso646.h>		/* not, or, and */
 #include <argp.h>		/* struct argp_option, error_t, struct
@@ -80,8 +80,8 @@
 				   argp_parse(), ARGP_KEY_ARG,
 				   ARGP_KEY_END, ARGP_ERR_UNKNOWN */
 #include <signal.h>		/* sigemptyset(), sigaddset(),
-				   sigaction(), SIGTERM, sigaction,
-				   sig_atomic_t */
+				   sigaction(), SIGTERM, sig_atomic_t,
+				   raise() */
 
 #ifdef __linux__
 #include <sys/klog.h> 		/* klogctl() */
@@ -142,6 +142,9 @@ mandos_context mc = { .simple_poll = NULL, .server = NULL,
 		      .dh_bits = 1024, .priority = "SECURE256"
 		      ":!CTYPE-X.509:+CTYPE-OPENPGP" };
 
+sig_atomic_t quit_now = 0;
+int signal_received = 0;
+
 /*
  * Make additional room in "buffer" for at least BUFFER_SIZE more
  * bytes. "buffer_capacity" is how much is currently allocated,
@@ -164,7 +167,6 @@ size_t incbuffer(char **buffer, size_t buffer_length,
  */
 static bool init_gpgme(const char *seckey,
 		       const char *pubkey, const char *tempdir){
-  int ret;
   gpgme_error_t rc;
   gpgme_engine_info_t engine_info;
   
@@ -173,6 +175,7 @@ static bool init_gpgme(const char *seckey,
    * Helper function to insert pub and seckey to the engine keyring.
    */
   bool import_key(const char *filename){
+    int ret;
     int fd;
     gpgme_data_t pgp_data;
     
@@ -249,7 +252,7 @@ static bool init_gpgme(const char *seckey,
     return false;
   }
   
-  return true; 
+  return true;
 }
 
 /* 
@@ -309,16 +312,14 @@ static ssize_t pgp_packet_decrypt(const char *cryptotext,
 	}
 	gpgme_recipient_t recipient;
 	recipient = result->recipients;
-	if(recipient){
-	  while(recipient != NULL){
-	    fprintf(stderr, "Public key algorithm: %s\n",
-		    gpgme_pubkey_algo_name(recipient->pubkey_algo));
-	    fprintf(stderr, "Key ID: %s\n", recipient->keyid);
-	    fprintf(stderr, "Secret key available: %s\n",
-		    recipient->status == GPG_ERR_NO_SECKEY
-		    ? "No" : "Yes");
-	    recipient = recipient->next;
-	  }
+	while(recipient != NULL){
+	  fprintf(stderr, "Public key algorithm: %s\n",
+		  gpgme_pubkey_algo_name(recipient->pubkey_algo));
+	  fprintf(stderr, "Key ID: %s\n", recipient->keyid);
+	  fprintf(stderr, "Secret key available: %s\n",
+		  recipient->status == GPG_ERR_NO_SECKEY
+		  ? "No" : "Yes");
+	  recipient = recipient->next;
 	}
       }
     }
@@ -476,7 +477,12 @@ static int init_gnutls_global(const char *pubkeyfilename,
 static int init_gnutls_session(gnutls_session_t *session){
   int ret;
   /* GnuTLS session creation */
-  ret = gnutls_init(session, GNUTLS_SERVER);
+  do {
+    ret = gnutls_init(session, GNUTLS_SERVER);
+    if(quit_now){
+      return -1;
+    }
+  } while(ret == GNUTLS_E_INTERRUPTED or ret == GNUTLS_E_AGAIN);
   if(ret != GNUTLS_E_SUCCESS){
     fprintf(stderr, "Error in GnuTLS session initialization: %s\n",
 	    safer_gnutls_strerror(ret));
@@ -484,7 +490,13 @@ static int init_gnutls_session(gnutls_session_t *session){
   
   {
     const char *err;
-    ret = gnutls_priority_set_direct(*session, mc.priority, &err);
+    do {
+      ret = gnutls_priority_set_direct(*session, mc.priority, &err);
+      if(quit_now){
+	gnutls_deinit(*session);
+	return -1;
+      }
+    } while(ret == GNUTLS_E_INTERRUPTED or ret == GNUTLS_E_AGAIN);
     if(ret != GNUTLS_E_SUCCESS){
       fprintf(stderr, "Syntax error at: %s\n", err);
       fprintf(stderr, "GnuTLS error: %s\n",
@@ -494,8 +506,14 @@ static int init_gnutls_session(gnutls_session_t *session){
     }
   }
   
-  ret = gnutls_credentials_set(*session, GNUTLS_CRD_CERTIFICATE,
-			       mc.cred);
+  do {
+    ret = gnutls_credentials_set(*session, GNUTLS_CRD_CERTIFICATE,
+				 mc.cred);
+    if(quit_now){
+      gnutls_deinit(*session);
+      return -1;
+    }
+  } while(ret == GNUTLS_E_INTERRUPTED or ret == GNUTLS_E_AGAIN);
   if(ret != GNUTLS_E_SUCCESS){
     fprintf(stderr, "Error setting GnuTLS credentials: %s\n",
 	    safer_gnutls_strerror(ret));
@@ -504,8 +522,7 @@ static int init_gnutls_session(gnutls_session_t *session){
   }
   
   /* ignore client certificate if any. */
-  gnutls_certificate_server_set_request(*session,
-					GNUTLS_CERT_IGNORE);
+  gnutls_certificate_server_set_request(*session, GNUTLS_CERT_IGNORE);
   
   gnutls_dh_set_prime_bits(*session, mc.dh_bits);
   
@@ -520,21 +537,24 @@ static void empty_log(__attribute__((unused)) AvahiLogLevel level,
 static int start_mandos_communication(const char *ip, uint16_t port,
 				      AvahiIfIndex if_index,
 				      int af){
-  int ret, tcp_sd;
+  int ret, tcp_sd = -1;
   ssize_t sret;
   union {
     struct sockaddr_in in;
     struct sockaddr_in6 in6;
   } to;
   char *buffer = NULL;
-  char *decrypted_buffer;
+  char *decrypted_buffer = NULL;
   size_t buffer_length = 0;
   size_t buffer_capacity = 0;
-  ssize_t decrypted_buffer_size;
   size_t written;
-  int retval = 0;
+  int retval = -1;
   gnutls_session_t session;
   int pf;			/* Protocol family */
+  
+  if(quit_now){
+    return -1;
+  }
   
   switch(af){
   case AF_INET6:
@@ -561,12 +581,16 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   tcp_sd = socket(pf, SOCK_STREAM, 0);
   if(tcp_sd < 0){
     perror("socket");
-    return -1;
+    goto mandos_end;
+  }
+  
+  if(quit_now){
+    goto mandos_end;
   }
   
   memset(&to, 0, sizeof(to));
   if(af == AF_INET6){
-    to.in6.sin6_family = (uint16_t)af;
+    to.in6.sin6_family = (sa_family_t)af;
     ret = inet_pton(af, ip, &to.in6.sin6_addr);
   } else {			/* IPv4 */
     to.in.sin_family = (sa_family_t)af;
@@ -574,11 +598,11 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   }
   if(ret < 0 ){
     perror("inet_pton");
-    return -1;
+    goto mandos_end;
   }
   if(ret == 0){
     fprintf(stderr, "Bad address: %s\n", ip);
-    return -1;
+    goto mandos_end;
   }
   if(af == AF_INET6){
     to.in6.sin6_port = htons(port); /* Spurious warnings from
@@ -591,7 +615,7 @@ static int start_mandos_communication(const char *ip, uint16_t port,
       if(if_index == AVAHI_IF_UNSPEC){
 	fprintf(stderr, "An IPv6 link-local address is incomplete"
 		" without a network interface\n");
-	return -1;
+	goto mandos_end;
       }
       /* Set the network interface number as scope */
       to.in6.sin6_scope_id = (uint32_t)if_index;
@@ -600,6 +624,10 @@ static int start_mandos_communication(const char *ip, uint16_t port,
     to.in.sin_port = htons(port); /* Spurious warnings from
 				     -Wconversion and
 				     -Wunreachable-code */
+  }
+  
+  if(quit_now){
+    goto mandos_end;
   }
   
   if(debug){
@@ -634,6 +662,10 @@ static int start_mandos_communication(const char *ip, uint16_t port,
     }
   }
   
+  if(quit_now){
+    goto mandos_end;
+  }
+  
   if(af == AF_INET6){
     ret = connect(tcp_sd, &to.in6, sizeof(to));
   } else {
@@ -641,7 +673,11 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   }
   if(ret < 0){
     perror("connect");
-    return -1;
+    goto mandos_end;
+  }
+  
+  if(quit_now){
+    goto mandos_end;
   }
   
   const char *out = mandos_protocol_version;
@@ -652,7 +688,6 @@ static int start_mandos_communication(const char *ip, uint16_t port,
 				   out_size - written));
     if(ret == -1){
       perror("write");
-      retval = -1;
       goto mandos_end;
     }
     written += (size_t)ret;
@@ -666,16 +701,31 @@ static int start_mandos_communication(const char *ip, uint16_t port,
 	break;
       }
     }
+  
+    if(quit_now){
+      goto mandos_end;
+    }
   }
   
   if(debug){
     fprintf(stderr, "Establishing TLS session with %s\n", ip);
   }
   
+  if(quit_now){
+    goto mandos_end;
+  }
+  
   gnutls_transport_set_ptr(session, (gnutls_transport_ptr_t) tcp_sd);
   
-  do{
+  if(quit_now){
+    goto mandos_end;
+  }
+  
+  do {
     ret = gnutls_handshake(session);
+    if(quit_now){
+      goto mandos_end;
+    }
   } while(ret == GNUTLS_E_AGAIN or ret == GNUTLS_E_INTERRUPTED);
   
   if(ret != GNUTLS_E_SUCCESS){
@@ -683,7 +733,6 @@ static int start_mandos_communication(const char *ip, uint16_t port,
       fprintf(stderr, "*** GnuTLS Handshake failed ***\n");
       gnutls_perror(ret);
     }
-    retval = -1;
     goto mandos_end;
   }
   
@@ -695,11 +744,19 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   }
   
   while(true){
+    
+    if(quit_now){
+      goto mandos_end;
+    }
+    
     buffer_capacity = incbuffer(&buffer, buffer_length,
 				   buffer_capacity);
     if(buffer_capacity == 0){
       perror("incbuffer");
-      retval = -1;
+      goto mandos_end;
+    }
+    
+    if(quit_now){
       goto mandos_end;
     }
     
@@ -714,20 +771,22 @@ static int start_mandos_communication(const char *ip, uint16_t port,
       case GNUTLS_E_AGAIN:
 	break;
       case GNUTLS_E_REHANDSHAKE:
-	do{
+	do {
 	  ret = gnutls_handshake(session);
+	  
+	  if(quit_now){
+	    goto mandos_end;
+	  }
 	} while(ret == GNUTLS_E_AGAIN or ret == GNUTLS_E_INTERRUPTED);
 	if(ret < 0){
 	  fprintf(stderr, "*** GnuTLS Re-handshake failed ***\n");
 	  gnutls_perror(ret);
-	  retval = -1;
 	  goto mandos_end;
 	}
 	break;
       default:
 	fprintf(stderr, "Unknown error while reading data from"
 		" encrypted session with Mandos server\n");
-	retval = -1;
 	gnutls_bye(session, GNUTLS_SHUT_RDWR);
 	goto mandos_end;
       }
@@ -740,15 +799,30 @@ static int start_mandos_communication(const char *ip, uint16_t port,
     fprintf(stderr, "Closing TLS session\n");
   }
   
-  gnutls_bye(session, GNUTLS_SHUT_RDWR);
+  if(quit_now){
+    goto mandos_end;
+  }
+  
+  do {
+    ret = gnutls_bye(session, GNUTLS_SHUT_RDWR);
+    if(quit_now){
+      goto mandos_end;
+    }
+  } while(ret == GNUTLS_E_AGAIN or ret == GNUTLS_E_INTERRUPTED);
   
   if(buffer_length > 0){
+    ssize_t decrypted_buffer_size;
     decrypted_buffer_size = pgp_packet_decrypt(buffer,
 					       buffer_length,
 					       &decrypted_buffer);
     if(decrypted_buffer_size >= 0){
+      
       written = 0;
       while(written < (size_t) decrypted_buffer_size){
+	if(quit_now){
+	  goto mandos_end;
+	}
+	
 	ret = (int)fwrite(decrypted_buffer + written, 1,
 			  (size_t)decrypted_buffer_size - written,
 			  stdout);
@@ -757,28 +831,29 @@ static int start_mandos_communication(const char *ip, uint16_t port,
 	    fprintf(stderr, "Error writing encrypted data: %s\n",
 		    strerror(errno));
 	  }
-	  retval = -1;
-	  break;
+	  goto mandos_end;
 	}
 	written += (size_t)ret;
       }
-      free(decrypted_buffer);
-    } else {
-      retval = -1;
+      retval = 0;
     }
-  } else {
-    retval = -1;
   }
   
   /* Shutdown procedure */
   
  mandos_end:
+  free(decrypted_buffer);
   free(buffer);
-  ret = (int)TEMP_FAILURE_RETRY(close(tcp_sd));
+  if(tcp_sd >= 0){
+    ret = (int)TEMP_FAILURE_RETRY(close(tcp_sd));
+  }
   if(ret == -1){
     perror("close");
   }
   gnutls_deinit(session);
+  if(quit_now){
+    retval = -1;
+  }
   return retval;
 }
 
@@ -800,6 +875,10 @@ static void resolve_callback(AvahiSServiceResolver *r,
   
   /* Called whenever a service has been resolved successfully or
      timed out */
+  
+  if(quit_now){
+    return;
+  }
   
   switch(event){
   default:
@@ -843,6 +922,10 @@ static void browse_callback(AvahiSServiceBrowser *b,
   /* Called whenever a new services becomes available on the LAN or
      is removed from the LAN */
   
+  if(quit_now){
+    return;
+  }
+  
   switch(event){
   default:
   case AVAHI_BROWSER_FAILURE:
@@ -877,14 +960,13 @@ static void browse_callback(AvahiSServiceBrowser *b,
   }
 }
 
-sig_atomic_t quit_now = 0;
-
 /* stop main loop after sigterm has been called */
-static void handle_sigterm(__attribute__((unused)) int sig){
+static void handle_sigterm(int sig){
   if(quit_now){
     return;
   }
   quit_now = 1;
+  signal_received = sig;
   int old_errno = errno;
   if(mc.simple_poll != NULL){
     avahi_simple_poll_quit(mc.simple_poll);
@@ -901,7 +983,8 @@ int main(int argc, char *argv[]){
   int exitcode = EXIT_SUCCESS;
   const char *interface = "eth0";
   struct ifreq network;
-  int sd;
+  int sd = -1;
+  bool take_down_interface = false;
   uid_t uid;
   gid_t gid;
   char *connect_to = NULL;
@@ -915,8 +998,29 @@ int main(int argc, char *argv[]){
   bool gpgme_initialized = false;
   float delay = 2.5f;
   
-  struct sigaction old_sigterm_action;
+  struct sigaction old_sigterm_action = { .sa_handler = SIG_DFL };
   struct sigaction sigterm_action = { .sa_handler = handle_sigterm };
+  
+  uid = getuid();
+  gid = getgid();
+  
+  /* Lower any group privileges we might have, just to be safe */
+  errno = 0;
+  ret = setgid(gid);
+  if(ret == -1){
+    perror("setgid");
+  }
+  
+  /* Lower user privileges (temporarily) */
+  errno = 0;
+  ret = seteuid(uid);
+  if(ret == -1){
+    perror("seteuid");
+  }
+  
+  if(quit_now){
+    goto end;
+  }
   
   {
     struct argp_option options[] = {
@@ -1050,15 +1154,70 @@ int main(int argc, char *argv[]){
     exitcode = EXIT_FAILURE;
     goto end;
   }
-  ret = sigaction(SIGTERM, &sigterm_action, &old_sigterm_action);
+  /* Need to check if the handler is SIG_IGN before handling:
+     | [[info:libc:Initial Signal Actions]] |
+     | [[info:libc:Basic Signal Handling]]  |
+  */
+  ret = sigaction(SIGINT, NULL, &old_sigterm_action);
   if(ret == -1){
     perror("sigaction");
-    exitcode = EXIT_FAILURE;
-    goto end;
-  }  
+    return EXIT_FAILURE;
+  }
+  if(old_sigterm_action.sa_handler != SIG_IGN){
+    ret = sigaction(SIGINT, &sigterm_action, NULL);
+    if(ret == -1){
+      perror("sigaction");
+      exitcode = EXIT_FAILURE;
+      goto end;
+    }
+  }
+  ret = sigaction(SIGHUP, NULL, &old_sigterm_action);
+  if(ret == -1){
+    perror("sigaction");
+    return EXIT_FAILURE;
+  }
+  if(old_sigterm_action.sa_handler != SIG_IGN){
+    ret = sigaction(SIGHUP, &sigterm_action, NULL);
+    if(ret == -1){
+      perror("sigaction");
+      exitcode = EXIT_FAILURE;
+      goto end;
+    }
+  }
+  ret = sigaction(SIGTERM, NULL, &old_sigterm_action);
+  if(ret == -1){
+    perror("sigaction");
+    return EXIT_FAILURE;
+  }
+  if(old_sigterm_action.sa_handler != SIG_IGN){
+    ret = sigaction(SIGTERM, &sigterm_action, NULL);
+    if(ret == -1){
+      perror("sigaction");
+      exitcode = EXIT_FAILURE;
+      goto end;
+    }
+  }
   
   /* If the interface is down, bring it up */
   if(interface[0] != '\0'){
+    if_index = (AvahiIfIndex) if_nametoindex(interface);
+    if(if_index == 0){
+      fprintf(stderr, "No such interface: \"%s\"\n", interface);
+      exitcode = EXIT_FAILURE;
+      goto end;
+    }
+    
+    if(quit_now){
+      goto end;
+    }
+    
+    /* Re-raise priviliges */
+    errno = 0;
+    ret = seteuid(0);
+    if(ret == -1){
+      perror("seteuid");
+    }
+    
 #ifdef __linux__
     /* Lower kernel loglevel to KERN_NOTICE to avoid KERN_INFO
        messages to mess up the prompt */
@@ -1082,6 +1241,12 @@ int main(int argc, char *argv[]){
 	}
       }
 #endif	/* __linux__ */
+      /* Lower privileges */
+      errno = 0;
+      ret = seteuid(uid);
+      if(ret == -1){
+	perror("seteuid");
+      }
       goto end;
     }
     strcpy(network.ifr_name, interface);
@@ -1097,12 +1262,20 @@ int main(int argc, char *argv[]){
       }
 #endif	/* __linux__ */
       exitcode = EXIT_FAILURE;
+      /* Lower privileges */
+      errno = 0;
+      ret = seteuid(uid);
+      if(ret == -1){
+	perror("seteuid");
+      }
       goto end;
     }
     if((network.ifr_flags & IFF_UP) == 0){
       network.ifr_flags |= IFF_UP;
+      take_down_interface = true;
       ret = ioctl(sd, SIOCSIFFLAGS, &network);
       if(ret == -1){
+	take_down_interface = false;
 	perror("ioctl SIOCSIFFLAGS");
 	exitcode = EXIT_FAILURE;
 #ifdef __linux__
@@ -1113,6 +1286,12 @@ int main(int argc, char *argv[]){
 	  }
 	}
 #endif	/* __linux__ */
+	/* Lower privileges */
+	errno = 0;
+	ret = seteuid(uid);
+	if(ret == -1){
+	  perror("seteuid");
+	}
 	goto end;
       }
     }
@@ -1130,9 +1309,12 @@ int main(int argc, char *argv[]){
 	perror("nanosleep");
       }
     }
-    ret = (int)TEMP_FAILURE_RETRY(close(sd));
-    if(ret == -1){
-      perror("close");
+    if(not take_down_interface){
+      /* We won't need the socket anymore */
+      ret = (int)TEMP_FAILURE_RETRY(close(sd));
+      if(ret == -1){
+	perror("close");
+      }
     }
 #ifdef __linux__
     if(restore_loglevel){
@@ -1143,20 +1325,25 @@ int main(int argc, char *argv[]){
       }
     }
 #endif	/* __linux__ */
+    /* Lower privileges */
+    errno = 0;
+    if(take_down_interface){
+      /* Lower privileges */
+      ret = seteuid(uid);
+      if(ret == -1){
+	perror("seteuid");
+      }
+    } else {
+      /* Lower privileges permanently */
+      ret = setuid(uid);
+      if(ret == -1){
+	perror("setuid");
+      }
+    }
   }
   
-  uid = getuid();
-  gid = getgid();
-  
-  errno = 0;
-  setgid(gid);
-  if(ret == -1){
-    perror("setgid");
-  }
-  
-  ret = setuid(uid);
-  if(ret == -1){
-    perror("setuid");
+  if(quit_now){
+    goto end;
   }
   
   ret = init_gnutls_global(pubkey, seckey);
@@ -1168,11 +1355,20 @@ int main(int argc, char *argv[]){
     gnutls_initialized = true;
   }
   
+  if(quit_now){
+    goto end;
+  }
+  
+  tempdir_created = true;
   if(mkdtemp(tempdir) == NULL){
+    tempdir_created = false;
     perror("mkdtemp");
     goto end;
   }
-  tempdir_created = true;
+  
+  if(quit_now){
+    goto end;
+  }
   
   if(not init_gpgme(pubkey, seckey, tempdir)){
     fprintf(stderr, "init_gpgme failed\n");
@@ -1182,13 +1378,8 @@ int main(int argc, char *argv[]){
     gpgme_initialized = true;
   }
   
-  if(interface[0] != '\0'){
-    if_index = (AvahiIfIndex) if_nametoindex(interface);
-    if(if_index == 0){
-      fprintf(stderr, "No such interface: \"%s\"\n", interface);
-      exitcode = EXIT_FAILURE;
-      goto end;
-    }
+  if(quit_now){
+    goto end;
   }
   
   if(connect_to != NULL){
@@ -1200,6 +1391,11 @@ int main(int argc, char *argv[]){
       exitcode = EXIT_FAILURE;
       goto end;
     }
+    
+    if(quit_now){
+      goto end;
+    }
+    
     uint16_t port;
     errno = 0;
     tmpmax = strtoimax(address+1, &tmp, 10);
@@ -1209,6 +1405,11 @@ int main(int argc, char *argv[]){
       exitcode = EXIT_FAILURE;
       goto end;
     }
+  
+    if(quit_now){
+      goto end;
+    }
+    
     port = (uint16_t)tmpmax;
     *address = '\0';
     address = connect_to;
@@ -1219,6 +1420,11 @@ int main(int argc, char *argv[]){
     } else {
       af = AF_INET;
     }
+    
+    if(quit_now){
+      goto end;
+    }
+    
     ret = start_mandos_communication(address, port, if_index, af);
     if(ret < 0){
       exitcode = EXIT_FAILURE;
@@ -1227,7 +1433,11 @@ int main(int argc, char *argv[]){
     }
     goto end;
   }
-    
+  
+  if(quit_now){
+    goto end;
+  }
+  
   {
     AvahiServerConfig config;
     /* Do not publish any local Zeroconf records */
@@ -1254,6 +1464,10 @@ int main(int argc, char *argv[]){
     goto end;
   }
   
+  if(quit_now){
+    goto end;
+  }
+  
   /* Create the Avahi service browser */
   sb = avahi_s_service_browser_new(mc.server, if_index,
 				   AVAHI_PROTO_UNSPEC, "_mandos._tcp",
@@ -1262,6 +1476,10 @@ int main(int argc, char *argv[]){
     fprintf(stderr, "Failed to create service browser: %s\n",
 	    avahi_strerror(avahi_server_errno(mc.server)));
     exitcode = EXIT_FAILURE;
+    goto end;
+  }
+  
+  if(quit_now){
     goto end;
   }
   
@@ -1297,6 +1515,38 @@ int main(int argc, char *argv[]){
   
   if(gpgme_initialized){
     gpgme_release(mc.ctx);
+  }
+  
+  /* Take down the network interface */
+  if(take_down_interface){
+    /* Re-raise priviliges */
+    errno = 0;
+    ret = seteuid(0);
+    if(ret == -1){
+      perror("seteuid");
+    }
+    if(geteuid() == 0){
+      ret = ioctl(sd, SIOCGIFFLAGS, &network);
+      if(ret == -1){
+	perror("ioctl SIOCGIFFLAGS");
+      } else if(network.ifr_flags & IFF_UP) {
+	network.ifr_flags &= ~IFF_UP; /* clear flag */
+	ret = ioctl(sd, SIOCSIFFLAGS, &network);
+	if(ret == -1){
+	  perror("ioctl SIOCSIFFLAGS");
+	}
+      }
+      ret = (int)TEMP_FAILURE_RETRY(close(sd));
+      if(ret == -1){
+	perror("close");
+      }
+      /* Lower privileges permanently */
+      errno = 0;
+      ret = setuid(uid);
+      if(ret == -1){
+	perror("setuid");
+      }
+    }
   }
   
   /* Removes the temp directory used by GPGME */
@@ -1341,6 +1591,25 @@ int main(int argc, char *argv[]){
     if(ret == -1 and errno != ENOENT){
       perror("rmdir");
     }
+  }
+  
+  if(quit_now){
+    sigemptyset(&old_sigterm_action.sa_mask);
+    old_sigterm_action.sa_handler = SIG_DFL;
+    ret = (int)TEMP_FAILURE_RETRY(sigaction(signal_received,
+					    &old_sigterm_action,
+					    NULL));
+    if(ret == -1){
+      perror("sigaction");
+    }
+    do {
+      ret = raise(signal_received);
+    } while(ret != 0 and errno == EINTR);
+    if(ret != 0){
+      perror("raise");
+      abort();
+    }
+    TEMP_FAILURE_RETRY(pause());
   }
   
   return exitcode;

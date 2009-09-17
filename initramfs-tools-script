@@ -10,7 +10,6 @@
 # eventually be "/scripts/init-premount/mandos" in the initrd.img
 # file.
 
-# No initramfs pre-requirements.
 PREREQ="udev"
 prereqs()
 {

@@ -1,27 +1,42 @@
-* Configure The Server
+* Choose the Client Network Interface
   
-  A client key has been automatically created in /etc/keys/mandos.
-  The next step is to run "mandos-keygen --password" to get a config
-  file section.  This should be appended to /etc/mandos/clients.conf
-  on the Mandos server.
+  You MUST make sure that the correct network interface is specified
+  in the DEVICE setting in the "/etc/initramfs-tools/initramfs.conf"
+  file.  *If* this is changed, it will be necessary to update the
+  initrd image by running the command
+  
+	update-initramfs -k all -u
+  
+  The device can be overridden at boot time on the Linux kernel
+  command line using the sixth colon-separated field of the "ip="
+  option; for exact syntax, read the documentation in the file
+  "/usr/share/doc/linux-doc-*/Documentation/filesystems/nfsroot.txt",
+  available in the "linux-doc-*" package.
+  
+  Note that since this network interface is used in the initial RAM
+  disk environment, the network interface *must* exist at that stage.
+  Thus, the interface can *not* be a pseudo-interface such as "br0" or
+  "tun0"; instead, a real interface (such as "eth0") must be used.
 
-* Use the Correct Network Interface
+* Adding a Client Password to the Server
   
-  Make sure that the correct network interface is specified in the
-  DEVICE setting in the "/etc/initramfs-tools/initramfs.conf" file.
-  If this is changed, it will be necessary to update the initrd image
-  by doing "update-initramfs -k all -u".  This setting can be
-  overridden at boot time on the Linux kernel command line using the
-  sixth colon-separated field of the "ip=" option; for exact syntax,
-  see the file "Documentation/nfsroot.txt" in the Linux source tree.
+  The server must be given a password to give back to the client on
+  boot time.  This password must be a one which can be used to unlock
+  the root file system device.  On the *client*, run this command:
+  
+	mandos-keygen --password
+  
+  It will prompt for a password and output a config file section.
+  This output should be copied to the Mandos server and added to the
+  file "/etc/mandos/clients.conf" there.
 
-* Test the Server
+* Testing that it Works (Without Rebooting)
   
-  After the server has been started and this client's key added, it is
-  possible to verify that the correct password will be received by
+  After the server has been started with this client's key added, it
+  is possible to verify that the correct password will be received by
   this client by running the command, on the client:
   
-	# /usr/lib/mandos/plugins.d/mandos-client \
+	/usr/lib/mandos/plugins.d/mandos-client \
 		--pubkey=/etc/keys/mandos/pubkey.txt \
 		--seckey=/etc/keys/mandos/seckey.txt; echo
   
@@ -31,16 +46,16 @@
 
 * User-Supplied Plugins
   
-  Any plugins found in /etc/mandos/plugins.d will override and add to
-  the normal Mandos plugins.  When adding or changing plugins, do not
-  forget to update the initital RAM disk image:
+  Any plugins found in "/etc/mandos/plugins.d" will override and add
+  to the normal Mandos plugins.  When adding or changing plugins, do
+  not forget to update the initital RAM disk image:
   
-	# update-initramfs -k all -u
+	update-initramfs -k all -u
 
-* Do *NOT* Edit /etc/crypttab
+* Do *NOT* Edit "/etc/crypttab"
   
-  It is NOT necessary to edit /etc/crypttab to specify
-  /usr/lib/mandos/plugin-runner as a keyscript for the root file
+  It is NOT necessary to edit "/etc/crypttab" to specify
+  "/usr/lib/mandos/plugin-runner" as a keyscript for the root file
   system; if no keyscript is given for the root file system, the
   Mandos client will be the new default way for getting a password for
   the root file system when booting.
@@ -69,4 +84,4 @@
   work, "--options-for=mandos-client:--connect=<ADDRESS>:<PORT>" needs
   to be manually added to the file "/etc/mandos/plugin-runner.conf".
 
- -- Teddy Hogeborn <teddy@fukt.bsnet.se>, Mon,  9 Feb 2009 00:36:55 +0100
+ -- Teddy Hogeborn <teddy@fukt.bsnet.se>, Tue,  8 Sep 2009 08:25:58 +0200
