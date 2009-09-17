@@ -142,6 +142,9 @@ mandos_context mc = { .simple_poll = NULL, .server = NULL,
 		      .dh_bits = 1024, .priority = "SECURE256"
 		      ":!CTYPE-X.509:+CTYPE-OPENPGP" };
 
+sig_atomic_t quit_now = 0;
+int signal_received = 0;
+
 /*
  * Make additional room in "buffer" for at least BUFFER_SIZE more
  * bytes. "buffer_capacity" is how much is currently allocated,
@@ -476,6 +479,9 @@ static int init_gnutls_session(gnutls_session_t *session){
   /* GnuTLS session creation */
   do {
     ret = gnutls_init(session, GNUTLS_SERVER);
+    if(quit_now){
+      return -1;
+    }
   } while(ret == GNUTLS_E_INTERRUPTED or ret == GNUTLS_E_AGAIN);
   if(ret != GNUTLS_E_SUCCESS){
     fprintf(stderr, "Error in GnuTLS session initialization: %s\n",
@@ -486,6 +492,10 @@ static int init_gnutls_session(gnutls_session_t *session){
     const char *err;
     do {
       ret = gnutls_priority_set_direct(*session, mc.priority, &err);
+      if(quit_now){
+	gnutls_deinit(*session);
+	return -1;
+      }
     } while(ret == GNUTLS_E_INTERRUPTED or ret == GNUTLS_E_AGAIN);
     if(ret != GNUTLS_E_SUCCESS){
       fprintf(stderr, "Syntax error at: %s\n", err);
@@ -499,6 +509,10 @@ static int init_gnutls_session(gnutls_session_t *session){
   do {
     ret = gnutls_credentials_set(*session, GNUTLS_CRD_CERTIFICATE,
 				 mc.cred);
+    if(quit_now){
+      gnutls_deinit(*session);
+      return -1;
+    }
   } while(ret == GNUTLS_E_INTERRUPTED or ret == GNUTLS_E_AGAIN);
   if(ret != GNUTLS_E_SUCCESS){
     fprintf(stderr, "Error setting GnuTLS credentials: %s\n",
@@ -518,9 +532,6 @@ static int init_gnutls_session(gnutls_session_t *session){
 /* Avahi log function callback */
 static void empty_log(__attribute__((unused)) AvahiLogLevel level,
 		      __attribute__((unused)) const char *txt){}
-
-sig_atomic_t quit_now = 0;
-int signal_received = 0;
 
 /* Called when a Mandos server is found */
 static int start_mandos_communication(const char *ip, uint16_t port,
@@ -575,6 +586,7 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   }
   
   if(quit_now){
+    retval = -1;
     goto mandos_end;
   }
   
@@ -620,6 +632,7 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   }
   
   if(quit_now){
+    retval = -1;
     goto mandos_end;
   }
   
@@ -656,6 +669,7 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   }
   
   if(quit_now){
+    retval = -1;
     goto mandos_end;
   }
   
@@ -671,6 +685,7 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   }
   
   if(quit_now){
+    retval = -1;
     goto mandos_end;
   }
   
@@ -698,6 +713,7 @@ static int start_mandos_communication(const char *ip, uint16_t port,
     }
   
     if(quit_now){
+      retval = -1;
       goto mandos_end;
     }
   }
@@ -707,18 +723,21 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   }
   
   if(quit_now){
+    retval = -1;
     goto mandos_end;
   }
   
   gnutls_transport_set_ptr(session, (gnutls_transport_ptr_t) tcp_sd);
   
   if(quit_now){
+    retval = -1;
     goto mandos_end;
   }
   
   do {
     ret = gnutls_handshake(session);
     if(quit_now){
+      retval = -1;
       goto mandos_end;
     }
   } while(ret == GNUTLS_E_AGAIN or ret == GNUTLS_E_INTERRUPTED);
@@ -742,6 +761,7 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   while(true){
     
     if(quit_now){
+      retval = -1;
       goto mandos_end;
     }
     
@@ -754,6 +774,7 @@ static int start_mandos_communication(const char *ip, uint16_t port,
     }
     
     if(quit_now){
+      retval = -1;
       goto mandos_end;
     }
     
@@ -772,6 +793,7 @@ static int start_mandos_communication(const char *ip, uint16_t port,
 	  ret = gnutls_handshake(session);
 	  
 	  if(quit_now){
+	    retval = -1;
 	    goto mandos_end;
 	  }
 	} while(ret == GNUTLS_E_AGAIN or ret == GNUTLS_E_INTERRUPTED);
@@ -799,14 +821,17 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   }
   
   if(quit_now){
+    retval = -1;
     goto mandos_end;
   }
   
-  gnutls_bye(session, GNUTLS_SHUT_RDWR);
-  
-  if(quit_now){
-    goto mandos_end;
-  }
+  do {
+    ret = gnutls_bye(session, GNUTLS_SHUT_RDWR);
+    if(quit_now){
+      retval = -1;
+      goto mandos_end;
+    }
+  } while(ret == GNUTLS_E_AGAIN or ret == GNUTLS_E_INTERRUPTED);
   
   if(buffer_length > 0){
     ssize_t decrypted_buffer_size;
@@ -818,6 +843,7 @@ static int start_mandos_communication(const char *ip, uint16_t port,
       written = 0;
       while(written < (size_t) decrypted_buffer_size){
 	if(quit_now){
+	  retval = -1;
 	  goto mandos_end;
 	}
 	
