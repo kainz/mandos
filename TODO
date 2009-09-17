@@ -45,8 +45,6 @@
    [[info:standards:Option%20Table][Table of Long Options]]
 ** TODO Date+time on console log messages	:BUGS:
    Is this the default?
-** TODO Split IPv6_TCPServer into a generic and Mandos-specific class
-** TODO move handle_ipc out of IPv6_TCPServer
 ** TODO DBusServiceObjectUsingSuper
 ** Global enable/disable flag
 ** By-client countdown on secrets given
@@ -63,10 +61,9 @@
 *** Handle "no D-Bus server" and/or "no Mandos server found" better
 *** [#B] --dump option
 
-* mandos-name
+* mandos-monitor
 ** D-Bus mail loop w/ signal receiver
-** Urwid/Newt client data displayer
-*** Urwid scaffolding
+** Snack/Newt client data displayer
 *** Client Widgets
 *** Properties popup
 
