@@ -1,6 +1,22 @@
 This NEWS file records noteworthy changes, very tersely.
 See the manual for detailed information.
 
+Version 1.0.12 (2009-09-17)
+* Client
+** Bug fix: Allow network interface renaming by "udev" by taking down
+   the network interface after using it.
+** Bug fix: User-supplied plugins are now installed correctly.
+** Bug fix: If usplash was used but the password was instead provided
+   by the Mandos server, the usplash daemon used to ignore the first
+   command passed to it.  This has been fixed.
+** Bug fix: Make the "--userid" and "--groupid" options in
+   "plugin-runner.conf" work.
+* Server
+** Bug fix: Fix the LSB header in the init.d script to make dependency
+   based booting work.
+** A client receiving its password now also counts as if a checker was
+   run successfully (i.e. the timeout timer is reset).
+
 Version 1.0.11 (2009-05-23)
 * Client
 ** Bug fix: Use "pkg-config" instead of old "libgnutls-config".
