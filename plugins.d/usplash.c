@@ -612,11 +612,13 @@ int main(__attribute__((unused))int argc,
   }
   
   /* Close FIFO (again) */
-  ret = (int)TEMP_FAILURE_RETRY(close(fifo_fd));
-  if(ret == -1 and errno != EINTR){
-    perror("close");
+  if(fifo_fd != -1){
+    ret = (int)TEMP_FAILURE_RETRY(close(fifo_fd));
+    if(ret == -1 and errno != EINTR){
+      perror("close");
+    }
+    fifo_fd = -1;
   }
-  fifo_fd = -1;
   
   if(interrupted_by_signal){
     struct sigaction signal_action = { .sa_handler = SIG_DFL };
