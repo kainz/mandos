@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY COMMANDNAME "mandos">
-<!ENTITY TIMESTAMP "2009-02-24">
+<!ENTITY TIMESTAMP "2009-09-17">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -315,11 +315,14 @@
       The server will, by default, continually check that the clients
       are still up.  If a client has not been confirmed as being up
       for some time, the client is assumed to be compromised and is no
-      longer eligible to receive the encrypted password.  The timeout,
+      longer eligible to receive the encrypted password.  (Manual
+      intervention is required to re-enable a client.)  The timeout,
       checker program, and interval between checks can be configured
       both globally and per client; see <citerefentry>
       <refentrytitle>mandos-clients.conf</refentrytitle>
-      <manvolnum>5</manvolnum></citerefentry>.
+      <manvolnum>5</manvolnum></citerefentry>.  A client successfully
+      receiving its password will also be treated as a successful
+      checker run.
     </para>
   </refsect1>
   
