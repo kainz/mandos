@@ -77,6 +77,10 @@
 ** TODO [#B] "--test" option
    For testing decryption before rebooting.
 
+* Makefile
+** Implement DEB_BUILD_OPTIONS
+   http://www.debian.org/doc/debian-policy/ch-source.html#s-debianrules-options
+
 * Package
 ** /usr/share/initramfs-tools/hooks/mandos
 *** TODO [#C] use same file name rules as run-parts(8)
