@@ -44,7 +44,7 @@
 #include <stdint.h> 		/* uint16_t, uint32_t */
 #include <stddef.h>		/* NULL, size_t, ssize_t */
 #include <stdlib.h> 		/* free(), EXIT_SUCCESS, EXIT_FAILURE,
-				   srand(), strtof() */
+				   srand(), strtof(), abort() */
 #include <stdbool.h>		/* bool, false, true */
 #include <string.h>		/* memset(), strcmp(), strlen(),
 				   strerror(), asprintf(), strcpy() */
@@ -72,7 +72,7 @@
 				*/
 #include <unistd.h>		/* close(), SEEK_SET, off_t, write(),
 				   getuid(), getgid(), seteuid(),
-				   setgid() */
+				   setgid(), pause() */
 #include <arpa/inet.h>		/* inet_pton(), htons */
 #include <iso646.h>		/* not, or, and */
 #include <argp.h>		/* struct argp_option, error_t, struct
@@ -1596,11 +1596,20 @@ int main(int argc, char *argv[]){
   if(quit_now){
     sigemptyset(&old_sigterm_action.sa_mask);
     old_sigterm_action.sa_handler = SIG_DFL;
-    ret = sigaction(signal_received, &old_sigterm_action, NULL);
+    ret = (int)TEMP_FAILURE_RETRY(sigaction(signal_received,
+					    &old_sigterm_action,
+					    NULL));
     if(ret == -1){
       perror("sigaction");
     }
-    raise(signal_received);
+    do {
+      ret = raise(signal_received);
+    } while(ret != 0 and errno == EINTR);
+    if(ret != 0){
+      perror("raise");
+      abort();
+    }
+    TEMP_FAILURE_RETRY(pause());
   }
   
   return exitcode;
