@@ -190,7 +190,7 @@ int main(int argc, char **argv){
   }
   
   t_new = t_old;
-  t_new.c_lflag &= ~ECHO;
+  t_new.c_lflag &= ~(tcflag_t)ECHO;
   if(tcsetattr(STDIN_FILENO, TCSAFLUSH, &t_new) != 0){
     perror("tcsetattr-echo");
     return EXIT_FAILURE;
