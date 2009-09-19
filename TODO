@@ -23,6 +23,8 @@
 * password-prompt
 ** TODO [#B] Prefix all debug output with "Mandos plugin " + argv[0]
 
+* TODO passdev
+
 * plugin-runner
 ** TODO [#B] use scandir(3) instead of readdir(3)
 ** TODO [#C] use same file name rules as run-parts(8)
@@ -46,11 +48,19 @@
 ** TODO Date+time on console log messages	:BUGS:
    Is this the default?
 ** TODO DBusServiceObjectUsingSuper
-** Global enable/disable flag
-** By-client countdown on secrets given
-** Fix problem with fsck taking a really long time
+** TODO Global enable/disable flag
+** TODO By-client countdown on secrets given
+** TODO Fix problem with fsck taking a really long time
    Whenever a client successfully gets a secret it could get a
    one-time timeout boost to allow for an fsck-incurred delay
+** TODO Delay before client receives key
+   This would give an operator opportunity to cancel the request if
+   desired.
+** TODO Client manual approval mode
+   A client needs manual approval on the server before it gets the
+   secret
+** TODO Persistent state
+   /var/lib/mandos/*
 
 * mandos.xml
 ** [[file:mandos.xml::XXX][Document D-Bus interface]]
@@ -60,6 +70,10 @@
 * mandos-ctl
 *** Handle "no D-Bus server" and/or "no Mandos server found" better
 *** [#B] --dump option
+
+* TODO mandos-dispatch
+  Listens for specified D-Bus signals and spawns shell commands with
+  arguments.
 
 * mandos-monitor
 ** D-Bus mail loop w/ signal receiver
