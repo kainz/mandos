@@ -983,9 +983,6 @@ class MandosServer(IPv6_TCPServer):
         clients:        set of Client objects
         gnutls_priority GnuTLS priority string
         use_dbus:       Boolean; to emit D-Bus signals or not
-        clients:        set of Client objects
-        gnutls_priority GnuTLS priority string
-        use_dbus:       Boolean; to emit D-Bus signals or not
     
     Assumes a gobject.MainLoop event loop.
     """

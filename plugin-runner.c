@@ -968,7 +968,8 @@ int main(int argc, char *argv[]){
       goto fallback;
     }
     
-    FD_SET(new_plugin->fd, &rfds_all);
+    FD_SET(new_plugin->fd, &rfds_all); /* Spurious warning from
+					  -Wconversion */
     
     if(maxfd < new_plugin->fd){
       maxfd = new_plugin->fd;
@@ -1028,7 +1029,8 @@ int main(int argc, char *argv[]){
 	  }
 	  
 	  /* Remove the plugin */
-	  FD_CLR(proc->fd, &rfds_all);
+	  FD_CLR(proc->fd, &rfds_all); /* Spurious warning from
+					  -Wconversion */
 	  
 	  /* Block signal while modifying process_list */
 	  ret = (int)TEMP_FAILURE_RETRY(sigprocmask
@@ -1074,7 +1076,9 @@ int main(int argc, char *argv[]){
       }
       
       /* This process has not completed.  Does it have any output? */
-      if(proc->eof or not FD_ISSET(proc->fd, &rfds)){
+      if(proc->eof or not FD_ISSET(proc->fd, &rfds)){ /* Spurious
+							 warning from
+							 -Wconversion */
 	/* This process had nothing to say at this time */
 	proc = proc->next;
 	continue;
