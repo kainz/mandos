@@ -67,6 +67,8 @@ import avahi
 from dbus.mainloop.glib import DBusGMainLoop
 import ctypes
 import ctypes.util
+import xml.dom.minidom
+import inspect
 
 try:
     SO_BINDTODEVICE = socket.SO_BINDTODEVICE
@@ -247,7 +249,7 @@ class Client(object):
                                     to see if the client lives.
                                     'None' if no process is running.
     checker_initiator_tag: a gobject event source tag, or None
-    disable_initiator_tag:    - '' -
+    disable_initiator_tag: - '' -
     checker_callback_tag:  - '' -
     checker_command: string; External command which is run to check if
                      client lives.  %() expansions are done at
@@ -257,19 +259,19 @@ class Client(object):
     """
     
     @staticmethod
-    def _datetime_to_milliseconds(dt):
-        "Convert a datetime.datetime() to milliseconds"
-        return ((dt.days * 24 * 60 * 60 * 1000)
-                + (dt.seconds * 1000)
-                + (dt.microseconds // 1000))
+    def _timedelta_to_milliseconds(td):
+        "Convert a datetime.timedelta() to milliseconds"
+        return ((td.days * 24 * 60 * 60 * 1000)
+                + (td.seconds * 1000)
+                + (td.microseconds // 1000))
     
     def timeout_milliseconds(self):
         "Return the 'timeout' attribute in milliseconds"
-        return self._datetime_to_milliseconds(self.timeout)
+        return self._timedelta_to_milliseconds(self.timeout)
     
     def interval_milliseconds(self):
         "Return the 'interval' attribute in milliseconds"
-        return self._datetime_to_milliseconds(self.interval)
+        return self._timedelta_to_milliseconds(self.interval)
     
     def __init__(self, name = None, disable_hook=None, config=None):
         """Note: the 'checker' key in 'config' sets the
@@ -478,7 +480,168 @@ class Client(object):
             return now < (self.last_checked_ok + self.timeout)
 
 
-class ClientDBus(Client, dbus.service.Object):
+def dbus_service_property(dbus_interface, signature=u"v",
+                          access=u"readwrite", byte_arrays=False):
+    """Decorators for marking methods of a DBusObjectWithProperties to
+    become properties on the D-Bus.
+    
+    The decorated method will be called with no arguments by "Get"
+    and with one argument by "Set".
+    
+    The parameters, where they are supported, are the same as
+    dbus.service.method, except there is only "signature", since the
+    type from Get() and the type sent to Set() is the same.
+    """
+    def decorator(func):
+        func._dbus_is_property = True
+        func._dbus_interface = dbus_interface
+        func._dbus_signature = signature
+        func._dbus_access = access
+        func._dbus_name = func.__name__
+        if func._dbus_name.endswith(u"_dbus_property"):
+            func._dbus_name = func._dbus_name[:-14]
+        func._dbus_get_args_options = {u'byte_arrays': byte_arrays }
+        return func
+    return decorator
+
+
+class DBusPropertyException(dbus.exceptions.DBusException):
+    """A base class for D-Bus property-related exceptions
+    """
+    def __unicode__(self):
+        return unicode(str(self))
+
+
+class DBusPropertyAccessException(DBusPropertyException):
+    """A property's access permissions disallows an operation.
+    """
+    pass
+
+
+class DBusPropertyNotFound(DBusPropertyException):
+    """An attempt was made to access a non-existing property.
+    """
+    pass
+
+
+class DBusObjectWithProperties(dbus.service.Object):
+    """A D-Bus object with properties.
+
+    Classes inheriting from this can use the dbus_service_property
+    decorator to expose methods as D-Bus properties.  It exposes the
+    standard Get(), Set(), and GetAll() methods on the D-Bus.
+    """
+    
+    @staticmethod
+    def _is_dbus_property(obj):
+        return getattr(obj, u"_dbus_is_property", False)
+    
+    def _get_all_dbus_properties(self):
+        """Returns a generator of (name, attribute) pairs
+        """
+        return ((prop._dbus_name, prop)
+                for name, prop in
+                inspect.getmembers(self, self._is_dbus_property))
+    
+    def _get_dbus_property(self, interface_name, property_name):
+        """Returns a bound method if one exists which is a D-Bus
+        property with the specified name and interface.
+        """
+        for name in (property_name,
+                     property_name + u"_dbus_property"):
+            prop = getattr(self, name, None)
+            if (prop is None
+                or not self._is_dbus_property(prop)
+                or prop._dbus_name != property_name
+                or (interface_name and prop._dbus_interface
+                    and interface_name != prop._dbus_interface)):
+                continue
+            return prop
+        # No such property
+        raise DBusPropertyNotFound(self.dbus_object_path + u":"
+                                   + interface_name + u"."
+                                   + property_name)
+    
+    @dbus.service.method(dbus.PROPERTIES_IFACE, in_signature=u"ss",
+                         out_signature=u"v")
+    def Get(self, interface_name, property_name):
+        """Standard D-Bus property Get() method, see D-Bus standard.
+        """
+        prop = self._get_dbus_property(interface_name, property_name)
+        if prop._dbus_access == u"write":
+            raise DBusPropertyAccessException(property_name)
+        value = prop()
+        if not hasattr(value, u"variant_level"):
+            return value
+        return type(value)(value, variant_level=value.variant_level+1)
+    
+    @dbus.service.method(dbus.PROPERTIES_IFACE, in_signature=u"ssv")
+    def Set(self, interface_name, property_name, value):
+        """Standard D-Bus property Set() method, see D-Bus standard.
+        """
+        prop = self._get_dbus_property(interface_name, property_name)
+        if prop._dbus_access == u"read":
+            raise DBusPropertyAccessException(property_name)
+        if prop._dbus_get_args_options[u"byte_arrays"]:
+            value = dbus.ByteArray(''.join(unichr(byte)
+                                           for byte in value))
+        prop(value)
+    
+    @dbus.service.method(dbus.PROPERTIES_IFACE, in_signature=u"s",
+                         out_signature=u"a{sv}")
+    def GetAll(self, interface_name):
+        """Standard D-Bus property GetAll() method, see D-Bus
+        standard.
+
+        Note: Will not include properties with access="write".
+        """
+        all = {}
+        for name, prop in self._get_all_dbus_properties():
+            if (interface_name
+                and interface_name != prop._dbus_interface):
+                # Interface non-empty but did not match
+                continue
+            # Ignore write-only properties
+            if prop._dbus_access == u"write":
+                continue
+            value = prop()
+            if not hasattr(value, u"variant_level"):
+                all[name] = value
+                continue
+            all[name] = type(value)(value, variant_level=
+                                    value.variant_level+1)
+        return dbus.Dictionary(all, signature=u"sv")
+    
+    @dbus.service.method(dbus.INTROSPECTABLE_IFACE,
+                         out_signature=u"s",
+                         path_keyword='object_path',
+                         connection_keyword='connection')
+    def Introspect(self, object_path, connection):
+        """Standard D-Bus method, overloaded to insert property tags.
+        """
+        xmlstring = dbus.service.Object.Introspect(self, object_path,
+                                           connection)
+        document = xml.dom.minidom.parseString(xmlstring)
+        del xmlstring
+        def make_tag(document, name, prop):
+            e = document.createElement(u"property")
+            e.setAttribute(u"name", name)
+            e.setAttribute(u"type", prop._dbus_signature)
+            e.setAttribute(u"access", prop._dbus_access)
+            return e
+        for if_tag in document.getElementsByTagName(u"interface"):
+            for tag in (make_tag(document, name, prop)
+                        for name, prop
+                        in self._get_all_dbus_properties()
+                        if prop._dbus_interface
+                        == if_tag.getAttribute(u"name")):
+                if_tag.appendChild(tag)
+        xmlstring = document.toxml(u"utf-8")
+        document.unlink()
+        return xmlstring
+
+
+class ClientDBus(Client, DBusObjectWithProperties):
     """A Client class using D-Bus
     
     Attributes:
@@ -495,8 +658,8 @@ class ClientDBus(Client, dbus.service.Object):
         self.dbus_object_path = (dbus.ObjectPath
                                  (u"/clients/"
                                   + self.name.replace(u".", u"_")))
-        dbus.service.Object.__init__(self, self.bus,
-                                     self.dbus_object_path)
+        DBusObjectWithProperties.__init__(self, self.bus,
+                                          self.dbus_object_path)
     
     @staticmethod
     def _datetime_to_dbus(dt, variant_level=0):
@@ -531,8 +694,8 @@ class ClientDBus(Client, dbus.service.Object):
             self.remove_from_connection()
         except LookupError:
             pass
-        if hasattr(dbus.service.Object, u"__del__"):
-            dbus.service.Object.__del__(self, *args, **kwargs)
+        if hasattr(DBusObjectWithProperties, u"__del__"):
+            DBusObjectWithProperties.__del__(self, *args, **kwargs)
         Client.__del__(self, *args, **kwargs)
     
     def checker_callback(self, pid, condition, command,
@@ -595,11 +758,6 @@ class ClientDBus(Client, dbus.service.Object):
     ## D-Bus methods & signals
     _interface = u"se.bsnet.fukt.Mandos.Client"
     
-    # CheckedOK - method
-    @dbus.service.method(_interface)
-    def CheckedOK(self):
-        return self.checked_ok()
-    
     # CheckerCompleted - signal
     @dbus.service.signal(_interface, signature=u"nxs")
     def CheckerCompleted(self, exitcode, waitstatus, command):
@@ -611,54 +769,6 @@ class ClientDBus(Client, dbus.service.Object):
     def CheckerStarted(self, command):
         "D-Bus signal"
         pass
-    
-    # GetAllProperties - method
-    @dbus.service.method(_interface, out_signature=u"a{sv}")
-    def GetAllProperties(self):
-        "D-Bus method"
-        return dbus.Dictionary({
-                dbus.String(u"name"):
-                    dbus.String(self.name, variant_level=1),
-                dbus.String(u"fingerprint"):
-                    dbus.String(self.fingerprint, variant_level=1),
-                dbus.String(u"host"):
-                    dbus.String(self.host, variant_level=1),
-                dbus.String(u"created"):
-                    self._datetime_to_dbus(self.created,
-                                           variant_level=1),
-                dbus.String(u"last_enabled"):
-                    (self._datetime_to_dbus(self.last_enabled,
-                                            variant_level=1)
-                     if self.last_enabled is not None
-                     else dbus.Boolean(False, variant_level=1)),
-                dbus.String(u"enabled"):
-                    dbus.Boolean(self.enabled, variant_level=1),
-                dbus.String(u"last_checked_ok"):
-                    (self._datetime_to_dbus(self.last_checked_ok,
-                                            variant_level=1)
-                     if self.last_checked_ok is not None
-                     else dbus.Boolean (False, variant_level=1)),
-                dbus.String(u"timeout"):
-                    dbus.UInt64(self.timeout_milliseconds(),
-                                variant_level=1),
-                dbus.String(u"interval"):
-                    dbus.UInt64(self.interval_milliseconds(),
-                                variant_level=1),
-                dbus.String(u"checker"):
-                    dbus.String(self.checker_command,
-                                variant_level=1),
-                dbus.String(u"checker_running"):
-                    dbus.Boolean(self.checker is not None,
-                                 variant_level=1),
-                dbus.String(u"object_path"):
-                    dbus.ObjectPath(self.dbus_object_path,
-                                    variant_level=1)
-                }, signature=u"sv")
-    
-    # IsStillValid - method
-    @dbus.service.method(_interface, out_signature=u"b")
-    def IsStillValid(self):
-        return self.still_valid()
     
     # PropertyChanged - signal
     @dbus.service.signal(_interface, signature=u"sv")
@@ -678,73 +788,137 @@ class ClientDBus(Client, dbus.service.Object):
         "D-Bus signal"
         pass
     
-    # SetChecker - method
-    @dbus.service.method(_interface, in_signature=u"s")
-    def SetChecker(self, checker):
-        "D-Bus setter method"
-        self.checker_command = checker
+    # name - property
+    @dbus_service_property(_interface, signature=u"s", access=u"read")
+    def name_dbus_property(self):
+        return dbus.String(self.name)
+    
+    # fingerprint - property
+    @dbus_service_property(_interface, signature=u"s", access=u"read")
+    def fingerprint_dbus_property(self):
+        return dbus.String(self.fingerprint)
+    
+    # host - property
+    @dbus_service_property(_interface, signature=u"s",
+                           access=u"readwrite")
+    def host_dbus_property(self, value=None):
+        if value is None:       # get
+            return dbus.String(self.host)
+        self.host = value
+        # Emit D-Bus signal
+        self.PropertyChanged(dbus.String(u"host"),
+                             dbus.String(value, variant_level=1))
+    
+    # created - property
+    @dbus_service_property(_interface, signature=u"s", access=u"read")
+    def created_dbus_property(self):
+        return dbus.String(self._datetime_to_dbus(self.created))
+    
+    # last_enabled - property
+    @dbus_service_property(_interface, signature=u"s", access=u"read")
+    def last_enabled_dbus_property(self):
+        if self.last_enabled is None:
+            return dbus.String(u"")
+        return dbus.String(self._datetime_to_dbus(self.last_enabled))
+    
+    # enabled - property
+    @dbus_service_property(_interface, signature=u"b",
+                           access=u"readwrite")
+    def enabled_dbus_property(self, value=None):
+        if value is None:       # get
+            return dbus.Boolean(self.enabled)
+        if value:
+            self.enable()
+        else:
+            self.disable()
+    
+    # last_checked_ok - property
+    @dbus_service_property(_interface, signature=u"s", access=u"read")
+    def last_checked_ok_dbus_property(self):
+        if self.last_checked_ok is None:
+            return dbus.String(u"")
+        return dbus.String(self._datetime_to_dbus(self
+                                                  .last_checked_ok))
+    
+    # timeout - property
+    @dbus_service_property(_interface, signature=u"t",
+                           access=u"readwrite")
+    def timeout_dbus_property(self, value=None):
+        if value is None:       # get
+            return dbus.UInt64(self.timeout_milliseconds())
+        self.timeout = datetime.timedelta(0, 0, 0, value)
+        # Emit D-Bus signal
+        self.PropertyChanged(dbus.String(u"timeout"),
+                             dbus.UInt64(value, variant_level=1))
+        if getattr(self, u"disable_initiator_tag", None) is None:
+            return
+        # Reschedule timeout
+        gobject.source_remove(self.disable_initiator_tag)
+        self.disable_initiator_tag = None
+        time_to_die = (self.
+                       _timedelta_to_milliseconds((self
+                                                   .last_checked_ok
+                                                   + self.timeout)
+                                                  - datetime.datetime
+                                                  .utcnow()))
+        if time_to_die <= 0:
+            # The timeout has passed
+            self.disable()
+        else:
+            self.disable_initiator_tag = (gobject.timeout_add
+                                          (time_to_die, self.disable))
+    
+    # interval - property
+    @dbus_service_property(_interface, signature=u"t",
+                           access=u"readwrite")
+    def interval_dbus_property(self, value=None):
+        if value is None:       # get
+            return dbus.UInt64(self.interval_milliseconds())
+        self.interval = datetime.timedelta(0, 0, 0, value)
+        # Emit D-Bus signal
+        self.PropertyChanged(dbus.String(u"interval"),
+                             dbus.UInt64(value, variant_level=1))
+        if getattr(self, u"checker_initiator_tag", None) is None:
+            return
+        # Reschedule checker run
+        gobject.source_remove(self.checker_initiator_tag)
+        self.checker_initiator_tag = (gobject.timeout_add
+                                      (value, self.start_checker))
+        self.start_checker()    # Start one now, too
+
+    # checker - property
+    @dbus_service_property(_interface, signature=u"s",
+                           access=u"readwrite")
+    def checker_dbus_property(self, value=None):
+        if value is None:       # get
+            return dbus.String(self.checker_command)
+        self.checker_command = value
         # Emit D-Bus signal
         self.PropertyChanged(dbus.String(u"checker"),
                              dbus.String(self.checker_command,
                                          variant_level=1))
     
-    # SetHost - method
-    @dbus.service.method(_interface, in_signature=u"s")
-    def SetHost(self, host):
-        "D-Bus setter method"
-        self.host = host
-        # Emit D-Bus signal
-        self.PropertyChanged(dbus.String(u"host"),
-                             dbus.String(self.host, variant_level=1))
+    # checker_running - property
+    @dbus_service_property(_interface, signature=u"b",
+                           access=u"readwrite")
+    def checker_running_dbus_property(self, value=None):
+        if value is None:       # get
+            return dbus.Boolean(self.checker is not None)
+        if value:
+            self.start_checker()
+        else:
+            self.stop_checker()
     
-    # SetInterval - method
-    @dbus.service.method(_interface, in_signature=u"t")
-    def SetInterval(self, milliseconds):
-        self.interval = datetime.timedelta(0, 0, 0, milliseconds)
-        # Emit D-Bus signal
-        self.PropertyChanged(dbus.String(u"interval"),
-                             (dbus.UInt64(self
-                                          .interval_milliseconds(),
-                                          variant_level=1)))
+    # object_path - property
+    @dbus_service_property(_interface, signature=u"o", access=u"read")
+    def object_path_dbus_property(self):
+        return self.dbus_object_path # is already a dbus.ObjectPath
     
-    # SetSecret - method
-    @dbus.service.method(_interface, in_signature=u"ay",
-                         byte_arrays=True)
-    def SetSecret(self, secret):
-        "D-Bus setter method"
-        self.secret = str(secret)
-    
-    # SetTimeout - method
-    @dbus.service.method(_interface, in_signature=u"t")
-    def SetTimeout(self, milliseconds):
-        self.timeout = datetime.timedelta(0, 0, 0, milliseconds)
-        # Emit D-Bus signal
-        self.PropertyChanged(dbus.String(u"timeout"),
-                             (dbus.UInt64(self.timeout_milliseconds(),
-                                          variant_level=1)))
-    
-    # Enable - method
-    @dbus.service.method(_interface)
-    def Enable(self):
-        "D-Bus method"
-        self.enable()
-    
-    # StartChecker - method
-    @dbus.service.method(_interface)
-    def StartChecker(self):
-        "D-Bus method"
-        self.start_checker()
-    
-    # Disable - method
-    @dbus.service.method(_interface)
-    def Disable(self):
-        "D-Bus method"
-        self.disable()
-    
-    # StopChecker - method
-    @dbus.service.method(_interface)
-    def StopChecker(self):
-        self.stop_checker()
+    # secret = property xxx
+    @dbus_service_property(_interface, signature=u"ay",
+                           access=u"write", byte_arrays=True)
+    def secret_dbus_property(self, value):
+        self.secret = str(value)
     
     del _interface
 
@@ -1427,7 +1601,7 @@ def main():
             def GetAllClientsWithProperties(self):
                 "D-Bus method"
                 return dbus.Dictionary(
-                    ((c.dbus_object_path, c.GetAllProperties())
+                    ((c.dbus_object_path, c.GetAll(u""))
                      for c in tcp_server.clients),
                     signature=u"oa{sv}")
             
@@ -1453,7 +1627,7 @@ def main():
         if use_dbus:
             # Emit D-Bus signal
             mandos_dbus_service.ClientAdded(client.dbus_object_path,
-                                            client.GetAllProperties())
+                                            client.GetAll(u""))
         client.enable()
     
     tcp_server.enable()
