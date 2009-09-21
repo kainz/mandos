@@ -172,17 +172,17 @@ int main(__attribute__((unused))int argc,
       new_action = { .sa_handler = termination_handler,
 		     .sa_flags = 0 };
     sigemptyset(&new_action.sa_mask);
-    sigaddset(&new_action.sa_mask, SIGINT);
+    ret = sigaddset(&new_action.sa_mask, SIGINT);
     if(ret == -1){
       perror("sigaddset");
       goto failure;
     }
-    sigaddset(&new_action.sa_mask, SIGHUP);
+    ret = sigaddset(&new_action.sa_mask, SIGHUP);
     if(ret == -1){
       perror("sigaddset");
       goto failure;
     }
-    sigaddset(&new_action.sa_mask, SIGTERM);
+    ret = sigaddset(&new_action.sa_mask, SIGTERM);
     if(ret == -1){
       perror("sigaddset");
       goto failure;
@@ -298,7 +298,7 @@ int main(__attribute__((unused))int argc,
       TEMP_FAILURE_RETRY(kill(splashy_pid, SIGKILL));
       sleep(1);
     }
-    pid_t new_splashy_pid = TEMP_FAILURE_RETRY(fork());
+    pid_t new_splashy_pid = (pid_t)TEMP_FAILURE_RETRY(fork());
     if(new_splashy_pid == 0){
       /* Child; will become new splashy process */
       
@@ -333,8 +333,8 @@ int main(__attribute__((unused))int argc,
     struct sigaction signal_action;
     sigemptyset(&signal_action.sa_mask);
     signal_action.sa_handler = SIG_DFL;
-    ret = TEMP_FAILURE_RETRY(sigaction(signal_received,
-				       &signal_action, NULL));
+    ret = (int)TEMP_FAILURE_RETRY(sigaction(signal_received,
+					    &signal_action, NULL));
     if(ret == -1){
       perror("sigaction");
     }

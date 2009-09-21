@@ -22,7 +22,7 @@
  * Contact the authors at <mandos@fukt.bsnet.se>.
  */
 
-#define _GNU_SOURCE		/* asprintf() */
+#define _GNU_SOURCE		/* asprintf(), TEMP_FAILURE_RETRY() */
 #include <signal.h>		/* sig_atomic_t, struct sigaction,
 				   sigemptyset(), sigaddset(), SIGINT,
 				   SIGHUP, SIGTERM, sigaction(),
@@ -49,39 +49,46 @@
 #include <sys/stat.h>		/* struct stat, lstat(), S_ISLNK */
 
 sig_atomic_t interrupted_by_signal = 0;
+int signal_received;
+const char usplash_name[] = "/sbin/usplash";
 
-static void termination_handler(__attribute__((unused))int signum){
+static void termination_handler(int signum){
+  if(interrupted_by_signal){
+    return;
+  }
   interrupted_by_signal = 1;
+  signal_received = signum;
 }
 
-static bool usplash_write(const char *cmd, const char *arg){
+static bool usplash_write(int *fifo_fd_r,
+			  const char *cmd, const char *arg){
   /* 
-   * usplash_write("TIMEOUT", "15") will write "TIMEOUT 15\0"
-   * usplash_write("PULSATE", NULL) will write "PULSATE\0"
+   * usplash_write(&fd, "TIMEOUT", "15") will write "TIMEOUT 15\0"
+   * usplash_write(&fd, "PULSATE", NULL) will write "PULSATE\0"
    * SEE ALSO
    *         usplash_write(8)
    */
   int ret;
-  int fifo_fd;
-  do {
-    fifo_fd = open("/dev/.initramfs/usplash_fifo", O_WRONLY);
-    if((fifo_fd == -1) and (errno != EINTR or interrupted_by_signal)){
+  if(*fifo_fd_r == -1){
+    ret = open("/dev/.initramfs/usplash_fifo", O_WRONLY);
+    if(ret == -1){
       return false;
     }
-  } while(fifo_fd == -1);
+    *fifo_fd_r = ret;
+  }
   
   const char *cmd_line;
   size_t cmd_line_len;
   char *cmd_line_alloc = NULL;
   if(arg == NULL){
     cmd_line = cmd;
-    cmd_line_len = strlen(cmd);
+    cmd_line_len = strlen(cmd) + 1;
   } else {
     do {
       ret = asprintf(&cmd_line_alloc, "%s %s", cmd, arg);
-      if(ret == -1 and (errno != EINTR or interrupted_by_signal)){
+      if(ret == -1){
 	int e = errno;
-	close(fifo_fd);
+	TEMP_FAILURE_RETRY(close(*fifo_fd_r));
 	errno = e;
 	return false;
       }
@@ -92,199 +99,216 @@ static bool usplash_write(const char *cmd, const char *arg){
   
   size_t written = 0;
   ssize_t sret = 0;
-  while(not interrupted_by_signal and written < cmd_line_len){
-    sret = write(fifo_fd, cmd_line + written,
+  while(written < cmd_line_len){
+    sret = write(*fifo_fd_r, cmd_line + written,
 		 cmd_line_len - written);
     if(sret == -1){
-      if(errno != EINTR or interrupted_by_signal){
-	int e = errno;
-	close(fifo_fd);
-	free(cmd_line_alloc);
-	errno = e;
-	return false;
-      } else {
-	continue;
-      }
+      int e = errno;
+      TEMP_FAILURE_RETRY(close(*fifo_fd_r));
+      free(cmd_line_alloc);
+      errno = e;
+      return false;
     }
     written += (size_t)sret;
   }
   free(cmd_line_alloc);
-  do {
-    ret = close(fifo_fd);
-    if(ret == -1 and (errno != EINTR or interrupted_by_signal)){
-      return false;
-    }
-  } while(ret == -1);
-  if(interrupted_by_signal){
-    return false;
-  }
+  
   return true;
+}
+
+/* Create prompt string */
+char *makeprompt(void){
+  int ret = 0;
+  char *prompt;
+  const char *const cryptsource = getenv("cryptsource");
+  const char *const crypttarget = getenv("crypttarget");
+  const char prompt_start[] = "Enter passphrase to unlock the disk";
+  
+  if(cryptsource == NULL){
+    if(crypttarget == NULL){
+      ret = asprintf(&prompt, "%s: ", prompt_start);
+    } else {
+      ret = asprintf(&prompt, "%s (%s): ", prompt_start,
+		     crypttarget);
+    }
+  } else {
+    if(crypttarget == NULL){
+      ret = asprintf(&prompt, "%s %s: ", prompt_start, cryptsource);
+    } else {
+      ret = asprintf(&prompt, "%s %s (%s): ", prompt_start,
+		     cryptsource, crypttarget);
+    }
+  }
+  if(ret == -1){
+    return NULL;
+  }
+  return prompt;
+}
+
+pid_t find_usplash(char **cmdline_r, size_t *cmdline_len_r){
+  int ret = 0;
+  ssize_t sret = 0;
+  char *cmdline = NULL;
+  size_t cmdline_len = 0;
+  DIR *proc_dir = opendir("/proc");
+  if(proc_dir == NULL){
+    perror("opendir");
+    return -1;
+  }
+  errno = 0;
+  for(struct dirent *proc_ent = readdir(proc_dir);
+      proc_ent != NULL;
+      proc_ent = readdir(proc_dir)){
+    pid_t pid;
+    {
+      intmax_t tmpmax;
+      char *tmp;
+      tmpmax = strtoimax(proc_ent->d_name, &tmp, 10);
+      if(errno != 0 or tmp == proc_ent->d_name or *tmp != '\0'
+	 or tmpmax != (pid_t)tmpmax){
+	/* Not a process */
+	errno = 0;
+	continue;
+      }
+      pid = (pid_t)tmpmax;
+    }
+    /* Find the executable name by doing readlink() on the
+       /proc/<pid>/exe link */
+    char exe_target[sizeof(usplash_name)];
+    {
+      /* create file name string */
+      char *exe_link;
+      ret = asprintf(&exe_link, "/proc/%s/exe", proc_ent->d_name);
+      if(ret == -1){
+	perror("asprintf");
+	goto fail_find_usplash;
+      }
+      
+      /* Check that it refers to a symlink owned by root:root */
+      struct stat exe_stat;
+      ret = lstat(exe_link, &exe_stat);
+      if(ret == -1){
+	if(errno == ENOENT){
+	  free(exe_link);
+	  continue;
+	}
+	perror("lstat");
+	free(exe_link);
+	goto fail_find_usplash;
+      }
+      if(not S_ISLNK(exe_stat.st_mode)
+	 or exe_stat.st_uid != 0
+	 or exe_stat.st_gid != 0){
+	free(exe_link);
+	continue;
+      }
+	
+      sret = readlink(exe_link, exe_target, sizeof(exe_target));
+      free(exe_link);
+    }
+    /* Compare executable name */
+    if((sret != ((ssize_t)sizeof(exe_target)-1))
+       or (memcmp(usplash_name, exe_target,
+		  sizeof(exe_target)-1) != 0)){
+      /* Not it */
+      continue;
+    }
+    /* Found usplash */
+    /* Read and save the command line of usplash in "cmdline" */
+    {
+      /* Open /proc/<pid>/cmdline  */
+      int cl_fd;
+      {
+	char *cmdline_filename;
+	ret = asprintf(&cmdline_filename, "/proc/%s/cmdline",
+		       proc_ent->d_name);
+	if(ret == -1){
+	  perror("asprintf");
+	  goto fail_find_usplash;
+	}
+	cl_fd = open(cmdline_filename, O_RDONLY);
+	free(cmdline_filename);
+	if(cl_fd == -1){
+	  perror("open");
+	  goto fail_find_usplash;
+	}
+      }
+      size_t cmdline_allocated = 0;
+      char *tmp;
+      const size_t blocksize = 1024;
+      do {
+	/* Allocate more space? */
+	if(cmdline_len + blocksize > cmdline_allocated){
+	  tmp = realloc(cmdline, cmdline_allocated + blocksize);
+	  if(tmp == NULL){
+	    perror("realloc");
+	    close(cl_fd);
+	    goto fail_find_usplash;
+	  }
+	  cmdline = tmp;
+	  cmdline_allocated += blocksize;
+	}
+	/* Read data */
+	sret = read(cl_fd, cmdline + cmdline_len,
+		    cmdline_allocated - cmdline_len);
+	if(sret == -1){
+	  perror("read");
+	  close(cl_fd);
+	  goto fail_find_usplash;
+	}
+	cmdline_len += (size_t)sret;
+      } while(sret != 0);
+      ret = close(cl_fd);
+      if(ret == -1){
+	perror("close");
+	goto fail_find_usplash;
+      }
+    }
+    /* Close directory */
+    ret = closedir(proc_dir);
+    if(ret == -1){
+      perror("closedir");
+      goto fail_find_usplash;
+    }
+    /* Success */
+    *cmdline_r = cmdline;
+    *cmdline_len_r = cmdline_len;
+    return pid;
+  }
+  
+ fail_find_usplash:
+  
+  free(cmdline);
+  if(proc_dir != NULL){
+    int e = errno;
+    closedir(proc_dir);
+    errno = e;
+  }
+  return 0;
 }
 
 int main(__attribute__((unused))int argc,
 	 __attribute__((unused))char **argv){
   int ret = 0;
   ssize_t sret;
-  bool an_error_occured = false;
+  int fifo_fd = -1;
+  int outfifo_fd = -1;
+  char *buf = NULL;
+  size_t buf_len = 0;
+  pid_t usplash_pid = -1;
+  bool usplash_accessed = false;
   
-  /* Create prompt string */
-  char *prompt = NULL;
-  {
-    const char *const cryptsource = getenv("cryptsource");
-    const char *const crypttarget = getenv("crypttarget");
-    const char prompt_start[] = "Enter passphrase to unlock the disk";
-    
-    if(cryptsource == NULL){
-      if(crypttarget == NULL){
-	ret = asprintf(&prompt, "%s: ", prompt_start);
-      } else {
-	ret = asprintf(&prompt, "%s (%s): ", prompt_start,
-		       crypttarget);
-      }
-    } else {
-      if(crypttarget == NULL){
-	ret = asprintf(&prompt, "%s %s: ", prompt_start, cryptsource);
-      } else {
-	ret = asprintf(&prompt, "%s %s (%s): ", prompt_start,
-		       cryptsource, crypttarget);
-      }
-    }
-    if(ret == -1){
-      return EXIT_FAILURE;
-    }
+  char *prompt = makeprompt();
+  if(prompt == NULL){
+    goto failure;
   }
   
   /* Find usplash process */
-  pid_t usplash_pid = 0;
   char *cmdline = NULL;
   size_t cmdline_len = 0;
-  const char usplash_name[] = "/sbin/usplash";
-  {
-    DIR *proc_dir = opendir("/proc");
-    if(proc_dir == NULL){
-      free(prompt);
-      perror("opendir");
-      return EXIT_FAILURE;
-    }
-    for(struct dirent *proc_ent = readdir(proc_dir);
-	proc_ent != NULL;
-	proc_ent = readdir(proc_dir)){
-      pid_t pid;
-      {
-	intmax_t tmpmax;
-	char *tmp;
-	errno = 0;
-	tmpmax = strtoimax(proc_ent->d_name, &tmp, 10);
-	if(errno != 0 or tmp == proc_ent->d_name or *tmp != '\0'
-	   or tmpmax != (pid_t)tmpmax){
-	  /* Not a process */
-	  continue;
-	}
-	pid = (pid_t)tmpmax;
-      }
-      /* Find the executable name by doing readlink() on the
-	 /proc/<pid>/exe link */
-      char exe_target[sizeof(usplash_name)];
-      {
-	/* create file name string */
-	char *exe_link;
-	ret = asprintf(&exe_link, "/proc/%s/exe", proc_ent->d_name);
-	if(ret == -1){
-	  perror("asprintf");
-	  free(prompt);
-	  closedir(proc_dir);
-	  return EXIT_FAILURE;
-	}
-	
-	/* Check that it refers to a symlink owned by root:root */
-	struct stat exe_stat;
-	ret = lstat(exe_link, &exe_stat);
-	if(ret == -1){
-	  if(errno == ENOENT){
-	    free(exe_link);
-	    continue;
-	  }
-	  perror("lstat");
-	  free(exe_link);
-	  free(prompt);
-	  closedir(proc_dir);
-	  return EXIT_FAILURE;
-	}
-	if(not S_ISLNK(exe_stat.st_mode)
-	   or exe_stat.st_uid != 0
-	   or exe_stat.st_gid != 0){
-	  free(exe_link);
-	  continue;
-	}
-	
-	sret = readlink(exe_link, exe_target, sizeof(exe_target));
-	free(exe_link);
-      }
-      if((sret == ((ssize_t)sizeof(exe_target)-1))
-	 and (memcmp(usplash_name, exe_target,
-		     sizeof(exe_target)-1) == 0)){
-	usplash_pid = pid;
-	/* Read and save the command line of usplash in "cmdline" */
-	{
-	  /* Open /proc/<pid>/cmdline  */
-	  int cl_fd;
-	  {
-	    char *cmdline_filename;
-	    ret = asprintf(&cmdline_filename, "/proc/%s/cmdline",
-			   proc_ent->d_name);
-	    if(ret == -1){
-	      perror("asprintf");
-	      free(prompt);
-	      closedir(proc_dir);
-	      return EXIT_FAILURE;
-	    }
-	    cl_fd = open(cmdline_filename, O_RDONLY);
-	    if(cl_fd == -1){
-	      perror("open");
-	      free(cmdline_filename);
-	      free(prompt);
-	      closedir(proc_dir);
-	      return EXIT_FAILURE;
-	    }
-	    free(cmdline_filename);
-	  }
-	  size_t cmdline_allocated = 0;
-	  char *tmp;
-	  const size_t blocksize = 1024;
-	  do {
-	    if(cmdline_len + blocksize > cmdline_allocated){
-	      tmp = realloc(cmdline, cmdline_allocated + blocksize);
-	      if(tmp == NULL){
-		perror("realloc");
-		free(cmdline);
-		free(prompt);
-		closedir(proc_dir);
-		return EXIT_FAILURE;
-	      }
-	      cmdline = tmp;
-	      cmdline_allocated += blocksize;
-	    }
-	    sret = read(cl_fd, cmdline + cmdline_len,
-			cmdline_allocated - cmdline_len);
-	    if(sret == -1){
-	      perror("read");
-	      free(cmdline);
-	      free(prompt);
-	      closedir(proc_dir);
-	      return EXIT_FAILURE;
-	    }
-	    cmdline_len += (size_t)sret;
-	  } while(sret != 0);
-	  close(cl_fd);
-	}
-	break;
-      }
-    }
-    closedir(proc_dir);
-  }
+  usplash_pid = find_usplash(&cmdline, &cmdline_len);
   if(usplash_pid == 0){
-    free(prompt);
-    return EXIT_FAILURE;
+    goto failure;
   }
   
   /* Set up the signal handler */
@@ -293,172 +317,231 @@ int main(__attribute__((unused))int argc,
       new_action = { .sa_handler = termination_handler,
 		     .sa_flags = 0 };
     sigemptyset(&new_action.sa_mask);
-    sigaddset(&new_action.sa_mask, SIGINT);
-    sigaddset(&new_action.sa_mask, SIGHUP);
-    sigaddset(&new_action.sa_mask, SIGTERM);
+    ret = sigaddset(&new_action.sa_mask, SIGINT);
+    if(ret == -1){
+      perror("sigaddset");
+      goto failure;
+    }
+    ret = sigaddset(&new_action.sa_mask, SIGHUP);
+    if(ret == -1){
+      perror("sigaddset");
+      goto failure;
+    }
+    ret = sigaddset(&new_action.sa_mask, SIGTERM);
+    if(ret == -1){
+      perror("sigaddset");
+      goto failure;
+    }
     ret = sigaction(SIGINT, NULL, &old_action);
     if(ret == -1){
-      perror("sigaction");
-      free(prompt);
-      return EXIT_FAILURE;
+      if(errno != EINTR){
+	perror("sigaction");
+      }
+      goto failure;
     }
     if(old_action.sa_handler != SIG_IGN){
       ret = sigaction(SIGINT, &new_action, NULL);
       if(ret == -1){
-	perror("sigaction");
-	free(prompt);
-	return EXIT_FAILURE;
+	if(errno != EINTR){
+	  perror("sigaction");
+	}
+	goto failure;
       }
     }
     ret = sigaction(SIGHUP, NULL, &old_action);
     if(ret == -1){
-      perror("sigaction");
-      free(prompt);
-      return EXIT_FAILURE;
+      if(errno != EINTR){
+	perror("sigaction");
+      }
+      goto failure;
     }
     if(old_action.sa_handler != SIG_IGN){
       ret = sigaction(SIGHUP, &new_action, NULL);
       if(ret == -1){
-	perror("sigaction");
-	free(prompt);
-	return EXIT_FAILURE;
+	if(errno != EINTR){
+	  perror("sigaction");
+	}
+	goto failure;
       }
     }
     ret = sigaction(SIGTERM, NULL, &old_action);
     if(ret == -1){
-      perror("sigaction");
-      free(prompt);
-      return EXIT_FAILURE;
+      if(errno != EINTR){
+	perror("sigaction");
+      }
+      goto failure;
     }
     if(old_action.sa_handler != SIG_IGN){
       ret = sigaction(SIGTERM, &new_action, NULL);
       if(ret == -1){
-	perror("sigaction");
-	free(prompt);
-	return EXIT_FAILURE;
+	if(errno != EINTR){
+	  perror("sigaction");
+	}
+	goto failure;
       }
     }
   }
   
+  usplash_accessed = true;
   /* Write command to FIFO */
-  if(not interrupted_by_signal){
-    if(not usplash_write("TIMEOUT", "0")
-       and (errno != EINTR)){
+  if(not usplash_write(&fifo_fd, "TIMEOUT", "0")){
+    if(errno != EINTR){
       perror("usplash_write");
-      an_error_occured = true;
     }
+    goto failure;
   }
-  if(not interrupted_by_signal and not an_error_occured){
-    if(not usplash_write("INPUTQUIET", prompt)
-       and (errno != EINTR)){
+  
+  if(interrupted_by_signal){
+    goto failure;
+  }
+  
+  if(not usplash_write(&fifo_fd, "INPUTQUIET", prompt)){
+    if(errno != EINTR){
       perror("usplash_write");
-      an_error_occured = true;
     }
+    goto failure;
   }
+  
+  if(interrupted_by_signal){
+    goto failure;
+  }
+  
+  free(prompt);
+  prompt = NULL;
+  
+  /* Read reply from usplash */
+  /* Open FIFO */
+  outfifo_fd = open("/dev/.initramfs/usplash_outfifo", O_RDONLY);
+  if(outfifo_fd == -1){
+    if(errno != EINTR){
+      perror("open");
+    }
+    goto failure;
+  }
+  
+  if(interrupted_by_signal){
+    goto failure;
+  }
+  
+  /* Read from FIFO */
+  size_t buf_allocated = 0;
+  const size_t blocksize = 1024;
+  do {
+    /* Allocate more space */
+    if(buf_len + blocksize > buf_allocated){
+      char *tmp = realloc(buf, buf_allocated + blocksize);
+      if(tmp == NULL){
+	if(errno != EINTR){
+	  perror("realloc");
+	}
+	goto failure;
+      }
+      buf = tmp;
+      buf_allocated += blocksize;
+    }
+    sret = read(outfifo_fd, buf + buf_len,
+		buf_allocated - buf_len);
+    if(sret == -1){
+      if(errno != EINTR){
+	perror("read");
+      }
+      TEMP_FAILURE_RETRY(close(outfifo_fd));
+      goto failure;
+    }
+    if(interrupted_by_signal){
+      break;
+    }
+    
+    buf_len += (size_t)sret;
+  } while(sret != 0);
+  ret = close(outfifo_fd);
+  if(ret == -1){
+    if(errno != EINTR){
+      perror("close");
+    }
+    goto failure;
+  }
+  outfifo_fd = -1;
+  
+  if(interrupted_by_signal){
+    goto failure;
+  }
+  
+  if(not usplash_write(&fifo_fd, "TIMEOUT", "15")){
+    if(errno != EINTR){
+      perror("usplash_write");
+    }
+    goto failure;
+  }
+  
+  if(interrupted_by_signal){
+    goto failure;
+  }
+  
+  ret = close(fifo_fd);
+  if(ret == -1){
+    if(errno != EINTR){
+      perror("close");
+    }
+    goto failure;
+  }
+  fifo_fd = -1;
+  
+  /* Print password to stdout */
+  size_t written = 0;
+  while(written < buf_len){
+    do {
+      sret = write(STDOUT_FILENO, buf + written, buf_len - written);
+      if(sret == -1){
+	if(errno != EINTR){
+	  perror("write");
+	}
+	goto failure;
+      }
+    } while(sret == -1);
+    
+    if(interrupted_by_signal){
+      goto failure;
+    }
+    written += (size_t)sret;
+  }
+  free(buf);
+  buf = NULL;
+  
+  if(interrupted_by_signal){
+    goto failure;
+  }
+  
+  free(cmdline);
+  return EXIT_SUCCESS;
+  
+ failure:
+  
+  free(buf);
+  
   free(prompt);
   
-  /* This is not really a loop; while() is used to be able to "break"
-     out of it; those breaks are marked "Big" */
-  while(not interrupted_by_signal and not an_error_occured){
-    char *buf = NULL;
-    size_t buf_len = 0;
-    
-    /* Open FIFO */
-    int fifo_fd;
-    do {
-      fifo_fd = open("/dev/.initramfs/usplash_outfifo", O_RDONLY);
-      if(fifo_fd == -1){
-	if(errno != EINTR){
-	  perror("open");
-	  an_error_occured = true;
-	  break;
-	}
-	if(interrupted_by_signal){
-	  break;
-	}
-      }
-    } while(fifo_fd == -1);
-    if(interrupted_by_signal or an_error_occured){
-      break;			/* Big */
-    }
-    
-    /* Read from FIFO */
-    size_t buf_allocated = 0;
-    const size_t blocksize = 1024;
-    do {
-      if(buf_len + blocksize > buf_allocated){
-	char *tmp = realloc(buf, buf_allocated + blocksize);
-	if(tmp == NULL){
-	  perror("realloc");
-	  an_error_occured = true;
-	  break;
-	}
-	buf = tmp;
-	buf_allocated += blocksize;
-      }
-      do {
-	sret = read(fifo_fd, buf + buf_len, buf_allocated - buf_len);
-	if(sret == -1){
-	  if(errno != EINTR){
-	    perror("read");
-	    an_error_occured = true;
-	    break;
-	  }
-	  if(interrupted_by_signal){
-	    break;
-	  }
-	}
-      } while(sret == -1);
-      if(interrupted_by_signal or an_error_occured){
-	break;
-      }
-      
-      buf_len += (size_t)sret;
-    } while(sret != 0);
-    close(fifo_fd);
-    if(interrupted_by_signal or an_error_occured){
-      break;			/* Big */
-    }
-    
-    if(not usplash_write("TIMEOUT", "15")
-       and (errno != EINTR)){
-	perror("usplash_write");
-	an_error_occured = true;
-    }
-    if(interrupted_by_signal or an_error_occured){
-      break;			/* Big */
-    }
-    
-    /* Print password to stdout */
-    size_t written = 0;
-    while(written < buf_len){
-      do {
-	sret = write(STDOUT_FILENO, buf + written, buf_len - written);
-	if(sret == -1){
-	  if(errno != EINTR){
-	    perror("write");
-	    an_error_occured = true;
-	    break;
-	  }
-	  if(interrupted_by_signal){
-	    break;
-	  }
-	}
-      } while(sret == -1);
-      if(interrupted_by_signal or an_error_occured){
-	break;
-      }
-      written += (size_t)sret;
-    }
-    free(buf);
-    if(not interrupted_by_signal and not an_error_occured){
-      free(cmdline);
-      return EXIT_SUCCESS;
-    }
-    break;			/* Big */
-  }				/* end of non-loop while() */
+  /* If usplash was never accessed, we can stop now */
+  if(not usplash_accessed){
+    return EXIT_FAILURE;
+  }
   
-  /* If we got here, an error or interrupt must have happened */
+  /* Close FIFO */
+  if(fifo_fd != -1){
+    ret = (int)TEMP_FAILURE_RETRY(close(fifo_fd));
+    if(ret == -1 and errno != EINTR){
+      perror("close");
+    }
+    fifo_fd = -1;
+  }
+  
+  /* Close output FIFO */
+  if(outfifo_fd != -1){
+    ret = (int)TEMP_FAILURE_RETRY(close(outfifo_fd));
+    if(ret == -1){
+      perror("close");
+    }
+  }
   
   /* Create argc and argv for new usplash*/
   int cmdline_argc = 0;
@@ -488,6 +571,7 @@ int main(__attribute__((unused))int argc,
     kill(usplash_pid, SIGKILL);
     sleep(1);
   }
+  
   pid_t new_usplash_pid = fork();
   if(new_usplash_pid == 0){
     /* Child; will become new usplash process */
@@ -521,9 +605,37 @@ int main(__attribute__((unused))int argc,
   free(cmdline);
   free(cmdline_argv);
   sleep(2);
-  if(not usplash_write("PULSATE", NULL)
-     and (errno != EINTR)){
-    perror("usplash_write");
+  if(not usplash_write(&fifo_fd, "PULSATE", NULL)){
+    if(errno != EINTR){
+      perror("usplash_write");
+    }
+  }
+  
+  /* Close FIFO (again) */
+  if(fifo_fd != -1){
+    ret = (int)TEMP_FAILURE_RETRY(close(fifo_fd));
+    if(ret == -1 and errno != EINTR){
+      perror("close");
+    }
+    fifo_fd = -1;
+  }
+  
+  if(interrupted_by_signal){
+    struct sigaction signal_action = { .sa_handler = SIG_DFL };
+    sigemptyset(&signal_action.sa_mask);
+    ret = (int)TEMP_FAILURE_RETRY(sigaction(signal_received,
+					    &signal_action, NULL));
+    if(ret == -1){
+      perror("sigaction");
+    }
+    do {
+      ret = raise(signal_received);
+    } while(ret != 0 and errno == EINTR);
+    if(ret != 0){
+      perror("raise");
+      abort();
+    }
+    TEMP_FAILURE_RETRY(pause());
   }
   
   return EXIT_FAILURE;

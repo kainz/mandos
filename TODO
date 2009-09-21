@@ -1,25 +1,29 @@
 -*- org -*-
 
 * mandos-client
-** TODO [#A] Clean up /tmp directory and take down interface on signal	  :test:
 ** TODO [#B] use scandir(3) instead of readdir(3)
 ** TODO [#B] Prefix all debug output with argv[0]
-** TODO [#B] Retry a server which has a non-definite reply.
+** TODO [#B] Retry a server which has a non-definite reply:
 *** A closed connection during the TLS handshake
 *** A TCP timeout
+** TODO [#B] Use capabilities instead of seteuid().
 
 * splashy
-** TODO [#A] Re-raise signal received when exiting due to handled signal  :test:
 ** TODO [#B] use scandir(3) instead of readdir(3)
-** TODO [#B] Prefix all debug output with argv[0]
+** TODO [#B] Prefix all debug output with "Mandos plugin " + argv[0]
 
 * usplash
-** TODO [#A] Re-raise signal received when exiting due to handled signal.
 ** TODO [#B] use scandir(3) instead of readdir(3)
-** TODO [#B] Prefix all debug output with argv[0]
+** TODO [#B] Prefix all debug output with "Mandos plugin " + argv[0]
+
+* askpass-fifo
+** TODO [#B] Prefix all debug output with "Mandos plugin " + argv[0]
+** TODO [#B] Drop privileges after opening FIFO.
 
 * password-prompt
-** TODO [#B] Prefix all debug output with argv[0]
+** TODO [#B] Prefix all debug output with "Mandos plugin " + argv[0]
+
+* TODO passdev
 
 * plugin-runner
 ** TODO [#B] use scandir(3) instead of readdir(3)
@@ -43,11 +47,20 @@
    [[info:standards:Option%20Table][Table of Long Options]]
 ** TODO Date+time on console log messages	:BUGS:
    Is this the default?
-** TODO Split IPv6_TCPServer into a generic and Mandos-specific class
-** TODO move handle_ipc out of IPv6_TCPServer
 ** TODO DBusServiceObjectUsingSuper
-** Global enable/disable flag
-** By-client countdown on secrets given
+** TODO Global enable/disable flag
+** TODO By-client countdown on secrets given
+** TODO Fix problem with fsck taking a really long time
+   Whenever a client successfully gets a secret it could get a
+   one-time timeout boost to allow for an fsck-incurred delay
+** TODO Delay before client receives key
+   This would give an operator opportunity to cancel the request if
+   desired.
+** TODO Client manual approval mode
+   A client needs manual approval on the server before it gets the
+   secret
+** TODO Persistent state
+   /var/lib/mandos/*
 
 * mandos.xml
 ** [[file:mandos.xml::XXX][Document D-Bus interface]]
@@ -58,10 +71,13 @@
 *** Handle "no D-Bus server" and/or "no Mandos server found" better
 *** [#B] --dump option
 
-* mandos-name
+* TODO mandos-dispatch
+  Listens for specified D-Bus signals and spawns shell commands with
+  arguments.
+
+* mandos-monitor
 ** D-Bus mail loop w/ signal receiver
-** Urwid/Newt client data displayer
-*** Urwid scaffolding
+** Snack/Newt client data displayer
 *** Client Widgets
 *** Properties popup
 
@@ -71,6 +87,10 @@
    Using the "secfile" option instead of "secret"
 ** TODO [#B] "--test" option
    For testing decryption before rebooting.
+
+* Makefile
+** Implement DEB_BUILD_OPTIONS
+   http://www.debian.org/doc/debian-policy/ch-source.html#s-debianrules-options
 
 * Package
 ** /usr/share/initramfs-tools/hooks/mandos
