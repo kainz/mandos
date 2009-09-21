@@ -77,7 +77,7 @@ except AttributeError:
         SO_BINDTODEVICE = None
 
 
-version = "1.0.11"
+version = "1.0.12"
 
 logger = logging.Logger(u'mandos')
 syslogger = (logging.handlers.SysLogHandler
@@ -174,7 +174,8 @@ class AvahiService(object):
                                     self.server.EntryGroupNew()),
                 avahi.DBUS_INTERFACE_ENTRY_GROUP)
             self.group.connect_to_signal('StateChanged',
-                                         self.entry_group_state_changed)
+                                         self
+                                         .entry_group_state_changed)
         logger.debug(u"Adding Zeroconf service '%s' of type '%s' ...",
                      self.name, self.type)
         self.group.AddService(
@@ -702,7 +703,8 @@ class ClientDBus(Client, dbus.service.Object):
         self.interval = datetime.timedelta(0, 0, 0, milliseconds)
         # Emit D-Bus signal
         self.PropertyChanged(dbus.String(u"interval"),
-                             (dbus.UInt64(self.interval_milliseconds(),
+                             (dbus.UInt64(self
+                                          .interval_milliseconds(),
                                           variant_level=1)))
     
     # SetSecret - method
@@ -983,9 +985,6 @@ class MandosServer(IPv6_TCPServer):
         clients:        set of Client objects
         gnutls_priority GnuTLS priority string
         use_dbus:       Boolean; to emit D-Bus signals or not
-        clients:        set of Client objects
-        gnutls_priority GnuTLS priority string
-        use_dbus:       Boolean; to emit D-Bus signals or not
     
     Assumes a gobject.MainLoop event loop.
     """
@@ -1172,7 +1171,7 @@ def daemon(nochdir = False, noclose = False):
 
 def main():
     
-    ######################################################################
+    ##################################################################
     # Parsing of options, both command line and config file
     
     parser = optparse.OptionParser(version = "%%prog %s" % version)

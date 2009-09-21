@@ -3,7 +3,7 @@
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY CONFNAME "mandos-clients.conf">
 <!ENTITY CONFPATH "<filename>/etc/mandos/clients.conf</filename>">
-<!ENTITY TIMESTAMP "2009-02-15">
+<!ENTITY TIMESTAMP "2009-09-17">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -108,10 +108,11 @@
 	    This option is <emphasis>optional</emphasis>.
 	  </para>
 	  <para>
-	    The timeout is how long the server will wait for a
-	    successful checker run until a client is considered
-	    invalid - that is, ineligible to get the data this server
-	    holds.  By default Mandos will use 1 hour.
+	    The timeout is how long the server will wait (for either a
+	    successful checker run or a client receiving its secret)
+	    until a client is considered invalid - that is, ineligible
+	    to get the data this server holds.  By default Mandos will
+	    use 1 hour.
 	  </para>
 	  <para>
 	    The <replaceable>TIME</replaceable> is specified as a

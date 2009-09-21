@@ -230,13 +230,14 @@ static bool add_environment(plugin *p, const char *def, bool replace){
  | [[info:libc:Descriptor%20Flags][File Descriptor Flags]] |
  */
 static int set_cloexec_flag(int fd){
-  int ret = TEMP_FAILURE_RETRY(fcntl(fd, F_GETFD, 0));
+  int ret = (int)TEMP_FAILURE_RETRY(fcntl(fd, F_GETFD, 0));
   /* If reading the flags failed, return error indication now. */
   if(ret < 0){
     return ret;
   }
   /* Store modified flag word in the descriptor. */
-  return TEMP_FAILURE_RETRY(fcntl(fd, F_SETFD, ret | FD_CLOEXEC));
+  return (int)TEMP_FAILURE_RETRY(fcntl(fd, F_SETFD,
+				       ret | FD_CLOEXEC));
 }
 
 
@@ -788,18 +789,19 @@ int main(int argc, char *argv[]){
     
     char *filename;
     if(plugindir == NULL){
-      ret = TEMP_FAILURE_RETRY(asprintf(&filename, PDIR "/%s",
-					dirst->d_name));
+      ret = (int)TEMP_FAILURE_RETRY(asprintf(&filename, PDIR "/%s",
+					     dirst->d_name));
     } else {
-      ret = TEMP_FAILURE_RETRY(asprintf(&filename, "%s/%s", plugindir,
-					dirst->d_name));
+      ret = (int)TEMP_FAILURE_RETRY(asprintf(&filename, "%s/%s",
+					     plugindir,
+					     dirst->d_name));
     }
     if(ret < 0){
       perror("asprintf");
       continue;
     }
     
-    ret = TEMP_FAILURE_RETRY(stat(filename, &st));
+    ret = (int)TEMP_FAILURE_RETRY(stat(filename, &st));
     if(ret == -1){
       perror("stat");
       free(filename);
@@ -860,7 +862,7 @@ int main(int argc, char *argv[]){
     }
     
     int pipefd[2];
-    ret = TEMP_FAILURE_RETRY(pipe(pipefd));
+    ret = (int)TEMP_FAILURE_RETRY(pipe(pipefd));
     if(ret == -1){
       perror("pipe");
       exitstatus = EXIT_FAILURE;
@@ -880,9 +882,9 @@ int main(int argc, char *argv[]){
       goto fallback;
     }
     /* Block SIGCHLD until process is safely in process list */
-    ret = TEMP_FAILURE_RETRY(sigprocmask(SIG_BLOCK,
-					 &sigchld_action.sa_mask,
-					 NULL));
+    ret = (int)TEMP_FAILURE_RETRY(sigprocmask(SIG_BLOCK,
+					      &sigchld_action.sa_mask,
+					      NULL));
     if(ret < 0){
       perror("sigprocmask");
       exitstatus = EXIT_FAILURE;
@@ -942,9 +944,9 @@ int main(int argc, char *argv[]){
     plugin *new_plugin = getplugin(dirst->d_name);
     if(new_plugin == NULL){
       perror("getplugin");
-      ret = TEMP_FAILURE_RETRY(sigprocmask(SIG_UNBLOCK,
-					   &sigchld_action.sa_mask,
-					   NULL));
+      ret = (int)(TEMP_FAILURE_RETRY
+		  (sigprocmask(SIG_UNBLOCK, &sigchld_action.sa_mask,
+			       NULL)));
       if(ret < 0){
         perror("sigprocmask");
       }
@@ -957,16 +959,17 @@ int main(int argc, char *argv[]){
     
     /* Unblock SIGCHLD so signal handler can be run if this process
        has already completed */
-    ret = TEMP_FAILURE_RETRY(sigprocmask(SIG_UNBLOCK,
-					 &sigchld_action.sa_mask,
-					 NULL));
+    ret = (int)TEMP_FAILURE_RETRY(sigprocmask(SIG_UNBLOCK,
+					      &sigchld_action.sa_mask,
+					      NULL));
     if(ret < 0){
       perror("sigprocmask");
       exitstatus = EXIT_FAILURE;
       goto fallback;
     }
     
-    FD_SET(new_plugin->fd, &rfds_all);
+    FD_SET(new_plugin->fd, &rfds_all); /* Spurious warning from
+					  -Wconversion */
     
     if(maxfd < new_plugin->fd){
       maxfd = new_plugin->fd;
@@ -1026,12 +1029,14 @@ int main(int argc, char *argv[]){
 	  }
 	  
 	  /* Remove the plugin */
-	  FD_CLR(proc->fd, &rfds_all);
+	  FD_CLR(proc->fd, &rfds_all); /* Spurious warning from
+					  -Wconversion */
 	  
 	  /* Block signal while modifying process_list */
-	  ret = TEMP_FAILURE_RETRY(sigprocmask(SIG_BLOCK,
-					       &sigchld_action.sa_mask,
-					       NULL));
+	  ret = (int)TEMP_FAILURE_RETRY(sigprocmask
+					(SIG_BLOCK,
+					 &sigchld_action.sa_mask,
+					 NULL));
 	  if(ret < 0){
 	    perror("sigprocmask");
 	    exitstatus = EXIT_FAILURE;
@@ -1043,9 +1048,9 @@ int main(int argc, char *argv[]){
 	  proc = next_plugin;
 	  
 	  /* We are done modifying process list, so unblock signal */
-	  ret = TEMP_FAILURE_RETRY(sigprocmask(SIG_UNBLOCK,
-					       &sigchld_action.sa_mask,
-					       NULL));
+	  ret = (int)(TEMP_FAILURE_RETRY
+		      (sigprocmask(SIG_UNBLOCK,
+				   &sigchld_action.sa_mask, NULL)));
 	  if(ret < 0){
 	    perror("sigprocmask");
 	    exitstatus = EXIT_FAILURE;
@@ -1071,7 +1076,9 @@ int main(int argc, char *argv[]){
       }
       
       /* This process has not completed.  Does it have any output? */
-      if(proc->eof or not FD_ISSET(proc->fd, &rfds)){
+      if(proc->eof or not FD_ISSET(proc->fd, &rfds)){ /* Spurious
+							 warning from
+							 -Wconversion */
 	/* This process had nothing to say at this time */
 	proc = proc->next;
 	continue;
