@@ -90,8 +90,7 @@ for file in "$prefix"/lib/mandos/plugins.d/*; do
     case "$base" in
 	*~|.*|\#*\#|*.dpkg-old|*.dpkg-bak|*.dpkg-new|*.dpkg-divert)
 	    : ;;
-	*/"*")
-	    echo "W: Mandos client plugin directory is empty." >&2 ;;
+	"*") echo "W: Mandos client plugin directory is empty." >&2 ;;
 	*) copy_exec "$file" "${PLUGINDIR}" ;;
     esac
 done
@@ -102,7 +101,7 @@ for file in /etc/mandos/plugins.d/*; do
     case "$base" in
 	*~|.*|\#*\#|*.dpkg-old|*.dpkg-bak|*.dpkg-new|*.dpkg-divert)
 	    : ;;
-	*/"*") : ;;
+	"*") : ;;
 	*) copy_exec "$file" "${PLUGINDIR}" ;;
     esac
 done

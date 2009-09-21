@@ -54,7 +54,7 @@
 #include <fcntl.h>		/* fcntl(), F_GETFD, F_SETFD,
 				   FD_CLOEXEC */
 #include <string.h>		/* strsep, strlen(), asprintf(),
-				   strsignal() */
+				   strsignal(), strcmp(), strncmp() */
 #include <errno.h>		/* errno */
 #include <argp.h>		/* struct argp_option, struct
 				   argp_state, struct argp,
@@ -770,7 +770,7 @@ int main(int argc, char *argv[]){
       for(const char **suf = bad_suffixes; *suf != NULL; suf++){
 	size_t suf_len = strlen(*suf);
 	if((d_name_len >= suf_len)
-	   and (strcmp((dirst->d_name)+d_name_len-suf_len, *suf)
+	   and (strcmp((dirst->d_name) + d_name_len-suf_len, *suf)
 		== 0)){
 	  if(debug){
 	    fprintf(stderr, "Ignoring plugin dir entry \"%s\""

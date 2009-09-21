@@ -44,7 +44,7 @@
 #include <errno.h>		/* errno, EINVAL */
 #include <iso646.h>		/* or, not */
 #include <stdbool.h>		/* bool, false, true */
-#include <string.h> 		/* strlen, rindex, strncmp, strcmp */
+#include <string.h> 		/* strlen, rindex */
 #include <argp.h>		/* struct argp_option, struct
 				   argp_state, struct argp,
 				   argp_parse(), error_t,
