@@ -64,6 +64,7 @@
 
 * mandos.xml
 ** [[file:mandos.xml::XXX][Document D-Bus interface]]
+** Add mandos contact info in manual pages
 
 * Provide and install /etc/dbus-1/system.d/mandos.conf
 
