@@ -38,18 +38,20 @@ mandos_serv = dbus.Interface(mandos_dbus_objc,
                              dbus_interface = server_interface)
 mandos_clients = mandos_serv.GetAllClientsWithProperties()
 
-def datetime_to_milliseconds(dt):
-    "Return the 'timeout' attribute in milliseconds"
-    return ((dt.days * 24 * 60 * 60 * 1000)
-            + (dt.seconds * 1000)
-            + (dt.microseconds // 1000))
+def timedelta_to_milliseconds(td):
+    "Convert a datetime.timedelta object to milliseconds"
+    return ((td.days * 24 * 60 * 60 * 1000)
+            + (td.seconds * 1000)
+            + (td.microseconds // 1000))
 
 def milliseconds_to_string(ms):
     td = datetime.timedelta(0, 0, 0, ms)
-    return "%s%02d:%02d:%02d" % (("%dT" % td.days) if td.days else "", # days
-                           td.seconds // 3600,        # hours
-                           (td.seconds % 3600) // 60, # minutes
-                           (td.seconds % 60))         # seconds
+    return (u"%(days)s%(hours)02d:%(minutes)02d:%(seconds)02d"
+            % { "days": "%dT" % td.days if td.days else "",
+                "hours": td.seconds // 3600,
+                "minutes": (td.seconds % 3600) // 60,
+                "seconds": td.seconds % 60,
+                })
 
 
 def string_to_delta(interval):
@@ -96,16 +98,18 @@ def print_clients(clients):
     def valuetostring(value, keyword):
         if type(value) is dbus.Boolean:
             return u"Yes" if value else u"No"
-        if keyword in ("timeout", "interval"):
+        if keyword in (u"timeout", u"interval"):
             return milliseconds_to_string(value)
         return unicode(value)
     
+    # Create format string to print table rows
     format_string = u' '.join(u'%%-%ds' %
                               max(len(tablewords[key]),
                                   max(len(valuetostring(client[key], key))
                                       for client in
                                       clients))
                               for key in keywords)
+    # Print header line
     print format_string % tuple(tablewords[key] for key in keywords)
     for client in clients:
         print format_string % tuple(valuetostring(client[key], key)
@@ -146,9 +150,7 @@ for name in client_names:
     for path, client in mandos_clients.iteritems():
         if client['name'] == name:
             client_objc = bus.get_object(busname, path)
-            clients.append(dbus.Interface(client_objc,
-                                          dbus_interface
-                                          = client_interface))
+            clients.append(client_objc)
             break
     else:
         print >> sys.stderr, "Client not found on server: %r" % name
@@ -167,27 +169,37 @@ for client in clients:
     if options.remove:
         mandos_serv.RemoveClient(client.__dbus_object_path__)
     if options.enable:
-        client.Enable()
+        client.Enable(dbus_interface=client_interface)
     if options.disable:
-        client.Disable()
+        client.Disable(dbus_interface=client_interface)
     if options.bump_timeout:
-        client.BumpTimeout()
+        client.CheckedOK(dbus_interface=client_interface)
     if options.start_checker:
-        client.StartChecker()
+        client.StartChecker(dbus_interface=client_interface)
     if options.stop_checker:
-        client.StopChecker()
+        client.StopChecker(dbus_interface=client_interface)
     if options.is_valid:
-        sys.exit(0 if client.IsStillValid() else 1)
+        sys.exit(0 if client.Get(client_interface,
+                                 u"enabled",
+                                 dbus_interface=dbus.PROPERTIES_IFACE)
+                 else 1)
     if options.checker:
-        client.SetChecker(options.checker)
+        client.Set(client_interface, u"checker", options.checker,
+                   dbus_interface=dbus.PROPERTIES_IFACE)
     if options.host:
-        client.SetHost(options.host)
+        client.Set(client_interface, u"host", options.host,
+                   dbus_interface=dbus.PROPERTIES_IFACE)
     if options.interval:
-        client.SetInterval(datetime_to_milliseconds
-                           (string_to_delta(options.interval)))
+        client.Set(client_interface, u"interval",
+                   timedelta_to_milliseconds
+                   (string_to_delta(options.interval)),
+                   dbus_interface=dbus.PROPERTIES_IFACE)
     if options.timeout:
-        client.SetTimeout(datetime_to_milliseconds
-                          (string_to_delta(options.timeout)))
+        client.Set(client_interface, u"timeout",
+                   timedelta_to_milliseconds(string_to_delta
+                                             (options.timeout)),
+                   dbus_interface=dbus.PROPERTIES_IFACE)
     if options.secret:
-        client.SetSecret(dbus.ByteArray(open(options.secret, 'rb').read()))
-    
+        client.Set(client_interface, u"secret",
+                   dbus.ByteArray(open(options.secret, u'rb').read()),
+                   dbus_interface=dbus.PROPERTIES_IFACE)
