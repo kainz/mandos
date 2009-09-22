@@ -398,8 +398,13 @@ class Client(object):
         # is as it should be.
         
         # If a checker exists, make sure it is not a zombie
-        if self.checker is not None:
+        try:
             pid, status = os.waitpid(self.checker.pid, os.WNOHANG)
+        except (AttributeError, OSError), error:
+            if (isinstance(error, OSError)
+                and error.errno != errno.ECHILD):
+                raise error
+        else:
             if pid:
                 logger.warning(u"Checker was a zombie")
                 gobject.source_remove(self.checker_callback_tag)
