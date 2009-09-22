@@ -758,6 +758,11 @@ class ClientDBus(Client, DBusObjectWithProperties):
     ## D-Bus methods & signals
     _interface = u"se.bsnet.fukt.Mandos.Client"
     
+    # CheckedOK - method
+    @dbus.service.method(_interface)
+    def CheckedOK(self):
+        return self.checked_ok()
+    
     # CheckerCompleted - signal
     @dbus.service.signal(_interface, signature=u"nxs")
     def CheckerCompleted(self, exitcode, waitstatus, command):
@@ -787,6 +792,29 @@ class ClientDBus(Client, DBusObjectWithProperties):
     def Rejected(self):
         "D-Bus signal"
         pass
+    
+    # Enable - method
+    @dbus.service.method(_interface)
+    def Enable(self):
+        "D-Bus method"
+        self.enable()
+    
+    # StartChecker - method
+    @dbus.service.method(_interface)
+    def StartChecker(self):
+        "D-Bus method"
+        self.start_checker()
+    
+    # Disable - method
+    @dbus.service.method(_interface)
+    def Disable(self):
+        "D-Bus method"
+        self.disable()
+    
+    # StopChecker - method
+    @dbus.service.method(_interface)
+    def StopChecker(self):
+        self.stop_checker()
     
     # name - property
     @dbus_service_property(_interface, signature=u"s", access=u"read")
@@ -833,8 +861,12 @@ class ClientDBus(Client, DBusObjectWithProperties):
             self.disable()
     
     # last_checked_ok - property
-    @dbus_service_property(_interface, signature=u"s", access=u"read")
-    def last_checked_ok_dbus_property(self):
+    @dbus_service_property(_interface, signature=u"s",
+                           access=u"readwrite")
+    def last_checked_ok_dbus_property(self, value=None):
+        if value is not None:
+            self.checked_ok()
+            return
         if self.last_checked_ok is None:
             return dbus.String(u"")
         return dbus.String(self._datetime_to_dbus(self
@@ -914,7 +946,7 @@ class ClientDBus(Client, DBusObjectWithProperties):
     def object_path_dbus_property(self):
         return self.dbus_object_path # is already a dbus.ObjectPath
     
-    # secret = property xxx
+    # secret = property
     @dbus_service_property(_interface, signature=u"ay",
                            access=u"write", byte_arrays=True)
     def secret_dbus_property(self, value):
