@@ -292,7 +292,8 @@ class Client(object):
         elif u"secfile" in config:
             with closing(open(os.path.expanduser
                               (os.path.expandvars
-                               (config[u"secfile"])))) as secfile:
+                               (config[u"secfile"])),
+                              "rb")) as secfile:
                 self.secret = secfile.read()
         else:
             raise TypeError(u"No secret or secfile for client %s"
