@@ -23,14 +23,14 @@
  */
 
 #define _GNU_SOURCE		/* TEMP_FAILURE_RETRY(), getline(),
-				   asprintf() */
+				   asprintf(), O_CLOEXEC */
 #include <stddef.h>		/* size_t, NULL */
 #include <stdlib.h>		/* malloc(), exit(), EXIT_FAILURE,
 				   EXIT_SUCCESS, realloc() */
 #include <stdbool.h>		/* bool, true, false */
 #include <stdio.h>		/* perror, fileno(), fprintf(),
 				   stderr, STDOUT_FILENO */
-#include <sys/types.h>	        /* DIR, opendir(), stat(), struct
+#include <sys/types.h>	        /* DIR, fdopendir(), stat(), struct
 				   stat, waitpid(), WIFEXITED(),
 				   WEXITSTATUS(), wait(), pid_t,
 				   uid_t, gid_t, getuid(), getgid(),
@@ -42,7 +42,7 @@
 				   WCOREDUMP() */
 #include <sys/stat.h>		/* struct stat, stat(), S_ISREG() */
 #include <iso646.h>		/* and, or, not */
-#include <dirent.h>		/* DIR, struct dirent, opendir(),
+#include <dirent.h>		/* DIR, struct dirent, fdopendir(),
 				   readdir(), closedir(), dirfd() */
 #include <unistd.h>		/* struct stat, stat(), S_ISREG(),
 				   fcntl(), setuid(), setgid(),
@@ -698,28 +698,49 @@ int main(int argc, char *argv[]){
     perror("setuid");
   }
   
-  if(plugindir == NULL){
-    dir = opendir(PDIR);
-  } else {
-    dir = opendir(plugindir);
-  }
-  
-  if(dir == NULL){
-    perror("Could not open plugin dir");
-    exitstatus = EXIT_FAILURE;
-    goto fallback;
-  }
-  
-  /* Set the FD_CLOEXEC flag on the directory, if possible */
+  /* Open plugin directory with close_on_exec flag */
   {
-    int dir_fd = dirfd(dir);
-    if(dir_fd >= 0){
-      ret = set_cloexec_flag(dir_fd);
-      if(ret < 0){
-	perror("set_cloexec_flag");
-	exitstatus = EXIT_FAILURE;
-	goto fallback;
-      }
+    int dir_fd = -1;
+    if(plugindir == NULL){
+      dir_fd = open(PDIR, O_RDONLY |
+#ifdef O_CLOEXEC
+		    O_CLOEXEC
+#else  /* not O_CLOEXEC */
+		    0
+#endif	/* not O_CLOEXEC */
+		    );
+    } else {
+      dir_fd = open(plugindir, O_RDONLY |
+#ifdef O_CLOEXEC
+		    O_CLOEXEC
+#else  /* not O_CLOEXEC */
+		    0
+#endif	/* not O_CLOEXEC */
+		    );
+    }
+    if(dir_fd == -1){
+      perror("Could not open plugin dir");
+      exitstatus = EXIT_FAILURE;
+      goto fallback;
+    }
+    
+#ifndef O_CLOEXEC
+  /* Set the FD_CLOEXEC flag on the directory */
+    ret = set_cloexec_flag(dir_fd);
+    if(ret < 0){
+      perror("set_cloexec_flag");
+      TEMP_FAILURE_RETRY(close(dir_fd));
+      exitstatus = EXIT_FAILURE;
+      goto fallback;
+    }
+#endif	/* O_CLOEXEC */
+    
+    dir = fdopendir(dir_fd);
+    if(dir == NULL){
+      perror("Could not open plugin dir");
+      TEMP_FAILURE_RETRY(close(dir_fd));
+      exitstatus = EXIT_FAILURE;
+      goto fallback;
     }
   }
   
