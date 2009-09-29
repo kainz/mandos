@@ -626,7 +626,7 @@ class DBusObjectWithProperties(dbus.service.Object):
         """Standard D-Bus method, overloaded to insert property tags.
         """
         xmlstring = dbus.service.Object.Introspect(self, object_path,
-                                           connection)
+                                                   connection)
         document = xml.dom.minidom.parseString(xmlstring)
         del xmlstring
         def make_tag(document, name, prop):
@@ -642,6 +642,21 @@ class DBusObjectWithProperties(dbus.service.Object):
                         if prop._dbus_interface
                         == if_tag.getAttribute(u"name")):
                 if_tag.appendChild(tag)
+            # Add the names to the return values for the
+            # "org.freedesktop.DBus.Properties" methods
+            if (if_tag.getAttribute(u"name")
+                == u"org.freedesktop.DBus.Properties"):
+                for cn in if_tag.getElementsByTagName(u"method"):
+                    if cn.getAttribute(u"name") == u"Get":
+                        for arg in cn.getElementsByTagName(u"arg"):
+                            if (arg.getAttribute(u"direction")
+                                == u"out"):
+                                arg.setAttribute(u"name", u"value")
+                    elif cn.getAttribute(u"name") == u"GetAll":
+                        for arg in cn.getElementsByTagName(u"arg"):
+                            if (arg.getAttribute(u"direction")
+                                == u"out"):
+                                arg.setAttribute(u"name", u"props")
         xmlstring = document.toxml(u"utf-8")
         document.unlink()
         return xmlstring

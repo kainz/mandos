@@ -76,8 +76,9 @@
   arguments.
 
 * mandos-monitor
-** D-Bus mail loop w/ signal receiver
-** Snack/Newt client data displayer
+** D-Bus main loop w/ signal receiver
+** Urwid client data displayer
+*** Urwid scaffolding
 *** Client Widgets
 *** Properties popup
 
