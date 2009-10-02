@@ -627,38 +627,42 @@ class DBusObjectWithProperties(dbus.service.Object):
         """
         xmlstring = dbus.service.Object.Introspect(self, object_path,
                                                    connection)
-        document = xml.dom.minidom.parseString(xmlstring)
-        del xmlstring
-        def make_tag(document, name, prop):
-            e = document.createElement(u"property")
-            e.setAttribute(u"name", name)
-            e.setAttribute(u"type", prop._dbus_signature)
-            e.setAttribute(u"access", prop._dbus_access)
-            return e
-        for if_tag in document.getElementsByTagName(u"interface"):
-            for tag in (make_tag(document, name, prop)
-                        for name, prop
-                        in self._get_all_dbus_properties()
-                        if prop._dbus_interface
-                        == if_tag.getAttribute(u"name")):
-                if_tag.appendChild(tag)
-            # Add the names to the return values for the
-            # "org.freedesktop.DBus.Properties" methods
-            if (if_tag.getAttribute(u"name")
-                == u"org.freedesktop.DBus.Properties"):
-                for cn in if_tag.getElementsByTagName(u"method"):
-                    if cn.getAttribute(u"name") == u"Get":
-                        for arg in cn.getElementsByTagName(u"arg"):
-                            if (arg.getAttribute(u"direction")
-                                == u"out"):
-                                arg.setAttribute(u"name", u"value")
-                    elif cn.getAttribute(u"name") == u"GetAll":
-                        for arg in cn.getElementsByTagName(u"arg"):
-                            if (arg.getAttribute(u"direction")
-                                == u"out"):
-                                arg.setAttribute(u"name", u"props")
-        xmlstring = document.toxml(u"utf-8")
-        document.unlink()
+        try:
+            document = xml.dom.minidom.parseString(xmlstring)
+            def make_tag(document, name, prop):
+                e = document.createElement(u"property")
+                e.setAttribute(u"name", name)
+                e.setAttribute(u"type", prop._dbus_signature)
+                e.setAttribute(u"access", prop._dbus_access)
+                return e
+            for if_tag in document.getElementsByTagName(u"interface"):
+                for tag in (make_tag(document, name, prop)
+                            for name, prop
+                            in self._get_all_dbus_properties()
+                            if prop._dbus_interface
+                            == if_tag.getAttribute(u"name")):
+                    if_tag.appendChild(tag)
+                # Add the names to the return values for the
+                # "org.freedesktop.DBus.Properties" methods
+                if (if_tag.getAttribute(u"name")
+                    == u"org.freedesktop.DBus.Properties"):
+                    for cn in if_tag.getElementsByTagName(u"method"):
+                        if cn.getAttribute(u"name") == u"Get":
+                            for arg in cn.getElementsByTagName(u"arg"):
+                                if (arg.getAttribute(u"direction")
+                                    == u"out"):
+                                    arg.setAttribute(u"name", u"value")
+                        elif cn.getAttribute(u"name") == u"GetAll":
+                            for arg in cn.getElementsByTagName(u"arg"):
+                                if (arg.getAttribute(u"direction")
+                                    == u"out"):
+                                    arg.setAttribute(u"name", u"props")
+            xmlstring = document.toxml(u"utf-8")
+            document.unlink()
+        except (AttributeError, xml.dom.DOMException,
+                xml.parsers.expat.ExpatError), error:
+            logger.error(u"Failed to override Introspection method",
+                         error)
         return xmlstring
 
 
@@ -802,9 +806,9 @@ class ClientDBus(Client, DBusObjectWithProperties):
         "D-Bus signal"
         pass
     
-    # ReceivedSecret - signal
+    # GotSecret - signal
     @dbus.service.signal(_interface)
-    def ReceivedSecret(self):
+    def GotSecret(self):
         "D-Bus signal"
         pass
     
@@ -1297,7 +1301,7 @@ class MandosServer(IPv6_TCPServer):
                     client.checked_ok()
                     if self.use_dbus:
                         # Emit D-Bus signal
-                        client.ReceivedSecret()
+                        client.GotSecret()
                     break
             else:
                 logger.error(u"Sending secret to unknown client %s",
