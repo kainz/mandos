@@ -1392,7 +1392,8 @@ def daemon(nochdir = False, noclose = False):
         null = os.open(os.path.devnull, os.O_NOCTTY | os.O_RDWR)
         if not stat.S_ISCHR(os.fstat(null).st_mode):
             raise OSError(errno.ENODEV,
-                          u"/dev/null not a character device")
+                          u"%s not a character device"
+                          % os.path.devnull)
         os.dup2(null, sys.stdin.fileno())
         os.dup2(null, sys.stdout.fileno())
         os.dup2(null, sys.stderr.fileno())
