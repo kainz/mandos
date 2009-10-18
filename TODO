@@ -2,32 +2,43 @@
 
 * mandos-client
 ** TODO [#B] use scandir(3) instead of readdir(3)
-** TODO [#B] Prefix all debug output with argv[0]
+** TODO [#B] Prefix all debug output with "Mandos plugin " + program_invocation_short_name
+** TODO use error() instead of perror()
 ** TODO [#B] Retry a server which has a non-definite reply:
 *** A closed connection during the TLS handshake
 *** A TCP timeout
 ** TODO [#B] Use capabilities instead of seteuid().
+** TODO use EX_* from <sysexits.h>
 
 * splashy
 ** TODO [#B] use scandir(3) instead of readdir(3)
-** TODO [#B] Prefix all debug output with "Mandos plugin " + argv[0]
+** TODO [#B] Prefix all debug output with "Mandos plugin " + program_invocation_short_name
+** TODO use error() instead of perror()
 
 * usplash
 ** TODO [#B] use scandir(3) instead of readdir(3)
-** TODO [#B] Prefix all debug output with "Mandos plugin " + argv[0]
+** TODO [#B] Prefix all debug output with "Mandos plugin " + program_invocation_short_name
+** TODO use EX_* from <sysexits.h>
+** TODO use error() instead of perror()
 
 * askpass-fifo
-** TODO [#B] Prefix all debug output with "Mandos plugin " + argv[0]
+** TODO [#B] Prefix all debug output with "Mandos plugin " + program_invocation_short_name
 ** TODO [#B] Drop privileges after opening FIFO.
+** TODO use EX_* from <sysexits.h>
+** TODO use error() instead of perror()
 
 * password-prompt
-** TODO [#B] Prefix all debug output with "Mandos plugin " + argv[0]
+** TODO [#B] Prefix all debug output with "Mandos plugin " + program_invocation_short_name
+** TODO use EX_* from <sysexits.h>
+** TODO use error() instead of perror()
 
 * TODO passdev
 
 * plugin-runner
 ** TODO [#B] use scandir(3) instead of readdir(3)
 ** TODO [#C] use same file name rules as run-parts(8)
+** TODO use EX_* from <sysexits.h>
+** TODO use error() instead of perror()
 
 * mandos (server)
 ** TODO [#B] Log level				:BUGS:

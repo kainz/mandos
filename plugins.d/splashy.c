@@ -47,6 +47,9 @@
 #include <sys/wait.h>		/* waitpid(), WIFEXITED(),
 				   WEXITSTATUS() */
 
+#include <sysexits.h>		/* EX_OSERR, EX_OSFILE,
+				   EX_UNAVAILABLE */
+
 sig_atomic_t interrupted_by_signal = 0;
 int signal_received;
 
@@ -65,6 +68,7 @@ int main(__attribute__((unused))int argc,
   DIR *proc_dir = NULL;
   pid_t splashy_pid = 0;
   pid_t splashy_command_pid = 0;
+  int exitstatus = EXIT_FAILURE;
   
   /* Create prompt string */
   {
@@ -90,6 +94,7 @@ int main(__attribute__((unused))int argc,
     }
     if(ret == -1){
       prompt = NULL;
+      exitstatus = EX_OSERR;
       goto failure;
     }
   }
@@ -99,7 +104,23 @@ int main(__attribute__((unused))int argc,
     const char splashy_name[] = "/sbin/splashy";
     proc_dir = opendir("/proc");
     if(proc_dir == NULL){
+      int e = errno;
       perror("opendir");
+      switch(e){
+      case EACCES:
+      case ENOTDIR:
+      case ELOOP:
+      case ENOENT:
+      default:
+	exitstatus = EX_OSFILE;
+	break;
+      case ENAMETOOLONG:
+      case EMFILE:
+      case ENFILE:
+      case ENOMEM:
+	exitstatus = EX_OSERR;
+	break;
+      }
       goto failure;
     }
     for(struct dirent *proc_ent = readdir(proc_dir);
@@ -127,6 +148,7 @@ int main(__attribute__((unused))int argc,
 	ret = asprintf(&exe_link, "/proc/%s/exe", proc_ent->d_name);
 	if(ret == -1){
 	  perror("asprintf");
+	  exitstatus = EX_OSERR;
 	  goto failure;
 	}
 	
@@ -138,8 +160,20 @@ int main(__attribute__((unused))int argc,
 	    free(exe_link);
 	    continue;
 	  }
+	  int e = errno;
 	  perror("lstat");
 	  free(exe_link);
+	  switch(e){
+	  case EACCES:
+	  case ENOTDIR:
+	  case ELOOP:
+	  default:
+	    exitstatus = EX_OSFILE;
+	    break;
+	  case ENAMETOOLONG:
+	    exitstatus = EX_OSERR;
+	    break;
+	  }
 	  goto failure;
 	}
 	if(not S_ISLNK(exe_stat.st_mode)
@@ -163,6 +197,7 @@ int main(__attribute__((unused))int argc,
     proc_dir = NULL;
   }
   if(splashy_pid == 0){
+    exitstatus = EX_UNAVAILABLE;
     goto failure;
   }
   
@@ -175,51 +210,60 @@ int main(__attribute__((unused))int argc,
     ret = sigaddset(&new_action.sa_mask, SIGINT);
     if(ret == -1){
       perror("sigaddset");
+      exitstatus = EX_OSERR;
       goto failure;
     }
     ret = sigaddset(&new_action.sa_mask, SIGHUP);
     if(ret == -1){
       perror("sigaddset");
+      exitstatus = EX_OSERR;
       goto failure;
     }
     ret = sigaddset(&new_action.sa_mask, SIGTERM);
     if(ret == -1){
       perror("sigaddset");
+      exitstatus = EX_OSERR;
       goto failure;
     }
     ret = sigaction(SIGINT, NULL, &old_action);
     if(ret == -1){
       perror("sigaction");
+      exitstatus = EX_OSERR;
       goto failure;
     }
     if(old_action.sa_handler != SIG_IGN){
       ret = sigaction(SIGINT, &new_action, NULL);
       if(ret == -1){
 	perror("sigaction");
+	exitstatus = EX_OSERR;
 	goto failure;
       }
     }
     ret = sigaction(SIGHUP, NULL, &old_action);
     if(ret == -1){
       perror("sigaction");
+      exitstatus = EX_OSERR;
       goto failure;
     }
     if(old_action.sa_handler != SIG_IGN){
       ret = sigaction(SIGHUP, &new_action, NULL);
       if(ret == -1){
 	perror("sigaction");
+	exitstatus = EX_OSERR;
 	goto failure;
       }
     }
     ret = sigaction(SIGTERM, NULL, &old_action);
     if(ret == -1){
       perror("sigaction");
+      exitstatus = EX_OSERR;
       goto failure;
     }
     if(old_action.sa_handler != SIG_IGN){
       ret = sigaction(SIGTERM, &new_action, NULL);
       if(ret == -1){
 	perror("sigaction");
+	exitstatus = EX_OSERR;
 	goto failure;
       }
     }
@@ -236,6 +280,7 @@ int main(__attribute__((unused))int argc,
   }
   if(splashy_command_pid == -1){
     perror("fork");
+    exitstatus = EX_OSERR;
     goto failure;
   }
   /* Child */
@@ -320,12 +365,28 @@ int main(__attribute__((unused))int argc,
       ret = dup2(STDERR_FILENO, STDOUT_FILENO); /* replace stdout */
       if(ret == -1){
 	perror("dup2");
-	_exit(EXIT_FAILURE);
+	_exit(EX_OSERR);
       }
-    
+      
       execl("/sbin/splashy", "/sbin/splashy", "boot", (char *)NULL);
-      perror("execl");
-      _exit(EXIT_FAILURE);
+      {
+	int e = errno;
+	perror("execl");
+	switch(e){
+	case EACCES:
+	case ENOENT:
+	case ENOEXEC:
+	default:
+	  _exit(EX_UNAVAILABLE);
+	case ENAMETOOLONG:
+	case E2BIG:
+	case ENOMEM:
+	  _exit(EX_OSERR);
+	case ENOTDIR:
+	case ELOOP:
+	  _exit(EX_OSFILE);
+	}
+      }
     }
   }
   
@@ -348,5 +409,5 @@ int main(__attribute__((unused))int argc,
     TEMP_FAILURE_RETRY(pause());
   }
   
-  return EXIT_FAILURE;
+  return exitstatus;
 }
