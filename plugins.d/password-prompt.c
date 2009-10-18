@@ -40,8 +40,10 @@
 				   getopt_long, getenv() */
 #include <stdio.h>		/* fprintf(), stderr, getline(),
 				   stdin, feof(), perror(), fputc(),
-				   stdout, getopt_long */
-#include <errno.h>		/* errno, EINVAL */
+				   getopt_long */
+#include <errno.h>		/* errno, EBADF, ENOTTY, EINVAL,
+				   EFAULT, EFBIG, EIO, ENOSPC, EINTR
+				*/
 #include <iso646.h>		/* or, not */
 #include <stdbool.h>		/* bool, false, true */
 #include <string.h> 		/* strlen, rindex, strncmp, strcmp */
@@ -50,6 +52,8 @@
 				   argp_parse(), error_t,
 				   ARGP_KEY_ARG, ARGP_KEY_END,
 				   ARGP_ERR_UNKNOWN */
+#include <sysexits.h>		/* EX_SOFTWARE, EX_OSERR,
+				   EX_UNAVAILABLE, EX_IOERR, EX_OK */
 
 volatile sig_atomic_t quit_now = 0;
 int signal_received;
@@ -111,7 +115,7 @@ int main(int argc, char **argv){
     ret = argp_parse(&argp, argc, argv, 0, 0, NULL);
     if(ret == ARGP_ERR_UNKNOWN){
       fprintf(stderr, "Unknown error while parsing arguments\n");
-      return EXIT_FAILURE;
+      return EX_SOFTWARE;
     }
   }
   
@@ -123,25 +127,32 @@ int main(int argc, char **argv){
   }
   
   if(tcgetattr(STDIN_FILENO, &t_old) != 0){
+    int e = errno;
     perror("tcgetattr");
-    return EXIT_FAILURE;
+    switch(e){
+    case EBADF:
+    case ENOTTY:
+      return EX_UNAVAILABLE;
+    default:
+      return EX_OSERR;
+    }
   }
   
   sigemptyset(&new_action.sa_mask);
   ret = sigaddset(&new_action.sa_mask, SIGINT);
   if(ret == -1){
     perror("sigaddset");
-    return EXIT_FAILURE;
+    return EX_OSERR;
   }
   ret = sigaddset(&new_action.sa_mask, SIGHUP);
   if(ret == -1){
     perror("sigaddset");
-    return EXIT_FAILURE;
+    return EX_OSERR;
   }
   ret = sigaddset(&new_action.sa_mask, SIGTERM);
   if(ret == -1){
     perror("sigaddset");
-    return EXIT_FAILURE;
+    return EX_OSERR;
   }
   /* Need to check if the handler is SIG_IGN before handling:
      | [[info:libc:Initial Signal Actions]] |
@@ -150,37 +161,37 @@ int main(int argc, char **argv){
   ret = sigaction(SIGINT, NULL, &old_action);
   if(ret == -1){
     perror("sigaction");
-    return EXIT_FAILURE;
+    return EX_OSERR;
   }
   if(old_action.sa_handler != SIG_IGN){
     ret = sigaction(SIGINT, &new_action, NULL);
     if(ret == -1){
       perror("sigaction");
-      return EXIT_FAILURE;
+      return EX_OSERR;
     }
   }
   ret = sigaction(SIGHUP, NULL, &old_action);
   if(ret == -1){
     perror("sigaction");
-    return EXIT_FAILURE;
+    return EX_OSERR;
   }
   if(old_action.sa_handler != SIG_IGN){
     ret = sigaction(SIGHUP, &new_action, NULL);
     if(ret == -1){
       perror("sigaction");
-      return EXIT_FAILURE;
+      return EX_OSERR;
     }
   }
   ret = sigaction(SIGTERM, NULL, &old_action);
   if(ret == -1){
     perror("sigaction");
-    return EXIT_FAILURE;
+    return EX_OSERR;
   }
   if(old_action.sa_handler != SIG_IGN){
     ret = sigaction(SIGTERM, &new_action, NULL);
     if(ret == -1){
       perror("sigaction");
-      return EXIT_FAILURE;
+      return EX_OSERR;
     }
   }
   
@@ -192,10 +203,18 @@ int main(int argc, char **argv){
   t_new = t_old;
   t_new.c_lflag &= ~(tcflag_t)ECHO;
   if(tcsetattr(STDIN_FILENO, TCSAFLUSH, &t_new) != 0){
+    int e = errno;
     perror("tcsetattr-echo");
-    return EXIT_FAILURE;
+    switch(e){
+    case EBADF:
+    case ENOTTY:
+      return EX_UNAVAILABLE;
+    case EINVAL:
+    default:
+      return EX_OSERR;
+    }
   }
-
+  
   if(debug){
     fprintf(stderr, "Waiting for input from stdin \n");
   }
@@ -237,7 +256,7 @@ int main(int argc, char **argv){
       /* Make n = data size instead of allocated buffer size */
       n = (size_t)ret;
       /* Strip final newline */
-      if(n>0 and buffer[n-1] == '\n'){
+      if(n > 0 and buffer[n-1] == '\n'){
 	buffer[n-1] = '\0';	/* not strictly necessary */
 	n--;
       }
@@ -245,18 +264,55 @@ int main(int argc, char **argv){
       while(written < n){
 	ret = write(STDOUT_FILENO, buffer + written, n - written);
 	if(ret < 0){
+	  int e = errno;
 	  perror("write");
-	  status = EXIT_FAILURE;
+	  switch(e){
+	  case EBADF:
+	  case EFAULT:
+	  case EINVAL:
+	  case EFBIG:
+	  case EIO:
+	  case ENOSPC:
+	  default:
+	    status = EX_IOERR;
+	    break;
+	  case EINTR:
+	    status = EXIT_FAILURE;
+	    break;
+	  }
 	  break;
 	}
 	written += (size_t)ret;
       }
+      ret = close(STDOUT_FILENO);
+      if(ret == -1){
+	int e = errno;
+	perror("close");
+	switch(e){
+	case EBADF:
+	  status = EX_OSFILE;
+	  break;
+	case EIO:
+	default:
+	  status = EX_IOERR;
+	  break;
+	}
+      }
       break;
     }
     if(ret < 0){
+      int e = errno;
       if(errno != EINTR and not feof(stdin)){
 	perror("getline");
-	status = EXIT_FAILURE;
+	switch(e){
+	case EBADF:
+	  status = EX_UNAVAILABLE;
+	case EIO:
+	case EINVAL:
+	default:
+	  status = EX_IOERR;
+	  break;
+	}
 	break;
       }
     }
@@ -293,7 +349,7 @@ int main(int argc, char **argv){
     fprintf(stderr, "%s is exiting with status %d\n", argv[0],
 	    status);
   }
-  if(status == EXIT_SUCCESS){
+  if(status == EXIT_SUCCESS or status == EX_OK){
     fputc('\n', stderr);
   }
   

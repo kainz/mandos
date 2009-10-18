@@ -29,7 +29,7 @@
 * password-prompt
 ** TODO [#B] Prefix all debug output with "Mandos plugin " + program_invocation_short_name
 ** TODO use error() instead of perror()
-** TODO use EX_* from <sysexits.h>
+** TODO lock stdin (with flock()?)
 
 * TODO passdev
 
