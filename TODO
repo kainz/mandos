@@ -18,19 +18,18 @@
 * usplash
 ** TODO [#B] use scandir(3) instead of readdir(3)
 ** TODO [#B] Prefix all debug output with "Mandos plugin " + program_invocation_short_name
-** TODO use EX_* from <sysexits.h>
 ** TODO use error() instead of perror()
+** TODO use EX_* from <sysexits.h>
 
 * askpass-fifo
 ** TODO [#B] Prefix all debug output with "Mandos plugin " + program_invocation_short_name
-** TODO [#B] Drop privileges after opening FIFO.
-** TODO use EX_* from <sysexits.h>
 ** TODO use error() instead of perror()
+** TODO [#B] Drop privileges after opening FIFO.
 
 * password-prompt
 ** TODO [#B] Prefix all debug output with "Mandos plugin " + program_invocation_short_name
-** TODO use EX_* from <sysexits.h>
 ** TODO use error() instead of perror()
+** TODO use EX_* from <sysexits.h>
 
 * TODO passdev
 

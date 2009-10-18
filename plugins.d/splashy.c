@@ -43,10 +43,14 @@
 				   STDOUT_FILENO, _exit(),
 				   pause() */
 #include <string.h>		/* memcmp() */
-#include <errno.h>		/* errno */
+#include <errno.h>		/* errno, EACCES, ENOTDIR, ELOOP,
+				   ENOENT, ENAMETOOLONG, EMFILE,
+				   ENFILE, ENOMEM, ENOEXEC, EINVAL,
+				   E2BIG, EFAULT, EIO, ETXTBSY,
+				   EISDIR, ELIBBAD, EPERM, EINTR,
+				   ECHILD */
 #include <sys/wait.h>		/* waitpid(), WIFEXITED(),
 				   WEXITSTATUS() */
-
 #include <sysexits.h>		/* EX_OSERR, EX_OSFILE,
 				   EX_UNAVAILABLE */
 
@@ -288,7 +292,31 @@ int main(__attribute__((unused))int argc,
     if(not interrupted_by_signal){
       const char splashy_command[] = "/sbin/splashy_update";
       execl(splashy_command, splashy_command, prompt, (char *)NULL);
+      int e = errno;
       perror("execl");
+      switch(e){
+      case EACCES:
+      case ENOENT:
+      case ENOEXEC:
+      case EINVAL:
+	_exit(EX_UNAVAILABLE);
+      case ENAMETOOLONG:
+      case E2BIG:
+      case ENOMEM:
+      case EFAULT:
+      case EIO:
+      case EMFILE:
+      case ENFILE:
+      case ETXTBSY:
+      default:
+	_exit(EX_OSERR);
+      case ENOTDIR:
+      case ELOOP:
+      case EISDIR:
+      case ELIBBAD:
+      case EPERM:
+	_exit(EX_OSFILE);
+      }
     }
     free(prompt);
     _exit(EXIT_FAILURE);
