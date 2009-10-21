@@ -1,3 +1,10 @@
+mandos (1.0.13-1) unstable; urgency=high
+
+  * New upstream release.
+  * Do not copy unnecessary files to initrd (Closes: #551907)
+
+ -- Teddy Hogeborn <teddy@fukt.bsnet.se>  Thu, 22 Oct 2009 00:53:21 +0200
+
 mandos (1.0.12-1) unstable; urgency=low
 
   * New upstream release.
