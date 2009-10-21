@@ -114,7 +114,7 @@ if [ ! -e "${DESTDIR}/usr/bin/gpg" \
 fi
 
 # Config files
-for file in /etc/mandos/*; do
+for file in /etc/mandos/plugin-runner.conf; do
     if [ -d "$file" ]; then
 	continue
     fi
