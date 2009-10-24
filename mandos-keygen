@@ -217,11 +217,26 @@ if [ "$mode" = keygen ]; then
 	%commit
 	EOF
     
+    if tty --quiet; then
+	cat <<-EOF
+	Note: Due to entropy requirements, key generation could take
+	anything from a few minutes to SEVERAL HOURS.  Please be
+	patient and/or supply the system with more entropy if needed.
+	EOF
+	echo -n "Started: "
+	date
+    fi
+    
     # Generate a new key in the key rings
     gpg --quiet --batch --no-tty --no-options --enable-dsa2 \
 	--homedir "$RINGDIR" --trust-model always \
 	--gen-key "$BATCHFILE"
     rm --force "$BATCHFILE"
+    
+    if tty --quiet; then
+	echo -n "Finished: "
+	date
+    fi
     
     # Backup any old key files
     if cp --backup=numbered --force "$SECKEYFILE" "$SECKEYFILE" \
@@ -263,7 +278,7 @@ if [ "$mode" = password ]; then
     
     # Get fingerprint of key
     FINGERPRINT="`gpg --quiet --batch --no-tty --no-options \
-	--enable-dsa2 --homedir \"$RINGDIR\" --trust-model always \
+	--enable-dsa2 --homedir '"'$RINGDIR'"' --trust-model always \
 	--fingerprint --with-colons \
 	| sed --quiet \
 	--expression='/^fpr:/{s/^fpr:.*:\\([0-9A-Z]*\\):\$/\\1/p;q}'`"
