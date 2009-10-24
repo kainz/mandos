@@ -82,6 +82,7 @@
 #include <signal.h>		/* sigemptyset(), sigaddset(),
 				   sigaction(), SIGTERM, sig_atomic_t,
 				   raise() */
+#include <sysexits.h>		/* EX_OSERR, EX_USAGE */
 
 #ifdef __linux__
 #include <sys/klog.h> 		/* klogctl() */
@@ -1056,11 +1057,21 @@ int main(int argc, char *argv[]){
 	.arg = "SECONDS",
 	.doc = "Maximum delay to wait for interface startup",
 	.group = 2 },
+      /*
+       * These reproduce what we would get without ARGP_NO_HELP
+       */
+      { .name = "help", .key = '?',
+	.doc = "Give this help list", .group = -1 },
+      { .name = "usage", .key = -3,
+	.doc = "Give a short usage message", .group = -1 },
+      { .name = "version", .key = 'V',
+	.doc = "Print program version", .group = -1 },
       { .name = NULL }
     };
     
     error_t parse_opt(int key, char *arg,
 		      struct argp_state *state){
+      errno = 0;
       switch(key){
       case 128:			/* --debug */
 	debug = true;
@@ -1082,8 +1093,7 @@ int main(int argc, char *argv[]){
 	tmpmax = strtoimax(arg, &tmp, 10);
 	if(errno != 0 or tmp == arg or *tmp != '\0'
 	   or tmpmax != (typeof(mc.dh_bits))tmpmax){
-	  fprintf(stderr, "Bad number of DH bits\n");
-	  exit(EXIT_FAILURE);
+	  argp_error(state, "Bad number of DH bits");
 	}
 	mc.dh_bits = (typeof(mc.dh_bits))tmpmax;
 	break;
@@ -1094,28 +1104,46 @@ int main(int argc, char *argv[]){
 	errno = 0;
 	delay = strtof(arg, &tmp);
 	if(errno != 0 or tmp == arg or *tmp != '\0'){
-	  fprintf(stderr, "Bad delay\n");
-	  exit(EXIT_FAILURE);
+	  argp_error(state, "Bad delay");
 	}
 	break;
-      case ARGP_KEY_ARG:
-	argp_usage(state);
-      case ARGP_KEY_END:
+	/*
+	 * These reproduce what we would get without ARGP_NO_HELP
+	 */
+      case '?':			/* --help */
+	argp_state_help(state, state->out_stream,
+			(ARGP_HELP_STD_HELP | ARGP_HELP_EXIT_ERR)
+			& ~(unsigned int)ARGP_HELP_EXIT_OK);
+      case -3:			/* --usage */
+	argp_state_help(state, state->out_stream,
+			ARGP_HELP_USAGE | ARGP_HELP_EXIT_ERR);
+      case 'V':			/* --version */
+	fprintf(state->out_stream, "%s\n", argp_program_version);
+	exit(argp_err_exit_status);
 	break;
       default:
 	return ARGP_ERR_UNKNOWN;
       }
-      return 0;
+      return errno;
     }
     
     struct argp argp = { .options = options, .parser = parse_opt,
 			 .args_doc = "",
 			 .doc = "Mandos client -- Get and decrypt"
 			 " passwords from a Mandos server" };
-    ret = argp_parse(&argp, argc, argv, 0, 0, NULL);
-    if(ret == ARGP_ERR_UNKNOWN){
-      fprintf(stderr, "Unknown error while parsing arguments\n");
-      exitcode = EXIT_FAILURE;
+    ret = argp_parse(&argp, argc, argv,
+		     ARGP_IN_ORDER | ARGP_NO_HELP, 0, NULL);
+    switch(ret){
+    case 0:
+      break;
+    case ENOMEM:
+    default:
+      errno = ret;
+      perror("argp_parse");
+      exitcode = EX_OSERR;
+      goto end;
+    case EINVAL:
+      exitcode = EX_USAGE;
       goto end;
     }
   }
@@ -1220,7 +1248,7 @@ int main(int argc, char *argv[]){
     
 #ifdef __linux__
     /* Lower kernel loglevel to KERN_NOTICE to avoid KERN_INFO
-       messages to mess up the prompt */
+       messages about the network interface to mess up the prompt */
     ret = klogctl(8, NULL, 5);
     bool restore_loglevel = true;
     if(ret == -1){
@@ -1530,7 +1558,7 @@ int main(int argc, char *argv[]){
       if(ret == -1){
 	perror("ioctl SIOCGIFFLAGS");
       } else if(network.ifr_flags & IFF_UP) {
-	network.ifr_flags &= ~IFF_UP; /* clear flag */
+	network.ifr_flags &= ~(short)IFF_UP; /* clear flag */
 	ret = ioctl(sd, SIOCSIFFLAGS, &network);
 	if(ret == -1){
 	  perror("ioctl SIOCSIFFLAGS");

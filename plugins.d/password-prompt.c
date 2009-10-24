@@ -37,10 +37,10 @@
 #include <stddef.h>		/* NULL, size_t, ssize_t */
 #include <sys/types.h>		/* ssize_t */
 #include <stdlib.h>		/* EXIT_SUCCESS, EXIT_FAILURE,
-				   getopt_long, getenv() */
+				   getenv() */
 #include <stdio.h>		/* fprintf(), stderr, getline(),
-				   stdin, feof(), perror(), fputc(),
-				   getopt_long */
+				   stdin, feof(), perror(), fputc()
+				*/
 #include <errno.h>		/* errno, EBADF, ENOTTY, EINVAL,
 				   EFAULT, EFBIG, EIO, ENOSPC, EINTR
 				*/
@@ -86,10 +86,20 @@ int main(int argc, char **argv){
 	.doc = "Prefix shown before the prompt", .group = 2 },
       { .name = "debug", .key = 128,
 	.doc = "Debug mode", .group = 3 },
+      /*
+       * These reproduce what we would get without ARGP_NO_HELP
+       */
+      { .name = "help", .key = '?',
+	.doc = "Give this help list", .group = -1 },
+      { .name = "usage", .key = -3,
+	.doc = "Give a short usage message", .group = -1 },
+      { .name = "version", .key = 'V',
+	.doc = "Print program version", .group = -1 },
       { .name = NULL }
     };
     
     error_t parse_opt (int key, char *arg, struct argp_state *state){
+      errno = 0;
       switch (key){
       case 'p':
 	prefix = arg;
@@ -97,25 +107,42 @@ int main(int argc, char **argv){
       case 128:
 	debug = true;
 	break;
-      case ARGP_KEY_ARG:
-	argp_usage(state);
-	break;
-      case ARGP_KEY_END:
+	/*
+	 * These reproduce what we would get without ARGP_NO_HELP
+	 */
+      case '?':			/* --help */
+	argp_state_help(state, state->out_stream,
+			(ARGP_HELP_STD_HELP | ARGP_HELP_EXIT_ERR)
+			& ~(unsigned int)ARGP_HELP_EXIT_OK);
+      case -3:			/* --usage */
+	argp_state_help(state, state->out_stream,
+			ARGP_HELP_USAGE | ARGP_HELP_EXIT_ERR);
+      case 'V':			/* --version */
+	fprintf(state->out_stream, "%s\n", argp_program_version);
+	exit(argp_err_exit_status);
 	break;
       default:
 	return ARGP_ERR_UNKNOWN;
       }
-      return 0;
+      return errno;
     }
     
     struct argp argp = { .options = options, .parser = parse_opt,
 			 .args_doc = "",
 			 .doc = "Mandos password-prompt -- Read and"
 			 " output a password" };
-    ret = argp_parse(&argp, argc, argv, 0, 0, NULL);
-    if(ret == ARGP_ERR_UNKNOWN){
-      fprintf(stderr, "Unknown error while parsing arguments\n");
-      return EX_SOFTWARE;
+    ret = argp_parse(&argp, argc, argv,
+		     ARGP_IN_ORDER | ARGP_NO_HELP, NULL, NULL);
+    switch(ret){
+    case 0:
+      break;
+    case ENOMEM:
+    default:
+      errno = ret;
+      perror("argp_parse");
+      return EX_OSERR;
+    case EINVAL:
+      return EX_USAGE;
     }
   }
   
