@@ -9,9 +9,14 @@ WARN=-O -Wall -Wformat=2 -Winit-self -Wmissing-include-dirs \
 #DEBUG=-ggdb3
 # For info about _FORTIFY_SOURCE, see
 # <http://gcc.gnu.org/ml/gcc-patches/2004-09/msg02055.html>
-FORTIFY=-D_FORTIFY_SOURCE=2 -fstack-protector-all -fPIC -fPIE
-LINK_FORTIFY_LD=-z relro -fPIE
-LINK_FORTIFY=-pie
+FORTIFY=-D_FORTIFY_SOURCE=2 -fstack-protector-all -fPIC
+LINK_FORTIFY_LD=-z relro -z now
+LINK_FORTIFY=
+ifndef BROKEN_PIE
+FORTIFY += -fPIE
+LINK_FORTIFY_LD += -fPIE
+LINK_FORTIFY += -pie
+endif
 #COVERAGE=--coverage
 OPTIMIZE=-Os
 LANGUAGE=-std=gnu99
