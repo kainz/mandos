@@ -1,3 +1,11 @@
+mandos (1.0.14-1) unstable; urgency=low (HIGH on mips and mipsel)
+
+  * New upstream release.
+  * debian/rules: Build with BROKEN_PIE set on mips and mipsel
+    architectures - fixes FTBFS there.
+
+ -- Teddy Hogeborn <teddy@fukt.bsnet.se>  Sun, 25 Oct 2009 20:10:09 +0100
+
 mandos (1.0.13-1) unstable; urgency=high
 
   * New upstream release.
