@@ -10,14 +10,19 @@ WARN=-O -Wall -Wformat=2 -Winit-self -Wmissing-include-dirs \
 # For info about _FORTIFY_SOURCE, see
 # <http://www.kernel.org/doc/man-pages/online/pages/man7/feature_test_macros.7.html>
 # and <http://gcc.gnu.org/ml/gcc-patches/2004-09/msg02055.html>.
-FORTIFY=-D_FORTIFY_SOURCE=2 -fstack-protector-all -fPIC -fPIE
-LINK_FORTIFY_LD=-z relro -fPIE
-LINK_FORTIFY=-pie
+FORTIFY=-D_FORTIFY_SOURCE=2 -fstack-protector-all -fPIC
+LINK_FORTIFY_LD=-z relro -z now
+LINK_FORTIFY=
+ifndef BROKEN_PIE
+FORTIFY += -fPIE
+LINK_FORTIFY_LD += -fPIE
+LINK_FORTIFY += -pie
+endif
 #COVERAGE=--coverage
 OPTIMIZE=-Os
 LANGUAGE=-std=gnu99
 htmldir=man
-version=1.0.13
+version=1.0.14
 SED=sed
 
 ## Use these settings for a traditional /usr/local install

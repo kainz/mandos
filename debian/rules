@@ -15,6 +15,15 @@
 # This has to be exported to make some magic below work.
 export DH_OPTIONS
 
+ifneq (,$(findstring :$(DEB_HOST_ARCH):,:mips:mipsel:))
+  BROKEN_PIE := yes
+  export BROKEN_PIE
+endif
+ifneq (,$(findstring :$(DEB_BUILD_ARCH):,:mips:mipsel:))
+  BROKEN_PIE := yes
+  export BROKEN_PIE
+endif
+
 configure: configure-stamp
 configure-stamp:
 	dh_testdir
