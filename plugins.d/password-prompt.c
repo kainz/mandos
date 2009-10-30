@@ -258,22 +258,31 @@ int main(int argc, char **argv){
       fprintf(stderr, "%s ", prefix);
     }
     {
-      const char *cryptsource = getenv("cryptsource");
-      const char *crypttarget = getenv("crypttarget");
-      const char *const prompt
-	= "Enter passphrase to unlock the disk";
+      const char *cryptsource = getenv("CRYPTTAB_SOURCE");
+      const char *crypttarget = getenv("CRYPTTAB_NAME");
+      /* Before cryptsetup 1.1.0~rc2 */
+      if(cryptsource == NULL){
+	cryptsource = getenv("cryptsource");
+      }
+      if(crypttarget == NULL){
+	crypttarget = getenv("crypttarget");
+      }
+      const char *const prompt1 = "Unlocking the disk";
+      const char *const prompt2 = "Enter passphrase";
       if(cryptsource == NULL){
 	if(crypttarget == NULL){
-	  fprintf(stderr, "%s: ", prompt);
+	  fprintf(stderr, "%s to unlock the disk: ", prompt2);
 	} else {
-	  fprintf(stderr, "%s (%s): ", prompt, crypttarget);
+	  fprintf(stderr, "%s (%s)\n%s: ", prompt1, crypttarget,
+		  prompt2);
 	}
       } else {
 	if(crypttarget == NULL){
-	  fprintf(stderr, "%s %s: ", prompt, cryptsource);
+	  fprintf(stderr, "%s %s\n%s: ", prompt1, cryptsource,
+		  prompt2);
 	} else {
-	  fprintf(stderr, "%s %s (%s): ", prompt, cryptsource,
-		  crypttarget);
+	  fprintf(stderr, "%s %s (%s)\n%s: ", prompt1, cryptsource,
+		  crypttarget, prompt2);
 	}
       }
     }
