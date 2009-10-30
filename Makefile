@@ -56,7 +56,7 @@ CFLAGS=$(WARN) $(DEBUG) $(FORTIFY) $(COVERAGE) $(OPTIMIZE) \
 LDFLAGS=$(COVERAGE) $(LINK_FORTIFY) $(foreach flag,$(LINK_FORTIFY_LD),-Xlinker $(flag))
 
 # Commands to format a DocBook <refentry> document into a manual page
-DOCBOOKTOMAN=cd $(dir $<); xsltproc --nonet --xinclude \
+DOCBOOKTOMAN=$(strip cd $(dir $<); xsltproc --nonet --xinclude \
 	--param man.charmap.use.subset		0 \
 	--param make.year.ranges		1 \
 	--param make.single.year.ranges		1 \
@@ -64,11 +64,11 @@ DOCBOOKTOMAN=cd $(dir $<); xsltproc --nonet --xinclude \
 	--param man.authors.section.enabled	0 \
 	 /usr/share/xml/docbook/stylesheet/nwalsh/manpages/docbook.xsl \
 	$(notdir $<); \
-	$(MANPOST) $(notdir $@)
+	$(MANPOST) $(notdir $@))
 # DocBook-to-man post-processing to fix a '\n' escape bug
 MANPOST=$(SED) --in-place --expression='s,\\\\en,\\en,g;s,\\n,\\en,g'
 
-DOCBOOKTOHTML=xsltproc --nonet --xinclude \
+DOCBOOKTOHTML=$(strip xsltproc --nonet --xinclude \
 	--param make.year.ranges		1 \
 	--param make.single.year.ranges		1 \
 	--param man.output.quietly		1 \
@@ -76,7 +76,7 @@ DOCBOOKTOHTML=xsltproc --nonet --xinclude \
 	--param citerefentry.link		1 \
 	--output $@ \
 	/usr/share/xml/docbook/stylesheet/nwalsh/xhtml/docbook.xsl \
-	$<; $(HTMLPOST) $@
+	$<; $(HTMLPOST) $@)
 # Fix citerefentry links
 HTMLPOST=$(SED) --in-place \
 	--expression='s/\(<a class="citerefentry" href="\)\("><span class="citerefentry"><span class="refentrytitle">\)\([^<]*\)\(<\/span>(\)\([^)]*\)\()<\/span><\/a>\)/\1\3.\5\2\3\4\5\6/g'
@@ -157,39 +157,39 @@ plugins.d/mandos-client.8mandos.xhtml: plugins.d/mandos-client.xml \
 
 # Update all these files with version number $(version)
 common.ent: Makefile
-	$(SED) --in-place \
+	$(strip $(SED) --in-place \
 		--expression='s/^\(<!ENTITY version "\)[^"]*">$$/\1$(version)">/' \
-		$@
+		$@)
 
 mandos: Makefile
-	$(SED) --in-place \
+	$(strip $(SED) --in-place \
 		--expression='s/^\(version = "\)[^"]*"$$/\1$(version)"/' \
-		$@
+		$@)
 
 mandos-keygen: Makefile
-	$(SED) --in-place \
+	$(strip $(SED) --in-place \
 		--expression='s/^\(VERSION="\)[^"]*"$$/\1$(version)"/' \
-		$@
+		$@)
 
 mandos-ctl: Makefile
-	$(SED) --in-place \
+	$(strip $(SED) --in-place \
 		--expression='s/^\(version = "\)[^"]*"$$/\1$(version)"/' \
-		$@
+		$@)
 
 mandos.lsm: Makefile
-	$(SED) --in-place \
+	$(strip $(SED) --in-place \
 		--expression='s/^\(Version:\).*/\1\t$(version)/' \
-		$@
-	$(SED) --in-place \
+		$@)
+	$(strip $(SED) --in-place \
 		--expression='s/^\(Entered-date:\).*/\1\t$(shell date --rfc-3339=date --reference=Makefile)/' \
-		$@
-	$(SED) --in-place \
+		$@)
+	$(strip $(SED) --in-place \
 		--expression='s/\(mandos_\)[0-9.]\+\(\.orig\.tar\.gz\)/\1$(version)\2/' \
-		$@
+		$@)
 
-plugins.d/mandos-client: plugins.d/mandos-client.o
-	$(LINK.o) $(GNUTLS_LIBS) $(AVAHI_LIBS) $(GPGME_LIBS) \
-		$(COMMON) $^ $(LOADLIBES) $(LDLIBS) -o $@
+plugins.d/mandos-client: plugins.d/mandos-client.c
+	$(LINK.c) $(GNUTLS_LIBS) $(AVAHI_LIBS) $(GPGME_LIBS) $(strip\
+		) $(COMMON) $^ $(LOADLIBES) $(LDLIBS) -o $@
 
 .PHONY : all doc html clean distclean run-client run-server install \
 	install-server install-client uninstall uninstall-server \
