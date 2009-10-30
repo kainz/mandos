@@ -47,6 +47,7 @@
 #include <dirent.h>		/* opendir(), readdir(), closedir() */
 #include <inttypes.h>		/* intmax_t, strtoimax() */
 #include <sys/stat.h>		/* struct stat, lstat(), S_ISLNK */
+#include <sysexits.h>		/* EX_OSERR, EX_UNAVAILABLE */
 
 sig_atomic_t interrupted_by_signal = 0;
 int signal_received;
@@ -297,9 +298,11 @@ int main(__attribute__((unused))int argc,
   size_t buf_len = 0;
   pid_t usplash_pid = -1;
   bool usplash_accessed = false;
+  int status = EXIT_FAILURE;	/* Default failure exit status */
   
   char *prompt = makeprompt();
   if(prompt == NULL){
+    status = EX_OSERR;
     goto failure;
   }
   
@@ -308,6 +311,7 @@ int main(__attribute__((unused))int argc,
   size_t cmdline_len = 0;
   usplash_pid = find_usplash(&cmdline, &cmdline_len);
   if(usplash_pid == 0){
+    status = EX_UNAVAILABLE;
     goto failure;
   }
   
@@ -320,22 +324,26 @@ int main(__attribute__((unused))int argc,
     ret = sigaddset(&new_action.sa_mask, SIGINT);
     if(ret == -1){
       perror("sigaddset");
+      status = EX_OSERR;
       goto failure;
     }
     ret = sigaddset(&new_action.sa_mask, SIGHUP);
     if(ret == -1){
       perror("sigaddset");
+      status = EX_OSERR;
       goto failure;
     }
     ret = sigaddset(&new_action.sa_mask, SIGTERM);
     if(ret == -1){
       perror("sigaddset");
+      status = EX_OSERR;
       goto failure;
     }
     ret = sigaction(SIGINT, NULL, &old_action);
     if(ret == -1){
       if(errno != EINTR){
 	perror("sigaction");
+	status = EX_OSERR;
       }
       goto failure;
     }
@@ -344,6 +352,7 @@ int main(__attribute__((unused))int argc,
       if(ret == -1){
 	if(errno != EINTR){
 	  perror("sigaction");
+	  status = EX_OSERR;
 	}
 	goto failure;
       }
@@ -352,6 +361,7 @@ int main(__attribute__((unused))int argc,
     if(ret == -1){
       if(errno != EINTR){
 	perror("sigaction");
+	status = EX_OSERR;
       }
       goto failure;
     }
@@ -360,6 +370,7 @@ int main(__attribute__((unused))int argc,
       if(ret == -1){
 	if(errno != EINTR){
 	  perror("sigaction");
+	  status = EX_OSERR;
 	}
 	goto failure;
       }
@@ -368,6 +379,7 @@ int main(__attribute__((unused))int argc,
     if(ret == -1){
       if(errno != EINTR){
 	perror("sigaction");
+	status = EX_OSERR;
       }
       goto failure;
     }
@@ -376,6 +388,7 @@ int main(__attribute__((unused))int argc,
       if(ret == -1){
 	if(errno != EINTR){
 	  perror("sigaction");
+	  status = EX_OSERR;
 	}
 	goto failure;
       }
@@ -387,6 +400,7 @@ int main(__attribute__((unused))int argc,
   if(not usplash_write(&fifo_fd, "TIMEOUT", "0")){
     if(errno != EINTR){
       perror("usplash_write");
+      status = EX_OSERR;
     }
     goto failure;
   }
@@ -398,6 +412,7 @@ int main(__attribute__((unused))int argc,
   if(not usplash_write(&fifo_fd, "INPUTQUIET", prompt)){
     if(errno != EINTR){
       perror("usplash_write");
+      status = EX_OSERR;
     }
     goto failure;
   }
@@ -415,6 +430,7 @@ int main(__attribute__((unused))int argc,
   if(outfifo_fd == -1){
     if(errno != EINTR){
       perror("open");
+      status = EX_OSERR;
     }
     goto failure;
   }
@@ -433,6 +449,7 @@ int main(__attribute__((unused))int argc,
       if(tmp == NULL){
 	if(errno != EINTR){
 	  perror("realloc");
+	  status = EX_OSERR;
 	}
 	goto failure;
       }
@@ -444,6 +461,7 @@ int main(__attribute__((unused))int argc,
     if(sret == -1){
       if(errno != EINTR){
 	perror("read");
+	status = EX_OSERR;
       }
       TEMP_FAILURE_RETRY(close(outfifo_fd));
       goto failure;
@@ -458,6 +476,7 @@ int main(__attribute__((unused))int argc,
   if(ret == -1){
     if(errno != EINTR){
       perror("close");
+      status = EX_OSERR;
     }
     goto failure;
   }
@@ -470,6 +489,7 @@ int main(__attribute__((unused))int argc,
   if(not usplash_write(&fifo_fd, "TIMEOUT", "15")){
     if(errno != EINTR){
       perror("usplash_write");
+      status = EX_OSERR;
     }
     goto failure;
   }
@@ -482,6 +502,7 @@ int main(__attribute__((unused))int argc,
   if(ret == -1){
     if(errno != EINTR){
       perror("close");
+      status = EX_OSERR;
     }
     goto failure;
   }
@@ -495,6 +516,7 @@ int main(__attribute__((unused))int argc,
       if(sret == -1){
 	if(errno != EINTR){
 	  perror("write");
+	  status = EX_OSERR;
 	}
 	goto failure;
       }
@@ -523,7 +545,7 @@ int main(__attribute__((unused))int argc,
   
   /* If usplash was never accessed, we can stop now */
   if(not usplash_accessed){
-    return EXIT_FAILURE;
+    return status;
   }
   
   /* Close FIFO */
@@ -555,7 +577,7 @@ int main(__attribute__((unused))int argc,
       if(tmp == NULL){
 	perror("realloc");
 	free(cmdline_argv);
-	return EXIT_FAILURE;
+	return status;
       }
       cmdline_argv = tmp;
       cmdline_argv[cmdline_argc] = cmdline + position;
@@ -591,7 +613,7 @@ int main(__attribute__((unused))int argc,
     ret = dup2(STDERR_FILENO, STDOUT_FILENO); /* replace our stdout */
     if(ret == -1){
       perror("dup2");
-      _exit(EXIT_FAILURE);
+      _exit(EX_OSERR);
     }
     
     execv(usplash_name, cmdline_argv);
@@ -600,7 +622,7 @@ int main(__attribute__((unused))int argc,
     }
     free(cmdline);
     free(cmdline_argv);
-    _exit(EXIT_FAILURE);
+    _exit(EX_OSERR);
   }
   free(cmdline);
   free(cmdline_argv);
@@ -638,5 +660,5 @@ int main(__attribute__((unused))int argc,
     TEMP_FAILURE_RETRY(pause());
   }
   
-  return EXIT_FAILURE;
+  return status;
 }
