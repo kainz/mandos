@@ -13,6 +13,8 @@ WARN=-O -Wall -Wformat=2 -Winit-self -Wmissing-include-dirs \
 FORTIFY=-D_FORTIFY_SOURCE=2 -fstack-protector-all -fPIC
 LINK_FORTIFY_LD=-z relro -z now
 LINK_FORTIFY=
+
+# If BROKEN_PIE is set, do not build with -pie
 ifndef BROKEN_PIE
 FORTIFY += -fPIE
 LINK_FORTIFY_LD += -fPIE
