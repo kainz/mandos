@@ -25,8 +25,8 @@
 #define _GNU_SOURCE		/* TEMP_FAILURE_RETRY(), getline(),
 				   asprintf(), O_CLOEXEC */
 #include <stddef.h>		/* size_t, NULL */
-#include <stdlib.h>		/* malloc(), exit(), EXIT_FAILURE,
-				   EXIT_SUCCESS, realloc() */
+#include <stdlib.h>		/* malloc(), exit(), EXIT_SUCCESS,
+				   realloc() */
 #include <stdbool.h>		/* bool, true, false */
 #include <stdio.h>		/* perror, fileno(), fprintf(),
 				   stderr, STDOUT_FILENO */
@@ -68,7 +68,8 @@
 				*/
 #include <errno.h>		/* errno, EBADF */
 #include <inttypes.h>		/* intmax_t, PRIdMAX, strtoimax() */
-#include <sysexits.h>		/* EX_OSERR, EX_USAGE */
+#include <sysexits.h>		/* EX_OSERR, EX_USAGE, EX_IOERR,
+				   EX_CONFIG, EX_UNAVAILABLE, EX_OK */
 
 #define BUFFER_SIZE 256
 
@@ -357,13 +358,13 @@ int main(int argc, char *argv[]){
   ret = sigaddset(&sigchld_action.sa_mask, SIGCHLD);
   if(ret == -1){
     perror("sigaddset");
-    exitstatus = EXIT_FAILURE;
+    exitstatus = EX_OSERR;
     goto fallback;
   }
   ret = sigaction(SIGCHLD, &sigchld_action, &old_sigchld_action);
   if(ret == -1){
     perror("sigaction");
-    exitstatus = EXIT_FAILURE;
+    exitstatus = EX_OSERR;
     goto fallback;
   }
   
@@ -626,7 +627,7 @@ int main(int argc, char *argv[]){
     custom_argv = malloc(sizeof(char*) * 2);
     if(custom_argv == NULL){
       perror("malloc");
-      exitstatus = EXIT_FAILURE;
+      exitstatus = EX_OSERR;
       goto fallback;
     }
     custom_argv[0] = argv[0];
@@ -649,7 +650,7 @@ int main(int argc, char *argv[]){
 	new_arg = strdup(p);
 	if(new_arg == NULL){
 	  perror("strdup");
-	  exitstatus = EXIT_FAILURE;
+	  exitstatus = EX_OSERR;
 	  free(org_line);
 	  goto fallback;
 	}
@@ -659,7 +660,7 @@ int main(int argc, char *argv[]){
 			      * ((unsigned int) custom_argc + 1));
 	if(custom_argv == NULL){
 	  perror("realloc");
-	  exitstatus = EXIT_FAILURE;
+	  exitstatus = EX_OSERR;
 	  free(org_line);
 	  goto fallback;
 	}
@@ -672,7 +673,7 @@ int main(int argc, char *argv[]){
     } while(ret == EOF and errno == EINTR);
     if(ret == EOF){
       perror("fclose");
-      exitstatus = EXIT_FAILURE;
+      exitstatus = EX_IOERR;
       goto fallback;
     }
     free(org_line);
@@ -681,7 +682,7 @@ int main(int argc, char *argv[]){
        not affect opening plugins */
     if(errno == EMFILE or errno == ENFILE or errno == ENOMEM){
       perror("fopen");
-      exitstatus = EXIT_FAILURE;
+      exitstatus = EX_IOERR;
       goto fallback;
     }
   }
@@ -771,7 +772,7 @@ int main(int argc, char *argv[]){
     }
     if(dir_fd == -1){
       perror("Could not open plugin dir");
-      exitstatus = EXIT_FAILURE;
+      exitstatus = EX_UNAVAILABLE;
       goto fallback;
     }
     
@@ -781,7 +782,7 @@ int main(int argc, char *argv[]){
     if(ret < 0){
       perror("set_cloexec_flag");
       TEMP_FAILURE_RETRY(close(dir_fd));
-      exitstatus = EXIT_FAILURE;
+      exitstatus = EX_OSERR;
       goto fallback;
     }
 #endif	/* O_CLOEXEC */
@@ -790,7 +791,7 @@ int main(int argc, char *argv[]){
     if(dir == NULL){
       perror("Could not open plugin dir");
       TEMP_FAILURE_RETRY(close(dir_fd));
-      exitstatus = EXIT_FAILURE;
+      exitstatus = EX_OSERR;
       goto fallback;
     }
   }
@@ -807,7 +808,7 @@ int main(int argc, char *argv[]){
     if(dirst == NULL){
       if(errno == EBADF){
 	perror("readdir");
-	exitstatus = EXIT_FAILURE;
+	exitstatus = EX_IOERR;
 	goto fallback;
       }
       break;
@@ -937,20 +938,20 @@ int main(int argc, char *argv[]){
     ret = (int)TEMP_FAILURE_RETRY(pipe(pipefd));
     if(ret == -1){
       perror("pipe");
-      exitstatus = EXIT_FAILURE;
+      exitstatus = EX_OSERR;
       goto fallback;
     }
     /* Ask OS to automatic close the pipe on exec */
     ret = set_cloexec_flag(pipefd[0]);
     if(ret < 0){
       perror("set_cloexec_flag");
-      exitstatus = EXIT_FAILURE;
+      exitstatus = EX_OSERR;
       goto fallback;
     }
     ret = set_cloexec_flag(pipefd[1]);
     if(ret < 0){
       perror("set_cloexec_flag");
-      exitstatus = EXIT_FAILURE;
+      exitstatus = EX_OSERR;
       goto fallback;
     }
     /* Block SIGCHLD until process is safely in process list */
@@ -959,7 +960,7 @@ int main(int argc, char *argv[]){
 					      NULL));
     if(ret < 0){
       perror("sigprocmask");
-      exitstatus = EXIT_FAILURE;
+      exitstatus = EX_OSERR;
       goto fallback;
     }
     /* Starting a new process to be watched */
@@ -969,7 +970,7 @@ int main(int argc, char *argv[]){
     } while(pid == -1 and errno == EINTR);
     if(pid == -1){
       perror("fork");
-      exitstatus = EXIT_FAILURE;
+      exitstatus = EX_OSERR;
       goto fallback;
     }
     if(pid == 0){
@@ -977,18 +978,18 @@ int main(int argc, char *argv[]){
       ret = sigaction(SIGCHLD, &old_sigchld_action, NULL);
       if(ret < 0){
 	perror("sigaction");
-	_exit(EXIT_FAILURE);
+	_exit(EX_OSERR);
       }
       ret = sigprocmask(SIG_UNBLOCK, &sigchld_action.sa_mask, NULL);
       if(ret < 0){
 	perror("sigprocmask");
-	_exit(EXIT_FAILURE);
+	_exit(EX_OSERR);
       }
       
       ret = dup2(pipefd[1], STDOUT_FILENO); /* replace our stdout */
       if(ret == -1){
 	perror("dup2");
-	_exit(EXIT_FAILURE);
+	_exit(EX_OSERR);
       }
       
       if(dirfd(dir) < 0){
@@ -999,12 +1000,12 @@ int main(int argc, char *argv[]){
       if(p->environ[0] == NULL){
 	if(execv(filename, p->argv) < 0){
 	  perror("execv");
-	  _exit(EXIT_FAILURE);
+	  _exit(EX_OSERR);
 	}
       } else {
 	if(execve(filename, p->argv, p->environ) < 0){
 	  perror("execve");
-	  _exit(EXIT_FAILURE);
+	  _exit(EX_OSERR);
 	}
       }
       /* no return */
@@ -1022,7 +1023,7 @@ int main(int argc, char *argv[]){
       if(ret < 0){
         perror("sigprocmask");
       }
-      exitstatus = EXIT_FAILURE;
+      exitstatus = EX_OSERR;
       goto fallback;
     }
     
@@ -1036,7 +1037,7 @@ int main(int argc, char *argv[]){
 					      NULL));
     if(ret < 0){
       perror("sigprocmask");
-      exitstatus = EXIT_FAILURE;
+      exitstatus = EX_OSERR;
       goto fallback;
     }
     
@@ -1069,7 +1070,7 @@ int main(int argc, char *argv[]){
     int select_ret = select(maxfd+1, &rfds, NULL, NULL, NULL);
     if(select_ret == -1 and errno != EINTR){
       perror("select");
-      exitstatus = EXIT_FAILURE;
+      exitstatus = EX_OSERR;
       goto fallback;
     }
     /* OK, now either a process completed, or something can be read
@@ -1111,7 +1112,7 @@ int main(int argc, char *argv[]){
 					 NULL));
 	  if(ret < 0){
 	    perror("sigprocmask");
-	    exitstatus = EXIT_FAILURE;
+	    exitstatus = EX_OSERR;
 	    goto fallback;
 	  }
 	  
@@ -1125,7 +1126,7 @@ int main(int argc, char *argv[]){
 				   &sigchld_action.sa_mask, NULL)));
 	  if(ret < 0){
 	    perror("sigprocmask");
-	    exitstatus = EXIT_FAILURE;
+	    exitstatus = EX_OSERR;
 	    goto fallback;
 	  }
 	  
@@ -1142,7 +1143,7 @@ int main(int argc, char *argv[]){
 				       proc->buffer_length);
 	if(not bret){
 	  perror("print_out_password");
-	  exitstatus = EXIT_FAILURE;
+	  exitstatus = EX_IOERR;
 	}
 	goto fallback;
       }
@@ -1161,7 +1162,7 @@ int main(int argc, char *argv[]){
 			       + (size_t) BUFFER_SIZE);
 	if(proc->buffer == NULL){
 	  perror("malloc");
-	  exitstatus = EXIT_FAILURE;
+	  exitstatus = EX_OSERR;
 	  goto fallback;
 	}
 	proc->buffer_size += BUFFER_SIZE;
@@ -1188,7 +1189,8 @@ int main(int argc, char *argv[]){
   
  fallback:
   
-  if(plugin_list == NULL or exitstatus != EXIT_SUCCESS){
+  if(plugin_list == NULL or (exitstatus != EXIT_SUCCESS
+			     and exitstatus != EX_OK)){
     /* Fallback if all plugins failed, none are found or an error
        occured */
     bool bret;
@@ -1203,7 +1205,7 @@ int main(int argc, char *argv[]){
     bret = print_out_password(passwordbuffer, len);
     if(not bret){
       perror("print_out_password");
-      exitstatus = EXIT_FAILURE;
+      exitstatus = EX_IOERR;
     }
   }
   
@@ -1211,7 +1213,7 @@ int main(int argc, char *argv[]){
   ret = sigaction(SIGCHLD, &old_sigchld_action, NULL);
   if(ret == -1){
     perror("sigaction");
-    exitstatus = EXIT_FAILURE;
+    exitstatus = EX_OSERR;
   }
   
   if(custom_argv != NULL){
