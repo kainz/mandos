@@ -325,19 +325,20 @@ class Client(object):
         self.checker_initiator_tag = (gobject.timeout_add
                                       (self.interval_milliseconds(),
                                        self.start_checker))
-        # Also start a new checker *right now*.
-        self.start_checker()
         # Schedule a disable() when 'timeout' has passed
         self.disable_initiator_tag = (gobject.timeout_add
                                    (self.timeout_milliseconds(),
                                     self.disable))
         self.enabled = True
+        # Also start a new checker *right now*.
+        self.start_checker()
     
-    def disable(self):
+    def disable(self, log=True):
         """Disable this client."""
         if not getattr(self, "enabled", False):
             return False
-        logger.info(u"Disabling client %s", self.name)
+        if log:
+            logger.info(u"Disabling client %s", self.name)
         if getattr(self, u"disable_initiator_tag", False):
             gobject.source_remove(self.disable_initiator_tag)
             self.disable_initiator_tag = None
@@ -467,7 +468,7 @@ class Client(object):
         logger.debug(u"Stopping checker for %(name)s", vars(self))
         try:
             os.kill(self.checker.pid, signal.SIGTERM)
-            #os.sleep(0.5)
+            #time.sleep(0.5)
             #if self.checker.poll() is None:
             #    os.kill(self.checker.pid, signal.SIGKILL)
         except OSError, error:
@@ -707,7 +708,7 @@ class ClientDBus(Client, DBusObjectWithProperties):
     
     def disable(self, signal = True):
         oldstate = getattr(self, u"enabled", False)
-        r = Client.disable(self)
+        r = Client.disable(self, log=signal)
         if signal and oldstate != self.enabled:
             # Emit D-Bus signal
             self.PropertyChanged(dbus.String(u"enabled"),
@@ -1345,9 +1346,9 @@ def string_to_delta(interval):
             elif suffix == u"w":
                 delta = datetime.timedelta(0, 0, 0, 0, 0, 0, value)
             else:
-                raise ValueError
-        except (ValueError, IndexError):
-            raise ValueError
+                raise ValueError(u"Unknown suffix %r" % suffix)
+        except (ValueError, IndexError), e:
+            raise ValueError(e.message)
         timevalue += delta
     return timevalue
 
@@ -1610,17 +1611,6 @@ def main():
         pass
     del pidfilename
     
-    def cleanup():
-        "Cleanup function; run on exit"
-        service.cleanup()
-        
-        while tcp_server.clients:
-            client = tcp_server.clients.pop()
-            client.disable_hook = None
-            client.disable()
-    
-    atexit.register(cleanup)
-    
     if not debug:
         signal.signal(signal.SIGINT, signal.SIG_IGN)
     signal.signal(signal.SIGHUP, lambda signum, frame: sys.exit())
@@ -1675,11 +1665,28 @@ def main():
                         # Emit D-Bus signal
                         self.ClientRemoved(object_path, c.name)
                         return
-                raise KeyError
+                raise KeyError(object_path)
             
             del _interface
         
         mandos_dbus_service = MandosDBusService()
+    
+    def cleanup():
+        "Cleanup function; run on exit"
+        service.cleanup()
+        
+        while tcp_server.clients:
+            client = tcp_server.clients.pop()
+            client.remove_from_connection()
+            client.disable_hook = None
+            # Don't signal anything except ClientRemoved
+            client.disable(signal=False)
+            if use_dbus:
+                # Emit D-Bus signal
+                mandos_dbus_service.ClientRemoved(client.dbus_object_path,
+                                                  client.name)
+    
+    atexit.register(cleanup)
     
     for client in tcp_server.clients:
         if use_dbus:
