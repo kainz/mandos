@@ -1716,6 +1716,7 @@ def main():
             service.activate()
         except dbus.exceptions.DBusException, error:
             logger.critical(u"DBusException: %s", error)
+            cleanup()
             sys.exit(1)
         # End of Avahi example code
         
@@ -1728,12 +1729,15 @@ def main():
         main_loop.run()
     except AvahiError, error:
         logger.critical(u"AvahiError: %s", error)
+        cleanup()
         sys.exit(1)
     except KeyboardInterrupt:
         if debug:
             print >> sys.stderr
         logger.debug(u"Server received KeyboardInterrupt")
     logger.debug(u"Server exiting")
+    # Must run before the D-Bus bus name gets deregistered
+    cleanup()
 
 if __name__ == '__main__':
     main()

@@ -99,7 +99,7 @@
    Multiple Mandos servers can coexist on a network without any
    trouble.  They do not clash, and clients will try all available
    servers.  This means that if just one reboots then the other can
-   bring it back up, but if both reboots at the same time they will
+   bring it back up, but if both reboot at the same time they will
    stay down until someone types in the password on one of them.
 
 ** Faking ping replies?
