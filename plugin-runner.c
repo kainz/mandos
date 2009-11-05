@@ -682,7 +682,7 @@ int main(int argc, char *argv[]){
        not affect opening plugins */
     if(errno == EMFILE or errno == ENFILE or errno == ENOMEM){
       perror("fopen");
-      exitstatus = EX_IOERR;
+      exitstatus = EX_OSERR;
       goto fallback;
     }
   }
