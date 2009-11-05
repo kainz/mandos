@@ -708,7 +708,7 @@ class ClientDBus(Client, DBusObjectWithProperties):
     
     def disable(self, quiet = False):
         oldstate = getattr(self, u"enabled", False)
-        r = Client.disable(self, log=signal)
+        r = Client.disable(self, quiet=quiet)
         if not quiet and oldstate != self.enabled:
             # Emit D-Bus signal
             self.PropertyChanged(dbus.String(u"enabled"),
