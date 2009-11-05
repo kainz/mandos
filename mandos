@@ -333,11 +333,11 @@ class Client(object):
         # Also start a new checker *right now*.
         self.start_checker()
     
-    def disable(self, log=True):
+    def disable(self, quiet=True):
         """Disable this client."""
         if not getattr(self, "enabled", False):
             return False
-        if log:
+        if not quiet:
             logger.info(u"Disabling client %s", self.name)
         if getattr(self, u"disable_initiator_tag", False):
             gobject.source_remove(self.disable_initiator_tag)
@@ -706,10 +706,10 @@ class ClientDBus(Client, DBusObjectWithProperties):
                                        variant_level=1))
         return r
     
-    def disable(self, signal = True):
+    def disable(self, quiet = False):
         oldstate = getattr(self, u"enabled", False)
         r = Client.disable(self, log=signal)
-        if signal and oldstate != self.enabled:
+        if not quiet and oldstate != self.enabled:
             # Emit D-Bus signal
             self.PropertyChanged(dbus.String(u"enabled"),
                                  dbus.Boolean(False, variant_level=1))
@@ -1567,7 +1567,14 @@ def main():
     bus = dbus.SystemBus()
     # End of Avahi example code
     if use_dbus:
-        bus_name = dbus.service.BusName(u"se.bsnet.fukt.Mandos", bus)
+        try:
+            bus_name = dbus.service.BusName(u"se.bsnet.fukt.Mandos",
+                                            bus, do_not_queue=True)
+        except dbus.exceptions.NameExistsException, e:
+            logger.error(unicode(e) + u", disabling D-Bus")
+            use_dbus = False
+            server_settings[u"use_dbus"] = False
+            tcp_server.use_dbus = False
     protocol = avahi.PROTO_INET6 if use_ipv6 else avahi.PROTO_INET
     service = AvahiService(name = server_settings[u"servicename"],
                            servicetype = u"_mandos._tcp",
@@ -1661,7 +1668,7 @@ def main():
                         tcp_server.clients.remove(c)
                         c.remove_from_connection()
                         # Don't signal anything except ClientRemoved
-                        c.disable(signal=False)
+                        c.disable(quiet=True)
                         # Emit D-Bus signal
                         self.ClientRemoved(object_path, c.name)
                         return
@@ -1677,10 +1684,11 @@ def main():
         
         while tcp_server.clients:
             client = tcp_server.clients.pop()
-            client.remove_from_connection()
+            if use_dbus:
+                client.remove_from_connection()
             client.disable_hook = None
             # Don't signal anything except ClientRemoved
-            client.disable(signal=False)
+            client.disable(quiet=True)
             if use_dbus:
                 # Emit D-Bus signal
                 mandos_dbus_service.ClientRemoved(client.dbus_object_path,
