@@ -37,72 +37,31 @@ class MandosClientPropertyCache(object):
     """
     def __init__(self, proxy_object=None, properties=None, *args,
                  **kwargs):
-        # Type conversion mapping
-        self.type_map = {
-            dbus.ObjectPath: unicode,
-            dbus.ByteArray: str,
-            dbus.Signature: unicode,
-            dbus.Byte: chr,
-            dbus.Int16: int,
-            dbus.UInt16: int,
-            dbus.Int32: int,
-            dbus.UInt32: int,
-            dbus.Int64: int,
-            dbus.UInt64: int,
-            dbus.Dictionary: dict,
-            dbus.Array: list,
-            dbus.String: unicode,
-            dbus.Boolean: bool,
-            dbus.Double: float,
-            dbus.Struct: tuple,
-            }
         self.proxy = proxy_object # Mandos Client proxy object
         
         if properties is None:
             self.properties = dict()
         else:
-            self.properties = dict(self.convert_property(prop, val)
-                                   for prop, val in
-                                   properties.iteritems())
+            self.properties = properties
         self.proxy.connect_to_signal("PropertyChanged",
                                      self.property_changed,
                                      client_interface,
                                      byte_arrays=True)
         
         if properties is None:
-            self.properties.update(
-                self.convert_property(prop, val)
-                for prop, val in
-                self.proxy.GetAll(client_interface,
-                                  dbus_interface =
-                                  dbus.PROPERTIES_IFACE).iteritems())
+            self.properties.update(self.proxy.GetAll(client_interface,
+                                                     dbus_interface =
+                                                     dbus.PROPERTIES_IFACE))
         super(MandosClientPropertyCache, self).__init__(
             proxy_object=proxy_object,
             properties=properties, *args, **kwargs)
     
-    def convert_property(self, property, value):
-        """This converts the arguments from a D-Bus signal, which are
-        D-Bus types, into normal Python types, using a conversion
-        function from "self.type_map".
-        """
-        property_name = unicode(property) # Always a dbus.String
-        if isinstance(value, dbus.UTF8String):
-            # Should not happen, but prepare for it anyway
-            value = dbus.String(str(value).decode("utf-8"))
-        try:
-            convfunc = self.type_map[type(value)]
-        except KeyError:
-            # Unknown type, return unmodified
-            return property_name, value
-        return property_name, convfunc(value)
     def property_changed(self, property=None, value=None):
         """This is called whenever we get a PropertyChanged signal
         It updates the changed property in the "properties" dict.
         """
-        # Convert name and value
-        property_name, cvalue = self.convert_property(property, value)
         # Update properties dict with new value
-        self.properties[property_name] = cvalue
+        self.properties[property] = value
 
 
 class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
@@ -160,7 +119,7 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
                       % self.properties)
         if not urwid.supports_unicode():
             self._text = self._text.encode("ascii", "replace")
-        textlist = [(u"normal", u"BLÄRGH: "), (u"bold", self._text)]
+        textlist = [(u"normal", u"BLARGH: "), (u"bold", self._text)]
         self._text_widget.set_text(textlist)
         self._focus_text_widget.set_text([(with_standout[text[0]],
                                            text[1])
@@ -222,12 +181,24 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
             self.update()
 
 
+class ConstrainedListBox(urwid.ListBox):
+    """Like a normal urwid.ListBox, but will consume all "up" or
+    "down" key presses, thus not allowing any containing widgets to
+    use them as an excuse to shift focus away from this widget.
+    """
+    def keypress(self, (maxcol, maxrow), key):
+        ret = super(ConstrainedListBox, self).keypress((maxcol, maxrow), key)
+        if ret in (u"up", u"down"):
+            return
+        return ret
+
+
 class UserInterface(object):
     """This is the entire user interface - the whole screen
     with boxes, lists of client widgets, etc.
     """
-    def __init__(self):
-        DBusGMainLoop(set_as_default=True )
+    def __init__(self, max_log_length=1000):
+        DBusGMainLoop(set_as_default=True)
         
         self.screen = urwid.curses_display.Screen()
         
@@ -251,14 +222,38 @@ class UserInterface(object):
                                           u"standout")),
                 ))
         
+        if urwid.supports_unicode():
+            #self.divider = u"─" # \u2500
+            self.divider = u"━" # \u2501
+        else:
+            #self.divider = u"-" # \u002d
+            self.divider = u"_" # \u005f
+        
         self.screen.start()
         
         self.size = self.screen.get_cols_rows()
         
         self.clients = urwid.SimpleListWalker([])
         self.clients_dict = {}
-        self.topwidget = urwid.LineBox(urwid.ListBox(self.clients))
-        #self.topwidget = urwid.ListBox(clients)
+        
+        # We will add Text widgets to this list
+        self.log = []
+        self.max_log_length = max_log_length
+        
+        # We keep a reference to the log widget so we can remove it
+        # from the ListWalker without it getting destroyed
+        self.logbox = ConstrainedListBox(self.log)
+        
+        # This keeps track of whether self.uilist currently has
+        # self.logbox in it or not
+        self.log_visible = True
+        self.log_wrap = u"any"
+        
+        self.rebuild()
+        self.log_message(u"Message")
+        self.log_message(u"Message0 Message1 Message2 Message3 Message4 Message5 Message6 Message7 Message8 Message9")
+        self.log_message(u"Message10 Message11 Message12 Message13 Message14 Message15 Message16 Message17 Message18 Message19")
+        self.log_message(u"Message20 Message21 Message22 Message23 Message24 Message25 Message26 Message27 Message28 Message29")
         
         self.busname = domain + '.Mandos'
         self.main_loop = gobject.MainLoop()
@@ -284,7 +279,7 @@ class UserInterface(object):
                             self.add_new_client,
                             dbus_interface=server_interface,
                             byte_arrays=True))
-        for path, client in (mandos_clients.iteritems()):
+        for path, client in mandos_clients.iteritems():
             client_proxy_object = self.bus.get_object(self.busname,
                                                       path)
             self.add_client(MandosClientWidget(server_proxy_object
@@ -297,6 +292,45 @@ class UserInterface(object):
                                                delete_hook
                                                =self.remove_client),
                             path=path)
+    
+    def rebuild(self):
+        """This rebuilds the User Interface.
+        Call this when the widget layout needs to change"""
+        self.uilist = []
+        #self.uilist.append(urwid.ListBox(self.clients))
+        self.uilist.append(urwid.Frame(ConstrainedListBox(self.clients),
+                                       #header=urwid.Divider(),
+                                       header=None,
+                                       footer=urwid.Divider(div_char=self.divider)))
+        if self.log_visible:
+            self.uilist.append(self.logbox)
+            pass
+        self.topwidget = urwid.Pile(self.uilist)
+    
+    def log_message(self, markup):
+        """Add a log message to the log buffer."""
+        self.log.append(urwid.Text(markup, wrap=self.log_wrap))
+        if (self.max_log_length
+            and len(self.log) > self.max_log_length):
+            del self.log[0:len(self.log)-self.max_log_length-1]
+    
+    def toggle_log_display(self):
+        """Toggle visibility of the log buffer."""
+        self.log_visible = not self.log_visible
+        self.rebuild()
+        self.log_message(u"Log visibility changed to: "
+                         + unicode(self.log_visible))
+    
+    def change_log_display(self):
+        """Change type of log display.
+        Currently, this toggles wrapping of text lines."""
+        if self.log_wrap == u"clip":
+            self.log_wrap = u"any"
+        else:
+            self.log_wrap = u"clip"
+        for textwidget in self.log:
+            textwidget.set_wrap_mode(self.log_wrap)
+        self.log_message(u"Wrap mode: " + self.log_wrap)
     
     def find_and_remove_client(self, path, name):
         """Find an client from its object path and remove it.
@@ -336,6 +370,11 @@ class UserInterface(object):
         if path is None:
             path = client.proxy.object_path
         del self.clients_dict[path]
+        if not self.clients_dict:
+            # Work around bug in Urwid 0.9.8.3 - if a SimpleListWalker
+            # is completely emptied, we need to recreate it.
+            self.clients = urwid.SimpleListWalker([])
+            self.rebuild()
         self.refresh()
     
     def refresh(self):
@@ -360,8 +399,15 @@ class UserInterface(object):
     
     def process_input(self, source, condition):
         keys = self.screen.get_input()
-        translations = { u"j": u"down",
-                         u"k": u"up",
+        translations = { u"ctrl n": u"down",      # Emacs
+                         u"ctrl p": u"up",        # Emacs
+                         u"ctrl v": u"page down", # Emacs
+                         u"meta v": u"page up",   # Emacs
+                         u" ": u"page down",      # less
+                         u"f": u"page down",      # less
+                         u"b": u"page up",        # less
+                         u"j": u"down",           # vi
+                         u"k": u"up",             # vi
                          }
         for key in keys:
             try:
@@ -375,8 +421,41 @@ class UserInterface(object):
             elif key == u"window resize":
                 self.size = self.screen.get_cols_rows()
                 self.refresh()
-            elif key == "":
+            elif key == u"\f":  # Ctrl-L
                 self.refresh()
+            elif key == u"l" or key == u"D":
+                self.toggle_log_display()
+                self.refresh()
+            elif key == u"w" or key == u"i":
+                self.change_log_display()
+                self.refresh()
+            elif key == u"?" or key == u"f1":
+                self.log_message(u"Help!")
+                self.refresh()
+            elif key == u"tab":
+                if self.topwidget.get_focus() is self.logbox:
+                    self.topwidget.set_focus(0)
+                else:
+                    self.topwidget.set_focus(self.logbox)
+                self.refresh()
+            elif (key == u"end" or key == u"meta >" or key == u"G"
+                  or key == u">"):
+                pass            # xxx end-of-buffer
+            elif (key == u"home" or key == u"meta <" or key == u"g"
+                  or key == u"<"):
+                pass            # xxx beginning-of-buffer
+            elif key == u"ctrl e" or key == u"$":
+                pass            # xxx move-end-of-line
+            elif key == u"ctrl a" or key == u"^":
+                pass            # xxx move-beginning-of-line
+            elif key == u"ctrl b" or key == u"meta (" or key == u"h":
+                pass            # xxx left
+            elif key == u"ctrl f" or key == u"meta )" or key == u"l":
+                pass            # xxx right
+            elif key == u"a":
+                pass            # scroll up log
+            elif key == u"z":
+                pass            # scroll down log
             elif self.topwidget.selectable():
                 self.topwidget.keypress(self.size, key)
                 self.refresh()
