@@ -155,9 +155,9 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
                                                   .object_path)
         elif key == u"s":
             self.proxy.StartChecker()
-        elif key == u"c":
-            self.proxy.StopChecker()
         elif key == u"S":
+            self.proxy.StopChecker()
+        elif key == u"C":
             self.proxy.CheckedOK()
         # xxx
 #         elif key == u"p" or key == "=":
@@ -250,10 +250,10 @@ class UserInterface(object):
         self.log_wrap = u"any"
         
         self.rebuild()
-        self.log_message(u"Message")
-        self.log_message(u"Message0 Message1 Message2 Message3 Message4 Message5 Message6 Message7 Message8 Message9")
-        self.log_message(u"Message10 Message11 Message12 Message13 Message14 Message15 Message16 Message17 Message18 Message19")
-        self.log_message(u"Message20 Message21 Message22 Message23 Message24 Message25 Message26 Message27 Message28 Message29")
+        self.log_message((u"bold",
+                          u"Mandos Monitor version " + version))
+        self.log_message((u"bold",
+                          u"q: Quit  ?: Help"))
         
         self.busname = domain + '.Mandos'
         self.main_loop = gobject.MainLoop()
@@ -430,7 +430,23 @@ class UserInterface(object):
                 self.change_log_display()
                 self.refresh()
             elif key == u"?" or key == u"f1":
-                self.log_message(u"Help!")
+                if not self.log_visible:
+                    self.log_visible = True
+                    self.rebuild()
+                self.log_message((u"bold",
+                                  u"  ".join((u"q: Quit",
+                                              u"?: Help",
+                                              u"l: Log window toggle",
+                                              u"TAB: Switch window",
+                                              u"w: Wrap (log)"))))
+                self.log_message((u"bold",
+                                  u"  ".join((u"Clients:",
+                                              u"e: Enable",
+                                              u"d: Disable",
+                                              u"r: Remove",
+                                              u"s: Start new checker",
+                                              u"S: Stop checker",
+                                              u"C: Checker OK"))))
                 self.refresh()
             elif key == u"tab":
                 if self.topwidget.get_focus() is self.logbox:
@@ -438,24 +454,24 @@ class UserInterface(object):
                 else:
                     self.topwidget.set_focus(self.logbox)
                 self.refresh()
-            elif (key == u"end" or key == u"meta >" or key == u"G"
-                  or key == u">"):
-                pass            # xxx end-of-buffer
-            elif (key == u"home" or key == u"meta <" or key == u"g"
-                  or key == u"<"):
-                pass            # xxx beginning-of-buffer
-            elif key == u"ctrl e" or key == u"$":
-                pass            # xxx move-end-of-line
-            elif key == u"ctrl a" or key == u"^":
-                pass            # xxx move-beginning-of-line
-            elif key == u"ctrl b" or key == u"meta (" or key == u"h":
-                pass            # xxx left
-            elif key == u"ctrl f" or key == u"meta )" or key == u"l":
-                pass            # xxx right
-            elif key == u"a":
-                pass            # scroll up log
-            elif key == u"z":
-                pass            # scroll down log
+            #elif (key == u"end" or key == u"meta >" or key == u"G"
+            #      or key == u">"):
+            #    pass            # xxx end-of-buffer
+            #elif (key == u"home" or key == u"meta <" or key == u"g"
+            #      or key == u"<"):
+            #    pass            # xxx beginning-of-buffer
+            #elif key == u"ctrl e" or key == u"$":
+            #    pass            # xxx move-end-of-line
+            #elif key == u"ctrl a" or key == u"^":
+            #    pass            # xxx move-beginning-of-line
+            #elif key == u"ctrl b" or key == u"meta (" or key == u"h":
+            #    pass            # xxx left
+            #elif key == u"ctrl f" or key == u"meta )" or key == u"l":
+            #    pass            # xxx right
+            #elif key == u"a":
+            #    pass            # scroll up log
+            #elif key == u"z":
+            #    pass            # scroll down log
             elif self.topwidget.selectable():
                 self.topwidget.keypress(self.size, key)
                 self.refresh()
