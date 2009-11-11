@@ -15,15 +15,18 @@
 # This has to be exported to make some magic below work.
 export DH_OPTIONS
 
-# -pie is broken on the mips and mipsel architectures, see
+# -pie was broken briefly on the mips and mipsel architectures, see
 # <http://bugs.debian.org/526961>
-ifneq (,$(findstring :$(DEB_HOST_ARCH):,:mips:mipsel:))
-  BROKEN_PIE := yes
-  export BROKEN_PIE
-endif
-ifneq (,$(findstring :$(DEB_BUILD_ARCH):,:mips:mipsel:))
-  BROKEN_PIE := yes
-  export BROKEN_PIE
+BINUTILS_V := $(shell dpkg-query --showformat='$${Version}' \
+			--show binutils)
+ifeq (yes,$(shell dpkg --compare-versions $(BINUTILS_V) lt 2.20-3 \
+		&& dpkg --compare-versions $(BINUTILS_V) ge 2.19.1-1 \
+		&& echo yes))
+  ifneq (,$(strip $(findstring :$(DEB_HOST_ARCH):,:mips:mipsel:) \
+		$(findstring :$(DEB_BUILD_ARCH):,:mips:mipsel:)))
+    BROKEN_PIE := yes
+    export BROKEN_PIE
+  endif
 endif
 
 configure: configure-stamp
