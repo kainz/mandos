@@ -150,7 +150,7 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
             self.proxy.Enable()
         elif key == u"d" or key == u"-":
             self.proxy.Disable()
-        elif key == u"r" or key == u"_":
+        elif key == u"r" or key == u"_" or key == u"ctrl k":
             self.server_proxy_object.RemoveClient(self.proxy
                                                   .object_path)
         elif key == u"s":
@@ -223,8 +223,8 @@ class UserInterface(object):
                 ))
         
         if urwid.supports_unicode():
-            #self.divider = u"─" # \u2500
-            self.divider = u"━" # \u2501
+            self.divider = u"─" # \u2500
+            #self.divider = u"━" # \u2501
         else:
             #self.divider = u"-" # \u002d
             self.divider = u"_" # \u005f
@@ -313,6 +313,8 @@ class UserInterface(object):
         if (self.max_log_length
             and len(self.log) > self.max_log_length):
             del self.log[0:len(self.log)-self.max_log_length-1]
+        self.logbox.set_focus(len(self.logbox.body.contents),
+                              coming_from=u"above")
     
     def toggle_log_display(self):
         """Toggle visibility of the log buffer."""
@@ -429,7 +431,7 @@ class UserInterface(object):
             elif key == u"w" or key == u"i":
                 self.change_log_display()
                 self.refresh()
-            elif key == u"?" or key == u"f1":
+            elif key == u"?" or key == u"f1" or key == u"esc":
                 if not self.log_visible:
                     self.log_visible = True
                     self.rebuild()
