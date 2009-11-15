@@ -1280,11 +1280,12 @@ class MandosServer(IPv6_TCPServer):
         cmd, args = cmdline.rstrip(u"\r\n").split(None, 1)
         
         if cmd == u"NOTFOUND":
-            logger.warning(u"Client not found for fingerprint: %s",
-                           args)
+            fpr, address = args.split(None, 1)
+            logger.warning(u"Client not found for fingerprint: %s, ad"
+                           u"dress: %s", fpr, address)
             if self.use_dbus:
                 # Emit D-Bus signal
-                mandos_dbus_service.ClientNotFound(args)
+                mandos_dbus_service.ClientNotFound(fpr, address)
         elif cmd == u"INVALID":
             for client in self.clients:
                 if client.name == args:
@@ -1635,8 +1636,8 @@ def main():
                 "D-Bus signal"
                 pass
             
-            @dbus.service.signal(_interface, signature=u"s")
-            def ClientNotFound(self, fingerprint):
+            @dbus.service.signal(_interface, signature=u"ss")
+            def ClientNotFound(self, fingerprint, address):
                 "D-Bus signal"
                 pass
             
