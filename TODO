@@ -28,6 +28,7 @@
 * plugin-runner
 ** TODO [#B] use scandir(3) instead of readdir(3)
 ** TODO [#C] use same file name rules as run-parts(8)
+** kernel command line option for debug info
 
 * mandos (server)
 ** TODO [#B] Log level				:BUGS:
