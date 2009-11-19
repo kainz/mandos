@@ -278,7 +278,7 @@ if [ "$mode" = password ]; then
     
     # Get fingerprint of key
     FINGERPRINT="`gpg --quiet --batch --no-tty --no-options \
-	--enable-dsa2 --homedir '"'$RINGDIR'"' --trust-model always \
+	--enable-dsa2 --homedir \"$RINGDIR\" --trust-model always \
 	--fingerprint --with-colons \
 	| sed --quiet \
 	--expression='/^fpr:/{s/^fpr:.*:\\([0-9A-Z]*\\):\$/\\1/p;q}'`"
