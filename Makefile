@@ -17,7 +17,6 @@ LINK_FORTIFY=
 # If BROKEN_PIE is set, do not build with -pie
 ifndef BROKEN_PIE
 FORTIFY += -fPIE
-LINK_FORTIFY_LD += -fPIE
 LINK_FORTIFY += -pie
 endif
 #COVERAGE=--coverage
