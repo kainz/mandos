@@ -68,6 +68,7 @@
    secret
 ** TODO Persistent state
    /var/lib/mandos/*
+** TODO Support RFC 3339 time duration syntax
 
 * mandos.xml
 ** [[file:mandos.xml::XXX][Document D-Bus interface]]
@@ -77,16 +78,14 @@
 * mandos-ctl
 *** Handle "no D-Bus server" and/or "no Mandos server found" better
 *** [#B] --dump option
+** TODO Support RFC 3339 time duration syntax
 
 * TODO mandos-dispatch
   Listens for specified D-Bus signals and spawns shell commands with
   arguments.
 
 * mandos-monitor
-** D-Bus main loop w/ signal receiver
 ** Urwid client data displayer
-*** Urwid scaffolding
-*** Client Widgets
 *** Properties popup
 
 * mandos-keygen

@@ -19,6 +19,10 @@ import dbus
 
 import UserList
 
+import locale
+
+locale.setlocale(locale.LC_ALL, u'')
+
 # Some useful constants
 domain = 'se.bsnet.fukt'
 server_interface = domain + '.Mandos'
@@ -38,26 +42,20 @@ class MandosClientPropertyCache(object):
     properties and calls a hook function when any of them are
     changed.
     """
-    def __init__(self, proxy_object=None, properties=None, *args,
-                 **kwargs):
+    def __init__(self, proxy_object=None, *args, **kwargs):
         self.proxy = proxy_object # Mandos Client proxy object
         
-        if properties is None:
-            self.properties = dict()
-        else:
-            self.properties = properties
+        self.properties = dict()
         self.proxy.connect_to_signal(u"PropertyChanged",
                                      self.property_changed,
                                      client_interface,
                                      byte_arrays=True)
-        
-        if properties is None:
-            self.properties.update(self.proxy.GetAll(client_interface,
-                                                     dbus_interface =
-                                                     dbus.PROPERTIES_IFACE))
+
+        self.properties.update(
+            self.proxy.GetAll(client_interface,
+                              dbus_interface = dbus.PROPERTIES_IFACE))
         super(MandosClientPropertyCache, self).__init__(
-            proxy_object=proxy_object,
-            properties=properties, *args, **kwargs)
+            proxy_object=proxy_object, *args, **kwargs)
     
     def property_changed(self, property=None, value=None):
         """This is called whenever we get a PropertyChanged signal
@@ -424,17 +422,18 @@ class UserInterface(object):
             return
         self.remove_client(client, path)
     
-    def add_new_client(self, path, properties):
+    def add_new_client(self, path):
         client_proxy_object = self.bus.get_object(self.busname, path)
         self.add_client(MandosClientWidget(server_proxy_object
                                            =self.mandos_serv,
                                            proxy_object
                                            =client_proxy_object,
-                                           properties=properties,
                                            update_hook
                                            =self.refresh,
                                            delete_hook
-                                           =self.remove_client),
+                                           =self.remove_client,
+                                           logger
+                                           =self.log_message),
                         path=path)
     
     def add_client(self, client, path=None):
@@ -562,6 +561,7 @@ class UserInterface(object):
 ui = UserInterface()
 try:
     ui.run()
-except:
+except Exception, e:
+    ui.log_message(unicode(e))
     ui.screen.stop()
     raise
