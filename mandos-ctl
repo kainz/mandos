@@ -128,8 +128,8 @@ parser.add_option("--start-checker", action="store_true",
                   help="Start checker for client")
 parser.add_option("--stop-checker", action="store_true",
                   help="Stop checker for client")
-parser.add_option("-V", "--is-valid", action="store_true",
-                  help="Check if client is still valid")
+parser.add_option("-V", "--is-enabled", action="store_true",
+                  help="Check if client is enabled")
 parser.add_option("-r", "--remove", action="store_true",
                   help="Remove client")
 parser.add_option("-c", "--checker", type="string",
@@ -178,7 +178,7 @@ for client in clients:
         client.StartChecker(dbus_interface=client_interface)
     if options.stop_checker:
         client.StopChecker(dbus_interface=client_interface)
-    if options.is_valid:
+    if options.is_enabled:
         sys.exit(0 if client.Get(client_interface,
                                  u"enabled",
                                  dbus_interface=dbus.PROPERTIES_IFACE)

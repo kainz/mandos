@@ -55,10 +55,11 @@ import stat
 import logging
 import logging.handlers
 import pwd
-from contextlib import closing
+import contextlib
 import struct
 import fcntl
 import functools
+import cPickle as pickle
 
 import dbus
 import dbus.service
@@ -242,7 +243,7 @@ class Client(object):
     enabled:    bool()
     last_checked_ok: datetime.datetime(); (UTC) or None
     timeout:    datetime.timedelta(); How long from last_checked_ok
-                                      until this client is invalid
+                                      until this client is disabled
     interval:   datetime.timedelta(); How often to start a new checker
     disable_hook:  If set, called by disable() as disable_hook(self)
     checker:    subprocess.Popen(); a running checker process used
@@ -290,10 +291,9 @@ class Client(object):
         if u"secret" in config:
             self.secret = config[u"secret"].decode(u"base64")
         elif u"secfile" in config:
-            with closing(open(os.path.expanduser
-                              (os.path.expandvars
-                               (config[u"secfile"])),
-                              "rb")) as secfile:
+            with open(os.path.expanduser(os.path.expandvars
+                                         (config[u"secfile"])),
+                      "rb") as secfile:
                 self.secret = secfile.read()
         else:
             raise TypeError(u"No secret or secfile for client %s"
@@ -396,8 +396,8 @@ class Client(object):
         # client would inevitably timeout, since no checker would get
         # a chance to run to completion.  If we instead leave running
         # checkers alone, the checker would have to take more time
-        # than 'timeout' for the client to be declared invalid, which
-        # is as it should be.
+        # than 'timeout' for the client to be disabled, which is as it
+        # should be.
         
         # If a checker exists, make sure it is not a zombie
         try:
@@ -475,16 +475,6 @@ class Client(object):
             if error.errno != errno.ESRCH: # No such process
                 raise
         self.checker = None
-    
-    def still_valid(self):
-        """Has the timeout not yet passed for this client?"""
-        if not getattr(self, u"enabled", False):
-            return False
-        now = datetime.datetime.utcnow()
-        if self.last_checked_ok is None:
-            return now < (self.created + self.timeout)
-        else:
-            return now < (self.last_checked_ok + self.timeout)
 
 
 def dbus_service_property(dbus_interface, signature=u"v",
@@ -499,6 +489,11 @@ def dbus_service_property(dbus_interface, signature=u"v",
     dbus.service.method, except there is only "signature", since the
     type from Get() and the type sent to Set() is the same.
     """
+    # Encoding deeply encoded byte arrays is not supported yet by the
+    # "Set" method, so we fail early here:
+    if byte_arrays and signature != u"ay":
+        raise ValueError(u"Byte arrays not supported for non-'ay'"
+                         u" signature %r" % signature)
     def decorator(func):
         func._dbus_is_property = True
         func._dbus_interface = dbus_interface
@@ -590,6 +585,10 @@ class DBusObjectWithProperties(dbus.service.Object):
         if prop._dbus_access == u"read":
             raise DBusPropertyAccessException(property_name)
         if prop._dbus_get_args_options[u"byte_arrays"]:
+            # The byte_arrays option is not supported yet on
+            # signatures other than "ay".
+            if prop._dbus_signature != u"ay":
+                raise ValueError
             value = dbus.ByteArray(''.join(unichr(byte)
                                            for byte in value))
         prop(value)
@@ -990,9 +989,13 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
     def handle(self):
         logger.info(u"TCP connection from: %s",
                     unicode(self.client_address))
-        logger.debug(u"IPC Pipe FD: %d", self.server.pipe[1])
+        logger.debug(u"IPC Pipe FD: %d", self.server.child_pipe[1])
         # Open IPC pipe to parent process
-        with closing(os.fdopen(self.server.pipe[1], u"w", 1)) as ipc:
+        with contextlib.nested(os.fdopen(self.server.child_pipe[1],
+                                         u"w", 1),
+                               os.fdopen(self.server.parent_pipe[0],
+                                         u"r", 0)) as (ipc,
+                                                       ipc_return):
             session = (gnutls.connection
                        .ClientSession(self.request,
                                       gnutls.connection
@@ -1033,38 +1036,40 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
                 return
             logger.debug(u"Handshake succeeded")
             try:
-                fpr = self.fingerprint(self.peer_certificate(session))
-            except (TypeError, gnutls.errors.GNUTLSError), error:
-                logger.warning(u"Bad certificate: %s", error)
+                try:
+                    fpr = self.fingerprint(self.peer_certificate
+                                           (session))
+                except (TypeError, gnutls.errors.GNUTLSError), error:
+                    logger.warning(u"Bad certificate: %s", error)
+                    return
+                logger.debug(u"Fingerprint: %s", fpr)
+
+                for c in self.server.clients:
+                    if c.fingerprint == fpr:
+                        client = c
+                        break
+                else:
+                    ipc.write(u"NOTFOUND %s %s\n"
+                              % (fpr, unicode(self.client_address)))
+                    return
+                # Have to check if client.enabled, since it is
+                # possible that the client was disabled since the
+                # GnuTLS session was established.
+                ipc.write(u"GETATTR enabled %s\n" % fpr)
+                enabled = pickle.load(ipc_return)
+                if not enabled:
+                    ipc.write(u"DISABLED %s\n" % client.name)
+                    return
+                ipc.write(u"SENDING %s\n" % client.name)
+                sent_size = 0
+                while sent_size < len(client.secret):
+                    sent = session.send(client.secret[sent_size:])
+                    logger.debug(u"Sent: %d, remaining: %d",
+                                 sent, len(client.secret)
+                                 - (sent_size + sent))
+                    sent_size += sent
+            finally:
                 session.bye()
-                return
-            logger.debug(u"Fingerprint: %s", fpr)
-            
-            for c in self.server.clients:
-                if c.fingerprint == fpr:
-                    client = c
-                    break
-            else:
-                ipc.write(u"NOTFOUND %s %s\n"
-                          % (fpr, unicode(self.client_address)))
-                session.bye()
-                return
-            # Have to check if client.still_valid(), since it is
-            # possible that the client timed out while establishing
-            # the GnuTLS session.
-            if not client.still_valid():
-                ipc.write(u"INVALID %s\n" % client.name)
-                session.bye()
-                return
-            ipc.write(u"SENDING %s\n" % client.name)
-            sent_size = 0
-            while sent_size < len(client.secret):
-                sent = session.send(client.secret[sent_size:])
-                logger.debug(u"Sent: %d, remaining: %d",
-                             sent, len(client.secret)
-                             - (sent_size + sent))
-                sent_size += sent
-            session.bye()
     
     @staticmethod
     def peer_certificate(session):
@@ -1130,24 +1135,28 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
         return hex_fpr
 
 
-class ForkingMixInWithPipe(socketserver.ForkingMixIn, object):
-    """Like socketserver.ForkingMixIn, but also pass a pipe."""
+class ForkingMixInWithPipes(socketserver.ForkingMixIn, object):
+    """Like socketserver.ForkingMixIn, but also pass a pipe pair."""
     def process_request(self, request, client_address):
         """Overrides and wraps the original process_request().
         
         This function creates a new pipe in self.pipe
         """
-        self.pipe = os.pipe()
-        super(ForkingMixInWithPipe,
+        self.child_pipe = os.pipe() # Child writes here
+        self.parent_pipe = os.pipe() # Parent writes here
+        super(ForkingMixInWithPipes,
               self).process_request(request, client_address)
-        os.close(self.pipe[1])  # close write end
-        self.add_pipe(self.pipe[0])
-    def add_pipe(self, pipe):
+        # Close unused ends for parent
+        os.close(self.parent_pipe[0]) # close read end
+        os.close(self.child_pipe[1])  # close write end
+        self.add_pipe_fds(self.child_pipe[0], self.parent_pipe[1])
+    def add_pipe_fds(self, child_pipe_fd, parent_pipe_fd):
         """Dummy function; override as necessary"""
-        os.close(pipe)
+        os.close(child_pipe_fd)
+        os.close(parent_pipe_fd)
 
 
-class IPv6_TCPServer(ForkingMixInWithPipe,
+class IPv6_TCPServer(ForkingMixInWithPipes,
                      socketserver.TCPServer, object):
     """IPv6-capable TCP server.  Accepts 'None' as address and/or port
     
@@ -1238,11 +1247,15 @@ class MandosServer(IPv6_TCPServer):
             return socketserver.TCPServer.server_activate(self)
     def enable(self):
         self.enabled = True
-    def add_pipe(self, pipe):
+    def add_pipe_fds(self, child_pipe_fd, parent_pipe_fd):
         # Call "handle_ipc" for both data and EOF events
-        gobject.io_add_watch(pipe, gobject.IO_IN | gobject.IO_HUP,
-                             self.handle_ipc)
-    def handle_ipc(self, source, condition, file_objects={}):
+        gobject.io_add_watch(child_pipe_fd,
+                             gobject.IO_IN | gobject.IO_HUP,
+                             functools.partial(self.handle_ipc,
+                                               reply_fd
+                                               =parent_pipe_fd))
+    def handle_ipc(self, source, condition, reply_fd=None,
+                   file_objects={}):
         condition_names = {
             gobject.IO_IN: u"IN",   # There is data to read.
             gobject.IO_OUT: u"OUT", # Data can be written (without
@@ -1260,16 +1273,20 @@ class MandosServer(IPv6_TCPServer):
         logger.debug(u"Handling IPC: FD = %d, condition = %s", source,
                      conditions_string)
         
-        # Turn the pipe file descriptor into a Python file object
+        # Turn the pipe file descriptors into Python file objects
         if source not in file_objects:
             file_objects[source] = os.fdopen(source, u"r", 1)
+        if reply_fd not in file_objects:
+            file_objects[reply_fd] = os.fdopen(reply_fd, u"w", 0)
         
         # Read a line from the file object
         cmdline = file_objects[source].readline()
         if not cmdline:             # Empty line means end of file
-            # close the IPC pipe
+            # close the IPC pipes
             file_objects[source].close()
             del file_objects[source]
+            file_objects[reply_fd].close()
+            del file_objects[reply_fd]
             
             # Stop calling this function
             return False
@@ -1286,16 +1303,16 @@ class MandosServer(IPv6_TCPServer):
             if self.use_dbus:
                 # Emit D-Bus signal
                 mandos_dbus_service.ClientNotFound(fpr, address)
-        elif cmd == u"INVALID":
+        elif cmd == u"DISABLED":
             for client in self.clients:
                 if client.name == args:
-                    logger.warning(u"Client %s is invalid", args)
+                    logger.warning(u"Client %s is disabled", args)
                     if self.use_dbus:
                         # Emit D-Bus signal
                         client.Rejected()
                     break
             else:
-                logger.error(u"Unknown client %s is invalid", args)
+                logger.error(u"Unknown client %s is disabled", args)
         elif cmd == u"SENDING":
             for client in self.clients:
                 if client.name == args:
@@ -1308,6 +1325,19 @@ class MandosServer(IPv6_TCPServer):
             else:
                 logger.error(u"Sending secret to unknown client %s",
                              args)
+        elif cmd == u"GETATTR":
+            attr_name, fpr = args.split(None, 1)
+            for client in self.clients:
+                if client.fingerprint == fpr:
+                    attr_value = getattr(client, attr_name, None)
+                    logger.debug("IPC reply: %r", attr_value)
+                    pickle.dump(attr_value, file_objects[reply_fd])
+                    break
+            else:
+                logger.error(u"Client %s on address %s requesting "
+                             u"attribute %s not found", fpr, address,
+                             attr_name)
+                pickle.dump(None, file_objects[reply_fd])
         else:
             logger.error(u"Unknown IPC command: %r", cmdline)
         
@@ -1368,7 +1398,7 @@ def if_nametoindex(interface):
         def if_nametoindex(interface):
             "Get an interface index the hard way, i.e. using fcntl()"
             SIOCGIFINDEX = 0x8933  # From /usr/include/linux/sockios.h
-            with closing(socket.socket()) as s:
+            with contextlib.closing(socket.socket()) as s:
                 ifreq = fcntl.ioctl(s, SIOCGIFINDEX,
                                     struct.pack(str(u"16s16x"),
                                                 interface))
@@ -1607,7 +1637,7 @@ def main():
         daemon()
     
     try:
-        with closing(pidfile):
+        with pidfile:
             pid = os.getpid()
             pidfile.write(str(pid) + "\n")
         del pidfile
@@ -1631,8 +1661,8 @@ def main():
                 dbus.service.Object.__init__(self, bus, u"/")
             _interface = u"se.bsnet.fukt.Mandos"
             
-            @dbus.service.signal(_interface, signature=u"oa{sv}")
-            def ClientAdded(self, objpath, properties):
+            @dbus.service.signal(_interface, signature=u"o")
+            def ClientAdded(self, objpath):
                 "D-Bus signal"
                 pass
             
@@ -1700,8 +1730,7 @@ def main():
     for client in tcp_server.clients:
         if use_dbus:
             # Emit D-Bus signal
-            mandos_dbus_service.ClientAdded(client.dbus_object_path,
-                                            client.GetAll(u""))
+            mandos_dbus_service.ClientAdded(client.dbus_object_path)
         client.enable()
     
     tcp_server.enable()

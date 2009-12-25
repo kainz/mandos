@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY COMMANDNAME "mandos">
-<!ENTITY TIMESTAMP "2009-09-17">
+<!ENTITY TIMESTAMP "2009-12-09">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -453,10 +453,9 @@
       backtrace.  This could be considered a feature.
     </para>
     <para>
-      Currently, if a client is declared <quote>invalid</quote> due to
-      having timed out, the server does not record this fact onto
-      permanent storage.  This has some security implications, see
-      <xref linkend="clients"/>.
+      Currently, if a client is disabled due to having timed out, the
+      server does not record this fact onto permanent storage.  This
+      has some security implications, see <xref linkend="clients"/>.
     </para>
     <para>
       There is currently no way of querying the server of the current
@@ -549,19 +548,18 @@
       </para>
       <para>
 	If a client is compromised, its downtime should be duly noted
-	by the server which would therefore declare the client
-	invalid.  But if the server was ever restarted, it would
-	re-read its client list from its configuration file and again
-	regard all clients therein as valid, and hence eligible to
-	receive their passwords.  Therefore, be careful when
-	restarting servers if it is suspected that a client has, in
-	fact, been compromised by parties who may now be running a
-	fake Mandos client with the keys from the non-encrypted
-	initial <acronym>RAM</acronym> image of the client host.  What
-	should be done in that case (if restarting the server program
-	really is necessary) is to stop the server program, edit the
-	configuration file to omit any suspect clients, and restart
-	the server program.
+	by the server which would therefore disable the client.  But
+	if the server was ever restarted, it would re-read its client
+	list from its configuration file and again regard all clients
+	therein as enabled, and hence eligible to receive their
+	passwords.  Therefore, be careful when restarting servers if
+	it is suspected that a client has, in fact, been compromised
+	by parties who may now be running a fake Mandos client with
+	the keys from the non-encrypted initial <acronym>RAM</acronym>
+	image of the client host.  What should be done in that case
+	(if restarting the server program really is necessary) is to
+	stop the server program, edit the configuration file to omit
+	any suspect clients, and restart the server program.
       </para>
       <para>
 	For more details on client-side security, see
