@@ -24,8 +24,7 @@ tablewords = {
     'last_enabled': u'Last Enabled',
     'checker': u'Checker',
     }
-defaultkeywords = ('name', 'enabled', 'timeout', 'last_checked_ok',
-                   'checker')
+defaultkeywords = ('name', 'enabled', 'timeout', 'last_checked_ok')
 domain = 'se.bsnet.fukt'
 busname = domain + '.Mandos'
 server_path = '/'
