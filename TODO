@@ -8,72 +8,71 @@
 *** A closed connection during the TLS handshake
 *** A TCP timeout
 ** TODO [#B] Use capabilities instead of seteuid().
+** TODO [#A] Retry --connect forever
 
 * splashy
 ** TODO [#B] use scandir(3) instead of readdir(3)
 ** TODO [#B] Prefix all debug output with "Mandos plugin " + program_invocation_short_name
-** TODO use error() instead of perror()
+** TODO [#B] use error() instead of perror()
 
 * usplash
 ** TODO [#B] use scandir(3) instead of readdir(3)
 ** TODO [#B] Prefix all debug output with "Mandos plugin " + program_invocation_short_name
-** TODO use error() instead of perror()
+** TODO [#B] use error() instead of perror()
+** TODO [#A] Check if it still works
 
 * askpass-fifo
 ** TODO [#B] Prefix all debug output with "Mandos plugin " + program_invocation_short_name
-** TODO use error() instead of perror()
+** TODO [#B] use error() instead of perror()
 ** TODO [#B] Drop privileges after opening FIFO.
 
 * password-prompt
 ** TODO [#B] Prefix all debug output with "Mandos plugin " + program_invocation_short_name
-** TODO use error() instead of perror()
-** TODO lock stdin (with flock()?)
+** TODO [#B] use error() instead of perror()
+** TODO [#B] lock stdin (with flock()?)
 
-* TODO passdev
+* TODO [#B] passdev
 
 * plugin-runner
 ** TODO [#B] use scandir(3) instead of readdir(3)
 ** TODO [#C] use same file name rules as run-parts(8)
-** TODO use error() instead of perror()
+** TODO [#B] use error() instead of perror()
 
 * mandos (server)
-** TODO [#B] Log level				:BUGS:
-** TODO /etc/mandos/clients.d/*.conf
-   Watch this directory and add/remove/update clients?
-** TODO config for TXT record
-** TODO [#B] Run-time communication with server :BUGS:
-   Probably using D-Bus
-*** Client class
-*** Main server
-    + SetLogLevel
-      syslogger.setLevel(logging.WARNING)
-    + [[http://log.ometer.com/2007-05.html][Best D-Bus practices]]
-** TODO Implement --foreground			:BUGS:
+** TODO [#B] Log level							  :BUGS:
+** TODO Persistent state						  :BUGS:
+   /var/lib/mandos/*
+*** TODO /etc/mandos/clients.d/*.conf
+    Watch this directory and add/remove/update clients?
+** TODO [#C] config for TXT record
+** TODO Log level option
+   syslogger.setLevel(logging.WARNING)
+   + SetLogLevel D-Bus call
+** TODO Implement --foreground						  :BUGS:
    [[info:standards:Option%20Table][Table of Long Options]]
 ** TODO Implement --socket
    [[info:standards:Option%20Table][Table of Long Options]]
-** TODO Date+time on console log messages	:BUGS:
+** TODO Date+time on console log messages				  :BUGS:
    Is this the default?
-** TODO DBusServiceObjectUsingSuper
-** TODO Global enable/disable flag
-** TODO By-client countdown on secrets given
-** TODO Fix problem with fsck taking a really long time
+** TODO [#C] DBusServiceObjectUsingSuper
+** TODO [#B] Global enable/disable flag
+** TODO [#B] By-client countdown on secrets given
+** TODO [#B] Fix problem with fsck taking a really long time
    Whenever a client successfully gets a secret it could get a
    one-time timeout boost to allow for an fsck-incurred delay
-** TODO Delay before client receives key
+** TODO [#A] Delay before client receives key
    This would give an operator opportunity to cancel the request if
    desired.
-** TODO Client manual approval mode
+** TODO [#A] Client manual approval mode
    A client needs manual approval on the server before it gets the
    secret
-** TODO Persistent state
-   /var/lib/mandos/*
-** TODO Support RFC 3339 time duration syntax
+** TODO [#B] Support RFC 3339 time duration syntax
 
 * mandos.xml
 ** [[file:mandos.xml::XXX][Document D-Bus interface]]
+   Remove mention of lack of such interface in BUGS section
 
-* Provide and install /etc/dbus-1/system.d/mandos.conf
+* TODO [#A] Provide and install /etc/dbus-1/system.d/mandos.conf
 
 * mandos-ctl
 *** Handle "no D-Bus server" and/or "no Mandos server found" better
@@ -86,6 +85,7 @@
 
 * mandos-monitor
 ** Urwid client data displayer
+   Better view of client data in the listing
 *** Properties popup
 
 * mandos-keygen
@@ -96,7 +96,7 @@
    For testing decryption before rebooting.
 
 * Makefile
-** Implement DEB_BUILD_OPTIONS
+** TODO [#C] Implement DEB_BUILD_OPTIONS
    http://www.debian.org/doc/debian-policy/ch-source.html#s-debianrules-options
 
 * Package
