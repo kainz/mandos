@@ -16,10 +16,10 @@
 ** TODO [#B] use error() instead of perror()
 
 * usplash
+** TODO [#A] Make it work again
 ** TODO [#B] use scandir(3) instead of readdir(3)
 ** TODO [#B] Prefix all debug output with "Mandos plugin " + program_invocation_short_name
 ** TODO [#B] use error() instead of perror()
-** TODO [#A] Check if it still works
 
 * askpass-fifo
 ** TODO [#B] Prefix all debug output with "Mandos plugin " + program_invocation_short_name
