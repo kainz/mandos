@@ -3,7 +3,7 @@
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY CONFNAME "mandos-clients.conf">
 <!ENTITY CONFPATH "<filename>/etc/mandos/clients.conf</filename>">
-<!ENTITY TIMESTAMP "2009-09-17">
+<!ENTITY TIMESTAMP "2009-12-09">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -63,9 +63,8 @@
       ><refentrytitle>mandos</refentrytitle>
       <manvolnum>8</manvolnum></citerefentry>, read by it at startup.
       The file needs to list all clients that should be able to use
-      the service.  All clients listed will be regarded as valid, even
-      if a client was declared invalid in a previous run of the
-      server.
+      the service.  All clients listed will be regarded as enabled,
+      even if a client was disabled in a previous run of the server.
     </para>
     <para>
       The format starts with a <literal>[<replaceable>section
@@ -110,9 +109,8 @@
 	  <para>
 	    The timeout is how long the server will wait (for either a
 	    successful checker run or a client receiving its secret)
-	    until a client is considered invalid - that is, ineligible
-	    to get the data this server holds.  By default Mandos will
-	    use 1 hour.
+	    until a client is disabled and not allowed to get the data
+	    this server holds.  By default Mandos will use 1 hour.
 	  </para>
 	  <para>
 	    The <replaceable>TIME</replaceable> is specified as a
@@ -143,8 +141,8 @@
 	    not be started if an old one is still running.  The server
 	    will wait for a checker to complete until the above
 	    <quote><varname>timeout</varname></quote> occurs, at which
-	    time the client will be marked invalid, and any running
-	    checker killed.  The default interval is 5 minutes.
+	    time the client will be disabled, and any running checker
+	    killed.  The default interval is 5 minutes.
 	  </para>
 	  <para>
 	    The format of <replaceable>TIME</replaceable> is the same

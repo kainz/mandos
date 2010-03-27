@@ -1,6 +1,15 @@
 This NEWS file records noteworthy changes, very tersely.
 See the manual for detailed information.
 
+Version 1.0.14 (2009-10-25)
+Enable building without -pie and -fPIE if BROKEN_PIE is set.
+
+Version 1.0.13 (2009-10-22)
+* Client
+** Security bug fix: If Mandos server is also installed, do not copy
+   its config files (with encrypted passwords) into the initrd.img-*
+   files.
+
 Version 1.0.12 (2009-09-17)
 * Client
 ** Bug fix: Allow network interface renaming by "udev" by taking down
