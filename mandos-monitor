@@ -1,0 +1,567 @@
+#!/usr/bin/python
+# -*- mode: python; coding: utf-8 -*-
+
+from __future__ import division, absolute_import, with_statement
+
+import sys
+import os
+import signal
+
+import datetime
+
+import urwid.curses_display
+import urwid
+
+from dbus.mainloop.glib import DBusGMainLoop
+import gobject
+
+import dbus
+
+import UserList
+
+import locale
+
+locale.setlocale(locale.LC_ALL, u'')
+
+# Some useful constants
+domain = 'se.bsnet.fukt'
+server_interface = domain + '.Mandos'
+client_interface = domain + '.Mandos.Client'
+version = "1.0.14"
+
+# Always run in monochrome mode
+urwid.curses_display.curses.has_colors = lambda : False
+
+# Urwid doesn't support blinking, but we want it.  Since we have no
+# use for underline on its own, we make underline also always blink.
+urwid.curses_display.curses.A_UNDERLINE |= (
+    urwid.curses_display.curses.A_BLINK)
+
+class MandosClientPropertyCache(object):
+    """This wraps a Mandos Client D-Bus proxy object, caches the
+    properties and calls a hook function when any of them are
+    changed.
+    """
+    def __init__(self, proxy_object=None, *args, **kwargs):
+        self.proxy = proxy_object # Mandos Client proxy object
+        
+        self.properties = dict()
+        self.proxy.connect_to_signal(u"PropertyChanged",
+                                     self.property_changed,
+                                     client_interface,
+                                     byte_arrays=True)
+
+        self.properties.update(
+            self.proxy.GetAll(client_interface,
+                              dbus_interface = dbus.PROPERTIES_IFACE))
+        super(MandosClientPropertyCache, self).__init__(
+            proxy_object=proxy_object, *args, **kwargs)
+    
+    def property_changed(self, property=None, value=None):
+        """This is called whenever we get a PropertyChanged signal
+        It updates the changed property in the "properties" dict.
+        """
+        # Update properties dict with new value
+        self.properties[property] = value
+
+
+class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
+    """A Mandos Client which is visible on the screen.
+    """
+    
+    def __init__(self, server_proxy_object=None, update_hook=None,
+                 delete_hook=None, logger=None, *args, **kwargs):
+        # Called on update
+        self.update_hook = update_hook
+        # Called on delete
+        self.delete_hook = delete_hook
+        # Mandos Server proxy object
+        self.server_proxy_object = server_proxy_object
+        # Logger
+        self.logger = logger
+        
+        # The widget shown normally
+        self._text_widget = urwid.Text(u"")
+        # The widget shown when we have focus
+        self._focus_text_widget = urwid.Text(u"")
+        super(MandosClientWidget, self).__init__(
+            update_hook=update_hook, delete_hook=delete_hook,
+            *args, **kwargs)
+        self.update()
+        self.opened = False
+        self.proxy.connect_to_signal(u"CheckerCompleted",
+                                     self.checker_completed,
+                                     client_interface,
+                                     byte_arrays=True)
+        self.proxy.connect_to_signal(u"CheckerStarted",
+                                     self.checker_started,
+                                     client_interface,
+                                     byte_arrays=True)
+        self.proxy.connect_to_signal(u"GotSecret",
+                                     self.got_secret,
+                                     client_interface,
+                                     byte_arrays=True)
+        self.proxy.connect_to_signal(u"Rejected",
+                                     self.rejected,
+                                     client_interface,
+                                     byte_arrays=True)
+    
+    def checker_completed(self, exitstatus, condition, command):
+        if exitstatus == 0:
+            self.logger(u'Checker for client %s (command "%s")'
+                        u' was successful'
+                        % (self.properties[u"name"], command))
+            return
+        if os.WIFEXITED(condition):
+            self.logger(u'Checker for client %s (command "%s")'
+                        u' failed with exit code %s'
+                        % (self.properties[u"name"], command,
+                           os.WEXITSTATUS(condition)))
+            return
+        if os.WIFSIGNALED(condition):
+            self.logger(u'Checker for client %s (command "%s")'
+                        u' was killed by signal %s'
+                        % (self.properties[u"name"], command,
+                           os.WTERMSIG(condition)))
+            return
+        if os.WCOREDUMP(condition):
+            self.logger(u'Checker for client %s (command "%s")'
+                        u' dumped core'
+                        % (self.properties[u"name"], command))
+        self.logger(u'Checker for client %s completed mysteriously')
+    
+    def checker_started(self, command):
+        self.logger(u'Client %s started checker "%s"'
+                    % (self.properties[u"name"], unicode(command)))
+    
+    def got_secret(self):
+        self.logger(u'Client %s received its secret'
+                    % self.properties[u"name"])
+    
+    def rejected(self):
+        self.logger(u'Client %s was rejected'
+                    % self.properties[u"name"])
+    
+    def selectable(self):
+        """Make this a "selectable" widget.
+        This overrides the method from urwid.FlowWidget."""
+        return True
+    
+    def rows(self, (maxcol,), focus=False):
+        """How many rows this widget will occupy might depend on
+        whether we have focus or not.
+        This overrides the method from urwid.FlowWidget"""
+        return self.current_widget(focus).rows((maxcol,), focus=focus)
+    
+    def current_widget(self, focus=False):
+        if focus or self.opened:
+            return self._focus_widget
+        return self._widget
+    
+    def update(self):
+        "Called when what is visible on the screen should be updated."
+        # How to add standout mode to a style
+        with_standout = { u"normal": u"standout",
+                          u"bold": u"bold-standout",
+                          u"underline-blink":
+                              u"underline-blink-standout",
+                          u"bold-underline-blink":
+                              u"bold-underline-blink-standout",
+                          }
+        
+        # Rebuild focus and non-focus widgets using current properties
+        self._text = (u'%(name)s: %(enabled)s'
+                      % { u"name": self.properties[u"name"],
+                          u"enabled":
+                              (u"enabled"
+                               if self.properties[u"enabled"]
+                               else u"DISABLED")})
+        if not urwid.supports_unicode():
+            self._text = self._text.encode("ascii", "replace")
+        textlist = [(u"normal", self._text)]
+        self._text_widget.set_text(textlist)
+        self._focus_text_widget.set_text([(with_standout[text[0]],
+                                           text[1])
+                                          if isinstance(text, tuple)
+                                          else text
+                                          for text in textlist])
+        self._widget = self._text_widget
+        self._focus_widget = urwid.AttrWrap(self._focus_text_widget,
+                                            "standout")
+        # Run update hook, if any
+        if self.update_hook is not None:
+            self.update_hook()
+    
+    def delete(self):
+        if self.delete_hook is not None:
+            self.delete_hook(self)
+    
+    def render(self, (maxcol,), focus=False):
+        """Render differently if we have focus.
+        This overrides the method from urwid.FlowWidget"""
+        return self.current_widget(focus).render((maxcol,),
+                                                 focus=focus)
+    
+    def keypress(self, (maxcol,), key):
+        """Handle keys.
+        This overrides the method from urwid.FlowWidget"""
+        if key == u"e" or key == u"+":
+            self.proxy.Enable()
+        elif key == u"d" or key == u"-":
+            self.proxy.Disable()
+        elif key == u"r" or key == u"_" or key == u"ctrl k":
+            self.server_proxy_object.RemoveClient(self.proxy
+                                                  .object_path)
+        elif key == u"s":
+            self.proxy.StartChecker()
+        elif key == u"S":
+            self.proxy.StopChecker()
+        elif key == u"C":
+            self.proxy.CheckedOK()
+        # xxx
+#         elif key == u"p" or key == "=":
+#             self.proxy.pause()
+#         elif key == u"u" or key == ":":
+#             self.proxy.unpause()
+#         elif key == u"RET":
+#             self.open()
+        else:
+            return key
+    
+    def property_changed(self, property=None, value=None,
+                         *args, **kwargs):
+        """Call self.update() if old value is not new value.
+        This overrides the method from MandosClientPropertyCache"""
+        property_name = unicode(property)
+        old_value = self.properties.get(property_name)
+        super(MandosClientWidget, self).property_changed(
+            property=property, value=value, *args, **kwargs)
+        if self.properties.get(property_name) != old_value:
+            self.update()
+
+
+class ConstrainedListBox(urwid.ListBox):
+    """Like a normal urwid.ListBox, but will consume all "up" or
+    "down" key presses, thus not allowing any containing widgets to
+    use them as an excuse to shift focus away from this widget.
+    """
+    def keypress(self, (maxcol, maxrow), key):
+        ret = super(ConstrainedListBox, self).keypress((maxcol, maxrow), key)
+        if ret in (u"up", u"down"):
+            return
+        return ret
+
+
+class UserInterface(object):
+    """This is the entire user interface - the whole screen
+    with boxes, lists of client widgets, etc.
+    """
+    def __init__(self, max_log_length=1000):
+        DBusGMainLoop(set_as_default=True)
+        
+        self.screen = urwid.curses_display.Screen()
+        
+        self.screen.register_palette((
+                (u"normal",
+                 u"default", u"default", None),
+                (u"bold",
+                 u"default", u"default", u"bold"),
+                (u"underline-blink",
+                 u"default", u"default", u"underline"),
+                (u"standout",
+                 u"default", u"default", u"standout"),
+                (u"bold-underline-blink",
+                 u"default", u"default", (u"bold", u"underline")),
+                (u"bold-standout",
+                 u"default", u"default", (u"bold", u"standout")),
+                (u"underline-blink-standout",
+                 u"default", u"default", (u"underline", u"standout")),
+                (u"bold-underline-blink-standout",
+                 u"default", u"default", (u"bold", u"underline",
+                                          u"standout")),
+                ))
+        
+        if urwid.supports_unicode():
+            self.divider = u"─" # \u2500
+            #self.divider = u"━" # \u2501
+        else:
+            #self.divider = u"-" # \u002d
+            self.divider = u"_" # \u005f
+        
+        self.screen.start()
+        
+        self.size = self.screen.get_cols_rows()
+        
+        self.clients = urwid.SimpleListWalker([])
+        self.clients_dict = {}
+        
+        # We will add Text widgets to this list
+        self.log = []
+        self.max_log_length = max_log_length
+        
+        # We keep a reference to the log widget so we can remove it
+        # from the ListWalker without it getting destroyed
+        self.logbox = ConstrainedListBox(self.log)
+        
+        # This keeps track of whether self.uilist currently has
+        # self.logbox in it or not
+        self.log_visible = True
+        self.log_wrap = u"any"
+        
+        self.rebuild()
+        self.log_message_raw((u"bold",
+                              u"Mandos Monitor version " + version))
+        self.log_message_raw((u"bold",
+                              u"q: Quit  ?: Help"))
+        
+        self.busname = domain + '.Mandos'
+        self.main_loop = gobject.MainLoop()
+        self.bus = dbus.SystemBus()
+        mandos_dbus_objc = self.bus.get_object(
+            self.busname, u"/", follow_name_owner_changes=True)
+        self.mandos_serv = dbus.Interface(mandos_dbus_objc,
+                                          dbus_interface
+                                          = server_interface)
+        try:
+            mandos_clients = (self.mandos_serv
+                              .GetAllClientsWithProperties())
+        except dbus.exceptions.DBusException:
+            mandos_clients = dbus.Dictionary()
+        
+        (self.mandos_serv
+         .connect_to_signal(u"ClientRemoved",
+                            self.find_and_remove_client,
+                            dbus_interface=server_interface,
+                            byte_arrays=True))
+        (self.mandos_serv
+         .connect_to_signal(u"ClientAdded",
+                            self.add_new_client,
+                            dbus_interface=server_interface,
+                            byte_arrays=True))
+        (self.mandos_serv
+         .connect_to_signal(u"ClientNotFound",
+                            self.client_not_found,
+                            dbus_interface=server_interface,
+                            byte_arrays=True))
+        for path, client in mandos_clients.iteritems():
+            client_proxy_object = self.bus.get_object(self.busname,
+                                                      path)
+            self.add_client(MandosClientWidget(server_proxy_object
+                                               =self.mandos_serv,
+                                               proxy_object
+                                               =client_proxy_object,
+                                               properties=client,
+                                               update_hook
+                                               =self.refresh,
+                                               delete_hook
+                                               =self.remove_client,
+                                               logger
+                                               =self.log_message),
+                            path=path)
+    
+    def client_not_found(self, fingerprint, address):
+        self.log_message((u"Client with address %s and fingerprint %s"
+                          u" could not be found" % (address,
+                                                    fingerprint)))
+    
+    def rebuild(self):
+        """This rebuilds the User Interface.
+        Call this when the widget layout needs to change"""
+        self.uilist = []
+        #self.uilist.append(urwid.ListBox(self.clients))
+        self.uilist.append(urwid.Frame(ConstrainedListBox(self.clients),
+                                       #header=urwid.Divider(),
+                                       header=None,
+                                       footer=urwid.Divider(div_char=self.divider)))
+        if self.log_visible:
+            self.uilist.append(self.logbox)
+            pass
+        self.topwidget = urwid.Pile(self.uilist)
+    
+    def log_message(self, message):
+        timestamp = datetime.datetime.now().isoformat()
+        self.log_message_raw(timestamp + u": " + message)
+    
+    def log_message_raw(self, markup):
+        """Add a log message to the log buffer."""
+        self.log.append(urwid.Text(markup, wrap=self.log_wrap))
+        if (self.max_log_length
+            and len(self.log) > self.max_log_length):
+            del self.log[0:len(self.log)-self.max_log_length-1]
+        self.logbox.set_focus(len(self.logbox.body.contents),
+                              coming_from=u"above")
+        self.refresh()
+    
+    def toggle_log_display(self):
+        """Toggle visibility of the log buffer."""
+        self.log_visible = not self.log_visible
+        self.rebuild()
+        self.log_message(u"Log visibility changed to: "
+                         + unicode(self.log_visible))
+    
+    def change_log_display(self):
+        """Change type of log display.
+        Currently, this toggles wrapping of text lines."""
+        if self.log_wrap == u"clip":
+            self.log_wrap = u"any"
+        else:
+            self.log_wrap = u"clip"
+        for textwidget in self.log:
+            textwidget.set_wrap_mode(self.log_wrap)
+        self.log_message(u"Wrap mode: " + self.log_wrap)
+    
+    def find_and_remove_client(self, path, name):
+        """Find an client from its object path and remove it.
+        
+        This is connected to the ClientRemoved signal from the
+        Mandos server object."""
+        try:
+            client = self.clients_dict[path]
+        except KeyError:
+            # not found?
+            return
+        self.remove_client(client, path)
+    
+    def add_new_client(self, path):
+        client_proxy_object = self.bus.get_object(self.busname, path)
+        self.add_client(MandosClientWidget(server_proxy_object
+                                           =self.mandos_serv,
+                                           proxy_object
+                                           =client_proxy_object,
+                                           update_hook
+                                           =self.refresh,
+                                           delete_hook
+                                           =self.remove_client,
+                                           logger
+                                           =self.log_message),
+                        path=path)
+    
+    def add_client(self, client, path=None):
+        self.clients.append(client)
+        if path is None:
+            path = client.proxy.object_path
+        self.clients_dict[path] = client
+        self.clients.sort(None, lambda c: c.properties[u"name"])
+        self.refresh()
+    
+    def remove_client(self, client, path=None):
+        self.clients.remove(client)
+        if path is None:
+            path = client.proxy.object_path
+        del self.clients_dict[path]
+        if not self.clients_dict:
+            # Work around bug in Urwid 0.9.8.3 - if a SimpleListWalker
+            # is completely emptied, we need to recreate it.
+            self.clients = urwid.SimpleListWalker([])
+            self.rebuild()
+        self.refresh()
+    
+    def refresh(self):
+        """Redraw the screen"""
+        canvas = self.topwidget.render(self.size, focus=True)
+        self.screen.draw_screen(self.size, canvas)
+    
+    def run(self):
+        """Start the main loop and exit when it's done."""
+        self.refresh()
+        self._input_callback_tag = (gobject.io_add_watch
+                                    (sys.stdin.fileno(),
+                                     gobject.IO_IN,
+                                     self.process_input))
+        self.main_loop.run()
+        # Main loop has finished, we should close everything now
+        gobject.source_remove(self._input_callback_tag)
+        self.screen.stop()
+    
+    def stop(self):
+        self.main_loop.quit()
+    
+    def process_input(self, source, condition):
+        keys = self.screen.get_input()
+        translations = { u"ctrl n": u"down",      # Emacs
+                         u"ctrl p": u"up",        # Emacs
+                         u"ctrl v": u"page down", # Emacs
+                         u"meta v": u"page up",   # Emacs
+                         u" ": u"page down",      # less
+                         u"f": u"page down",      # less
+                         u"b": u"page up",        # less
+                         u"j": u"down",           # vi
+                         u"k": u"up",             # vi
+                         }
+        for key in keys:
+            try:
+                key = translations[key]
+            except KeyError:    # :-)
+                pass
+            
+            if key == u"q" or key == u"Q":
+                self.stop()
+                break
+            elif key == u"window resize":
+                self.size = self.screen.get_cols_rows()
+                self.refresh()
+            elif key == u"\f":  # Ctrl-L
+                self.refresh()
+            elif key == u"l" or key == u"D":
+                self.toggle_log_display()
+                self.refresh()
+            elif key == u"w" or key == u"i":
+                self.change_log_display()
+                self.refresh()
+            elif key == u"?" or key == u"f1" or key == u"esc":
+                if not self.log_visible:
+                    self.log_visible = True
+                    self.rebuild()
+                self.log_message_raw((u"bold",
+                                      u"  ".
+                                      join((u"q: Quit",
+                                            u"?: Help",
+                                            u"l: Log window toggle",
+                                            u"TAB: Switch window",
+                                            u"w: Wrap (log)"))))
+                self.log_message_raw((u"bold",
+                                      u"  "
+                                      .join((u"Clients:",
+                                             u"e: Enable",
+                                             u"d: Disable",
+                                             u"r: Remove",
+                                             u"s: Start new checker",
+                                             u"S: Stop checker",
+                                             u"C: Checker OK"))))
+                self.refresh()
+            elif key == u"tab":
+                if self.topwidget.get_focus() is self.logbox:
+                    self.topwidget.set_focus(0)
+                else:
+                    self.topwidget.set_focus(self.logbox)
+                self.refresh()
+            #elif (key == u"end" or key == u"meta >" or key == u"G"
+            #      or key == u">"):
+            #    pass            # xxx end-of-buffer
+            #elif (key == u"home" or key == u"meta <" or key == u"g"
+            #      or key == u"<"):
+            #    pass            # xxx beginning-of-buffer
+            #elif key == u"ctrl e" or key == u"$":
+            #    pass            # xxx move-end-of-line
+            #elif key == u"ctrl a" or key == u"^":
+            #    pass            # xxx move-beginning-of-line
+            #elif key == u"ctrl b" or key == u"meta (" or key == u"h":
+            #    pass            # xxx left
+            #elif key == u"ctrl f" or key == u"meta )" or key == u"l":
+            #    pass            # xxx right
+            #elif key == u"a":
+            #    pass            # scroll up log
+            #elif key == u"z":
+            #    pass            # scroll down log
+            elif self.topwidget.selectable():
+                self.topwidget.keypress(self.size, key)
+                self.refresh()
+        return True
+
+ui = UserInterface()
+try:
+    ui.run()
+except Exception, e:
+    ui.log_message(unicode(e))
+    ui.screen.stop()
+    raise

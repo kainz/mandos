@@ -26,13 +26,19 @@
 #include <sys/types.h>		/* ssize_t */
 #include <sys/stat.h>		/* mkfifo(), S_IRUSR, S_IWUSR */
 #include <iso646.h>		/* and */
-#include <errno.h>		/* errno, EEXIST */
+#include <errno.h>		/* errno, EACCES, ENOTDIR, ELOOP,
+				   ENAMETOOLONG, ENOSPC, EROFS,
+				   ENOENT, EEXIST, EFAULT, EMFILE,
+				   ENFILE, ENOMEM, EBADF, EINVAL, EIO,
+				   EISDIR, EFBIG */
 #include <stdio.h>		/* perror() */
 #include <stdlib.h>		/* EXIT_FAILURE, NULL, size_t, free(),
 				   realloc(), EXIT_SUCCESS */
 #include <fcntl.h>		/* open(), O_RDONLY */
 #include <unistd.h>		/* read(), close(), write(),
 				   STDOUT_FILENO */
+#include <sysexits.h>		/* EX_OSERR, EX_OSFILE,
+				   EX_UNAVAILABLE, EX_IOERR */
 
 
 int main(__attribute__((unused))int argc,
@@ -43,16 +49,46 @@ int main(__attribute__((unused))int argc,
   /* Create FIFO */
   const char passfifo[] = "/lib/cryptsetup/passfifo";
   ret = mkfifo(passfifo, S_IRUSR | S_IWUSR);
-  if(ret == -1 and errno != EEXIST){
+  if(ret == -1){
+    int e = errno;
     perror("mkfifo");
-    return EXIT_FAILURE;
+    switch(e){
+    case EACCES:
+    case ENOTDIR:
+    case ELOOP:
+      return EX_OSFILE;
+    case ENAMETOOLONG:
+    case ENOSPC:
+    case EROFS:
+    default:
+      return EX_OSERR;
+    case ENOENT:
+      return EX_UNAVAILABLE;	/* no "/lib/cryptsetup"? */
+    case EEXIST:
+      break;			/* not an error */
+    }
   }
   
   /* Open FIFO */
   int fifo_fd = open(passfifo, O_RDONLY);
   if(fifo_fd == -1){
+    int e = errno;
     perror("open");
-    return EXIT_FAILURE;
+    switch(e){
+    case EACCES:
+    case ENOENT:
+    case EFAULT:
+      return EX_UNAVAILABLE;
+    case ENAMETOOLONG:
+    case EMFILE:
+    case ENFILE:
+    case ENOMEM:
+    default:
+      return EX_OSERR;
+    case ENOTDIR:
+    case ELOOP:
+      return EX_OSFILE;
+    }
   }
   
   /* Read from FIFO */
@@ -67,16 +103,28 @@ int main(__attribute__((unused))int argc,
 	if(tmp == NULL){
 	  perror("realloc");
 	  free(buf);
-	  return EXIT_FAILURE;
+	  return EX_OSERR;
 	}
 	buf = tmp;
 	buf_allocated += blocksize;
       }
       sret = read(fifo_fd, buf + buf_len, buf_allocated - buf_len);
       if(sret == -1){
-	perror("read");
+	int e = errno;
 	free(buf);
-	return EXIT_FAILURE;
+	errno = e;
+	perror("read");
+	switch(e){
+	case EBADF:
+	case EFAULT:
+	case EINVAL:
+	default:
+	  return EX_OSERR;
+	case EIO:
+	  return EX_IOERR;
+	case EISDIR:
+	  return EX_UNAVAILABLE;
+	}
       }
       buf_len += (size_t)sret;
     } while(sret != 0);
@@ -90,13 +138,37 @@ int main(__attribute__((unused))int argc,
   while(written < buf_len){
     sret = write(STDOUT_FILENO, buf + written, buf_len - written);
     if(sret == -1){
-      perror("write");
+      int e = errno;
       free(buf);
-      return EXIT_FAILURE;
+      errno = e;
+      perror("write");
+      switch(e){
+      case EBADF:
+      case EFAULT:
+      case EINVAL:
+	return EX_OSFILE;
+      case EFBIG:
+      case EIO:
+      case ENOSPC:
+      default:
+	return EX_IOERR;
+      }
     }
     written += (size_t)sret;
   }
   free(buf);
   
+  ret = close(STDOUT_FILENO);
+  if(ret == -1){
+    int e = errno;
+    perror("close");
+    switch(e){
+    case EBADF:
+      return EX_OSFILE;
+    case EIO:
+    default:
+      return EX_IOERR;
+    }
+  }
   return EXIT_SUCCESS;
 }
