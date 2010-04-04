@@ -780,13 +780,10 @@ class ClientDBus(Client, DBusObjectWithProperties):
                                  dbus.Boolean(False, variant_level=1))
         return r
     
-    ## D-Bus methods & signals
+    ## D-Bus methods, signals & properties
     _interface = u"se.bsnet.fukt.Mandos.Client"
     
-    # CheckedOK - method
-    @dbus.service.method(_interface)
-    def CheckedOK(self):
-        return self.checked_ok()
+    ## Signals
     
     # CheckerCompleted - signal
     @dbus.service.signal(_interface, signature=u"nxs")
@@ -818,6 +815,13 @@ class ClientDBus(Client, DBusObjectWithProperties):
         "D-Bus signal"
         pass
     
+    ## Methods
+    
+    # CheckedOK - method
+    @dbus.service.method(_interface)
+    def CheckedOK(self):
+        return self.checked_ok()
+    
     # Enable - method
     @dbus.service.method(_interface)
     def Enable(self):
@@ -840,6 +844,8 @@ class ClientDBus(Client, DBusObjectWithProperties):
     @dbus.service.method(_interface)
     def StopChecker(self):
         self.stop_checker()
+    
+    ## Properties
     
     # name - property
     @dbus_service_property(_interface, signature=u"s", access=u"read")
@@ -989,13 +995,12 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
     def handle(self):
         logger.info(u"TCP connection from: %s",
                     unicode(self.client_address))
-        logger.debug(u"IPC Pipe FD: %d", self.server.child_pipe[1])
+        logger.debug(u"IPC Pipe FD: %d",
+                     self.server.child_pipe[1].fileno())
         # Open IPC pipe to parent process
-        with contextlib.nested(os.fdopen(self.server.child_pipe[1],
-                                         u"w", 1),
-                               os.fdopen(self.server.parent_pipe[0],
-                                         u"r", 0)) as (ipc,
-                                                       ipc_return):
+        with contextlib.nested(self.server.child_pipe[1],
+                               self.server.parent_pipe[0]
+                               ) as (ipc, ipc_return):
             session = (gnutls.connection
                        .ClientSession(self.request,
                                       gnutls.connection
@@ -1142,18 +1147,20 @@ class ForkingMixInWithPipes(socketserver.ForkingMixIn, object):
         
         This function creates a new pipe in self.pipe
         """
-        self.child_pipe = os.pipe() # Child writes here
-        self.parent_pipe = os.pipe() # Parent writes here
+        # Child writes to child_pipe
+        self.child_pipe = map(os.fdopen, os.pipe(), u"rw", (1, 0))
+        # Parent writes to parent_pipe
+        self.parent_pipe = map(os.fdopen, os.pipe(), u"rw", (1, 0))
         super(ForkingMixInWithPipes,
               self).process_request(request, client_address)
         # Close unused ends for parent
-        os.close(self.parent_pipe[0]) # close read end
-        os.close(self.child_pipe[1])  # close write end
+        self.parent_pipe[0].close() # close read end
+        self.child_pipe[1].close()  # close write end
         self.add_pipe_fds(self.child_pipe[0], self.parent_pipe[1])
     def add_pipe_fds(self, child_pipe_fd, parent_pipe_fd):
         """Dummy function; override as necessary"""
-        os.close(child_pipe_fd)
-        os.close(parent_pipe_fd)
+        child_pipe_fd.close()
+        parent_pipe_fd.close()
 
 
 class IPv6_TCPServer(ForkingMixInWithPipes,
@@ -1249,13 +1256,12 @@ class MandosServer(IPv6_TCPServer):
         self.enabled = True
     def add_pipe_fds(self, child_pipe_fd, parent_pipe_fd):
         # Call "handle_ipc" for both data and EOF events
-        gobject.io_add_watch(child_pipe_fd,
+        gobject.io_add_watch(child_pipe_fd.fileno(),
                              gobject.IO_IN | gobject.IO_HUP,
                              functools.partial(self.handle_ipc,
-                                               reply_fd
-                                               =parent_pipe_fd))
-    def handle_ipc(self, source, condition, reply_fd=None,
-                   file_objects={}):
+                                               reply = parent_pipe_fd,
+                                               sender= child_pipe_fd))
+    def handle_ipc(self, source, condition, reply=None, sender=None):
         condition_names = {
             gobject.IO_IN: u"IN",   # There is data to read.
             gobject.IO_OUT: u"OUT", # Data can be written (without
@@ -1273,20 +1279,12 @@ class MandosServer(IPv6_TCPServer):
         logger.debug(u"Handling IPC: FD = %d, condition = %s", source,
                      conditions_string)
         
-        # Turn the pipe file descriptors into Python file objects
-        if source not in file_objects:
-            file_objects[source] = os.fdopen(source, u"r", 1)
-        if reply_fd not in file_objects:
-            file_objects[reply_fd] = os.fdopen(reply_fd, u"w", 0)
-        
         # Read a line from the file object
-        cmdline = file_objects[source].readline()
+        cmdline = sender.readline()
         if not cmdline:             # Empty line means end of file
             # close the IPC pipes
-            file_objects[source].close()
-            del file_objects[source]
-            file_objects[reply_fd].close()
-            del file_objects[reply_fd]
+            sender.close()
+            reply.close()
             
             # Stop calling this function
             return False
@@ -1331,13 +1329,13 @@ class MandosServer(IPv6_TCPServer):
                 if client.fingerprint == fpr:
                     attr_value = getattr(client, attr_name, None)
                     logger.debug("IPC reply: %r", attr_value)
-                    pickle.dump(attr_value, file_objects[reply_fd])
+                    pickle.dump(attr_value, reply)
                     break
             else:
                 logger.error(u"Client %s on address %s requesting "
                              u"attribute %s not found", fpr, address,
                              attr_name)
-                pickle.dump(None, file_objects[reply_fd])
+                pickle.dump(None, reply)
         else:
             logger.error(u"Unknown IPC command: %r", cmdline)
         
