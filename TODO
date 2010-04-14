@@ -68,6 +68,14 @@
    A client needs manual approval on the server before it gets the
    secret
 ** TODO [#B] Support RFC 3339 time duration syntax
+** More D-Bus methods
+*** NeedsApproval(50, True) -> timeout, default approve
+    Default approval is configurable, but True by default
+    + Approval(True) -> approve sending saved
+    + Approval(False) -> Close client connection immediately
+*** NeedsPassword(50) - Timeout, default disapprove
+    + SetPass(u"gazonk", True) -> Approval, persistent
+    + Approval(False) -> Close client connection immediately
 
 * mandos.xml
 ** [[file:mandos.xml::XXX][Document D-Bus interface]]

@@ -1065,6 +1065,8 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
                 if not enabled:
                     ipc.write(u"DISABLED %s\n" % client.name)
                     return
+                # Send "NEED_APPROVAL" here and hang waiting
+                # for response?  Leave timeout to parent process?
                 ipc.write(u"SENDING %s\n" % client.name)
                 sent_size = 0
                 while sent_size < len(client.secret):
