@@ -257,6 +257,10 @@ class Client(object):
                      runtime with vars(self) as dict, so that for
                      instance %(name)s can be used in the command.
     current_checker_command: string; current running checker_command
+    changesignal: File descriptor; written to on object change
+    _reset: File descriptor; for flushing changesignal
+    delay: datetime.timedelta(); how long to wait for approval/secret
+    approved: bool(); None if not yet approved/disapproved
     """
     
     @staticmethod
@@ -289,13 +293,14 @@ class Client(object):
                             .replace(u" ", u""))
         logger.debug(u"  Fingerprint: %s", self.fingerprint)
         if u"secret" in config:
-            self.secret = config[u"secret"].decode(u"base64")
+            self._secret = config[u"secret"].decode(u"base64")
         elif u"secfile" in config:
             with open(os.path.expanduser(os.path.expandvars
                                          (config[u"secfile"])),
                       "rb") as secfile:
-                self.secret = secfile.read()
+                self._secret = secfile.read()
         else:
+            #XXX Need to allow secret on demand!
             raise TypeError(u"No secret or secfile for client %s"
                             % self.name)
         self.host = config.get(u"host", u"")
@@ -313,7 +318,26 @@ class Client(object):
         self.checker_command = config[u"checker"]
         self.current_checker_command = None
         self.last_connect = None
+        self.changesignal, self._reset = os.pipe()
+        self._approved = None #XXX should be based on configfile
+        self.delay = 10; #XXX Should be based on configfile
+
+    def setsecret(self, value):
+        self._secret = value
+        os.write(self.changesignal, "\0")
+        os.read(self._reset, 1)
+
+    secret = property(lambda self: self._secret, setsecret)
+    del setsecret
     
+    def setapproved(self, value):
+        self._approved = value
+        os.write(self.changesignal, "\0")
+        os.read(self._reset, 1)
+
+    approved = property(lambda self: self._approved, setapproved)
+    del setapproved
+
     def enable(self):
         """Start this client's checker and timeout hooks"""
         if getattr(self, u"enabled", False):
@@ -1057,14 +1081,33 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
                     ipc.write(u"NOTFOUND %s %s\n"
                               % (fpr, unicode(self.client_address)))
                     return
-                # Have to check if client.enabled, since it is
-                # possible that the client was disabled since the
-                # GnuTLS session was established.
-                ipc.write(u"GETATTR enabled %s\n" % fpr)
-                enabled = pickle.load(ipc_return)
-                if not enabled:
-                    ipc.write(u"DISABLED %s\n" % client.name)
-                    return
+
+                class proxyclient(object):
+                    def __getattribute__(self, name):
+                        ipc.write(u"GETATTR %s %s\n" % name, client.fpr)
+                        return pickle.load(ipc_reply)
+                p = proxyclient(client)
+
+                while True:
+                    if not p.client.enabled:
+                        icp.write("DISABLED %s\n" % client.fpr)
+                        return
+                    if p.client.approved == False:
+                        icp.write("Disaproved")
+                        return
+                    
+                    if not p.client.secret:
+                        icp.write("No password")
+                    elif not p.client.approved:
+                        icp.write("Need approval"):
+                    else:
+                        #We have a password and are approved
+                        break
+                    i, o, e = select(p.changesignal, (), (), client.delay)
+                    if not i:
+                        icp.write("Timeout passed")
+                        return
+                    
                 ipc.write(u"SENDING %s\n" % client.name)
                 sent_size = 0
                 while sent_size < len(client.secret):

@@ -607,6 +607,10 @@ int main(__attribute__((unused))int argc,
     
     setsid();
     ret = chdir("/");
+    if(ret == -1){
+      perror("chdir");
+      _exit(EX_OSERR);
+    }
 /*     if(fork() != 0){ */
 /*       _exit(EXIT_SUCCESS); */
 /*     } */
