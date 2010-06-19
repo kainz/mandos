@@ -1,5 +1,7 @@
 -*- org -*-
 
+* _attribute_((nonnull))
+
 * mandos-client
 ** TODO [#B] use scandir(3) instead of readdir(3)
 ** TODO [#B] Prefix all debug output with "Mandos plugin " + program_invocation_short_name
@@ -38,6 +40,8 @@
 ** TODO [#C] use same file name rules as run-parts(8)
 ** kernel command line option for debug info
 ** TODO [#B] use error() instead of perror()
+** TODO [$B] Use openat() and readdir64()
+   http://udrepper.livejournal.com/19395.html
 
 * mandos (server)
 ** TODO [#B] Log level							  :BUGS:
@@ -76,6 +80,9 @@
 *** NeedsPassword(50) - Timeout, default disapprove
     + SetPass(u"gazonk", True) -> Approval, persistent
     + Approval(False) -> Close client connection immediately
+** TODO [#C] python-parsedatetime
+** TODO [#C] systemd/launchd
+   http://0pointer.de/blog/projects/systemd.html
 
 * mandos.xml
 ** [[file:mandos.xml::XXX][Document D-Bus interface]]
@@ -106,6 +113,8 @@
    For testing decryption before rebooting.
 
 * Makefile
+** TODO Add "--Xlinker --as-needed"
+   http://udrepper.livejournal.com/19395.html
 ** TODO [#C] Implement DEB_BUILD_OPTIONS
    http://www.debian.org/doc/debian-policy/ch-source.html#s-debianrules-options
 
