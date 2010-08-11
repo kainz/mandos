@@ -1001,7 +1001,8 @@ int good_interface(const struct dirent *if_entry){
   typedef short ifreq_flags;	/* ifreq.ifr_flags in netdevice(7) */
   /* read line from flags_fd */
   ssize_t to_read = (sizeof(ifreq_flags)*2)+3; /* "0x1003\n" */
-  char *flagstring = malloc((size_t)to_read);
+  char *flagstring = malloc((size_t)to_read+1); /* +1 for final \0 */
+  flagstring[(size_t)to_read] = '\0';
   if(flagstring == NULL){
     perror("malloc");
     close(flags_fd);
@@ -1029,6 +1030,10 @@ int good_interface(const struct dirent *if_entry){
   if(errno != 0 or tmp == flagstring or (*tmp != '\0'
 					 and not (isspace(*tmp)))
      or tmpmax != (ifreq_flags)tmpmax){
+    if(debug){
+      fprintf(stderr, "Invalid flags \"%s\" for interface \"%s\"\n",
+	      flagstring, if_entry->d_name);
+    }
     free(flagstring);
     return 0;
   }
@@ -1036,17 +1041,33 @@ int good_interface(const struct dirent *if_entry){
   ifreq_flags flags = (ifreq_flags)tmpmax;
   /* Reject the loopback device */
   if(flags & IFF_LOOPBACK){
+    if(debug){
+      fprintf(stderr, "Rejecting loopback interface \"%s\"\n",
+	      if_entry->d_name);
+    }
     return 0;
   }
   /* Accept point-to-point devices only if connect_to is specified */
   if(connect_to != NULL and (flags & IFF_POINTOPOINT)){
+    if(debug){
+      fprintf(stderr, "Accepting point-to-point interface \"%s\"\n",
+	      if_entry->d_name);
+    }
     return 1;
   }
   /* Otherwise, reject non-broadcast-capable devices */
   if(not (flags & IFF_BROADCAST)){
+    if(debug){
+      fprintf(stderr, "Rejecting non-broadcast interface \"%s\"\n",
+	      if_entry->d_name);
+    }
     return 0;
   }
   /* Accept this device */
+  if(debug){
+    fprintf(stderr, "Interface \"%s\" is acceptable\n",
+	    if_entry->d_name);
+  }
   return 1;
 }
 
@@ -1206,6 +1227,9 @@ int main(int argc, char *argv[]){
     if(ret >= 1){
       /* Pick the first good interface */
       interface = strdup(direntries[0]->d_name);
+      if(debug){
+	fprintf(stderr, "Using interface \"%s\"\n", interface);
+      }
       if(interface == NULL){
 	perror("malloc");
 	free(direntries);
@@ -1373,7 +1397,7 @@ int main(int argc, char *argv[]){
       ret = ioctl(sd, SIOCSIFFLAGS, &network);
       if(ret == -1){
 	take_down_interface = false;
-	perror("ioctl SIOCSIFFLAGS");
+	perror("ioctl SIOCSIFFLAGS +IFF_UP");
 	exitcode = EXIT_FAILURE;
 #ifdef __linux__
 	if(restore_loglevel){
@@ -1630,7 +1654,7 @@ int main(int argc, char *argv[]){
 	network.ifr_flags &= ~IFF_UP; /* clear flag */
 	ret = ioctl(sd, SIOCSIFFLAGS, &network);
 	if(ret == -1){
-	  perror("ioctl SIOCSIFFLAGS");
+	  perror("ioctl SIOCSIFFLAGS -IFF_UP");
 	}
       }
       ret = (int)TEMP_FAILURE_RETRY(close(sd));
