@@ -231,10 +231,6 @@ class AvahiService(object):
         self.server_state_changed(self.server.GetState())
 
 
-# XXX Need to add:
-# approved_by_default (Config option for each client)
-# approved_delay (config option for each client)
-# approved_duration (config option for each client)
 class Client(object):
     """A representation of a client host served by this server.
     
@@ -327,6 +323,7 @@ class Client(object):
         self.checker_command = config[u"checker"]
         self.current_checker_command = None
         self.last_connect = None
+        self.approvals_pending = 0
         self._approved = None
         self.approved_by_default = config.get(u"approved_by_default",
                                               False)
@@ -816,6 +813,10 @@ class ClientDBus(Client, DBusObjectWithProperties):
     def approve(self, value=True):
         self._approved = value
         gobject.timeout_add(self._timedelta_to_milliseconds(self.approved_duration, self._reset_approved))
+
+    def approved_pending(self):
+        return self.approvals_pending > 0
+
     
     ## D-Bus methods, signals & properties
     _interface = u"se.bsnet.fukt.Mandos.Client"
@@ -895,7 +896,29 @@ class ClientDBus(Client, DBusObjectWithProperties):
     
     ## Properties
     
-    # xxx 3 new properties
+    # approved_pending - property
+    @dbus_service_property(_interface, signature=u"b", access=u"read")
+    def approved_pending_dbus_property(self):
+        return dbus.Boolean(self.approved_pending())
+    
+    # approved_by_default - property
+    @dbus_service_property(_interface, signature=u"b",
+                           access=u"readwrite")
+    def approved_by_default_dbus_property(self):
+        return dbus.Boolean(self.approved_by_default)
+    
+    # approved_delay - property
+    @dbus_service_property(_interface, signature=u"t",
+                           access=u"readwrite")
+    def approved_delay_dbus_property(self):
+        return dbus.UInt64(self.approved_delay_milliseconds())
+    
+    # approved_duration - property
+    @dbus_service_property(_interface, signature=u"t",
+                           access=u"readwrite")
+    def approved_duration_dbus_property(self):
+        return dbus.UInt64(self._timedelta_to_milliseconds(
+                self.approved_duration))
     
     # name - property
     @dbus_service_property(_interface, signature=u"s", access=u"read")
@@ -1117,6 +1140,8 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
                 # established.  Just abandon the request.
                 return
             logger.debug(u"Handshake succeeded")
+
+            approval_required = False
             try:
                 try:
                     fpr = self.fingerprint(self.peer_certificate
@@ -1132,7 +1157,11 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
                 except KeyError:
                     return
                 
-                delay = client.approved_delay
+                if client.approved_delay:
+                    delay = client.approved_delay
+                    client.approvals_pending += 1
+                    approval_required = True
+                
                 while True:
                     if not client.enabled:
                         logger.warning(u"Client %s is disabled",
@@ -1141,7 +1170,11 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
                             # Emit D-Bus signal
                             client.Rejected("Disabled")                    
                         return
-                    if client._approved is None:
+                    
+                    if client._approved or not client.approved_delay:
+                        #We are approved or approval is disabled
+                        break
+                    elif client._approved is None:
                         logger.info(u"Client %s need approval",
                                     client.name)
                         if self.server.use_dbus:
@@ -1149,14 +1182,11 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
                             client.NeedApproval(
                                 client.approved_delay_milliseconds(),
                                 client.approved_by_default)
-                    elif client._approved:
-                        #We have a password and are approved
-                        break
                     else:
                         logger.warning(u"Client %s was not approved",
                                        client.name)
                         if self.server.use_dbus:
-                            # Emit D-Bus signal                        
+                            # Emit D-Bus signal
                             client.Rejected("Disapproved")
                         return
                     
@@ -1196,8 +1226,10 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
                 if self.server.use_dbus:
                     # Emit D-Bus signal
                     client.GotSecret()
-
+            
             finally:
+                if approval_required:
+                    client.approvals_pending -= 1
                 session.bye()
     
     @staticmethod
@@ -1738,13 +1770,13 @@ def main():
         client_class = functools.partial(ClientDBus, bus = bus)
     def client_config_items(config, section):
         special_settings = {
-            "approve_by_default":
+            "approved_by_default":
                 lambda: config.getboolean(section,
-                                          "approve_by_default"),
+                                          "approved_by_default"),
             }
         for name, value in config.items(section):
             try:
-                yield special_settings[name]()
+                yield (name, special_settings[name]())
             except KeyError:
                 yield (name, value)
     
