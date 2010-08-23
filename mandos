@@ -326,7 +326,7 @@ class Client(object):
         self.approvals_pending = 0
         self._approved = None
         self.approved_by_default = config.get(u"approved_by_default",
-                                              False)
+                                              True)
         self.approved_delay = string_to_delta(
             config[u"approved_delay"])
         self.approved_duration = string_to_delta(
@@ -816,7 +816,7 @@ class ClientDBus(Client, DBusObjectWithProperties):
 
     def approved_pending(self):
         return self.approvals_pending > 0
-
+    
     
     ## D-Bus methods, signals & properties
     _interface = u"se.bsnet.fukt.Mandos.Client"
@@ -845,19 +845,25 @@ class ClientDBus(Client, DBusObjectWithProperties):
     @dbus.service.signal(_interface)
     def GotSecret(self):
         "D-Bus signal"
-        pass
+        if self.approved_pending():
+            self.PropertyChanged(dbus.String(u"checker_running"),
+                                 dbus.Boolean(False, variant_level=1))
     
     # Rejected - signal
     @dbus.service.signal(_interface, signature=u"s")
     def Rejected(self, reason):
         "D-Bus signal"
-        pass
+        if self.approved_pending():
+            self.PropertyChanged(dbus.String(u"checker_running"),
+                                 dbus.Boolean(False, variant_level=1))
     
     # NeedApproval - signal
     @dbus.service.signal(_interface, signature=u"db")
     def NeedApproval(self, timeout, default):
         "D-Bus signal"
-        pass
+        if not self.approved_pending():
+            self.PropertyChanged(dbus.String(u"approved_pending"),
+                                 dbus.Boolean(True, variant_level=1))
     
     ## Methods
 
@@ -1684,7 +1690,7 @@ def main():
                         u"interval": u"5m",
                         u"checker": u"fping -q -- %%(host)s",
                         u"host": u"",
-                        u"approved_delay": u"5m",
+                        u"approved_delay": u"0s",
                         u"approved_duration": u"1s",
                         }
     client_config = configparser.SafeConfigParser(client_defaults)
