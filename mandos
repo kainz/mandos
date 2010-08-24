@@ -83,7 +83,7 @@ except AttributeError:
 
 version = "1.0.14"
 
-logger = logging.Logger(u'mandos')
+logger = logging.getLogger(u'mandos')
 syslogger = (logging.handlers.SysLogHandler
              (facility = logging.handlers.SysLogHandler.LOG_DAEMON,
               address = "/dev/log"))
