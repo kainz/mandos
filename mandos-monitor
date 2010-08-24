@@ -23,11 +23,14 @@ import locale
 
 locale.setlocale(locale.LC_ALL, u'')
 
+import logging
+logging.getLogger('dbus.proxies').setLevel(logging.CRITICAL)
+
 # Some useful constants
 domain = 'se.bsnet.fukt'
 server_interface = domain + '.Mandos'
 client_interface = domain + '.Mandos.Client'
-version = "1.0.14"
+version = "1.0.15"
 
 # Always run in monochrome mode
 urwid.curses_display.curses.has_colors = lambda : False
@@ -50,7 +53,7 @@ class MandosClientPropertyCache(object):
                                      self.property_changed,
                                      client_interface,
                                      byte_arrays=True)
-
+        
         self.properties.update(
             self.proxy.GetAll(client_interface,
                               dbus_interface = dbus.PROPERTIES_IFACE))
