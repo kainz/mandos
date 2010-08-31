@@ -104,6 +104,10 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
                                      self.got_secret,
                                      client_interface,
                                      byte_arrays=True)
+        self.proxy.connect_to_signal(u"NeedApproval",
+                                     self.need_approval,
+                                     client_interface,
+                                     byte_arrays=True)
         self.proxy.connect_to_signal(u"Rejected",
                                      self.rejected,
                                      client_interface,
@@ -111,9 +115,9 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
     
     def checker_completed(self, exitstatus, condition, command):
         if exitstatus == 0:
-            self.logger(u'Checker for client %s (command "%s")'
-                        u' was successful'
-                        % (self.properties[u"name"], command))
+            #self.logger(u'Checker for client %s (command "%s")'
+            #            u' was successful'
+            #            % (self.properties[u"name"], command))
             return
         if os.WIFEXITED(condition):
             self.logger(u'Checker for client %s (command "%s")'
@@ -134,16 +138,25 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
         self.logger(u'Checker for client %s completed mysteriously')
     
     def checker_started(self, command):
-        self.logger(u'Client %s started checker "%s"'
-                    % (self.properties[u"name"], unicode(command)))
+        #self.logger(u'Client %s started checker "%s"'
+        #            % (self.properties[u"name"], unicode(command)))
+        pass
     
     def got_secret(self):
         self.logger(u'Client %s received its secret'
                     % self.properties[u"name"])
     
-    def rejected(self):
-        self.logger(u'Client %s was rejected'
-                    % self.properties[u"name"])
+    def need_approval(self, timeout, default):
+        if not default:
+            message = u'Client %s needs approval within %s seconds'
+        else:
+            message = u'Client %s will get its secret in %s seconds'
+        self.logger(message
+                    % (self.properties[u"name"], timeout/1000))
+    
+    def rejected(self, reason):
+        self.logger(u'Client %s was rejected; reason: %s'
+                    % (self.properties[u"name"], reason))
     
     def selectable(self):
         """Make this a "selectable" widget.
@@ -228,6 +241,10 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
 #             self.proxy.unpause()
 #         elif key == u"RET":
 #             self.open()
+        elif key == u"+":
+            self.proxy.Approve(True)
+        elif key == u"-":
+            self.proxy.Approve(False)
         else:
             return key
     
