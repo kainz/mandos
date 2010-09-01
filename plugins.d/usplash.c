@@ -42,8 +42,8 @@
 				   setsid(), chdir(), dup2(),
 				   STDERR_FILENO, execv() */
 #include <stdlib.h>		/* free(), EXIT_FAILURE, realloc(),
-				   EXIT_SUCCESS, malloc(), _exit() */
-#include <stdlib.h>		/* getenv() */
+				   EXIT_SUCCESS, malloc(), _exit(),
+				   getenv() */
 #include <dirent.h>		/* opendir(), readdir(), closedir() */
 #include <inttypes.h>		/* intmax_t, strtoimax() */
 #include <sys/stat.h>		/* struct stat, lstat(), S_ISLNK */
