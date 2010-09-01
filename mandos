@@ -98,8 +98,6 @@ console.setFormatter(logging.Formatter(u'%(name)s [%(process)d]:'
                                        u' %(message)s'))
 logger.addHandler(console)
 
-multiprocessing_manager = multiprocessing.Manager()
-
 class AvahiError(Exception):
     def __init__(self, value, *args, **kwargs):
         self.value = value
@@ -1321,7 +1319,9 @@ class MultiprocessingMixInWithPipe(MultiprocessingMixIn, object):
 
         super(MultiprocessingMixInWithPipe,
               self).process_request(request, client_address)
+        self.child_pipe.close()
         self.add_pipe(parent_pipe)
+        
     def add_pipe(self, parent_pipe):
         """Dummy function; override as necessary"""
         pass
@@ -1442,9 +1442,14 @@ class MandosServer(IPv6_TCPServer):
                                        if cond & condition)
         logger.debug(u"Handling IPC: FD = %d, condition = %s", source,
                      conditions_string)
+
+        # error or the other end of multiprocessing.Pipe has closed
+        if condition & gobject.IO_HUP or condition & gobject.IO_ERR:
+            return False
         
         # Read a request from the child
         request = parent_pipe.recv()
+        logger.debug(u"IPC request: %s", repr(request))
         command = request[0]
         
         if command == 'init':
@@ -1764,6 +1769,9 @@ def main():
     if server_settings["interface"]:
         service.interface = (if_nametoindex
                              (str(server_settings[u"interface"])))
+
+    global multiprocessing_manager
+    multiprocessing_manager = multiprocessing.Manager()
     
     client_class = Client
     if use_dbus:
