@@ -713,13 +713,14 @@ class ClientDBus(Client, DBusObjectWithProperties):
         DBusObjectWithProperties.__init__(self, self.bus,
                                           self.dbus_object_path)
     
-    def _get_approvals_pending(value):
+    def _get_approvals_pending(self, value):
         return self._approvals_pending
-    def _set_approvals_pending(value):
+    def _set_approvals_pending(self, value):
         old_value = self._approvals_pending
         self._approvals_pending = value
         bval = bool(value)
-        if bval is bool(old_value):
+        if (hasattr(self, "dbus_object_path")
+            and bval is bool(old_value)):
             dbus_bool = dbus.Boolean(bval, variant_level=1)
             self.PropertyChanged(dbus.String(u"approved_pending"),
                                  dbus_bool)
