@@ -840,6 +840,7 @@ class ClientDBus(Client, DBusObjectWithProperties):
         pass
     
     # GotSecret - signal
+    # Is sent after succesfull transfer of secret from mandos-server to mandos-client
     @dbus.service.signal(_interface)
     def GotSecret(self):
         "D-Bus signal"
