@@ -83,6 +83,7 @@ except AttributeError:
 
 version = "1.0.14"
 
+#logger = logging.getLogger(u'mandos')
 logger = logging.Logger(u'mandos')
 syslogger = (logging.handlers.SysLogHandler
              (facility = logging.handlers.SysLogHandler.LOG_DAEMON,
@@ -321,16 +322,16 @@ class Client(object):
         self.checker_command = config[u"checker"]
         self.current_checker_command = None
         self.last_connect = None
-        self.approvals_pending = 0
         self._approved = None
         self.approved_by_default = config.get(u"approved_by_default",
-                                              False)
+                                              True)
+        self.approvals_pending = 0
         self.approved_delay = string_to_delta(
             config[u"approved_delay"])
         self.approved_duration = string_to_delta(
             config[u"approved_duration"])
         self.changedstate = multiprocessing_manager.Condition(multiprocessing_manager.Lock())
-
+    
     def send_changedstate(self):
         self.changedstate.acquire()
         self.changedstate.notify_all()
@@ -700,6 +701,7 @@ class ClientDBus(Client, DBusObjectWithProperties):
     # dbus.service.Object doesn't use super(), so we can't either.
     
     def __init__(self, bus = None, *args, **kwargs):
+        self._approvals_pending = 0
         self.bus = bus
         Client.__init__(self, *args, **kwargs)
         # Only now, when this client is initialized, can it show up on
@@ -709,6 +711,24 @@ class ClientDBus(Client, DBusObjectWithProperties):
                                   + self.name.replace(u".", u"_")))
         DBusObjectWithProperties.__init__(self, self.bus,
                                           self.dbus_object_path)
+
+    #Could possible return a bool(self._approvals_pending),
+    #but this could mess up approvals_pending += 1 XXX 
+    def _get_approvals_pending(self):
+        return self._approvals_pending
+    def _set_approvals_pending(self, value):
+        old_value = self._approvals_pending
+        self._approvals_pending = value
+        bval = bool(value)
+        if (hasattr(self, "dbus_object_path")
+            and bval is not bool(old_value)):
+            dbus_bool = dbus.Boolean(bval, variant_level=1)
+            self.PropertyChanged(dbus.String(u"approved_pending"),
+                                 dbus_bool)
+
+    approvals_pending = property(_get_approvals_pending,
+                                 _set_approvals_pending)
+    del _get_approvals_pending, _set_approvals_pending
     
     @staticmethod
     def _datetime_to_dbus(dt, variant_level=0):
@@ -809,12 +829,11 @@ class ClientDBus(Client, DBusObjectWithProperties):
         return False
     
     def approve(self, value=True):
+        self.send_changedstate()
         self._approved = value
-        gobject.timeout_add(self._timedelta_to_milliseconds(self.approved_duration, self._reset_approved))
-
-    def approved_pending(self):
-        return self.approvals_pending > 0
-
+        gobject.timeout_add(self._timedelta_to_milliseconds(self.approved_duration),
+                            self._reset_approved)
+    
     
     ## D-Bus methods, signals & properties
     _interface = u"se.bsnet.fukt.Mandos.Client"
@@ -840,7 +859,7 @@ class ClientDBus(Client, DBusObjectWithProperties):
         pass
     
     # GotSecret - signal
-    # Is sent after succesfull transfer of secret from mandos-server to mandos-client
+    # XXXTEDDY Is sent after succesfull transfer of secret from mandos-server to mandos-client
     @dbus.service.signal(_interface)
     def GotSecret(self):
         "D-Bus signal"
@@ -898,7 +917,7 @@ class ClientDBus(Client, DBusObjectWithProperties):
     # approved_pending - property
     @dbus_service_property(_interface, signature=u"b", access=u"read")
     def approved_pending_dbus_property(self):
-        return dbus.Boolean(self.approved_pending())
+        return dbus.Boolean(bool(self.approvals_pending))
     
     # approved_by_default - property
     @dbus_service_property(_interface, signature=u"b",
@@ -1322,7 +1341,7 @@ class MultiprocessingMixInWithPipe(MultiprocessingMixIn, object):
               self).process_request(request, client_address)
         self.child_pipe.close()
         self.add_pipe(parent_pipe)
-        
+
     def add_pipe(self, parent_pipe):
         """Dummy function; override as necessary"""
         pass
@@ -1444,7 +1463,7 @@ class MandosServer(IPv6_TCPServer):
         logger.debug(u"Handling IPC: FD = %d, condition = %s", source,
                      conditions_string)
 
-        # error or the other end of multiprocessing.Pipe has closed
+        # XXXTEDDY error or the other end of multiprocessing.Pipe has closed
         if condition & gobject.IO_HUP or condition & gobject.IO_ERR:
             return False
         
@@ -1491,12 +1510,12 @@ class MandosServer(IPv6_TCPServer):
                 parent_pipe.send(('function',))
             else:
                 parent_pipe.send(('data', client_object.__getattribute__(attrname)))
-
+        
         if command == 'setattr':
             attrname = request[1]
             value = request[2]
             setattr(client_object, attrname, value)
-            
+
         return True
 
 
@@ -1690,7 +1709,7 @@ def main():
                         u"interval": u"5m",
                         u"checker": u"fping -q -- %%(host)s",
                         u"host": u"",
-                        u"approved_delay": u"5m",
+                        u"approved_delay": u"0s",
                         u"approved_duration": u"1s",
                         }
     client_config = configparser.SafeConfigParser(client_defaults)
