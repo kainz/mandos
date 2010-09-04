@@ -57,8 +57,10 @@ class MandosClientPropertyCache(object):
         self.properties.update(
             self.proxy.GetAll(client_interface,
                               dbus_interface = dbus.PROPERTIES_IFACE))
-        super(MandosClientPropertyCache, self).__init__(
-            *args, **kwargs)
+
+        #XXX This break good super behaviour!
+#        super(MandosClientPropertyCache, self).__init__(
+#            *args, **kwargs)
     
     def property_changed(self, property=None, value=None):
         """This is called whenever we get a PropertyChanged signal
@@ -184,14 +186,24 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
                           u"bold-underline-blink":
                               u"bold-underline-blink-standout",
                           }
-        
+
         # Rebuild focus and non-focus widgets using current properties
-        self._text = (u'%(name)s: %(enabled)s'
-                      % { u"name": self.properties[u"name"],
-                          u"enabled":
-                              (u"enabled"
-                               if self.properties[u"enabled"]
-                               else u"DISABLED")})
+
+        # Base part of a client. Name!
+        self._text = (u'%(name)s: '
+                      % {u"name": self.properties[u"name"]})
+
+        if self.properties[u"approved_pending"]:
+            if self.properties[u"approved_by_default"]:
+                self._text += u"Connection established to client. (d)eny?"
+            else:
+                self._text += u"Seeks approval to send secret. (a)pprove?"
+        else:
+            self._text += (u'%(enabled)s'
+                           % {u"enabled":
+                               (u"enabled"
+                                if self.properties[u"enabled"]
+                                else u"DISABLED")})
         if not urwid.supports_unicode():
             self._text = self._text.encode("ascii", "replace")
         textlist = [(u"normal", self._text)]
@@ -221,19 +233,25 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
     def keypress(self, (maxcol,), key):
         """Handle keys.
         This overrides the method from urwid.FlowWidget"""
-        if key == u"e" or key == u"+":
-            self.proxy.Enable()
-        elif key == u"d" or key == u"-":
-            self.proxy.Disable()
+        if key == u"+":
+            self.proxy.Enable(dbus_interface = client_interface)
+        elif key == u"-":
+            self.proxy.Disable(dbus_interface = client_interface)
+        elif key == u"a":
+            self.proxy.Approve(dbus.Boolean(True, variant_level=1),
+                               dbus_interface = client_interface)
+        elif key == u"d":
+            self.proxy.Approve(dbus.Boolean(False, variant_level=1),
+                                  dbus_interface = client_interface)
         elif key == u"r" or key == u"_" or key == u"ctrl k":
             self.server_proxy_object.RemoveClient(self.proxy
                                                   .object_path)
         elif key == u"s":
-            self.proxy.StartChecker()
+            self.proxy.StartChecker(dbus_interface = client_interface)
         elif key == u"S":
-            self.proxy.StopChecker()
+            self.proxy.StopChecker(dbus_interface = client_interface)
         elif key == u"C":
-            self.proxy.CheckedOK()
+            self.proxy.CheckedOK(dbus_interface = client_interface)
         # xxx
 #         elif key == u"p" or key == "=":
 #             self.proxy.pause()
@@ -241,10 +259,10 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
 #             self.proxy.unpause()
 #         elif key == u"RET":
 #             self.open()
-        elif key == u"+":
-            self.proxy.Approve(True)
-        elif key == u"-":
-            self.proxy.Approve(False)
+#        elif key == u"+":
+#            self.proxy.Approve(True)
+#        elif key == u"-":
+#            self.proxy.Approve(False)
         else:
             return key
     
@@ -547,7 +565,9 @@ class UserInterface(object):
                                              u"r: Remove",
                                              u"s: Start new checker",
                                              u"S: Stop checker",
-                                             u"C: Checker OK"))))
+                                             u"C: Checker OK",
+                                             u"A: Approve",
+                                             u"D: Deny"))))
                 self.refresh()
             elif key == u"tab":
                 if self.topwidget.get_focus() is self.logbox:

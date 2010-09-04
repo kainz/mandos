@@ -1,6 +1,7 @@
 -*- org -*-
 
 * _attribute_((nonnull))
+* FIX XXX
 
 * mandos-client
 ** TODO [#B] use scandir(3) instead of readdir(3)
@@ -107,6 +108,8 @@
 ** Urwid client data displayer
    Better view of client data in the listing
 *** Properties popup
+** Nicer crashes. Stack traces Messes up shell.
+*** Print a nice "We are sorry" message, save stack trace to log.
 
 * mandos-keygen
 ** TODO Loop until passwords match when run interactively
