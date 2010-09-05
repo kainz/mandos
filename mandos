@@ -60,6 +60,7 @@ import struct
 import fcntl
 import functools
 import cPickle as pickle
+import select
 
 import dbus
 import dbus.service
@@ -192,7 +193,7 @@ class AvahiService(object):
         self.group.Commit()
     def entry_group_state_changed(self, state, error):
         """Derived from the Avahi example code"""
-        logger.debug(u"Avahi state change: %i", state)
+        logger.debug(u"Avahi entry group state change: %i", state)
         
         if state == avahi.ENTRY_GROUP_ESTABLISHED:
             logger.debug(u"Zeroconf service established.")
@@ -211,6 +212,7 @@ class AvahiService(object):
             self.group = None
     def server_state_changed(self, state):
         """Derived from the Avahi example code"""
+        logger.debug(u"Avahi server state change: %i", state)
         if state == avahi.SERVER_COLLISION:
             logger.error(u"Zeroconf server name collision")
             self.remove()
@@ -1006,15 +1008,6 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
                                       gnutls.connection
                                       .X509Credentials()))
             
-            line = self.request.makefile().readline()
-            logger.debug(u"Protocol version: %r", line)
-            try:
-                if int(line.strip().split()[0]) > 1:
-                    raise RuntimeError
-            except (ValueError, IndexError, RuntimeError), error:
-                logger.error(u"Unknown protocol version: %s", error)
-                return
-            
             # Note: gnutls.connection.X509Credentials is really a
             # generic GnuTLS certificate credentials object so long as
             # no X.509 keys are added to it.  Therefore, we can use it
@@ -1032,6 +1025,18 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
              .gnutls_priority_set_direct(session._c_object,
                                          priority, None))
             
+            # Start communication using the Mandos protocol
+            # Get protocol number
+            line = self.request.makefile().readline()
+            logger.debug(u"Protocol version: %r", line)
+            try:
+                if int(line.strip().split()[0]) > 1:
+                    raise RuntimeError
+            except (ValueError, IndexError, RuntimeError), error:
+                logger.error(u"Unknown protocol version: %s", error)
+                return
+            
+            # Start GnuTLS connection
             try:
                 session.handshake()
             except gnutls.errors.GNUTLSError, error:
@@ -1057,15 +1062,31 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
                     ipc.write(u"NOTFOUND %s %s\n"
                               % (fpr, unicode(self.client_address)))
                     return
+                
+                class ClientProxy(object):
+                    """Client proxy object.  Not for calling methods."""
+                    def __init__(self, client):
+                        self.client = client
+                    def __getattr__(self, name):
+                        if name.startswith("ipc_"):
+                            def tempfunc():
+                                ipc.write("%s %s\n" % (name[4:].upper(),
+                                                       self.client.name))
+                            return tempfunc
+                        if not hasattr(self.client, name):
+                            raise AttributeError
+                        ipc.write(u"GETATTR %s %s\n"
+                                  % (name, self.client.fingerprint))
+                        return pickle.load(ipc_return)
+                clientproxy = ClientProxy(client)
                 # Have to check if client.enabled, since it is
                 # possible that the client was disabled since the
                 # GnuTLS session was established.
-                ipc.write(u"GETATTR enabled %s\n" % fpr)
-                enabled = pickle.load(ipc_return)
-                if not enabled:
-                    ipc.write(u"DISABLED %s\n" % client.name)
+                if not clientproxy.enabled:
+                    clientproxy.ipc_disabled()
                     return
-                ipc.write(u"SENDING %s\n" % client.name)
+                
+                clientproxy.ipc_sending()
                 sent_size = 0
                 while sent_size < len(client.secret):
                     sent = session.send(client.secret[sent_size:])
