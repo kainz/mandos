@@ -1,12 +1,13 @@
 -*- org -*-
 
 * _attribute_((nonnull))
-* FIX XXX
+
+* Release critical
+** TODO Change make-run-server to not include --no-dbus
 
 * mandos-client
 ** TODO [#B] use scandir(3) instead of readdir(3)
 ** TODO [#B] Prefix all debug output with "Mandos plugin " + program_invocation_short_name
-** TODO use error() instead of perror()
 ** TODO [#B] Retry a server which has a non-definite reply:
 *** A closed connection during the TLS handshake
 *** A TCP timeout
@@ -16,23 +17,23 @@
 * splashy
 ** TODO [#B] use scandir(3) instead of readdir(3)
 ** TODO [#B] Prefix all debug output with "Mandos plugin " + program_invocation_short_name
-** TODO [#B] use error() instead of perror()
 
 * usplash
 ** TODO [#A] Make it work again
 ** TODO [#B] use scandir(3) instead of readdir(3)
 ** TODO [#B] Prefix all debug output with "Mandos plugin " + program_invocation_short_name
-** TODO [#B] use error() instead of perror()
+** TODO Use [[info:libc:Argz%20Functions][argz_extract]]
 
 * askpass-fifo
 ** TODO [#B] Prefix all debug output with "Mandos plugin " + program_invocation_short_name
-** TODO [#B] use error() instead of perror()
 ** TODO [#B] Drop privileges after opening FIFO.
 
 * password-prompt
 ** TODO [#B] Prefix all debug output with "Mandos plugin " + program_invocation_short_name
-** TODO [#B] use error() instead of perror()
 ** TODO [#B] lock stdin (with flock()?)
+
+* plymouth
+** TODO Use [[info:libc:Argz%20Functions][argz_extract]]
 
 * TODO [#B] passdev
 
@@ -40,7 +41,6 @@
 ** TODO [#B] use scandir(3) instead of readdir(3)
 ** TODO [#C] use same file name rules as run-parts(8)
 ** kernel command line option for debug info
-** TODO [#B] use error() instead of perror()
 ** TODO [$B] Use openat() and readdir64()
    http://udrepper.livejournal.com/19395.html
 
@@ -105,6 +105,7 @@
   arguments.
 
 * mandos-monitor
+** TODO help should be toggable
 ** Urwid client data displayer
    Better view of client data in the listing
 *** Properties popup
