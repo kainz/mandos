@@ -39,11 +39,12 @@
 #include <stdlib.h>		/* EXIT_SUCCESS, EXIT_FAILURE,
 				   getenv() */
 #include <stdio.h>		/* fprintf(), stderr, getline(),
-				   stdin, feof(), perror(), fputc()
+				   stdin, feof(), fputc()
 				*/
 #include <errno.h>		/* errno, EBADF, ENOTTY, EINVAL,
 				   EFAULT, EFBIG, EIO, ENOSPC, EINTR
 				*/
+#include <error.h>		/* error() */
 #include <iso646.h>		/* or, not */
 #include <stdbool.h>		/* bool, false, true */
 #include <string.h> 		/* strlen, rindex */
@@ -70,7 +71,8 @@ static void termination_handler(int signum){
 }
 
 int main(int argc, char **argv){
-  ssize_t ret;
+  ssize_t sret;
+  int ret;
   size_t n;
   struct termios t_new, t_old;
   char *buffer = NULL;
@@ -139,7 +141,7 @@ int main(int argc, char **argv){
     case ENOMEM:
     default:
       errno = ret;
-      perror("argp_parse");
+      error(0, errno, "argp_parse");
       return EX_OSERR;
     case EINVAL:
       return EX_USAGE;
@@ -155,7 +157,7 @@ int main(int argc, char **argv){
   
   if(tcgetattr(STDIN_FILENO, &t_old) != 0){
     int e = errno;
-    perror("tcgetattr");
+    error(0, errno, "tcgetattr");
     switch(e){
     case EBADF:
     case ENOTTY:
@@ -168,17 +170,17 @@ int main(int argc, char **argv){
   sigemptyset(&new_action.sa_mask);
   ret = sigaddset(&new_action.sa_mask, SIGINT);
   if(ret == -1){
-    perror("sigaddset");
+    error(0, errno, "sigaddset");
     return EX_OSERR;
   }
   ret = sigaddset(&new_action.sa_mask, SIGHUP);
   if(ret == -1){
-    perror("sigaddset");
+    error(0, errno, "sigaddset");
     return EX_OSERR;
   }
   ret = sigaddset(&new_action.sa_mask, SIGTERM);
   if(ret == -1){
-    perror("sigaddset");
+    error(0, errno, "sigaddset");
     return EX_OSERR;
   }
   /* Need to check if the handler is SIG_IGN before handling:
@@ -187,37 +189,37 @@ int main(int argc, char **argv){
   */
   ret = sigaction(SIGINT, NULL, &old_action);
   if(ret == -1){
-    perror("sigaction");
+    error(0, errno, "sigaction");
     return EX_OSERR;
   }
   if(old_action.sa_handler != SIG_IGN){
     ret = sigaction(SIGINT, &new_action, NULL);
     if(ret == -1){
-      perror("sigaction");
+      error(0, errno, "sigaction");
       return EX_OSERR;
     }
   }
   ret = sigaction(SIGHUP, NULL, &old_action);
   if(ret == -1){
-    perror("sigaction");
+    error(0, errno, "sigaction");
     return EX_OSERR;
   }
   if(old_action.sa_handler != SIG_IGN){
     ret = sigaction(SIGHUP, &new_action, NULL);
     if(ret == -1){
-      perror("sigaction");
+      error(0, errno, "sigaction");
       return EX_OSERR;
     }
   }
   ret = sigaction(SIGTERM, NULL, &old_action);
   if(ret == -1){
-    perror("sigaction");
+    error(0, errno, "sigaction");
     return EX_OSERR;
   }
   if(old_action.sa_handler != SIG_IGN){
     ret = sigaction(SIGTERM, &new_action, NULL);
     if(ret == -1){
-      perror("sigaction");
+      error(0, errno, "sigaction");
       return EX_OSERR;
     }
   }
@@ -231,7 +233,7 @@ int main(int argc, char **argv){
   t_new.c_lflag &= ~(tcflag_t)ECHO;
   if(tcsetattr(STDIN_FILENO, TCSAFLUSH, &t_new) != 0){
     int e = errno;
-    perror("tcsetattr-echo");
+    error(0, errno, "tcsetattr-echo");
     switch(e){
     case EBADF:
     case ENOTTY:
@@ -286,11 +288,11 @@ int main(int argc, char **argv){
 	}
       }
     }
-    ret = getline(&buffer, &n, stdin);
-    if(ret > 0){
+    sret = getline(&buffer, &n, stdin);
+    if(sret > 0){
       status = EXIT_SUCCESS;
       /* Make n = data size instead of allocated buffer size */
-      n = (size_t)ret;
+      n = (size_t)sret;
       /* Strip final newline */
       if(n > 0 and buffer[n-1] == '\n'){
 	buffer[n-1] = '\0';	/* not strictly necessary */
@@ -298,10 +300,10 @@ int main(int argc, char **argv){
       }
       size_t written = 0;
       while(written < n){
-	ret = write(STDOUT_FILENO, buffer + written, n - written);
-	if(ret < 0){
+	sret = write(STDOUT_FILENO, buffer + written, n - written);
+	if(sret < 0){
 	  int e = errno;
-	  perror("write");
+	  error(0, errno, "write");
 	  switch(e){
 	  case EBADF:
 	  case EFAULT:
@@ -318,12 +320,12 @@ int main(int argc, char **argv){
 	  }
 	  break;
 	}
-	written += (size_t)ret;
+	written += (size_t)sret;
       }
-      ret = close(STDOUT_FILENO);
-      if(ret == -1){
+      sret = close(STDOUT_FILENO);
+      if(sret == -1){
 	int e = errno;
-	perror("close");
+	error(0, errno, "close");
 	switch(e){
 	case EBADF:
 	  status = EX_OSFILE;
@@ -336,10 +338,10 @@ int main(int argc, char **argv){
       }
       break;
     }
-    if(ret < 0){
+    if(sret < 0){
       int e = errno;
       if(errno != EINTR and not feof(stdin)){
-	perror("getline");
+	error(0, errno, "getline");
 	switch(e){
 	case EBADF:
 	  status = EX_UNAVAILABLE;
@@ -352,7 +354,7 @@ int main(int argc, char **argv){
 	break;
       }
     }
-    /* if(ret == 0), then the only sensible thing to do is to retry to
+    /* if(sret == 0), then the only sensible thing to do is to retry to
        read from stdin */
     fputc('\n', stderr);
     if(debug and not quit_now){
@@ -368,7 +370,7 @@ int main(int argc, char **argv){
     fprintf(stderr, "Restoring terminal attributes\n");
   }
   if(tcsetattr(STDIN_FILENO, TCSAFLUSH, &t_old) != 0){
-    perror("tcsetattr+echo");
+    error(0, errno, "tcsetattr+echo");
   }
   
   if(quit_now){
@@ -376,7 +378,7 @@ int main(int argc, char **argv){
     old_action.sa_handler = SIG_DFL;
     ret = sigaction(signal_received, &old_action, NULL);
     if(ret == -1){
-      perror("sigaction");
+      error(0, errno, "sigaction");
     }
     raise(signal_received);
   }
