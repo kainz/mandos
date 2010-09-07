@@ -194,7 +194,7 @@ class AvahiService(object):
         self.group.Commit()
     def entry_group_state_changed(self, state, error):
         """Derived from the Avahi example code"""
-        logger.debug(u"Avahi state change: %i", state)
+        logger.debug(u"Avahi entry group state change: %i", state)
         
         if state == avahi.ENTRY_GROUP_ESTABLISHED:
             logger.debug(u"Zeroconf service established.")
@@ -213,6 +213,7 @@ class AvahiService(object):
             self.group = None
     def server_state_changed(self, state):
         """Derived from the Avahi example code"""
+        logger.debug(u"Avahi server state change: %i", state)
         if state == avahi.SERVER_COLLISION:
             logger.error(u"Zeroconf server name collision")
             self.remove()
