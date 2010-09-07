@@ -157,9 +157,9 @@ class AvahiService(object):
                             u" after %i retries, exiting.",
                             self.rename_count)
             raise AvahiServiceError(u"Too many renames")
-        self.name = self.server.GetAlternativeServiceName(self.name)
+        self.name = unicode(self.server.GetAlternativeServiceName(self.name))
         logger.info(u"Changing Zeroconf service name to %r ...",
-                    unicode(self.name))
+                    self.name)
         syslogger.setFormatter(logging.Formatter
                                (u'Mandos (%s) [%%(process)d]:'
                                 u' %%(levelname)s: %%(message)s'
@@ -304,7 +304,6 @@ class Client(object):
                       "rb") as secfile:
                 self.secret = secfile.read()
         else:
-            #XXX Need to allow secret on demand!
             raise TypeError(u"No secret or secfile for client %s"
                             % self.name)
         self.host = config.get(u"host", u"")
@@ -712,8 +711,6 @@ class ClientDBus(Client, DBusObjectWithProperties):
         DBusObjectWithProperties.__init__(self, self.bus,
                                           self.dbus_object_path)
 
-    #Could possible return a bool(self._approvals_pending),
-    #but this could mess up approvals_pending += 1 XXX 
     def _get_approvals_pending(self):
         return self._approvals_pending
     def _set_approvals_pending(self, value):
@@ -859,10 +856,12 @@ class ClientDBus(Client, DBusObjectWithProperties):
         pass
     
     # GotSecret - signal
-    # XXXTEDDY Is sent after succesfull transfer of secret from mandos-server to mandos-client
     @dbus.service.signal(_interface)
     def GotSecret(self):
-        "D-Bus signal"
+        """D-Bus signal
+        Is sent after a successful transfer of secret from the Mandos
+        server to mandos-client
+        """
         pass
     
     # Rejected - signal
@@ -1231,8 +1230,11 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
                 
                 sent_size = 0
                 while sent_size < len(client.secret):
-                    # XXX handle session exception
-                    sent = session.send(client.secret[sent_size:])
+                    try:
+                        sent = session.send(client.secret[sent_size:])
+                    except (gnutls.errors.GNUTLSError), error:
+                        logger.warning("gnutls send failed")
+                        return
                     logger.debug(u"Sent: %d, remaining: %d",
                                  sent, len(client.secret)
                                  - (sent_size + sent))
@@ -1248,7 +1250,10 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
             finally:
                 if approval_required:
                     client.approvals_pending -= 1
-                session.bye()
+                try:
+                    session.bye()
+                except (gnutls.errors.GNUTLSError), error:
+                    logger.warning("gnutls bye failed")
     
     @staticmethod
     def peer_certificate(session):
@@ -1463,8 +1468,8 @@ class MandosServer(IPv6_TCPServer):
         logger.debug(u"Handling IPC: FD = %d, condition = %s", source,
                      conditions_string)
 
-        # XXXTEDDY error or the other end of multiprocessing.Pipe has closed
-        if condition & gobject.IO_HUP or condition & gobject.IO_ERR:
+        # error or the other end of multiprocessing.Pipe has closed
+        if condition & (gobject.IO_ERR | condition & gobject.IO_HUP):
             return False
         
         # Read a request from the child
@@ -1624,6 +1629,8 @@ def main():
     parser.add_option("--debug", action=u"store_true",
                       help=u"Debug mode; run in foreground and log to"
                       u" terminal")
+    parser.add_option("--debuglevel", type=u"string", metavar="Level",
+                      help=u"Debug level for stdout output")
     parser.add_option("--priority", type=u"string", help=u"GnuTLS"
                       u" priority string (see GnuTLS documentation)")
     parser.add_option("--servicename", type=u"string",
@@ -1654,6 +1661,7 @@ def main():
                         u"servicename": u"Mandos",
                         u"use_dbus": u"True",
                         u"use_ipv6": u"True",
+                        u"debuglevel": u"",
                         }
     
     # Parse config file for server-global settings
@@ -1676,7 +1684,7 @@ def main():
     # options, if set.
     for option in (u"interface", u"address", u"port", u"debug",
                    u"priority", u"servicename", u"configdir",
-                   u"use_dbus", u"use_ipv6"):
+                   u"use_dbus", u"use_ipv6", u"debuglevel"):
         value = getattr(options, option)
         if value is not None:
             server_settings[option] = value
@@ -1691,13 +1699,10 @@ def main():
     
     # For convenience
     debug = server_settings[u"debug"]
+    debuglevel = server_settings[u"debuglevel"]
     use_dbus = server_settings[u"use_dbus"]
     use_ipv6 = server_settings[u"use_ipv6"]
-    
-    if not debug:
-        syslogger.setLevel(logging.WARNING)
-        console.setLevel(logging.WARNING)
-    
+
     if server_settings[u"servicename"] != u"Mandos":
         syslogger.setFormatter(logging.Formatter
                                (u'Mandos (%s) [%%(process)d]:'
@@ -1755,6 +1760,16 @@ def main():
             raise error
     
     # Enable all possible GnuTLS debugging
+
+
+    if not debug and not debuglevel:
+        syslogger.setLevel(logging.WARNING)
+        console.setLevel(logging.WARNING)
+    if debuglevel:
+        level = getattr(logging, debuglevel.upper())
+        syslogger.setLevel(level)
+        console.setLevel(level)
+
     if debug:
         # "Use a log level over 10 to enable all debugging options."
         # - GnuTLS manual
@@ -1766,6 +1781,16 @@ def main():
         
         (gnutls.library.functions
          .gnutls_global_set_log_function(debug_gnutls))
+
+        # Redirect stdin so all checkers get /dev/null
+        null = os.open(os.path.devnull, os.O_NOCTTY | os.O_RDWR)
+        os.dup2(null, sys.stdin.fileno())
+        if null > 2:
+            os.close(null)
+    else:
+        # No console logging
+        logger.removeHandler(console)
+
     
     global main_loop
     # From the Avahi example code
@@ -1790,6 +1815,10 @@ def main():
         service.interface = (if_nametoindex
                              (str(server_settings[u"interface"])))
 
+    if not debug:
+        # Close all input and output, do double fork, etc.
+        daemon()
+        
     global multiprocessing_manager
     multiprocessing_manager = multiprocessing.Manager()
     
@@ -1815,19 +1844,7 @@ def main():
             for section in client_config.sections()))
     if not tcp_server.clients:
         logger.warning(u"No clients defined")
-    
-    if debug:
-        # Redirect stdin so all checkers get /dev/null
-        null = os.open(os.path.devnull, os.O_NOCTTY | os.O_RDWR)
-        os.dup2(null, sys.stdin.fileno())
-        if null > 2:
-            os.close(null)
-    else:
-        # No console logging
-        logger.removeHandler(console)
-        # Close all input and output, do double fork, etc.
-        daemon()
-    
+        
     try:
         with pidfile:
             pid = os.getpid()

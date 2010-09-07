@@ -560,14 +560,14 @@ class UserInterface(object):
                 self.log_message_raw((u"bold",
                                       u"  "
                                       .join((u"Clients:",
-                                             u"e: Enable",
-                                             u"d: Disable",
+                                             u"+: Enable",
+                                             u"-: Disable",
                                              u"r: Remove",
                                              u"s: Start new checker",
                                              u"S: Stop checker",
                                              u"C: Checker OK",
-                                             u"A: Approve",
-                                             u"D: Deny"))))
+                                             u"a: Approve",
+                                             u"d: Deny"))))
                 self.refresh()
             elif key == u"tab":
                 if self.topwidget.get_focus() is self.logbox:
