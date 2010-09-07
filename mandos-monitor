@@ -246,9 +246,8 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
                      or self.properties["created"]),
                     self.properties[u"last_enabled"]))
             timer = timeout - (datetime.datetime.utcnow() - last_ok)
-
             message = (u'A checker has failed! Time until client gets diabled: %s'
-                           % unicode(timer))
+                           % unicode(timer).rsplit(".", 1)[0])
         elif self.properties[u"approved_pending"]:
             if self.properties[u"approved_by_default"]:
                 message = u"Connection established to client. (d)eny?"
