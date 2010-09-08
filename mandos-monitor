@@ -189,6 +189,7 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
         pass
     
     def got_secret(self):
+        self.last_checker_failed = False
         self.logger(u'Client %s received its secret'
                     % self.properties[u"name"])
     
@@ -238,6 +239,11 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
                       % {u"name": self.properties[u"name"]})
         if not self.properties[u"enabled"]:
             message = u"DISABLED"
+        elif self.properties[u"approved_pending"]:
+            if self.properties[u"approved_by_default"]:
+                message = u"Connection established to client. (d)eny?"
+            else:
+                message = u"Seeks approval to send secret. (a)pprove?"
         elif self.last_checker_failed:
             timeout = datetime.timedelta(milliseconds
                                          = self.properties[u"timeout"])
@@ -248,11 +254,6 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
             timer = timeout - (datetime.datetime.utcnow() - last_ok)
             message = (u'A checker has failed! Time until client gets diabled: %s'
                            % unicode(timer).rsplit(".", 1)[0])
-        elif self.properties[u"approved_pending"]:
-            if self.properties[u"approved_by_default"]:
-                message = u"Connection established to client. (d)eny?"
-            else:
-                message = u"Seeks approval to send secret. (a)pprove?"
         else:
             message = u"enabled"
         self._text = "%s%s" % (base, message)
@@ -662,6 +663,8 @@ class UserInterface(object):
 ui = UserInterface()
 try:
     ui.run()
+except KeyboardInterrupt:
+    ui.screen.stop()
 except Exception, e:
     ui.log_message(unicode(e))
     ui.screen.stop()

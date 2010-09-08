@@ -31,8 +31,12 @@ server_path = '/'
 server_interface = domain + '.Mandos'
 client_interface = domain + '.Mandos.Client'
 version = "1.0.14"
-bus = dbus.SystemBus()
-mandos_dbus_objc = bus.get_object(busname, server_path)
+try:
+    bus = dbus.SystemBus()
+    mandos_dbus_objc = bus.get_object(busname, server_path)
+except dbus.exceptions.DBusException:
+    sys.exit(1)
+    
 mandos_serv = dbus.Interface(mandos_dbus_objc,
                              dbus_interface = server_interface)
 mandos_clients = mandos_serv.GetAllClientsWithProperties()
@@ -141,6 +145,10 @@ parser.add_option("-H", "--host", type="string",
                   help="Set host for client")
 parser.add_option("-s", "--secret", type="string",
                   help="Set password blob (file) for client")
+parser.add_option("-A", "--approve", action="store_true",
+                  help="Approve any current client request")
+parser.add_option("-D", "--deny", action="store_true",
+                  help="Deny any current client request")
 options, client_names = parser.parse_args()
 
 # Compile list of clients to process
@@ -202,3 +210,7 @@ for client in clients:
         client.Set(client_interface, u"secret",
                    dbus.ByteArray(open(options.secret, u'rb').read()),
                    dbus_interface=dbus.PROPERTIES_IFACE)
+    if options.approve:
+        client.Approve(dbus.Boolean(True), dbus_interface=client_interface)
+    if options.deny:
+        client.Approve(dbus.Boolean(False), dbus_interface=client_interface)
