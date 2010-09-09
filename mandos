@@ -165,7 +165,12 @@ class AvahiService(object):
                                 u' %%(levelname)s: %%(message)s'
                                 % self.name))
         self.remove()
-        self.add()
+        try:
+            self.add()
+        except dbus.exceptions.DBusException, error:
+            logger.critical(u"DBusException: %s", error)
+            self.cleanup()
+            os._exit(1)
         self.rename_count += 1
     def remove(self):
         """Derived from the Avahi example code"""
