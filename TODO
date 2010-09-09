@@ -86,7 +86,7 @@
    http://0pointer.de/blog/projects/systemd.html
 ** TODO Separate logging logic to own object
 ** TODO make clients to a dict!
-** TODO PropertyChanged should be a python generic property for client variables
+** TODO [#A] Limit approved_delay to max gnutls/tls timeout value
 
 * mandos.xml
 ** [[file:mandos.xml::XXX][Document D-Bus interface]]
