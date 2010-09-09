@@ -127,6 +127,8 @@ bool debug = false;
 static const char mandos_protocol_version[] = "1";
 const char *argp_program_version = "mandos-client " VERSION;
 const char *argp_program_bug_address = "<mandos@fukt.bsnet.se>";
+static const char sys_class_net[] = "/sys/class/net";
+char *connect_to = NULL;
 
 /* Used for passing in values through the Avahi callback functions */
 typedef struct {
@@ -1020,6 +1022,101 @@ static void handle_sigterm(int sig){
   errno = old_errno;
 }
 
+/* 
+ * This function determines if a directory entry in /sys/class/net
+ * corresponds to an acceptable network device.
+ * (This function is passed to scandir(3) as a filter function.)
+ */
+int good_interface(const struct dirent *if_entry){
+  ssize_t ssret;
+  char *flagname = NULL;
+  int ret = asprintf(&flagname, "%s/%s/flags", sys_class_net,
+		     if_entry->d_name);
+  if(ret < 0){
+    perror("asprintf");
+    return 0;
+  }
+  if(if_entry->d_name[0] == '.'){
+    return 0;
+  }
+  int flags_fd = (int)TEMP_FAILURE_RETRY(open(flagname, O_RDONLY));
+  if(flags_fd == -1){
+    perror("open");
+    return 0;
+  }
+  typedef short ifreq_flags;	/* ifreq.ifr_flags in netdevice(7) */
+  /* read line from flags_fd */
+  ssize_t to_read = (sizeof(ifreq_flags)*2)+3; /* "0x1003\n" */
+  char *flagstring = malloc((size_t)to_read+1); /* +1 for final \0 */
+  flagstring[(size_t)to_read] = '\0';
+  if(flagstring == NULL){
+    perror("malloc");
+    close(flags_fd);
+    return 0;
+  }
+  while(to_read > 0){
+    ssret = (ssize_t)TEMP_FAILURE_RETRY(read(flags_fd, flagstring,
+					     (size_t)to_read));
+    if(ssret == -1){
+      perror("read");
+      free(flagstring);
+      close(flags_fd);
+      return 0;
+    }
+    to_read -= ssret;
+    if(ssret == 0){
+      break;
+    }
+  }
+  close(flags_fd);
+  intmax_t tmpmax;
+  char *tmp;
+  errno = 0;
+  tmpmax = strtoimax(flagstring, &tmp, 0);
+  if(errno != 0 or tmp == flagstring or (*tmp != '\0'
+					 and not (isspace(*tmp)))
+     or tmpmax != (ifreq_flags)tmpmax){
+    if(debug){
+      fprintf(stderr, "Invalid flags \"%s\" for interface \"%s\"\n",
+	      flagstring, if_entry->d_name);
+    }
+    free(flagstring);
+    return 0;
+  }
+  free(flagstring);
+  ifreq_flags flags = (ifreq_flags)tmpmax;
+  /* Reject the loopback device */
+  if(flags & IFF_LOOPBACK){
+    if(debug){
+      fprintf(stderr, "Rejecting loopback interface \"%s\"\n",
+	      if_entry->d_name);
+    }
+    return 0;
+  }
+  /* Accept point-to-point devices only if connect_to is specified */
+  if(connect_to != NULL and (flags & IFF_POINTOPOINT)){
+    if(debug){
+      fprintf(stderr, "Accepting point-to-point interface \"%s\"\n",
+	      if_entry->d_name);
+    }
+    return 1;
+  }
+  /* Otherwise, reject non-broadcast-capable devices */
+  if(not (flags & IFF_BROADCAST)){
+    if(debug){
+      fprintf(stderr, "Rejecting non-broadcast interface \"%s\"\n",
+	      if_entry->d_name);
+    }
+    return 0;
+  }
+  /* Accept this device */
+  if(debug){
+    fprintf(stderr, "Interface \"%s\" is acceptable\n",
+	    if_entry->d_name);
+  }
+  return 1;
+}
+
 int main(int argc, char *argv[]){
   AvahiSServiceBrowser *sb = NULL;
   int error;
@@ -1027,13 +1124,12 @@ int main(int argc, char *argv[]){
   intmax_t tmpmax;
   char *tmp;
   int exitcode = EXIT_SUCCESS;
-  const char *interface = "eth0";
+  const char *interface = "";
   struct ifreq network;
   int sd = -1;
   bool take_down_interface = false;
   uid_t uid;
   gid_t gid;
-  char *connect_to = NULL;
   char tempdir[] = "/tmp/mandosXXXXXX";
   bool tempdir_created = false;
   AvahiIfIndex if_index = AVAHI_IF_UNSPEC;
@@ -1196,6 +1292,31 @@ int main(int argc, char *argv[]){
   if(not debug){
     avahi_set_log_function(empty_log);
   }
+
+  if(interface[0] == '\0'){
+    struct dirent **direntries;
+    ret = scandir(sys_class_net, &direntries, good_interface,
+		  alphasort);
+    if(ret >= 1){
+      /* Pick the first good interface */
+      interface = strdup(direntries[0]->d_name);
+      if(debug){
+	fprintf(stderr, "Using interface \"%s\"\n", interface);
+      }
+      if(interface == NULL){
+	perror("malloc");
+	free(direntries);
+	exitcode = EXIT_FAILURE;
+	goto end;
+      }
+      free(direntries);
+    } else {
+      free(direntries);
+      fprintf(stderr, "Could not find a network interface\n");
+      exitcode = EXIT_FAILURE;
+      goto end;
+    }
+  }
   
   /* Initialize Avahi early so avahi_simple_poll_quit() can be called
      from the signal handler */
@@ -1272,7 +1393,7 @@ int main(int argc, char *argv[]){
   }
   
   /* If the interface is down, bring it up */
-  if(interface[0] != '\0'){
+  if(strcmp(interface, "none") != 0){
     if_index = (AvahiIfIndex) if_nametoindex(interface);
     if(if_index == 0){
       fprintf(stderr, "No such interface: \"%s\"\n", interface);
@@ -1349,7 +1470,7 @@ int main(int argc, char *argv[]){
       ret = ioctl(sd, SIOCSIFFLAGS, &network);
       if(ret == -1){
 	take_down_interface = false;
-	perror("ioctl SIOCSIFFLAGS");
+	perror("ioctl SIOCSIFFLAGS +IFF_UP");
 	exitcode = EX_OSERR;
 #ifdef __linux__
 	if(restore_loglevel){
@@ -1624,7 +1745,7 @@ int main(int argc, char *argv[]){
 	network.ifr_flags &= ~(short)IFF_UP; /* clear flag */
 	ret = ioctl(sd, SIOCSIFFLAGS, &network);
 	if(ret == -1){
-	  perror("ioctl SIOCSIFFLAGS");
+	  perror("ioctl SIOCSIFFLAGS -IFF_UP");
 	}
       }
       ret = (int)TEMP_FAILURE_RETRY(close(sd));
