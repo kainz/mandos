@@ -1565,7 +1565,8 @@ def main():
     tcp_server = MandosServer((server_settings[u"address"],
                                server_settings[u"port"]),
                               ClientHandler,
-                              interface=server_settings[u"interface"],
+                              interface=(server_settings[u"interface"]
+                                         or None),
                               use_ipv6=use_ipv6,
                               gnutls_priority=
                               server_settings[u"priority"],

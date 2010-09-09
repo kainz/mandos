@@ -202,8 +202,9 @@
 	<listitem>
 	  <para>
 	    Network interface that will be brought up and scanned for
-	    Mandos servers to connect to.  The default is
-	    <quote><literal>eth0</literal></quote>.
+	    Mandos servers to connect to.  The default is the empty
+	    string, which will automatically choose an appropriate
+	    interface.
 	  </para>
 	  <para>
 	    If the <option>--connect</option> option is used, this
@@ -220,10 +221,11 @@
 	    by this program.
 	  </para>
 	  <para>
-	    <replaceable>NAME</replaceable> can be the empty string;
-	    this will not use any specific interface, and will not
-	    bring up an interface on startup.  This is not
-	    recommended, and only meant for advanced users.
+	    <replaceable>NAME</replaceable> can be the string
+	    <quote><literal>none</literal></quote>; this will not use
+	    any specific interface, and will not bring up an interface
+	    on startup.  This is not recommended, and only meant for
+	    advanced users.
 	  </para>
 	</listitem>
       </varlistentry>
