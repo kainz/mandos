@@ -1001,12 +1001,12 @@ int main(int argc, char *argv[]){
       }
       if(p->environ[0] == NULL){
 	if(execv(filename, p->argv) < 0){
-	  error(0, errno, "execv");
+	  error(0, errno, "execv for %s", filename);
 	  _exit(EX_OSERR);
 	}
       } else {
 	if(execve(filename, p->argv, p->environ) < 0){
-	  error(0, errno, "execve");
+	  error(0, errno, "execve for %s", filename);
 	  _exit(EX_OSERR);
 	}
       }
