@@ -209,6 +209,17 @@ check:	all
 
 # Run the client with a local config and key
 run-client: all keydir/seckey.txt keydir/pubkey.txt
+	@echo "###################################################################"
+	@echo "# The following error messages are harmless and can be safely     #"
+	@echo "# ignored.  The messages are caused by not running as root, but   #"
+	@echo "# you should NOT run \"make run-client\" as root unless you also    #"
+	@echo "# unpacked and compiled Mandos as root, which is NOT recommended. #"
+	@echo "# From plugin-runner: setuid: Operation not permitted             #"
+	@echo "# From askpass-fifo:  mkfifo: Permission denied                   #"
+	@echo "# From mandos-client: setuid: Operation not permitted             #"
+	@echo "#                     seteuid: Operation not permitted            #"
+	@echo "#                     klogctl: Operation not permitted            #"
+	@echo "###################################################################"
 	./plugin-runner --plugin-dir=plugins.d \
 		--config-file=plugin-runner.conf \
 		--options-for=mandos-client:--seckey=keydir/seckey.txt,--pubkey=keydir/pubkey.txt \
@@ -221,6 +232,13 @@ keydir/seckey.txt keydir/pubkey.txt: mandos-keygen
 
 # Run the server with a local config
 run-server: confdir/mandos.conf confdir/clients.conf
+	@echo "#################################################################"
+	@echo "# NOTE: Please IGNORE errors about \"No permission to bind to    #"
+	@echo "# interface\" or \"Could not open file u'/var/run/mandos.pid'\" -  #"
+	@echo "# they are harmless and are caused by the server not running as #"
+	@echo "# root.  Do NOT run \"make run-server\" server as root if you did #"
+	@echo "# not also unpack and compile it as root.                       #"
+	@echo "#################################################################"
 	./mandos --debug --no-dbus --configdir=confdir $(SERVERARGS)
 
 # Used by run-server
