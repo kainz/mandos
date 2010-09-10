@@ -265,6 +265,8 @@ install-server: doc
 		mandos.conf
 	install --mode=u=rw --target-directory=$(CONFDIR) \
 		clients.conf
+	install --mode=u=rw,go=r dbus-mandos.conf \
+		$(DESTDIR)/etc/dbus-1/system.d/mandos.conf
 	install --mode=u=rwx,go=rx init.d-mandos \
 		$(DESTDIR)/etc/init.d/mandos
 	install --mode=u=rw,go=r default-mandos \
@@ -374,6 +376,7 @@ purge: purge-server purge-client
 
 purge-server: uninstall-server
 	-rm --force $(CONFDIR)/mandos.conf $(CONFDIR)/clients.conf \
+		$(DESTDIR)/etc/dbus-1/system.d/mandos.conf
 		$(DESTDIR)/etc/default/mandos \
 		$(DESTDIR)/etc/init.d/mandos \
 		$(DESTDIR)/var/run/mandos.pid
