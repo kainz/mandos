@@ -31,7 +31,7 @@
 				   ENOENT, EEXIST, EFAULT, EMFILE,
 				   ENFILE, ENOMEM, EBADF, EINVAL, EIO,
 				   EISDIR, EFBIG */
-#include <stdio.h>		/* perror() */
+#include <error.h>		/* error() */
 #include <stdlib.h>		/* EXIT_FAILURE, NULL, size_t, free(),
 				   realloc(), EXIT_SUCCESS */
 #include <fcntl.h>		/* open(), O_RDONLY */
@@ -51,7 +51,7 @@ int main(__attribute__((unused))int argc,
   ret = mkfifo(passfifo, S_IRUSR | S_IWUSR);
   if(ret == -1){
     int e = errno;
-    perror("mkfifo");
+    error(0, errno, "mkfifo");
     switch(e){
     case EACCES:
     case ENOTDIR:
@@ -73,7 +73,7 @@ int main(__attribute__((unused))int argc,
   int fifo_fd = open(passfifo, O_RDONLY);
   if(fifo_fd == -1){
     int e = errno;
-    perror("open");
+    error(0, errno, "open");
     switch(e){
     case EACCES:
     case ENOENT:
@@ -101,7 +101,7 @@ int main(__attribute__((unused))int argc,
       if(buf_len + blocksize > buf_allocated){
 	char *tmp = realloc(buf, buf_allocated + blocksize);
 	if(tmp == NULL){
-	  perror("realloc");
+	  error(0, errno, "realloc");
 	  free(buf);
 	  return EX_OSERR;
 	}
@@ -113,7 +113,7 @@ int main(__attribute__((unused))int argc,
 	int e = errno;
 	free(buf);
 	errno = e;
-	perror("read");
+	error(0, errno, "read");
 	switch(e){
 	case EBADF:
 	case EFAULT:
@@ -141,7 +141,7 @@ int main(__attribute__((unused))int argc,
       int e = errno;
       free(buf);
       errno = e;
-      perror("write");
+      error(0, errno, "write");
       switch(e){
       case EBADF:
       case EFAULT:
@@ -161,7 +161,7 @@ int main(__attribute__((unused))int argc,
   ret = close(STDOUT_FILENO);
   if(ret == -1){
     int e = errno;
-    perror("close");
+    error(0, errno, "close");
     switch(e){
     case EBADF:
       return EX_OSFILE;

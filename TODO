@@ -2,10 +2,12 @@
 
 * Use _attribute_((nonnull)) wherever possible.
 
+* Release critical
+** TODO Change make-run-server to not include --no-dbus
+
 * mandos-client
 ** TODO [#B] use scandir(3) instead of readdir(3)
 ** TODO [#B] Prefix all debug output with "Mandos plugin " + program_invocation_short_name
-** TODO use error() instead of perror()
 ** TODO [#B] Retry a server which has a non-definite reply:
 *** A closed connection during the TLS handshake
 *** A TCP timeout
@@ -15,23 +17,23 @@
 * splashy
 ** TODO [#B] use scandir(3) instead of readdir(3)
 ** TODO [#B] Prefix all debug output with "Mandos plugin " + program_invocation_short_name
-** TODO [#B] use error() instead of perror()
 
 * usplash
 ** TODO [#A] Make it work again
 ** TODO [#B] use scandir(3) instead of readdir(3)
 ** TODO [#B] Prefix all debug output with "Mandos plugin " + program_invocation_short_name
-** TODO [#B] use error() instead of perror()
+** TODO Use [[info:libc:Argz%20Functions][argz_extract]]
 
 * askpass-fifo
 ** TODO [#B] Prefix all debug output with "Mandos plugin " + program_invocation_short_name
-** TODO [#B] use error() instead of perror()
 ** TODO [#B] Drop privileges after opening FIFO.
 
 * password-prompt
 ** TODO [#B] Prefix all debug output with "Mandos plugin " + program_invocation_short_name
-** TODO [#B] use error() instead of perror()
 ** TODO [#B] lock stdin (with flock()?)
+
+* plymouth
+** TODO Use [[info:libc:Argz%20Functions][argz_extract]]
 
 * TODO [#B] passdev
 
@@ -39,7 +41,6 @@
 ** TODO [#B] use scandir(3) instead of readdir(3)
 ** TODO [#C] use same file name rules as run-parts(8)
 ** kernel command line option for debug info
-** TODO [#B] use error() instead of perror()
 ** TODO [#B] Use openat()
 
 * mandos (server)
@@ -82,6 +83,9 @@
 ** TODO [#C] python-parsedatetime
 ** TODO [#C] systemd/launchd
    http://0pointer.de/blog/projects/systemd.html
+** TODO Separate logging logic to own object
+** TODO make clients to a dict!
+** TODO [#A] Limit approved_delay to max gnutls/tls timeout value
 
 * mandos.xml
 ** [[file:mandos.xml::XXX][Document D-Bus interface]]
@@ -100,9 +104,12 @@
   arguments.
 
 * mandos-monitor
+** TODO help should be toggable
 ** Urwid client data displayer
    Better view of client data in the listing
 *** Properties popup
+** Nicer crashes. Stack traces Messes up shell.
+*** Print a nice "We are sorry" message, save stack trace to log.
 
 * mandos-keygen
 ** TODO Loop until passwords match when run interactively
@@ -124,6 +131,10 @@
     Use "/etc/initramfs-tools/hooksconf.d/mandos"?
 ** TODO [#C] /etc/bash_completion.d/mandos
    From XML sources directly?
+
+* Side Stuff
+** TODO Locate which packet move the other bin/sh when busy box is deactivated
+** TODO contact owner of packet, and ask them to have that shell static in position regardless of busybox
 
 
 #+STARTUP: showall

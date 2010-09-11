@@ -31,19 +31,20 @@
 #include <fcntl.h>		/* open(), O_WRONLY, O_RDONLY */
 #include <iso646.h>		/* and, or, not*/
 #include <errno.h>		/* errno, EINTR */
+#include <error.h>
 #include <sys/types.h>		/* size_t, ssize_t, pid_t, DIR, struct
 				   dirent */
 #include <stddef.h>		/* NULL */
 #include <string.h>		/* strlen(), memcmp() */
-#include <stdio.h>		/* asprintf(), perror() */
+#include <stdio.h>		/* asprintf()*/
 #include <unistd.h>		/* close(), write(), readlink(),
 				   read(), STDOUT_FILENO, sleep(),
 				   fork(), setuid(), geteuid(),
 				   setsid(), chdir(), dup2(),
 				   STDERR_FILENO, execv() */
 #include <stdlib.h>		/* free(), EXIT_FAILURE, realloc(),
-				   EXIT_SUCCESS, malloc(), _exit() */
-#include <stdlib.h>		/* getenv() */
+				   EXIT_SUCCESS, malloc(), _exit(),
+				   getenv() */
 #include <dirent.h>		/* opendir(), readdir(), closedir() */
 #include <inttypes.h>		/* intmax_t, strtoimax() */
 #include <sys/stat.h>		/* struct stat, lstat(), S_ISLNK */
@@ -153,7 +154,7 @@ pid_t find_usplash(char **cmdline_r, size_t *cmdline_len_r){
   size_t cmdline_len = 0;
   DIR *proc_dir = opendir("/proc");
   if(proc_dir == NULL){
-    perror("opendir");
+    error(0, errno, "opendir");
     return -1;
   }
   errno = 0;
@@ -181,7 +182,7 @@ pid_t find_usplash(char **cmdline_r, size_t *cmdline_len_r){
       char *exe_link;
       ret = asprintf(&exe_link, "/proc/%s/exe", proc_ent->d_name);
       if(ret == -1){
-	perror("asprintf");
+	error(0, errno, "asprintf");
 	goto fail_find_usplash;
       }
       
@@ -193,7 +194,7 @@ pid_t find_usplash(char **cmdline_r, size_t *cmdline_len_r){
 	  free(exe_link);
 	  continue;
 	}
-	perror("lstat");
+	error(0, errno, "lstat");
 	free(exe_link);
 	goto fail_find_usplash;
       }
@@ -224,13 +225,13 @@ pid_t find_usplash(char **cmdline_r, size_t *cmdline_len_r){
 	ret = asprintf(&cmdline_filename, "/proc/%s/cmdline",
 		       proc_ent->d_name);
 	if(ret == -1){
-	  perror("asprintf");
+	  error(0, errno, "asprintf");
 	  goto fail_find_usplash;
 	}
 	cl_fd = open(cmdline_filename, O_RDONLY);
 	free(cmdline_filename);
 	if(cl_fd == -1){
-	  perror("open");
+	  error(0, errno, "open");
 	  goto fail_find_usplash;
 	}
       }
@@ -242,7 +243,7 @@ pid_t find_usplash(char **cmdline_r, size_t *cmdline_len_r){
 	if(cmdline_len + blocksize > cmdline_allocated){
 	  tmp = realloc(cmdline, cmdline_allocated + blocksize);
 	  if(tmp == NULL){
-	    perror("realloc");
+	    error(0, errno, "realloc");
 	    close(cl_fd);
 	    goto fail_find_usplash;
 	  }
@@ -253,7 +254,7 @@ pid_t find_usplash(char **cmdline_r, size_t *cmdline_len_r){
 	sret = read(cl_fd, cmdline + cmdline_len,
 		    cmdline_allocated - cmdline_len);
 	if(sret == -1){
-	  perror("read");
+	  error(0, errno, "read");
 	  close(cl_fd);
 	  goto fail_find_usplash;
 	}
@@ -261,14 +262,14 @@ pid_t find_usplash(char **cmdline_r, size_t *cmdline_len_r){
       } while(sret != 0);
       ret = close(cl_fd);
       if(ret == -1){
-	perror("close");
+	error(0, errno, "close");
 	goto fail_find_usplash;
       }
     }
     /* Close directory */
     ret = closedir(proc_dir);
     if(ret == -1){
-      perror("closedir");
+      error(0, errno, "closedir");
       goto fail_find_usplash;
     }
     /* Success */
@@ -323,26 +324,26 @@ int main(__attribute__((unused))int argc,
     sigemptyset(&new_action.sa_mask);
     ret = sigaddset(&new_action.sa_mask, SIGINT);
     if(ret == -1){
-      perror("sigaddset");
+      error(0, errno, "sigaddset");
       status = EX_OSERR;
       goto failure;
     }
     ret = sigaddset(&new_action.sa_mask, SIGHUP);
     if(ret == -1){
-      perror("sigaddset");
+      error(0, errno, "sigaddset");
       status = EX_OSERR;
       goto failure;
     }
     ret = sigaddset(&new_action.sa_mask, SIGTERM);
     if(ret == -1){
-      perror("sigaddset");
+      error(0, errno, "sigaddset");
       status = EX_OSERR;
       goto failure;
     }
     ret = sigaction(SIGINT, NULL, &old_action);
     if(ret == -1){
       if(errno != EINTR){
-	perror("sigaction");
+	error(0, errno, "sigaction");
 	status = EX_OSERR;
       }
       goto failure;
@@ -351,7 +352,7 @@ int main(__attribute__((unused))int argc,
       ret = sigaction(SIGINT, &new_action, NULL);
       if(ret == -1){
 	if(errno != EINTR){
-	  perror("sigaction");
+	  error(0, errno, "sigaction");
 	  status = EX_OSERR;
 	}
 	goto failure;
@@ -360,7 +361,7 @@ int main(__attribute__((unused))int argc,
     ret = sigaction(SIGHUP, NULL, &old_action);
     if(ret == -1){
       if(errno != EINTR){
-	perror("sigaction");
+	error(0, errno, "sigaction");
 	status = EX_OSERR;
       }
       goto failure;
@@ -369,7 +370,7 @@ int main(__attribute__((unused))int argc,
       ret = sigaction(SIGHUP, &new_action, NULL);
       if(ret == -1){
 	if(errno != EINTR){
-	  perror("sigaction");
+	  error(0, errno, "sigaction");
 	  status = EX_OSERR;
 	}
 	goto failure;
@@ -378,7 +379,7 @@ int main(__attribute__((unused))int argc,
     ret = sigaction(SIGTERM, NULL, &old_action);
     if(ret == -1){
       if(errno != EINTR){
-	perror("sigaction");
+	error(0, errno, "sigaction");
 	status = EX_OSERR;
       }
       goto failure;
@@ -387,7 +388,7 @@ int main(__attribute__((unused))int argc,
       ret = sigaction(SIGTERM, &new_action, NULL);
       if(ret == -1){
 	if(errno != EINTR){
-	  perror("sigaction");
+	  error(0, errno, "sigaction");
 	  status = EX_OSERR;
 	}
 	goto failure;
@@ -399,7 +400,7 @@ int main(__attribute__((unused))int argc,
   /* Write command to FIFO */
   if(not usplash_write(&fifo_fd, "TIMEOUT", "0")){
     if(errno != EINTR){
-      perror("usplash_write");
+      error(0, errno, "usplash_write");
       status = EX_OSERR;
     }
     goto failure;
@@ -411,7 +412,7 @@ int main(__attribute__((unused))int argc,
   
   if(not usplash_write(&fifo_fd, "INPUTQUIET", prompt)){
     if(errno != EINTR){
-      perror("usplash_write");
+      error(0, errno, "usplash_write");
       status = EX_OSERR;
     }
     goto failure;
@@ -429,7 +430,7 @@ int main(__attribute__((unused))int argc,
   outfifo_fd = open("/dev/.initramfs/usplash_outfifo", O_RDONLY);
   if(outfifo_fd == -1){
     if(errno != EINTR){
-      perror("open");
+      error(0, errno, "open");
       status = EX_OSERR;
     }
     goto failure;
@@ -448,7 +449,7 @@ int main(__attribute__((unused))int argc,
       char *tmp = realloc(buf, buf_allocated + blocksize);
       if(tmp == NULL){
 	if(errno != EINTR){
-	  perror("realloc");
+	  error(0, errno, "realloc");
 	  status = EX_OSERR;
 	}
 	goto failure;
@@ -460,7 +461,7 @@ int main(__attribute__((unused))int argc,
 		buf_allocated - buf_len);
     if(sret == -1){
       if(errno != EINTR){
-	perror("read");
+	error(0, errno, "read");
 	status = EX_OSERR;
       }
       TEMP_FAILURE_RETRY(close(outfifo_fd));
@@ -475,7 +476,7 @@ int main(__attribute__((unused))int argc,
   ret = close(outfifo_fd);
   if(ret == -1){
     if(errno != EINTR){
-      perror("close");
+      error(0, errno, "close");
       status = EX_OSERR;
     }
     goto failure;
@@ -488,7 +489,7 @@ int main(__attribute__((unused))int argc,
   
   if(not usplash_write(&fifo_fd, "TIMEOUT", "15")){
     if(errno != EINTR){
-      perror("usplash_write");
+      error(0, errno, "usplash_write");
       status = EX_OSERR;
     }
     goto failure;
@@ -501,7 +502,7 @@ int main(__attribute__((unused))int argc,
   ret = close(fifo_fd);
   if(ret == -1){
     if(errno != EINTR){
-      perror("close");
+      error(0, errno, "close");
       status = EX_OSERR;
     }
     goto failure;
@@ -515,7 +516,7 @@ int main(__attribute__((unused))int argc,
       sret = write(STDOUT_FILENO, buf + written, buf_len - written);
       if(sret == -1){
 	if(errno != EINTR){
-	  perror("write");
+	  error(0, errno, "write");
 	  status = EX_OSERR;
 	}
 	goto failure;
@@ -552,7 +553,7 @@ int main(__attribute__((unused))int argc,
   if(fifo_fd != -1){
     ret = (int)TEMP_FAILURE_RETRY(close(fifo_fd));
     if(ret == -1 and errno != EINTR){
-      perror("close");
+      error(0, errno, "close");
     }
     fifo_fd = -1;
   }
@@ -561,7 +562,7 @@ int main(__attribute__((unused))int argc,
   if(outfifo_fd != -1){
     ret = (int)TEMP_FAILURE_RETRY(close(outfifo_fd));
     if(ret == -1){
-      perror("close");
+      error(0, errno, "close");
     }
   }
   
@@ -575,7 +576,7 @@ int main(__attribute__((unused))int argc,
 			   (sizeof(char *)
 			    * (size_t)(cmdline_argc + 2)));
       if(tmp == NULL){
-	perror("realloc");
+	error(0, errno, "realloc");
 	free(cmdline_argv);
 	return status;
       }
@@ -602,23 +603,27 @@ int main(__attribute__((unused))int argc,
        the real user ID (_mandos) */
     ret = setuid(geteuid());
     if(ret == -1){
-      perror("setuid");
+      error(0, errno, "setuid");
     }
     
     setsid();
     ret = chdir("/");
+    if(ret == -1){
+      error(0, errno, "chdir");
+      _exit(EX_OSERR);
+    }
 /*     if(fork() != 0){ */
 /*       _exit(EXIT_SUCCESS); */
 /*     } */
     ret = dup2(STDERR_FILENO, STDOUT_FILENO); /* replace our stdout */
     if(ret == -1){
-      perror("dup2");
+      error(0, errno, "dup2");
       _exit(EX_OSERR);
     }
     
     execv(usplash_name, cmdline_argv);
     if(not interrupted_by_signal){
-      perror("execv");
+      error(0, errno, "execv");
     }
     free(cmdline);
     free(cmdline_argv);
@@ -629,7 +634,7 @@ int main(__attribute__((unused))int argc,
   sleep(2);
   if(not usplash_write(&fifo_fd, "PULSATE", NULL)){
     if(errno != EINTR){
-      perror("usplash_write");
+      error(0, errno, "usplash_write");
     }
   }
   
@@ -637,7 +642,7 @@ int main(__attribute__((unused))int argc,
   if(fifo_fd != -1){
     ret = (int)TEMP_FAILURE_RETRY(close(fifo_fd));
     if(ret == -1 and errno != EINTR){
-      perror("close");
+      error(0, errno, "close");
     }
     fifo_fd = -1;
   }
@@ -648,13 +653,13 @@ int main(__attribute__((unused))int argc,
     ret = (int)TEMP_FAILURE_RETRY(sigaction(signal_received,
 					    &signal_action, NULL));
     if(ret == -1){
-      perror("sigaction");
+      error(0, errno, "sigaction");
     }
     do {
       ret = raise(signal_received);
     } while(ret != 0 and errno == EINTR);
     if(ret != 0){
-      perror("raise");
+      error(0, errno, "raise");
       abort();
     }
     TEMP_FAILURE_RETRY(pause());
