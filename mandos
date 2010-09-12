@@ -1227,7 +1227,7 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
                                            client.name)
                             if self.server.use_dbus:
                                 # Emit D-Bus signal
-                                client.Rejected("Time out")
+                                client.Rejected("Approval timed out")
                             return
                         else:
                             break
@@ -1471,16 +1471,12 @@ class MandosServer(IPv6_TCPServer):
                                        for cond, name in
                                        condition_names.iteritems()
                                        if cond & condition)
-        logger.debug(u"Handling IPC: FD = %d, condition = %s", source,
-                     conditions_string)
-
         # error or the other end of multiprocessing.Pipe has closed
         if condition & (gobject.IO_ERR | condition & gobject.IO_HUP):
             return False
         
         # Read a request from the child
         request = parent_pipe.recv()
-        logger.debug(u"IPC request: %s", repr(request))
         command = request[0]
         
         if command == 'init':

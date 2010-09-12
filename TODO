@@ -3,7 +3,7 @@
 * Use _attribute_((nonnull)) wherever possible.
 
 * Release critical
-** TODO Change make-run-server to not include --no-dbus
+** Make mandos-ctl fail nicer to permission deny (runing as non-root for example)
 
 * mandos-client
 ** TODO [#B] use scandir(3) instead of readdir(3)
@@ -86,6 +86,7 @@
 ** TODO Separate logging logic to own object
 ** TODO make clients to a dict!
 ** TODO [#A] Limit approved_delay to max gnutls/tls timeout value
+** TODO [#B] break the wait on approved_delay if connection dies
 
 * mandos.xml
 ** [[file:mandos.xml::XXX][Document D-Bus interface]]
