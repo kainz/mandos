@@ -4,6 +4,7 @@
 
 * Release critical
 ** TODO Change make-run-server to not include --no-dbus
+** plymouth.8mandos
 
 * mandos-client
 ** TODO [#B] use scandir(3) instead of readdir(3)
