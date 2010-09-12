@@ -3,7 +3,7 @@
 * Use _attribute_((nonnull)) wherever possible.
 
 * Release critical
-** Make mandos-ctl fail nicer to permission deny (runing as non-root for example)
+** plymouth.8mandos
 
 * mandos-client
 ** TODO [#B] use scandir(3) instead of readdir(3)
@@ -85,15 +85,11 @@
    http://0pointer.de/blog/projects/systemd.html
 ** TODO Separate logging logic to own object
 ** TODO make clients to a dict!
-** TODO [#A] Limit approved_delay to max gnutls/tls timeout value
-** TODO [#B] break the wait on approved_delay if connection dies
+** TODO [#A] Limit approval_delay to max gnutls/tls timeout value
+** TODO [#B] break the wait on approval_delay if connection dies
 
 * mandos.xml
-** [[file:mandos.xml::XXX][Document D-Bus interface]]
-   Remove mention of lack of such interface in BUGS section
 ** Add mandos contact info in manual pages
-
-* TODO [#A] Provide and install /etc/dbus-1/system.d/mandos.conf
 
 * mandos-ctl
 *** Handle "no D-Bus server" and/or "no Mandos server found" better
