@@ -83,7 +83,8 @@ HTMLPOST=$(SED) --in-place \
 	--expression='s/\(<a class="citerefentry" href="\)\("><span class="citerefentry"><span class="refentrytitle">\)\([^<]*\)\(<\/span>(\)\([^)]*\)\()<\/span><\/a>\)/\1\3.\5\2\3\4\5\6/g'
 
 PLUGINS=plugins.d/password-prompt plugins.d/mandos-client \
-	plugins.d/usplash plugins.d/splashy plugins.d/askpass-fifo
+	plugins.d/usplash plugins.d/splashy plugins.d/askpass-fifo \
+	plugins.d/plymouth
 CPROGS=plugin-runner $(PLUGINS)
 PROGS=mandos mandos-keygen mandos-ctl $(CPROGS)
 DOCS=mandos.8 plugin-runner.8mandos mandos-keygen.8 \
@@ -233,11 +234,10 @@ keydir/seckey.txt keydir/pubkey.txt: mandos-keygen
 # Run the server with a local config
 run-server: confdir/mandos.conf confdir/clients.conf
 	@echo "#################################################################"
-	@echo "# NOTE: Please IGNORE errors about \"No permission to bind to    #"
-	@echo "# interface\" or \"Could not open file u'/var/run/mandos.pid'\" -  #"
-	@echo "# they are harmless and are caused by the server not running as #"
-	@echo "# root.  Do NOT run \"make run-server\" server as root if you did #"
-	@echo "# not also unpack and compile it as root.                       #"
+	@echo "# NOTE: Please IGNORE the error about \"Could not open file      #"
+	@echo "# u'/var/run/mandos.pid'\" -  it is harmless and is caused by    #"
+	@echo "# the server not running as root.  Do NOT run \"make run-server\" #"
+	@echo "# server as root if you didn't also unpack and compile it thus. #"
 	@echo "#################################################################"
 	./mandos --debug --no-dbus --configdir=confdir $(SERVERARGS)
 
@@ -306,6 +306,9 @@ install-client-nokey: all doc
 	install --mode=u=rwxs,go=rx \
 		--target-directory=$(PREFIX)/lib/mandos/plugins.d \
 		plugins.d/askpass-fifo
+	install --mode=u=rwxs,go=rx \
+		--target-directory=$(PREFIX)/lib/mandos/plugins.d \
+		plugins.d/plymouth
 	install initramfs-tools-hook \
 		$(INITRAMFSTOOLS)/hooks/mandos
 	install --mode=u=rw,go=r initramfs-tools-hook-conf \
@@ -356,6 +359,7 @@ uninstall-client:
 		$(PREFIX)/lib/mandos/plugins.d/usplash \
 		$(PREFIX)/lib/mandos/plugins.d/splashy \
 		$(PREFIX)/lib/mandos/plugins.d/askpass-fifo \
+		$(PREFIX)/lib/mandos/plugins.d/plymouth \
 		$(INITRAMFSTOOLS)/hooks/mandos \
 		$(INITRAMFSTOOLS)/conf-hooks.d/mandos \
 		$(INITRAMFSTOOLS)/scripts/init-premount/mandos \

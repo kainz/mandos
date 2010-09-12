@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY COMMANDNAME "mandos">
-<!ENTITY TIMESTAMP "2009-12-09">
+<!ENTITY TIMESTAMP "2010-09-11">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -353,8 +353,8 @@
     <para>
       The server will by default provide a D-Bus system bus interface.
       This interface will only be accessible by the root user or a
-      Mandos-specific user, if such a user exists.
-      <!-- XXX -->
+      Mandos-specific user, if such a user exists.  For documentation
+      of the D-Bus API, see the file <filename>DBUS-API</filename>.
     </para>
   </refsect1>
   
@@ -456,11 +456,6 @@
       Currently, if a client is disabled due to having timed out, the
       server does not record this fact onto permanent storage.  This
       has some security implications, see <xref linkend="clients"/>.
-    </para>
-    <para>
-      There is currently no way of querying the server of the current
-      status of clients, other than analyzing its <systemitem
-      class="service">syslog</systemitem> output.
     </para>
     <para>
       There is no fine-grained control over logging and debug output.
