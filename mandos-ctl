@@ -12,19 +12,19 @@ import re
 locale.setlocale(locale.LC_ALL, u'')
 
 tablewords = {
-    'name': u'Name',
-    'enabled': u'Enabled',
-    'timeout': u'Timeout',
-    'last_checked_ok': u'Last Successful Check',
-    'created': u'Created',
-    'interval': u'Interval',
-    'host': u'Host',
-    'fingerprint': u'Fingerprint',
-    'checker_running': u'Check Is Running',
-    'last_enabled': u'Last Enabled',
-    'checker': u'Checker',
+    'Name': u'Name',
+    'Enabled': u'Enabled',
+    'Timeout': u'Timeout',
+    'LastCheckedOK': u'Last Successful Check',
+    'Created': u'Created',
+    'Interval': u'Interval',
+    'Host': u'Host',
+    'Fingerprint': u'Fingerprint',
+    'CheckerRunning': u'Check Is Running',
+    'LastEnabled': u'Last Enabled',
+    'Checker': u'Checker',
     }
-defaultkeywords = ('name', 'enabled', 'timeout', 'last_checked_ok')
+defaultkeywords = ('Name', 'Enabled', 'Timeout', 'LastCheckedOK')
 domain = 'se.bsnet.fukt'
 busname = domain + '.Mandos'
 server_path = '/'
@@ -108,7 +108,8 @@ def print_clients(clients):
     # Create format string to print table rows
     format_string = u' '.join(u'%%-%ds' %
                               max(len(tablewords[key]),
-                                  max(len(valuetostring(client[key], key))
+                                  max(len(valuetostring(client[key],
+                                                        key))
                                       for client in
                                       clients))
                               for key in keywords)
@@ -166,9 +167,9 @@ for name in client_names:
 if not clients and mandos_clients.values():
     keywords = defaultkeywords
     if options.all:
-        keywords = ('name', 'enabled', 'timeout', 'last_checked_ok',
-                    'created', 'interval', 'host', 'fingerprint',
-                    'checker_running', 'last_enabled', 'checker')
+        keywords = ('Name', 'Enabled', 'Timeout', 'LastCheckedOK',
+                    'Created', 'Interval', 'Host', 'Fingerprint',
+                    'CheckerRunning', 'LastEnabled', 'Checker')
     print_clients(mandos_clients.values())
 
 # Process each client in the list by all selected options
@@ -187,30 +188,32 @@ for client in clients:
         client.StopChecker(dbus_interface=client_interface)
     if options.is_enabled:
         sys.exit(0 if client.Get(client_interface,
-                                 u"enabled",
+                                 u"Enabled",
                                  dbus_interface=dbus.PROPERTIES_IFACE)
                  else 1)
     if options.checker:
-        client.Set(client_interface, u"checker", options.checker,
+        client.Set(client_interface, u"Checker", options.checker,
                    dbus_interface=dbus.PROPERTIES_IFACE)
     if options.host:
-        client.Set(client_interface, u"host", options.host,
+        client.Set(client_interface, u"Host", options.host,
                    dbus_interface=dbus.PROPERTIES_IFACE)
     if options.interval:
-        client.Set(client_interface, u"interval",
+        client.Set(client_interface, u"Interval",
                    timedelta_to_milliseconds
                    (string_to_delta(options.interval)),
                    dbus_interface=dbus.PROPERTIES_IFACE)
     if options.timeout:
-        client.Set(client_interface, u"timeout",
+        client.Set(client_interface, u"Timeout",
                    timedelta_to_milliseconds(string_to_delta
                                              (options.timeout)),
                    dbus_interface=dbus.PROPERTIES_IFACE)
     if options.secret:
-        client.Set(client_interface, u"secret",
+        client.Set(client_interface, u"Secret",
                    dbus.ByteArray(open(options.secret, u'rb').read()),
                    dbus_interface=dbus.PROPERTIES_IFACE)
     if options.approve:
-        client.Approve(dbus.Boolean(True), dbus_interface=client_interface)
+        client.Approve(dbus.Boolean(True),
+                       dbus_interface=client_interface)
     if options.deny:
-        client.Approve(dbus.Boolean(False), dbus_interface=client_interface)
+        client.Approve(dbus.Boolean(False),
+                       dbus_interface=client_interface)
