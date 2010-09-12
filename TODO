@@ -85,14 +85,10 @@
    http://0pointer.de/blog/projects/systemd.html
 ** TODO Separate logging logic to own object
 ** TODO make clients to a dict!
-** TODO [#A] Limit approved_delay to max gnutls/tls timeout value
+** TODO [#A] Limit approval_delay to max gnutls/tls timeout value
 
 * mandos.xml
-** [[file:mandos.xml::XXX][Document D-Bus interface]]
-   Remove mention of lack of such interface in BUGS section
 ** Add mandos contact info in manual pages
-
-* TODO [#A] Provide and install /etc/dbus-1/system.d/mandos.conf
 
 * mandos-ctl
 *** Handle "no D-Bus server" and/or "no Mandos server found" better

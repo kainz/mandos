@@ -265,9 +265,9 @@ class Client(object):
                      runtime with vars(self) as dict, so that for
                      instance %(name)s can be used in the command.
     current_checker_command: string; current running checker_command
-    approved_delay: datetime.timedelta(); Time to wait for approval
+    approval_delay: datetime.timedelta(); Time to wait for approval
     _approved:   bool(); 'None' if not yet approved/disapproved
-    approved_duration: datetime.timedelta(); Duration of one approval
+    approval_duration: datetime.timedelta(); Duration of one approval
     """
     
     @staticmethod
@@ -285,8 +285,8 @@ class Client(object):
         "Return the 'interval' attribute in milliseconds"
         return self._timedelta_to_milliseconds(self.interval)
 
-    def approved_delay_milliseconds(self):
-        return self._timedelta_to_milliseconds(self.approved_delay)
+    def approval_delay_milliseconds(self):
+        return self._timedelta_to_milliseconds(self.approval_delay)
     
     def __init__(self, name = None, disable_hook=None, config=None):
         """Note: the 'checker' key in 'config' sets the
@@ -331,10 +331,10 @@ class Client(object):
         self.approved_by_default = config.get(u"approved_by_default",
                                               True)
         self.approvals_pending = 0
-        self.approved_delay = string_to_delta(
-            config[u"approved_delay"])
-        self.approved_duration = string_to_delta(
-            config[u"approved_duration"])
+        self.approval_delay = string_to_delta(
+            config[u"approval_delay"])
+        self.approval_duration = string_to_delta(
+            config[u"approval_duration"])
         self.changedstate = multiprocessing_manager.Condition(multiprocessing_manager.Lock())
     
     def send_changedstate(self):
@@ -716,7 +716,7 @@ class ClientDBus(Client, DBusObjectWithProperties):
                                   + self.name.replace(u".", u"_")))
         DBusObjectWithProperties.__init__(self, self.bus,
                                           self.dbus_object_path)
-
+        
     def _get_approvals_pending(self):
         return self._approvals_pending
     def _set_approvals_pending(self, value):
@@ -726,7 +726,7 @@ class ClientDBus(Client, DBusObjectWithProperties):
         if (hasattr(self, "dbus_object_path")
             and bval is not bool(old_value)):
             dbus_bool = dbus.Boolean(bval, variant_level=1)
-            self.PropertyChanged(dbus.String(u"approved_pending"),
+            self.PropertyChanged(dbus.String(u"ApprovalPending"),
                                  dbus_bool)
 
     approvals_pending = property(_get_approvals_pending,
@@ -744,10 +744,10 @@ class ClientDBus(Client, DBusObjectWithProperties):
         r = Client.enable(self)
         if oldstate != self.enabled:
             # Emit D-Bus signals
-            self.PropertyChanged(dbus.String(u"enabled"),
+            self.PropertyChanged(dbus.String(u"Enabled"),
                                  dbus.Boolean(True, variant_level=1))
             self.PropertyChanged(
-                dbus.String(u"last_enabled"),
+                dbus.String(u"LastEnabled"),
                 self._datetime_to_dbus(self.last_enabled,
                                        variant_level=1))
         return r
@@ -757,7 +757,7 @@ class ClientDBus(Client, DBusObjectWithProperties):
         r = Client.disable(self, quiet=quiet)
         if not quiet and oldstate != self.enabled:
             # Emit D-Bus signal
-            self.PropertyChanged(dbus.String(u"enabled"),
+            self.PropertyChanged(dbus.String(u"Enabled"),
                                  dbus.Boolean(False, variant_level=1))
         return r
     
@@ -775,7 +775,7 @@ class ClientDBus(Client, DBusObjectWithProperties):
         self.checker_callback_tag = None
         self.checker = None
         # Emit D-Bus signal
-        self.PropertyChanged(dbus.String(u"checker_running"),
+        self.PropertyChanged(dbus.String(u"CheckerRunning"),
                              dbus.Boolean(False, variant_level=1))
         if os.WIFEXITED(condition):
             exitstatus = os.WEXITSTATUS(condition)
@@ -796,7 +796,7 @@ class ClientDBus(Client, DBusObjectWithProperties):
         r = Client.checked_ok(self, *args, **kwargs)
         # Emit D-Bus signal
         self.PropertyChanged(
-            dbus.String(u"last_checked_ok"),
+            dbus.String(u"LastCheckedOK"),
             (self._datetime_to_dbus(self.last_checked_ok,
                                     variant_level=1)))
         return r
@@ -814,7 +814,7 @@ class ClientDBus(Client, DBusObjectWithProperties):
             # Emit D-Bus signal
             self.CheckerStarted(self.current_checker_command)
             self.PropertyChanged(
-                dbus.String(u"checker_running"),
+                dbus.String(u"CheckerRunning"),
                 dbus.Boolean(True, variant_level=1))
         return r
     
@@ -823,7 +823,7 @@ class ClientDBus(Client, DBusObjectWithProperties):
         r = Client.stop_checker(self, *args, **kwargs)
         if (old_checker is not None
             and getattr(self, u"checker", None) is None):
-            self.PropertyChanged(dbus.String(u"checker_running"),
+            self.PropertyChanged(dbus.String(u"CheckerRunning"),
                                  dbus.Boolean(False, variant_level=1))
         return r
 
@@ -834,7 +834,8 @@ class ClientDBus(Client, DBusObjectWithProperties):
     def approve(self, value=True):
         self.send_changedstate()
         self._approved = value
-        gobject.timeout_add(self._timedelta_to_milliseconds(self.approved_duration),
+        gobject.timeout_add(self._timedelta_to_milliseconds
+                            (self.approval_duration),
                             self._reset_approved)
     
     
@@ -877,7 +878,7 @@ class ClientDBus(Client, DBusObjectWithProperties):
         pass
     
     # NeedApproval - signal
-    @dbus.service.signal(_interface, signature=u"db")
+    @dbus.service.signal(_interface, signature=u"tb")
     def NeedApproval(self, timeout, default):
         "D-Bus signal"
         pass
@@ -919,67 +920,82 @@ class ClientDBus(Client, DBusObjectWithProperties):
     
     ## Properties
     
-    # approved_pending - property
+    # ApprovalPending - property
     @dbus_service_property(_interface, signature=u"b", access=u"read")
-    def approved_pending_dbus_property(self):
+    def ApprovalPending_dbus_property(self):
         return dbus.Boolean(bool(self.approvals_pending))
     
-    # approved_by_default - property
+    # ApprovedByDefault - property
     @dbus_service_property(_interface, signature=u"b",
                            access=u"readwrite")
-    def approved_by_default_dbus_property(self):
-        return dbus.Boolean(self.approved_by_default)
+    def ApprovedByDefault_dbus_property(self, value=None):
+        if value is None:       # get
+            return dbus.Boolean(self.approved_by_default)
+        self.approved_by_default = bool(value)
+        # Emit D-Bus signal
+        self.PropertyChanged(dbus.String(u"ApprovedByDefault"),
+                             dbus.Boolean(value, variant_level=1))
     
-    # approved_delay - property
+    # ApprovalDelay - property
     @dbus_service_property(_interface, signature=u"t",
                            access=u"readwrite")
-    def approved_delay_dbus_property(self):
-        return dbus.UInt64(self.approved_delay_milliseconds())
+    def ApprovalDelay_dbus_property(self, value=None):
+        if value is None:       # get
+            return dbus.UInt64(self.approval_delay_milliseconds())
+        self.approval_delay = datetime.timedelta(0, 0, 0, value)
+        # Emit D-Bus signal
+        self.PropertyChanged(dbus.String(u"ApprovalDelay"),
+                             dbus.UInt64(value, variant_level=1))
     
-    # approved_duration - property
+    # ApprovalDuration - property
     @dbus_service_property(_interface, signature=u"t",
                            access=u"readwrite")
-    def approved_duration_dbus_property(self):
-        return dbus.UInt64(self._timedelta_to_milliseconds(
-                self.approved_duration))
+    def ApprovalDuration_dbus_property(self, value=None):
+        if value is None:       # get
+            return dbus.UInt64(self._timedelta_to_milliseconds(
+                    self.approval_duration))
+        self.approval_duration = datetime.timedelta(0, 0, 0, value)
+        # Emit D-Bus signal
+        self.PropertyChanged(dbus.String(u"ApprovalDuration"),
+                             dbus.UInt64(value, variant_level=1))
     
-    # name - property
+    # Name - property
     @dbus_service_property(_interface, signature=u"s", access=u"read")
-    def name_dbus_property(self):
+    def Name_dbus_property(self):
         return dbus.String(self.name)
     
-    # fingerprint - property
+    # Fingerprint - property
     @dbus_service_property(_interface, signature=u"s", access=u"read")
-    def fingerprint_dbus_property(self):
+    def Fingerprint_dbus_property(self):
         return dbus.String(self.fingerprint)
     
-    # host - property
+    # Host - property
     @dbus_service_property(_interface, signature=u"s",
                            access=u"readwrite")
-    def host_dbus_property(self, value=None):
+    def Host_dbus_property(self, value=None):
         if value is None:       # get
             return dbus.String(self.host)
         self.host = value
         # Emit D-Bus signal
-        self.PropertyChanged(dbus.String(u"host"),
+        self.PropertyChanged(dbus.String(u"Host"),
                              dbus.String(value, variant_level=1))
     
-    # created - property
+    # Created - property
     @dbus_service_property(_interface, signature=u"s", access=u"read")
-    def created_dbus_property(self):
+    def Created_dbus_property(self):
         return dbus.String(self._datetime_to_dbus(self.created))
     
-    # last_enabled - property
+    # LastEnabled - property
     @dbus_service_property(_interface, signature=u"s", access=u"read")
-    def last_enabled_dbus_property(self):
+    def LastEnabled_dbus_property(self):
         if self.last_enabled is None:
             return dbus.String(u"")
         return dbus.String(self._datetime_to_dbus(self.last_enabled))
     
-    # enabled - property
+    # Enabled - property
     @dbus_service_property(_interface, signature=u"b",
                            access=u"readwrite")
-    def enabled_dbus_property(self, value=None):
+    def Enabled_dbus_property(self, value=None):
         if value is None:       # get
             return dbus.Boolean(self.enabled)
         if value:
@@ -987,10 +1003,10 @@ class ClientDBus(Client, DBusObjectWithProperties):
         else:
             self.disable()
     
-    # last_checked_ok - property
+    # LastCheckedOK - property
     @dbus_service_property(_interface, signature=u"s",
                            access=u"readwrite")
-    def last_checked_ok_dbus_property(self, value=None):
+    def LastCheckedOK_dbus_property(self, value=None):
         if value is not None:
             self.checked_ok()
             return
@@ -999,15 +1015,15 @@ class ClientDBus(Client, DBusObjectWithProperties):
         return dbus.String(self._datetime_to_dbus(self
                                                   .last_checked_ok))
     
-    # timeout - property
+    # Timeout - property
     @dbus_service_property(_interface, signature=u"t",
                            access=u"readwrite")
-    def timeout_dbus_property(self, value=None):
+    def Timeout_dbus_property(self, value=None):
         if value is None:       # get
             return dbus.UInt64(self.timeout_milliseconds())
         self.timeout = datetime.timedelta(0, 0, 0, value)
         # Emit D-Bus signal
-        self.PropertyChanged(dbus.String(u"timeout"),
+        self.PropertyChanged(dbus.String(u"Timeout"),
                              dbus.UInt64(value, variant_level=1))
         if getattr(self, u"disable_initiator_tag", None) is None:
             return
@@ -1027,15 +1043,15 @@ class ClientDBus(Client, DBusObjectWithProperties):
             self.disable_initiator_tag = (gobject.timeout_add
                                           (time_to_die, self.disable))
     
-    # interval - property
+    # Interval - property
     @dbus_service_property(_interface, signature=u"t",
                            access=u"readwrite")
-    def interval_dbus_property(self, value=None):
+    def Interval_dbus_property(self, value=None):
         if value is None:       # get
             return dbus.UInt64(self.interval_milliseconds())
         self.interval = datetime.timedelta(0, 0, 0, value)
         # Emit D-Bus signal
-        self.PropertyChanged(dbus.String(u"interval"),
+        self.PropertyChanged(dbus.String(u"Interval"),
                              dbus.UInt64(value, variant_level=1))
         if getattr(self, u"checker_initiator_tag", None) is None:
             return
@@ -1045,22 +1061,22 @@ class ClientDBus(Client, DBusObjectWithProperties):
                                       (value, self.start_checker))
         self.start_checker()    # Start one now, too
 
-    # checker - property
+    # Checker - property
     @dbus_service_property(_interface, signature=u"s",
                            access=u"readwrite")
-    def checker_dbus_property(self, value=None):
+    def Checker_dbus_property(self, value=None):
         if value is None:       # get
             return dbus.String(self.checker_command)
         self.checker_command = value
         # Emit D-Bus signal
-        self.PropertyChanged(dbus.String(u"checker"),
+        self.PropertyChanged(dbus.String(u"Checker"),
                              dbus.String(self.checker_command,
                                          variant_level=1))
     
-    # checker_running - property
+    # CheckerRunning - property
     @dbus_service_property(_interface, signature=u"b",
                            access=u"readwrite")
-    def checker_running_dbus_property(self, value=None):
+    def CheckerRunning_dbus_property(self, value=None):
         if value is None:       # get
             return dbus.Boolean(self.checker is not None)
         if value:
@@ -1068,15 +1084,15 @@ class ClientDBus(Client, DBusObjectWithProperties):
         else:
             self.stop_checker()
     
-    # object_path - property
+    # ObjectPath - property
     @dbus_service_property(_interface, signature=u"o", access=u"read")
-    def object_path_dbus_property(self):
+    def ObjectPath_dbus_property(self):
         return self.dbus_object_path # is already a dbus.ObjectPath
     
-    # secret = property
+    # Secret = property
     @dbus_service_property(_interface, signature=u"ay",
                            access=u"write", byte_arrays=True)
-    def secret_dbus_property(self, value):
+    def Secret_dbus_property(self, value):
         self.secret = str(value)
     
     del _interface
@@ -1180,8 +1196,8 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
                 except KeyError:
                     return
                 
-                if client.approved_delay:
-                    delay = client.approved_delay
+                if client.approval_delay:
+                    delay = client.approval_delay
                     client.approvals_pending += 1
                     approval_required = True
                 
@@ -1194,23 +1210,23 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
                             client.Rejected("Disabled")                    
                         return
                     
-                    if client._approved or not client.approved_delay:
+                    if client._approved or not client.approval_delay:
                         #We are approved or approval is disabled
                         break
                     elif client._approved is None:
-                        logger.info(u"Client %s need approval",
+                        logger.info(u"Client %s needs approval",
                                     client.name)
                         if self.server.use_dbus:
                             # Emit D-Bus signal
                             client.NeedApproval(
-                                client.approved_delay_milliseconds(),
+                                client.approval_delay_milliseconds(),
                                 client.approved_by_default)
                     else:
                         logger.warning(u"Client %s was not approved",
                                        client.name)
                         if self.server.use_dbus:
                             # Emit D-Bus signal
-                            client.Rejected("Disapproved")
+                            client.Rejected("Denied")
                         return
                     
                     #wait until timeout or approved
@@ -1227,7 +1243,7 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
                                            client.name)
                             if self.server.use_dbus:
                                 # Emit D-Bus signal
-                                client.Rejected("Time out")
+                                client.Rejected("Timed out")
                             return
                         else:
                             break
@@ -1259,7 +1275,7 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
                 try:
                     session.bye()
                 except (gnutls.errors.GNUTLSError), error:
-                    logger.warning("gnutls bye failed")
+                    logger.warning("GnuTLS bye failed")
     
     @staticmethod
     def peer_certificate(session):
@@ -1720,8 +1736,8 @@ def main():
                         u"interval": u"5m",
                         u"checker": u"fping -q -- %%(host)s",
                         u"host": u"",
-                        u"approved_delay": u"0s",
-                        u"approved_duration": u"1s",
+                        u"approval_delay": u"0s",
+                        u"approval_duration": u"1s",
                         }
     client_config = configparser.SafeConfigParser(client_defaults)
     client_config.read(os.path.join(server_settings[u"configdir"],
@@ -1766,9 +1782,6 @@ def main():
         if error[0] != errno.EPERM:
             raise error
     
-    # Enable all possible GnuTLS debugging
-
-
     if not debug and not debuglevel:
         syslogger.setLevel(logging.WARNING)
         console.setLevel(logging.WARNING)
@@ -1778,6 +1791,8 @@ def main():
         console.setLevel(level)
 
     if debug:
+        # Enable all possible GnuTLS debugging
+        
         # "Use a log level over 10 to enable all debugging options."
         # - GnuTLS manual
         gnutls.library.functions.gnutls_global_set_log_level(11)
@@ -1788,7 +1803,7 @@ def main():
         
         (gnutls.library.functions
          .gnutls_global_set_log_function(debug_gnutls))
-
+        
         # Redirect stdin so all checkers get /dev/null
         null = os.open(os.path.devnull, os.O_NOCTTY | os.O_RDWR)
         os.dup2(null, sys.stdin.fileno())
@@ -1797,7 +1812,7 @@ def main():
     else:
         # No console logging
         logger.removeHandler(console)
-
+    
     
     global main_loop
     # From the Avahi example code
