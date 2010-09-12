@@ -3,7 +3,7 @@
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY CONFNAME "mandos-clients.conf">
 <!ENTITY CONFPATH "<filename>/etc/mandos/clients.conf</filename>">
-<!ENTITY TIMESTAMP "2009-12-09">
+<!ENTITY TIMESTAMP "2010-09-12">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -266,6 +266,58 @@
 	</listitem>
       </varlistentry>
       
+      <varlistentry>
+	<term><option>approved_by_default<literal> = </literal
+          >{ <literal >1</literal> | <literal>yes</literal> | <literal
+	  >true</literal> | <literal>on</literal> | <literal
+	  >0</literal> | <literal>no</literal> | <literal
+	  >false</literal> | <literal>off</literal> }</option></term>
+	<listitem>
+	  <para>
+	    Whether to approve a client by default after
+	    the <option>approval_delay</option>.  The default
+	    is <quote>True</quote>.
+	  </para>
+	</listitem>
+      </varlistentry>
+      
+      <varlistentry>
+	<term><option>approval_delay<literal> = </literal><replaceable
+	>TIME</replaceable></option></term>
+	<listitem>
+	  <para>
+	    This option is <emphasis>optional</emphasis>.
+	  </para>
+	  <para>
+	    How long to wait for external approval before resorting to
+	    use the <option>approved_by_default</option> value.  The
+	    default is <quote>0s</quote>, i.e. not to wait.
+	  </para>
+	  <para>
+	    The format of <replaceable>TIME</replaceable> is the same
+	    as for <varname>timeout</varname> above.
+	  </para>
+	</listitem>
+      </varlistentry>
+      
+      <varlistentry>
+	<term><option>approval_duration<literal> = </literal
+        ><replaceable>TIME</replaceable></option></term>
+	<listitem>
+	  <para>
+	    This option is <emphasis>optional</emphasis>.
+	  </para>
+	  <para>
+	    How long an external approval lasts.  The default is 1
+	    second.
+	  </para>
+	  <para>
+	    The format of <replaceable>TIME</replaceable> is the same
+	    as for <varname>timeout</varname> above.
+	  </para>
+	</listitem>
+      </varlistentry>
+      
     </variablelist>
   </refsect1>
   
@@ -379,6 +431,8 @@ interval = 1m
 fingerprint = 3e393aeaefb84c7e89e2f547b3a107558fca3a27
 secfile = /etc/mandos/bar-secret
 timeout = 15m
+approved_by_default = False
+approval_delay = 30s
       </programlisting>
     </informalexample>
   </refsect1>

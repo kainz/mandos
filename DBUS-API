@@ -1,0 +1,147 @@
+		   -*- mode: org; coding: utf-8 -*-
+
+		    Mandos Server D-Bus Interface
+
+This file documents the D-Bus interface to the Mandos server.
+
+* Bus: System bus
+  Bus name: "se.bsnet.fukt.Mandos"
+
+
+* Object Paths:
+  
+  | Path                  | Object            |
+  |-----------------------+-------------------|
+  | "/"                   | The Mandos Server |
+  | "/clients/CLIENTNAME" | Mandos Client     |
+
+  
+* Mandos Server Interface:
+  Interface name: "se.bsnet.fukt.Mandos"
+  
+** Methods:
+*** GetAllClients() → (ao: Clients)
+    Returns an array of all client D-Bus object paths
+   
+*** GetAllClientsWithProperties() → (a{oa{sv}}: ClientProperties)
+    Returns an array of all clients and all their properties
+   
+*** RemoveClient(o: ObjectPath) → nothing
+    Removes a client
+   
+** Signals:
+*** ClientAdded(o: ObjectPath)
+    A new client was added.
+   
+*** ClientNotFound(s: Fingerprint, s: Address)
+    A client connected from Address using Fingerprint, but was
+    rejected because it was not found in the server.  The fingerprint
+    is represented as a string of hexadecimal digits.  The address is
+    an IPv4 or IPv6 address in its normal string format.
+   
+*** ClientRemoved(o: ObjectPath, s: Name)
+    A client named Name on ObjectPath was removed.
+
+
+* Mandos Client Interface:
+  Interface name: "se.bsnet.fukt.Mandos.Client"
+  
+** Methods
+*** Approve(b: Approve) → nothing
+    Approve or deny a connected client waiting for approval.  If
+    denied, a client will not be sent its secret.
+    
+*** CheckedOK() → nothing
+    Assert that this client has been checked and found to be alive.
+    This will restart the timeout before disabling this client.  See
+    also the "LastCheckedOK" property.
+    
+*** Disable() → nothing
+    Disable this client.  See also the "Enabled" property.
+    
+*** Enable() → nothing
+    Enable this client.  See also the "Enabled" property.
+    
+*** StartChecker() → nothing
+    Start a new checker for this client, if none is currently
+    running.  See also the "CheckerRunning" property.
+    
+*** StopChecker() → nothing
+    Abort a running checker process for this client, if any.  See also
+    the "CheckerRunning" property.
+
+** Properties
+   
+   Note: Many of these properties directly correspond to a setting in
+   "clients.conf", in which case they are fully documented in
+   mandos-clients.conf(5).
+   
+   | Name                 | Type | Access     | clients.conf        |
+   |----------------------+------+------------+---------------------|
+   | ApprovedByDefault    | b    | Read/Write | approved_by_default |
+   | ApprovalDelay (a)    | t    | Read/Write | approval_delay      |
+   | ApprovalDuration (a) | t    | Read/Write | approval_duration   |
+   | ApprovalPending (b)  | b    | Read       | N/A                 |
+   | Checker              | s    | Read/Write | checker             |
+   | CheckerRunning (c)   | b    | Read/Write | N/A                 |
+   | Created (d)          | s    | Read       | N/A                 |
+   | Enabled (e)          | b    | Read/Write | N/A                 |
+   | Fingerprint          | s    | Read       | fingerprint         |
+   | Host                 | s    | Read/Write | host                |
+   | Interval (a)         | t    | Read/Write | interval            |
+   | LastCheckedOK (f)    | s    | Read/Write | N/A                 |
+   | LastEnabled (g)      | s    | Read       | N/A                 |
+   | Name                 | s    | Read       | (Section name)      |
+   | ObjectPath           | o    | Read       | N/A                 |
+   | Secret (h)           | ay   | Write      | secret (or secfile) |
+   | Timeout (a)          | t    | Read/Write | timeout             |
+   
+   a) Represented as milliseconds.
+   
+   b) An approval is currently pending.
+   
+   c) Setting this property is equivalent to calling StartChecker() or
+      StopChecker().
+   
+   d) The creation time of this client object, as a RFC 3339 string.
+   
+   e) Setting this property is equivalent to calling Enable() or
+      Disable().
+   
+   f) The last time a checker was successful, as a RFC 3339 string, or
+      an empty string if this has not happened.  Setting this property
+      is equivalent to calling CheckedOK(), i.e. the current time is
+      set, regardless of the string sent.  Please always use an empty
+      string when setting this property, to allow for possible future
+      expansion.
+   
+   g) The last time this client was enabled, as a RFC 3339 string, or
+      an empty string if this has not happened.
+   
+   h) A raw byte array, not hexadecimal digits.
+
+** Signals
+*** CheckerCompleted(n: Exitcode, x: Waitstatus, s: Command)
+    A checker (Command) has completed.  Exitcode is either the exit
+    code or -1 for abnormal exit.  In any case, the full Waitstatus
+    (as from wait(2)) is also available.
+    
+*** CheckerStarted(s: Command)
+    A checker command (Command) has just been started.
+    
+*** GotSecret()
+    This client has been sent its secret.
+    
+*** NeedApproval(t: Timeout, b: ApprovedByDefault)
+    This client will be approved or denied in exactly Timeout
+    milliseconds, depending on ApprovedByDefault.  Approve() can now
+    usefully be called on this client object.
+
+*** PropertyChanged(s: Property, v: Value)
+    The Property on this client has changed to Value.
+
+*** Rejected(s: Reason)
+    This client was not given its secret for a specified Reason.
+
+
+#+STARTUP: showall
