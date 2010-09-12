@@ -134,7 +134,7 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
                                      client_interface,
                                      byte_arrays=True)
         last_checked_ok = isoformat_to_datetime(self.properties
-                                                ["last_checked_ok"])
+                                                [u"LastCheckedOK"])
         if last_checked_ok is None:
             self.last_checker_failed = True
         else:
@@ -142,7 +142,8 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
                                          - last_checked_ok)
                                         > datetime.timedelta
                                         (milliseconds=
-                                         self.properties["interval"]))
+                                         self.properties
+                                         [u"Interval"]))
         if self.last_checker_failed:
             self._update_timer_callback_tag = (gobject.timeout_add
                                                (1000,
@@ -156,7 +157,7 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
                 self._update_timer_callback_tag = None
             self.logger(u'Checker for client %s (command "%s")'
                         u' was successful'
-                        % (self.properties[u"name"], command))
+                        % (self.properties[u"Name"], command))
             self.update()
             return
         # Checker failed
@@ -168,30 +169,31 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
         if os.WIFEXITED(condition):
             self.logger(u'Checker for client %s (command "%s")'
                         u' failed with exit code %s'
-                        % (self.properties[u"name"], command,
+                        % (self.properties[u"Name"], command,
                            os.WEXITSTATUS(condition)))
         elif os.WIFSIGNALED(condition):
             self.logger(u'Checker for client %s (command "%s")'
                         u' was killed by signal %s'
-                        % (self.properties[u"name"], command,
+                        % (self.properties[u"Name"], command,
                            os.WTERMSIG(condition)))
         elif os.WCOREDUMP(condition):
             self.logger(u'Checker for client %s (command "%s")'
                         u' dumped core'
-                        % (self.properties[u"name"], command))
+                        % (self.properties[u"Name"], command))
         else:
-            self.logger(u'Checker for client %s completed mysteriously')
+            self.logger(u'Checker for client %s completed'
+                        u' mysteriously')
         self.update()
     
     def checker_started(self, command):
         #self.logger(u'Client %s started checker "%s"'
-        #            % (self.properties[u"name"], unicode(command)))
+        #            % (self.properties[u"Name"], unicode(command)))
         pass
     
     def got_secret(self):
         self.last_checker_failed = False
         self.logger(u'Client %s received its secret'
-                    % self.properties[u"name"])
+                    % self.properties[u"Name"])
     
     def need_approval(self, timeout, default):
         if not default:
@@ -199,11 +201,11 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
         else:
             message = u'Client %s will get its secret in %s seconds'
         self.logger(message
-                    % (self.properties[u"name"], timeout/1000))
+                    % (self.properties[u"Name"], timeout/1000))
     
     def rejected(self, reason):
         self.logger(u'Client %s was rejected; reason: %s'
-                    % (self.properties[u"name"], reason))
+                    % (self.properties[u"Name"], reason))
     
     def selectable(self):
         """Make this a "selectable" widget.
@@ -236,23 +238,25 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
 
         # Base part of a client. Name!
         base = (u'%(name)s: '
-                      % {u"name": self.properties[u"name"]})
-        if not self.properties[u"enabled"]:
+                      % {u"name": self.properties[u"Name"]})
+        if not self.properties[u"Enabled"]:
             message = u"DISABLED"
-        elif self.properties[u"approved_pending"]:
-            if self.properties[u"approved_by_default"]:
+        elif self.properties[u"ApprovalPending"]:
+            if self.properties[u"ApprovedByDefault"]:
                 message = u"Connection established to client. (d)eny?"
             else:
                 message = u"Seeks approval to send secret. (a)pprove?"
         elif self.last_checker_failed:
             timeout = datetime.timedelta(milliseconds
-                                         = self.properties[u"timeout"])
+                                         = self.properties
+                                         [u"Timeout"])
             last_ok = isoformat_to_datetime(
-                max((self.properties["last_checked_ok"]
-                     or self.properties["created"]),
-                    self.properties[u"last_enabled"]))
+                max((self.properties[u"LastCheckedOK"]
+                     or self.properties[u"Created"]),
+                    self.properties[u"LastEnabled"]))
             timer = timeout - (datetime.datetime.utcnow() - last_ok)
-            message = (u'A checker has failed! Time until client gets diabled: %s'
+            message = (u'A checker has failed! Time until client'
+                       u' gets diabled: %s'
                            % unicode(timer).rsplit(".", 1)[0])
         else:
             message = u"enabled"
@@ -346,7 +350,8 @@ class ConstrainedListBox(urwid.ListBox):
     use them as an excuse to shift focus away from this widget.
     """
     def keypress(self, (maxcol, maxrow), key):
-        ret = super(ConstrainedListBox, self).keypress((maxcol, maxrow), key)
+        ret = super(ConstrainedListBox, self).keypress((maxcol,
+                                                        maxrow), key)
         if ret in (u"up", u"down"):
             return
         return ret
@@ -469,10 +474,13 @@ class UserInterface(object):
         Call this when the widget layout needs to change"""
         self.uilist = []
         #self.uilist.append(urwid.ListBox(self.clients))
-        self.uilist.append(urwid.Frame(ConstrainedListBox(self.clients),
+        self.uilist.append(urwid.Frame(ConstrainedListBox(self.
+                                                          clients),
                                        #header=urwid.Divider(),
                                        header=None,
-                                       footer=urwid.Divider(div_char=self.divider)))
+                                       footer=
+                                       urwid.Divider(div_char=
+                                                     self.divider)))
         if self.log_visible:
             self.uilist.append(self.logbox)
             pass
@@ -541,7 +549,7 @@ class UserInterface(object):
         if path is None:
             path = client.proxy.object_path
         self.clients_dict[path] = client
-        self.clients.sort(None, lambda c: c.properties[u"name"])
+        self.clients.sort(None, lambda c: c.properties[u"Name"])
         self.refresh()
     
     def remove_client(self, client, path=None):
