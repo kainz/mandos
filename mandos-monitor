@@ -155,9 +155,9 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
                 self.last_checker_failed = False
                 gobject.source_remove(self._update_timer_callback_tag)
                 self._update_timer_callback_tag = None
-            self.logger(u'Checker for client %s (command "%s")'
-                        u' was successful'
-                        % (self.properties[u"Name"], command))
+            #self.logger(u'Checker for client %s (command "%s")'
+            #            u' was successful'
+            #            % (self.properties[u"Name"], command))
             self.update()
             return
         # Checker failed
