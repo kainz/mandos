@@ -3,7 +3,6 @@
 * Use _attribute_((nonnull)) wherever possible.
 
 * Release critical
-** TODO Change make-run-server to not include --no-dbus
 ** plymouth.8mandos
 
 * mandos-client
@@ -87,6 +86,7 @@
 ** TODO Separate logging logic to own object
 ** TODO make clients to a dict!
 ** TODO [#A] Limit approval_delay to max gnutls/tls timeout value
+** TODO [#B] break the wait on approval_delay if connection dies
 
 * mandos.xml
 ** Add mandos contact info in manual pages

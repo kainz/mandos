@@ -63,7 +63,7 @@
 				   strtoimax() */
 #include <assert.h>		/* assert() */
 #include <errno.h>		/* perror(), errno */
-#include <time.h>		/* nanosleep(), time() */
+#include <time.h>		/* nanosleep(), time(), sleep() */
 #include <net/if.h>		/* ioctl, ifreq, SIOCGIFFLAGS, IFF_UP,
 				   SIOCSIFFLAGS, if_indextoname(),
 				   if_nametoindex(), IF_NAMESIZE */
@@ -690,9 +690,11 @@ static int start_mandos_communication(const char *ip, uint16_t port,
     ret = connect(tcp_sd, &to.in, sizeof(to)); /* IPv4 */
   }
   if(ret < 0){
-    int e = errno;
-    perror("connect");
-    errno = e;
+    if ((errno != ECONNREFUSED and errno != ENETUNREACH) or debug){
+      int e = errno;
+      perror("connect");
+      errno = e;
+    }
     goto mandos_end;
   }
   
@@ -1618,31 +1620,19 @@ int main(int argc, char *argv[]){
     if(quit_now){
       goto end;
     }
-    
-    ret = start_mandos_communication(address, port, if_index, af);
-    if(ret < 0){
-      switch(errno){
-      case ENETUNREACH:
-      case EHOSTDOWN:
-      case EHOSTUNREACH:
-	exitcode = EX_NOHOST;
-	break;
-      case EINVAL:
-	exitcode = EX_USAGE;
-	break;
-      case EIO:
-	exitcode = EX_IOERR;
-	break;
-      case EPROTO:
-	exitcode = EX_PROTOCOL;
-	break;
-      default:
-	exitcode = EX_OSERR;
+
+    while(not quit_now){
+      ret = start_mandos_communication(address, port, if_index, af);
+      if(quit_now or ret == 0){
 	break;
       }
-    } else {
+      sleep(15);
+    };
+
+    if (not quit_now){
       exitcode = EXIT_SUCCESS;
     }
+
     goto end;
   }
   
