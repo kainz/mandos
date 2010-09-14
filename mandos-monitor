@@ -325,10 +325,6 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
 #             self.proxy.unpause()
 #         elif key == u"RET":
 #             self.open()
-#        elif key == u"+":
-#            self.proxy.Approve(True)
-#        elif key == u"-":
-#            self.proxy.Approve(False)
         else:
             return key
     
@@ -504,8 +500,8 @@ class UserInterface(object):
         """Toggle visibility of the log buffer."""
         self.log_visible = not self.log_visible
         self.rebuild()
-        self.log_message(u"Log visibility changed to: "
-                         + unicode(self.log_visible))
+        #self.log_message(u"Log visibility changed to: "
+        #                 + unicode(self.log_visible))
     
     def change_log_display(self):
         """Change type of log display.
@@ -516,7 +512,7 @@ class UserInterface(object):
             self.log_wrap = u"clip"
         for textwidget in self.log:
             textwidget.set_wrap_mode(self.log_wrap)
-        self.log_message(u"Wrap mode: " + self.log_wrap)
+        #self.log_message(u"Wrap mode: " + self.log_wrap)
     
     def find_and_remove_client(self, path, name):
         """Find an client from its object path and remove it.
