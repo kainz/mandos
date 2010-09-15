@@ -49,6 +49,7 @@
 #include <inttypes.h>		/* intmax_t, strtoimax() */
 #include <sys/stat.h>		/* struct stat, lstat(), S_ISLNK */
 #include <sysexits.h>		/* EX_OSERR, EX_UNAVAILABLE */
+#include <argz.h>		/* argz_count(), argz_extract() */
 
 sig_atomic_t interrupted_by_signal = 0;
 int signal_received;
@@ -566,27 +567,15 @@ int main(__attribute__((unused))int argc,
     }
   }
   
-  /* Create argc and argv for new usplash*/
-  int cmdline_argc = 0;
-  char **cmdline_argv = malloc(sizeof(char *));
-  {
-    size_t position = 0;
-    while(position < cmdline_len){
-      char **tmp = realloc(cmdline_argv,
-			   (sizeof(char *)
-			    * (size_t)(cmdline_argc + 2)));
-      if(tmp == NULL){
-	error(0, errno, "realloc");
-	free(cmdline_argv);
-	return status;
-      }
-      cmdline_argv = tmp;
-      cmdline_argv[cmdline_argc] = cmdline + position;
-      cmdline_argc++;
-      position += strlen(cmdline + position) + 1;
-    }
-    cmdline_argv[cmdline_argc] = NULL;
+  /* Create argv for new usplash*/
+  char **cmdline_argv = malloc(argz_count(cmdline, cmdline_len)
+			       * sizeof(char *)); /* Count args */
+  if(cmdline_argv == NULL){
+    error(0, errno, "malloc");
+    return status;
   }
+  argz_extract(cmdline, cmdline_len, cmdline_argv); /* Create argv */
+  
   /* Kill old usplash */
   kill(usplash_pid, SIGTERM);
   sleep(2);

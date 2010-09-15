@@ -32,9 +32,6 @@
 ** TODO [#B] Prefix all debug output with "Mandos plugin " + program_invocation_short_name
 ** TODO [#B] lock stdin (with flock()?)
 
-* plymouth
-** TODO Use [[info:libc:Argz%20Functions][argz_extract]]
-
 * TODO [#B] passdev
 
 * plugin-runner
