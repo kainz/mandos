@@ -24,7 +24,7 @@
 #include <sysexits.h>		/* EX_OSERR */
 #include <error.h>		/* error() */
 #include <errno.h>		/* TEMP_FAILURE_RETRY */
-#include <stdarg.h>
+#include <argz.h>		/* argz_count(), argz_extract() */
 
 sig_atomic_t interrupted_by_signal = 0;
 const char plymouth_pid[] = "/dev/.initramfs/plymouth.pid";
@@ -286,21 +286,15 @@ const char **getargv(pid_t pid){
   }
   
   /* we got cmdline and cmdline_len, ignore rest... */
-  const char **argv = NULL;
-  size_t argv_size = 0;
-  for(char *arg = cmdline; arg-cmdline < (ssize_t)cmdline_len;
-      arg = strchr(arg, '\0')+1){
-    tmp = realloc(argv, ((++argv_size)+1)*sizeof(char *));
-    if(tmp == NULL){
-      error(0, errno, "realloc");
-      free(argv);
-      return NULL;
-    }
-    argv = (const char **)tmp;
-    argv[argv_size-1] = arg;
+  char **argv = malloc((argz_count(cmdline, cmdline_len)+1)
+		       * sizeof(char *)); /* Get number of args */
+  if(argv == NULL){
+    error(0, errno, "argv = malloc()");
+    free(cmdline);
+    return NULL;
   }
-  argv[argv_size] = NULL;
-  return argv;
+  argz_extract(cmdline, cmdline_len, argv); /* Create argv */
+  return (const char **)argv;
 }
 
 int main(__attribute__((unused))int argc,
