@@ -568,7 +568,7 @@ int main(__attribute__((unused))int argc,
   }
   
   /* Create argv for new usplash*/
-  char **cmdline_argv = malloc(argz_count(cmdline, cmdline_len)
+  char **cmdline_argv = malloc((argz_count(cmdline, cmdline_len) + 1)
 			       * sizeof(char *)); /* Count args */
   if(cmdline_argv == NULL){
     error(0, errno, "malloc");
