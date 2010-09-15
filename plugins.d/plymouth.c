@@ -286,7 +286,7 @@ const char **getargv(pid_t pid){
   }
   
   /* we got cmdline and cmdline_len, ignore rest... */
-  char **argv = malloc((argz_count(cmdline, cmdline_len)+1)
+  char **argv = malloc((argz_count(cmdline, cmdline_len) + 1)
 		       * sizeof(char *)); /* Get number of args */
   if(argv == NULL){
     error(0, errno, "argv = malloc()");
