@@ -86,8 +86,9 @@ PLUGINS=plugins.d/password-prompt plugins.d/mandos-client \
 	plugins.d/usplash plugins.d/splashy plugins.d/askpass-fifo \
 	plugins.d/plymouth
 CPROGS=plugin-runner $(PLUGINS)
-PROGS=mandos mandos-keygen mandos-ctl $(CPROGS)
+PROGS=mandos mandos-keygen mandos-ctl mandos-monitor $(CPROGS)
 DOCS=mandos.8 plugin-runner.8mandos mandos-keygen.8 \
+	mandos-monitor.8 \
 	plugins.d/mandos-client.8mandos \
 	plugins.d/password-prompt.8mandos mandos.conf.5 \
 	plugins.d/usplash.8mandos plugins.d/splashy.8mandos \
@@ -129,6 +130,13 @@ mandos-keygen.8: mandos-keygen.xml common.ent overview.xml \
 		legalnotice.xml
 	$(DOCBOOKTOMAN)
 mandos-keygen.8.xhtml: mandos-keygen.xml common.ent overview.xml \
+		 legalnotice.xml
+	$(DOCBOOKTOHTML)
+
+mandos-monitor.8: mandos-monitor.xml common.ent overview.xml \
+		legalnotice.xml
+	$(DOCBOOKTOMAN)
+mandos-monitor.8.xhtml: mandos-monitor.xml common.ent overview.xml \
 		 legalnotice.xml
 	$(DOCBOOKTOHTML)
 
@@ -174,6 +182,11 @@ mandos-keygen: Makefile
 		$@)
 
 mandos-ctl: Makefile
+	$(strip $(SED) --in-place \
+		--expression='s/^\(version = "\)[^"]*"$$/\1$(version)"/' \
+		$@)
+
+mandos-monitor: Makefile
 	$(strip $(SED) --in-place \
 		--expression='s/^\(version = "\)[^"]*"$$/\1$(version)"/' \
 		$@)
@@ -261,6 +274,10 @@ install-html: html
 install-server: doc
 	install --directory $(CONFDIR)
 	install --mode=u=rwx,go=rx mandos $(PREFIX)/sbin/mandos
+	install --mode=u=rwx,go=rx --target-directory=$(PREFIX)/sbin \
+		mandos-ctl
+	install --mode=u=rwx,go=rx --target-directory=$(PREFIX)/sbin \
+		mandos-monitor
 	install --mode=u=rw,go=r --target-directory=$(CONFDIR) \
 		mandos.conf
 	install --mode=u=rw --target-directory=$(CONFDIR) \
@@ -343,6 +360,8 @@ uninstall: uninstall-server uninstall-client
 
 uninstall-server:
 	-rm --force $(PREFIX)/sbin/mandos \
+		$(PREFIX)/sbin/mandos-ctl \
+		$(PREFIX)/sbin/mandos-monitor \
 		$(MANDIR)/man8/mandos.8.gz \
 		$(MANDIR)/man5/mandos.conf.5.gz \
 		$(MANDIR)/man5/mandos-clients.conf.5.gz
