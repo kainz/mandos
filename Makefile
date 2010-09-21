@@ -88,7 +88,7 @@ PLUGINS=plugins.d/password-prompt plugins.d/mandos-client \
 CPROGS=plugin-runner $(PLUGINS)
 PROGS=mandos mandos-keygen mandos-ctl mandos-monitor $(CPROGS)
 DOCS=mandos.8 plugin-runner.8mandos mandos-keygen.8 \
-	mandos-monitor.8 \
+	mandos-monitor.8 mandos-ctl.8 \
 	plugins.d/mandos-client.8mandos \
 	plugins.d/password-prompt.8mandos mandos.conf.5 \
 	plugins.d/usplash.8mandos plugins.d/splashy.8mandos \
@@ -137,6 +137,13 @@ mandos-monitor.8: mandos-monitor.xml common.ent overview.xml \
 		legalnotice.xml
 	$(DOCBOOKTOMAN)
 mandos-monitor.8.xhtml: mandos-monitor.xml common.ent overview.xml \
+		 legalnotice.xml
+	$(DOCBOOKTOHTML)
+
+mandos-ctl.8: mandos-ctl.xml common.ent overview.xml \
+		legalnotice.xml
+	$(DOCBOOKTOMAN)
+mandos-ctl.8.xhtml: mandos-ctl.xml common.ent overview.xml \
 		 legalnotice.xml
 	$(DOCBOOKTOHTML)
 
