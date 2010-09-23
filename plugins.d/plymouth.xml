@@ -1,0 +1,279 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+<!ENTITY COMMANDNAME "plymouth">
+<!ENTITY TIMESTAMP "2010-09-23">
+<!ENTITY % common SYSTEM "../common.ent">
+%common;
+]>
+
+<refentry xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>Mandos Manual</title>
+    <!-- NWalsh’s docbook scripts use this to generate the footer: -->
+    <productname>Mandos</productname>
+    <productnumber>&version;</productnumber>
+    <date>&TIMESTAMP;</date>
+    <authorgroup>
+      <author>
+	<firstname>Björn</firstname>
+	<surname>Påhlsson</surname>
+	<address>
+	  <email>belorn@fukt.bsnet.se</email>
+	</address>
+      </author>
+      <author>
+	<firstname>Teddy</firstname>
+	<surname>Hogeborn</surname>
+	<address>
+	  <email>teddy@fukt.bsnet.se</email>
+	</address>
+      </author>
+    </authorgroup>
+    <copyright>
+      <year>2008</year>
+      <year>2009</year>
+      <holder>Teddy Hogeborn</holder>
+      <holder>Björn Påhlsson</holder>
+    </copyright>
+    <xi:include href="../legalnotice.xml"/>
+  </refentryinfo>
+  
+  <refmeta>
+    <refentrytitle>&COMMANDNAME;</refentrytitle>
+    <manvolnum>8mandos</manvolnum>
+  </refmeta>
+  
+  <refnamediv>
+    <refname><command>&COMMANDNAME;</command></refname>
+    <refpurpose>Mandos plugin to use plymouth to get a
+    password.</refpurpose>
+  </refnamediv>
+  
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>&COMMANDNAME;</command>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+  
+  <refsect1 id="description">
+    <title>DESCRIPTION</title>
+    <para>
+      This program prompts for a password using <citerefentry>
+      <refentrytitle>plymouth</refentrytitle><manvolnum>8</manvolnum>
+      </citerefentry> and outputs any given password to standard
+      output.  If no <citerefentry><refentrytitle
+      >plymouth</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      process can be found, this program will immediately exit with an
+      exit code indicating failure.
+    </para>
+    <para>
+      This program is not very useful on its own.  This program is
+      really meant to run as a plugin in the <application
+      >Mandos</application> client-side system, where it is used as a
+      fallback and alternative to retrieving passwords from a
+      <application >Mandos</application> server.
+    </para>
+    <para>
+      If this program is killed (presumably by
+      <citerefentry><refentrytitle>plugin-runner</refentrytitle>
+      <manvolnum>8mandos</manvolnum></citerefentry> because some other
+      plugin provided the password), it cannot tell <citerefentry>
+      <refentrytitle>plymouth</refentrytitle><manvolnum>8</manvolnum>
+      </citerefentry> to abort requesting a password, because
+      <citerefentry><refentrytitle>plymouth</refentrytitle>
+      <manvolnum>8</manvolnum></citerefentry> does not support this.
+      Therefore, this program will then <emphasis>kill</emphasis> the
+      running <citerefentry><refentrytitle>plymouth</refentrytitle>
+      <manvolnum>8</manvolnum></citerefentry> process and start a
+      <emphasis>new</emphasis> one using the same command line
+      arguments as the old one was using.
+    </para>
+  </refsect1>
+  
+  <refsect1 id="options">
+    <title>OPTIONS</title>
+    <para>
+      This program takes no options.
+    </para>
+  </refsect1>
+  
+  <refsect1 id="exit_status">
+    <title>EXIT STATUS</title>
+    <para>
+      If exit status is 0, the output from the program is the password
+      as it was read.  Otherwise, if exit status is other than 0, the
+      program was interrupted or encountered an error, and any output
+      so far could be corrupt and/or truncated, and should therefore
+      be ignored.
+    </para>
+  </refsect1>
+  
+  <refsect1 id="environment">
+    <title>ENVIRONMENT</title>
+    <variablelist>
+      <varlistentry>
+	<term><envar>cryptsource</envar></term>
+	<term><envar>crypttarget</envar></term>
+	<listitem>
+	  <para>
+	    If set, these environment variables will be assumed to
+	    contain the source device name and the target device
+	    mapper name, respectively, and will be shown as part of
+	    the prompt.
+	</para>
+	<para>
+	  These variables will normally be inherited from
+	  <citerefentry><refentrytitle>plugin-runner</refentrytitle>
+	  <manvolnum>8mandos</manvolnum></citerefentry>, which will
+	  normally have inherited them from
+	  <filename>/scripts/local-top/cryptroot</filename> in the
+	  initial <acronym>RAM</acronym> disk environment, which will
+	  have set them from parsing kernel arguments and
+	  <filename>/conf/conf.d/cryptroot</filename> (also in the
+	  initial RAM disk environment), which in turn will have been
+	  created when the initial RAM disk image was created by
+	  <filename
+	  >/usr/share/initramfs-tools/hooks/cryptroot</filename>, by
+	  extracting the information of the root file system from
+	  <filename >/etc/crypttab</filename>.
+	</para>
+	<para>
+	  This behavior is meant to exactly mirror the behavior of
+	  <command>askpass</command>, the default password prompter.
+	</para>
+	</listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+  
+  <refsect1 id="files">
+    <title>FILES</title>
+    <variablelist>
+      <varlistentry>
+	<term><filename>/bin/plymouth</filename></term>
+	<listitem>
+	  <para>
+	    This is the command run to retrieve a password from
+	    <citerefentry><refentrytitle>plymouth</refentrytitle>
+	    <manvolnum>8</manvolnum></citerefentry>.
+	  </para>
+	</listitem>
+      </varlistentry>
+      <varlistentry>
+	<term><filename>/proc</filename></term>
+	<listitem>
+	  <para>
+	    To find the running <citerefentry><refentrytitle
+	    >plymouth</refentrytitle><manvolnum>8</manvolnum>
+	    </citerefentry>, this directory will be searched for
+	    numeric entries which will be assumed to be directories.
+	    In all those directories, the <filename>exe</filename> and
+	    <filename>cmdline</filename> entries will be used to
+	    determine the name of the running binary, effective user
+	    and group <abbrev>ID</abbrev>, and the command line
+	    arguments.  See <citerefentry><refentrytitle
+	    >proc</refentrytitle><manvolnum>5</manvolnum>
+	    </citerefentry>.
+	  </para>
+	</listitem>
+      </varlistentry>
+      <varlistentry>
+	<term><filename>/sbin/plymouthd</filename></term>
+	<listitem>
+	  <para>
+	    This is the name of the binary which will be searched for
+	    in the process list.  See <citerefentry><refentrytitle
+	    >plymouth</refentrytitle><manvolnum>8</manvolnum>
+	    </citerefentry>.
+	  </para>
+	</listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+  
+  <refsect1 id="bugs">
+    <title>BUGS</title>
+    <para>
+      Killing the <citerefentry><refentrytitle
+      >plymouth</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      daemon and starting a new one is ugly, but necessary as long as
+      it does not support aborting a password request.
+    </para>
+  </refsect1>
+  
+  <refsect1 id="example">
+    <title>EXAMPLE</title>
+    <para>
+      Note that normally, this program will not be invoked directly,
+      but instead started by the Mandos <citerefentry><refentrytitle
+      >plugin-runner</refentrytitle><manvolnum>8mandos</manvolnum>
+      </citerefentry>.
+    </para>
+    <informalexample>
+      <para>
+	This program takes no options.
+      </para>
+      <para>
+	<userinput>&COMMANDNAME;</userinput>
+      </para>
+    </informalexample>
+  </refsect1>
+  
+  <refsect1 id="security">
+    <title>SECURITY</title>
+    <para>
+      If this program is killed by a signal, it will kill the process
+      <abbrev>ID</abbrev> which at the start of this program was
+      determined to run <citerefentry><refentrytitle
+      >plymouth</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      as root (see also <xref linkend="files"/>).  There is a very
+      slight risk that, in the time between those events, that process
+      <abbrev>ID</abbrev> was freed and then taken up by another
+      process; the wrong process would then be killed.  Now, this
+      program can only be killed by the user who started it; see
+      <citerefentry><refentrytitle>plugin-runner</refentrytitle>
+      <manvolnum>8mandos</manvolnum></citerefentry>.  This program
+      should therefore be started by a completely separate
+      non-privileged user, and no other programs should be allowed to
+      run as that special user.  This means that it is not recommended
+      to use the user "nobody" to start this program, as other
+      possibly less trusted programs could be running as "nobody", and
+      they would then be able to kill this program, triggering the
+      killing of the process <abbrev>ID</abbrev> which may or may not
+      be <citerefentry><refentrytitle>plymouth</refentrytitle>
+      <manvolnum>8</manvolnum></citerefentry>.
+    </para>
+    <para>
+      The only other thing that could be considered worthy of note is
+      this:  This program is meant to be run by <citerefentry>
+      <refentrytitle>plugin-runner</refentrytitle><manvolnum
+      >8mandos</manvolnum></citerefentry>, and will, when run
+      standalone, outside, in a normal environment, immediately output
+      on its standard output any presumably secret password it just
+      received.  Therefore, when running this program standalone
+      (which should never normally be done), take care not to type in
+      any real secret password by force of habit, since it would then
+      immediately be shown as output.
+    </para>
+  </refsect1>
+  
+  <refsect1 id="see_also">
+    <title>SEE ALSO</title>
+    <para>
+      <citerefentry><refentrytitle>crypttab</refentrytitle>
+      <manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>plugin-runner</refentrytitle>
+      <manvolnum>8mandos</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>proc</refentrytitle>
+      <manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>plymouth</refentrytitle>
+      <manvolnum>8</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+</refentry>
+<!-- Local Variables: -->
+<!-- time-stamp-start: "<!ENTITY TIMESTAMP [\"']" -->
+<!-- time-stamp-end: "[\"']>" -->
+<!-- time-stamp-format: "%:y-%02m-%02d" -->
+<!-- End: -->

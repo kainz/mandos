@@ -87,12 +87,12 @@ PLUGINS=plugins.d/password-prompt plugins.d/mandos-client \
 	plugins.d/plymouth
 CPROGS=plugin-runner $(PLUGINS)
 PROGS=mandos mandos-keygen mandos-ctl mandos-monitor $(CPROGS)
-DOCS=mandos.8 plugin-runner.8mandos mandos-keygen.8 \
-	mandos-monitor.8 mandos-ctl.8 \
+DOCS=mandos.8 mandos-keygen.8 mandos-monitor.8 mandos-ctl.8 \
+	mandos.conf.5 mandos-clients.conf.5 plugin-runner.8mandos \
 	plugins.d/mandos-client.8mandos \
-	plugins.d/password-prompt.8mandos mandos.conf.5 \
-	plugins.d/usplash.8mandos plugins.d/splashy.8mandos \
-	plugins.d/askpass-fifo.8mandos mandos-clients.conf.5
+	plugins.d/password-prompt.8mandos plugins.d/usplash.8mandos \
+	plugins.d/splashy.8mandos plugins.d/askpass-fifo.8mandos \
+	plugins.d/plymouth.8mandos
 
 htmldocs=$(addsuffix .xhtml,$(DOCS))
 
@@ -300,6 +300,10 @@ install-server: doc
 	fi
 	gzip --best --to-stdout mandos.8 \
 		> $(MANDIR)/man8/mandos.8.gz
+	gzip --best --to-stdout mandos-monitor.8 \
+		> $(MANDIR)/man8/mandos-monitor.8.gz
+	gzip --best --to-stdout mandos-ctl.8 \
+		> $(MANDIR)/man8/mandos-ctl.8.gz
 	gzip --best --to-stdout mandos.conf.5 \
 		> $(MANDIR)/man5/mandos.conf.5.gz
 	gzip --best --to-stdout mandos-clients.conf.5 \
@@ -346,16 +350,18 @@ install-client-nokey: all doc
 		> $(MANDIR)/man8/mandos-keygen.8.gz
 	gzip --best --to-stdout plugin-runner.8mandos \
 		> $(MANDIR)/man8/plugin-runner.8mandos.gz
-	gzip --best --to-stdout plugins.d/password-prompt.8mandos \
-		> $(MANDIR)/man8/password-prompt.8mandos.gz
 	gzip --best --to-stdout plugins.d/mandos-client.8mandos \
 		> $(MANDIR)/man8/mandos-client.8mandos.gz
+	gzip --best --to-stdout plugins.d/password-prompt.8mandos \
+		> $(MANDIR)/man8/password-prompt.8mandos.gz
 	gzip --best --to-stdout plugins.d/usplash.8mandos \
 		> $(MANDIR)/man8/usplash.8mandos.gz
 	gzip --best --to-stdout plugins.d/splashy.8mandos \
 		> $(MANDIR)/man8/splashy.8mandos.gz
 	gzip --best --to-stdout plugins.d/askpass-fifo.8mandos \
 		> $(MANDIR)/man8/askpass-fifo.8mandos.gz
+	gzip --best --to-stdout plugins.d/plymouth.8mandos \
+		> $(MANDIR)/man8/plymouth.8mandos.gz
 
 install-client: install-client-nokey
 # Post-installation stuff
@@ -370,6 +376,8 @@ uninstall-server:
 		$(PREFIX)/sbin/mandos-ctl \
 		$(PREFIX)/sbin/mandos-monitor \
 		$(MANDIR)/man8/mandos.8.gz \
+		$(MANDIR)/man8/mandos-monitor.8.gz \
+		$(MANDIR)/man8/mandos-ctl.8.gz \
 		$(MANDIR)/man5/mandos.conf.5.gz \
 		$(MANDIR)/man5/mandos-clients.conf.5.gz
 	update-rc.d -f mandos remove
@@ -391,13 +399,14 @@ uninstall-client:
 		$(INITRAMFSTOOLS)/hooks/mandos \
 		$(INITRAMFSTOOLS)/conf-hooks.d/mandos \
 		$(INITRAMFSTOOLS)/scripts/init-premount/mandos \
-		$(MANDIR)/man8/plugin-runner.8mandos.gz \
 		$(MANDIR)/man8/mandos-keygen.8.gz \
+		$(MANDIR)/man8/plugin-runner.8mandos.gz \
+		$(MANDIR)/man8/mandos-client.8mandos.gz
 		$(MANDIR)/man8/password-prompt.8mandos.gz \
 		$(MANDIR)/man8/usplash.8mandos.gz \
 		$(MANDIR)/man8/splashy.8mandos.gz \
 		$(MANDIR)/man8/askpass-fifo.8mandos.gz \
-		$(MANDIR)/man8/mandos-client.8mandos.gz
+		$(MANDIR)/man8/plymouth.8mandos.gz \
 	-rmdir $(PREFIX)/lib/mandos/plugins.d $(CONFDIR)/plugins.d \
 		 $(PREFIX)/lib/mandos $(CONFDIR) $(KEYDIR)
 	update-initramfs -k all -u
