@@ -3,7 +3,8 @@
 * Use _attribute_((nonnull)) wherever possible.
 
 * Release critical
-** plymouth.8mandos
+** mandos-ctl.xml
+*** More examples
 
 * mandos-client
 ** TODO [#B] use scandir(3) instead of readdir(3)
