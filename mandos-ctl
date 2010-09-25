@@ -161,7 +161,7 @@ def main():
 	parser.add_option("-D", "--deny", action="store_true",
 	                  help="Deny any current client request")
 	options, client_names = parser.parse_args()
-
+        
         if has_actions(options) and not client_names and not options.all:
             parser.error('Options requires clients names or --all.')
         if options.verbose and has_actions(options):
@@ -195,17 +195,19 @@ def main():
             print >> sys.stderr, "Access denied: Accessing mandos server through dbus."
             sys.exit(1)
             
-	# Compile list of clients to process
-	clients=[]
-
+	# Compile dict of (clients: properties) to process
+	clients={}
+        
         if options.all or not client_names:
-            clients = (bus.get_object(busname, path) for path in mandos_clients.iterkeys())
+            clients = dict((bus.get_object(busname, path), properties)
+                           for path, properties in
+                           mandos_clients.iteritems())
         else:
             for name in client_names:
                 for path, client in mandos_clients.iteritems():
                     if client['Name'] == name:
                         client_objc = bus.get_object(busname, path)
-                        clients.append(client_objc)
+                        clients[client_objc] = client
                         break
                 else:
                     print >> sys.stderr, "Client not found on server: %r" % name
@@ -219,7 +221,7 @@ def main():
             else:
                 keywords = defaultkeywords
                 
-	    print_clients(mandos_clients.values(), keywords)
+	    print_clients(clients.values(), keywords)
         else:
             # Process each client in the list by all selected options
             for client in clients:
