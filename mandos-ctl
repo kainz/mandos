@@ -93,7 +93,7 @@ def print_clients(clients, keywords):
     def valuetostring(value, keyword):
         if type(value) is dbus.Boolean:
             return u"Yes" if value else u"No"
-        if keyword in (u"timeout", u"interval"):
+        if keyword in (u"Timeout", u"Interval"):
             return milliseconds_to_string(value)
         return unicode(value)
     
@@ -110,6 +110,7 @@ def print_clients(clients, keywords):
     for client in clients:
         print format_string % tuple(valuetostring(client[key], key)
                                     for key in keywords)
+
 def has_actions(options):
     return any((options.enable,
                 options.disable,

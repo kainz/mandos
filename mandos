@@ -240,35 +240,41 @@ class Client(object):
     """A representation of a client host served by this server.
     
     Attributes:
-    name:       string; from the config file, used in log messages and
-                        D-Bus identifiers
-    fingerprint: string (40 or 32 hexadecimal digits); used to
-                 uniquely identify the client
-    secret:     bytestring; sent verbatim (over TLS) to client
-    host:       string; available for use by the checker command
-    created:    datetime.datetime(); (UTC) object creation
-    last_enabled: datetime.datetime(); (UTC)
-    enabled:    bool()
-    last_checked_ok: datetime.datetime(); (UTC) or None
-    timeout:    datetime.timedelta(); How long from last_checked_ok
-                                      until this client is disabled
-    interval:   datetime.timedelta(); How often to start a new checker
-    disable_hook:  If set, called by disable() as disable_hook(self)
+    _approved:   bool(); 'None' if not yet approved/disapproved
+    approval_delay: datetime.timedelta(); Time to wait for approval
+    approval_duration: datetime.timedelta(); Duration of one approval
     checker:    subprocess.Popen(); a running checker process used
                                     to see if the client lives.
                                     'None' if no process is running.
-    checker_initiator_tag: a gobject event source tag, or None
-    disable_initiator_tag: - '' -
     checker_callback_tag:  - '' -
-    checker_command: string; External command which is run to check if
-                     client lives.  %() expansions are done at
+    checker_command: string; External command which is run to check
+                     if client lives.  %() expansions are done at
                      runtime with vars(self) as dict, so that for
                      instance %(name)s can be used in the command.
+    checker_initiator_tag: a gobject event source tag, or None
+    created:    datetime.datetime(); (UTC) object creation
     current_checker_command: string; current running checker_command
-    approval_delay: datetime.timedelta(); Time to wait for approval
-    _approved:   bool(); 'None' if not yet approved/disapproved
-    approval_duration: datetime.timedelta(); Duration of one approval
+    disable_hook:  If set, called by disable() as disable_hook(self)
+    disable_initiator_tag: - '' -
+    enabled:    bool()
+    fingerprint: string (40 or 32 hexadecimal digits); used to
+                 uniquely identify the client
+    host:       string; available for use by the checker command
+    interval:   datetime.timedelta(); How often to start a new checker
+    last_checked_ok: datetime.datetime(); (UTC) or None
+    last_enabled: datetime.datetime(); (UTC)
+    name:       string; from the config file, used in log messages and
+                        D-Bus identifiers
+    secret:     bytestring; sent verbatim (over TLS) to client
+    timeout:    datetime.timedelta(); How long from last_checked_ok
+                                      until this client is disabled
+    runtime_expansions: Allowed attributes for runtime expansion.
     """
+    
+    runtime_expansions = (u"approval_delay", u"approval_duration",
+                          u"created", u"enabled", u"fingerprint",
+                          u"host", u"interval", u"last_checked_ok",
+                          u"last_enabled", u"name", u"timeout")
     
     @staticmethod
     def _timedelta_to_milliseconds(td):
@@ -450,12 +456,14 @@ class Client(object):
                 command = self.checker_command % self.host
             except TypeError:
                 # Escape attributes for the shell
-                escaped_attrs = dict((key,
-                                      re.escape(unicode(str(val),
-                                                        errors=
-                                                        u'replace')))
-                                     for key, val in
-                                     vars(self).iteritems())
+                escaped_attrs = dict(
+                    (attr,
+                     re.escape(unicode(str(getattr(self, attr, u"")),
+                                       errors=
+                                       u'replace')))
+                    for attr in
+                    self.runtime_expansions)
+
                 try:
                     command = self.checker_command % escaped_attrs
                 except TypeError, error:
@@ -703,6 +711,10 @@ class ClientDBus(Client, DBusObjectWithProperties):
     dbus_object_path: dbus.ObjectPath
     bus: dbus.SystemBus()
     """
+    
+    runtime_expansions = (Client.runtime_expansions
+                          + (u"dbus_object_path",))
+    
     # dbus.service.Object doesn't use super(), so we can't either.
     
     def __init__(self, bus = None, *args, **kwargs):
