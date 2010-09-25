@@ -723,9 +723,11 @@ class ClientDBus(Client, DBusObjectWithProperties):
         Client.__init__(self, *args, **kwargs)
         # Only now, when this client is initialized, can it show up on
         # the D-Bus
+        client_object_name = unicode(self.name).translate(
+            {ord(u"."): ord(u"_"),
+             ord(u"-"): ord(u"_")})
         self.dbus_object_path = (dbus.ObjectPath
-                                 (u"/clients/"
-                                  + self.name.replace(u".", u"_")))
+                                 (u"/clients/" + client_object_name))
         DBusObjectWithProperties.__init__(self, self.bus,
                                           self.dbus_object_path)
         
@@ -1520,7 +1522,7 @@ class MandosServer(IPv6_TCPServer):
                                u"dress: %s", fpr, address)
                 if self.use_dbus:
                     # Emit D-Bus signal
-                    mandos_dbus_service.ClientNotFound(fpr, address)
+                    mandos_dbus_service.ClientNotFound(fpr, address[0])
                 parent_pipe.send(False)
                 return False
             
