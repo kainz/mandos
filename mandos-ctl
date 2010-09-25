@@ -23,6 +23,10 @@ tablewords = {
     'Fingerprint': u'Fingerprint',
     'CheckerRunning': u'Check Is Running',
     'LastEnabled': u'Last Enabled',
+    'ApprovalPending': u'Approval Is Pending',
+    'ApprovedByDefault': u'Approved By Default',
+    'ApprovalDelay': u"Approval Delay",
+    'ApprovalDuration': u"Approval Duration",
     'Checker': u'Checker',
     }
 defaultkeywords = ('Name', 'Enabled', 'Timeout', 'LastCheckedOK')
@@ -93,7 +97,8 @@ def print_clients(clients, keywords):
     def valuetostring(value, keyword):
         if type(value) is dbus.Boolean:
             return u"Yes" if value else u"No"
-        if keyword in (u"Timeout", u"Interval"):
+        if keyword in (u"Timeout", u"Interval", u"ApprovalDelay",
+                       u"ApprovalDuration"):
             return milliseconds_to_string(value)
         return unicode(value)
     
@@ -122,6 +127,9 @@ def has_actions(options):
                 options.checker is not None,
                 options.timeout is not None,
                 options.interval is not None,
+                options.approved_by_default is not None,
+                options.approval_delay is not None,
+                options.approval_duration is not None,
                 options.host is not None,
                 options.secret is not None,
                 options.approve,
@@ -153,6 +161,16 @@ def main():
 	                  help="Set timeout for client")
 	parser.add_option("-i", "--interval", type="string",
 	                  help="Set checker interval for client")
+        parser.add_option("--approve-by-default", action="store_true",
+                          dest=u"approved_by_default",
+                          help="Set client to be approved by default")
+        parser.add_option("--deny-by-default", action="store_false",
+                          dest=u"approved_by_default",
+                          help="Set client to be denied by default")
+        parser.add_option("--approval-delay", type="string",
+                          help="Set delay before client approve/deny")
+        parser.add_option("--approval-duration", type="string",
+                          help="Set duration of one client approval")
 	parser.add_option("-H", "--host", type="string",
 	                  help="Set host for client")
 	parser.add_option("-s", "--secret", type="string",
@@ -164,12 +182,13 @@ def main():
 	options, client_names = parser.parse_args()
         
         if has_actions(options) and not client_names and not options.all:
-            parser.error('Options requires clients names or --all.')
+            parser.error('Options require clients names or --all.')
         if options.verbose and has_actions(options):
-            parser.error('Verbose option can only be used alone or with --all.')
+            parser.error('--verbose can only be used alone or with'
+                         ' --all.')
         if options.all and not has_actions(options):
-            parser.error('--all requires an action')
-            
+            parser.error('--all requires an action.')
+        
         try:
             bus = dbus.SystemBus()
             mandos_dbus_objc = bus.get_object(busname, server_path)
@@ -216,9 +235,12 @@ def main():
             
 	if not has_actions(options) and clients:
 	    if options.verbose:
-	        keywords = ('Name', 'Enabled', 'Timeout', 'LastCheckedOK',
-	                    'Created', 'Interval', 'Host', 'Fingerprint',
-	                    'CheckerRunning', 'LastEnabled', 'Checker')
+	        keywords = ('Name', 'Enabled', 'Timeout',
+                            'LastCheckedOK', 'Created', 'Interval',
+                            'Host', 'Fingerprint', 'CheckerRunning',
+                            'LastEnabled', 'ApprovalPending',
+                            'ApprovedByDefault', 'ApprovalDelay',
+                            'ApprovalDuration', 'Checker')
             else:
                 keywords = defaultkeywords
                 
@@ -254,19 +276,39 @@ def main():
                                timedelta_to_milliseconds
                                (string_to_delta(options.interval)),
                                dbus_interface=dbus.PROPERTIES_IFACE)
+                if options.approval_delay:
+                    client.Set(client_interface, u"ApprovalDelay",
+                               timedelta_to_milliseconds
+                               (string_to_delta(options.
+                                                approval_delay)),
+                               dbus_interface=dbus.PROPERTIES_IFACE)
+                if options.approval_duration:
+                    client.Set(client_interface, u"ApprovalDuration",
+                               timedelta_to_milliseconds
+                               (string_to_delta(options.
+                                                approval_duration)),
+                               dbus_interface=dbus.PROPERTIES_IFACE)
                 if options.timeout:
                     client.Set(client_interface, u"Timeout",
-                               timedelta_to_milliseconds(string_to_delta
-                                                         (options.timeout)),
+                               timedelta_to_milliseconds
+                               (string_to_delta(options.timeout)),
                                dbus_interface=dbus.PROPERTIES_IFACE)
                 if options.secret:
                     client.Set(client_interface, u"Secret",
-                               dbus.ByteArray(open(options.secret, u'rb').read()),
+                               dbus.ByteArray(open(options.secret,
+                                                   u'rb').read()),
+                               dbus_interface=dbus.PROPERTIES_IFACE)
+                if options.approved_by_default is not None:
+                    client.Set(client_interface, u"ApprovedByDefault",
+                               dbus.Boolean(options
+                                            .approved_by_default),
                                dbus_interface=dbus.PROPERTIES_IFACE)
                 if options.approve:
-                    client.Approve(dbus.Boolean(True), dbus_interface=client_interface)
-                if options.deny:
-                    client.Approve(dbus.Boolean(False), dbus_interface=client_interface)
+                    client.Approve(dbus.Boolean(True),
+                                   dbus_interface=client_interface)
+                elif options.deny:
+                    client.Approve(dbus.Boolean(False),
+                                   dbus_interface=client_interface)
 
 if __name__ == '__main__':
     main()

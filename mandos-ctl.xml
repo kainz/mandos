@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY COMMANDNAME "mandos-ctl">
-<!ENTITY TIMESTAMP "2010-09-25">
+<!ENTITY TIMESTAMP "2010-09-26">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -90,6 +90,30 @@
 	<arg choice="plain"><option>--timeout
 	<replaceable>TIME</replaceable></option></arg>
 	<arg choice="plain"><option>-t
+	<replaceable>TIME</replaceable></option></arg>
+      </group>
+      <sbr/>
+      <group>
+	<arg choice="plain"><option>--interval
+	<replaceable>TIME</replaceable></option></arg>
+	<arg choice="plain"><option>-i
+	<replaceable>TIME</replaceable></option></arg>
+      </group>
+      <sbr/>
+      <group>
+	<arg choice="plain"><option>--approve-by-default</option
+        ></arg>
+	<sbr/>
+	<arg choice="plain"><option>--deny-by-default</option></arg>
+      </group>
+      <sbr/>
+      <group>
+	<arg choice="plain"><option>--approval-delay
+	<replaceable>TIME</replaceable></option></arg>
+      </group>
+      <sbr/>
+      <group>
+	<arg choice="plain"><option>--approval-duration
 	<replaceable>TIME</replaceable></option></arg>
       </group>
       <sbr/>
@@ -273,8 +297,8 @@
 	  <para>
 	    Set the <varname>checker</varname> option of the specified
 	    client(s); see <citerefentry><refentrytitle
-	    >mandos-client.conf</refentrytitle><manvolnum>5</manvolnum
-	    ></citerefentry>.
+	    >mandos-clients.conf</refentrytitle><manvolnum
+            >5</manvolnum></citerefentry>.
 	  </para>
 	</listitem>
       </varlistentry>
@@ -288,8 +312,8 @@
 	  <para>
 	    Set the <varname>timeout</varname> option of the specified
 	    client(s); see <citerefentry><refentrytitle
-	    >mandos-client.conf</refentrytitle><manvolnum>5</manvolnum
-	    ></citerefentry>.
+	    >mandos-clients.conf</refentrytitle><manvolnum
+            >5</manvolnum></citerefentry>.
 	  </para>
 	</listitem>
       </varlistentry>
@@ -301,10 +325,51 @@
 	<replaceable>TIME</replaceable></option></term>
 	<listitem>
 	  <para>
-	    Set the <varname>interval</varname> option of the specified
-	    client(s); see <citerefentry><refentrytitle
-	    >mandos-client.conf</refentrytitle><manvolnum>5</manvolnum
-	    ></citerefentry>.
+	    Set the <varname>interval</varname> option of the
+	    specified client(s); see <citerefentry><refentrytitle
+	    >mandos-clients.conf</refentrytitle><manvolnum
+            >5</manvolnum></citerefentry>.
+	  </para>
+	</listitem>
+      </varlistentry>
+      
+      <varlistentry>
+	<term><option>--approve-by-default</option></term>
+	<term><option>--deny-by-default</option></term>
+	<listitem>
+	  <para>
+	    Set the <varname>approved_by_default</varname> option of
+	    the specified client(s) to <literal>True</literal> or
+	    <literal>False</literal>, respectively; see
+	    <citerefentry><refentrytitle
+            >mandos-clients.conf</refentrytitle><manvolnum
+            >5</manvolnum></citerefentry>.
+	  </para>
+	</listitem>
+      </varlistentry>
+      
+      <varlistentry>
+	<term><option>--approval-delay
+	<replaceable>TIME</replaceable></option></term>
+	<listitem>
+	  <para>
+	    Set the <varname>approval_delay</varname> option of the
+	    specified client(s); see <citerefentry><refentrytitle
+	    >mandos-clients.conf</refentrytitle><manvolnum
+            >5</manvolnum></citerefentry>.
+	  </para>
+	</listitem>
+      </varlistentry>
+      
+      <varlistentry>
+	<term><option>--approval-duration
+	<replaceable>TIME</replaceable></option></term>
+	<listitem>
+	  <para>
+	    Set the <varname>approval_duration</varname> option of the
+	    specified client(s); see <citerefentry><refentrytitle
+	    >mandos-clients.conf</refentrytitle><manvolnum
+            >5</manvolnum></citerefentry>.
 	  </para>
 	</listitem>
       </varlistentry>
@@ -318,8 +383,8 @@
 	  <para>
 	    Set the <varname>host</varname> option of the specified
 	    client(s); see <citerefentry><refentrytitle
-	    >mandos-client.conf</refentrytitle><manvolnum>5</manvolnum
-	    ></citerefentry>.
+	    >mandos-clients.conf</refentrytitle><manvolnum
+            >5</manvolnum></citerefentry>.
 	  </para>
 	</listitem>
       </varlistentry>
@@ -333,8 +398,8 @@
 	  <para>
 	    Set the <varname>secfile</varname> option of the specified
 	    client(s); see <citerefentry><refentrytitle
-	    >mandos-client.conf</refentrytitle><manvolnum>5</manvolnum
-	    ></citerefentry>.
+	    >mandos-clients.conf</refentrytitle><manvolnum
+            >5</manvolnum></citerefentry>.
 	  </para>
 	</listitem>
       </varlistentry>
@@ -471,10 +536,7 @@
 	To approve all clients currently waiting for it:
       </para>
       <para>
-
-<!-- do not wrap this line -->
-<userinput>&COMMANDNAME; --approve --all</userinput>
-
+	<userinput>&COMMANDNAME; --approve --all</userinput>
       </para>
     </informalexample>
   </refsect1>
