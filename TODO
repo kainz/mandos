@@ -4,8 +4,6 @@
 
 * Release critical
 ** mandos
-*** Do not write PID file if --debug is passed?
-    Do other programs do this?
 ** Update copyright year to add 2010
 ** mandos.xml
 *** Document the approval concept
