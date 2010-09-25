@@ -256,7 +256,7 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
                     self.properties[u"LastEnabled"]))
             timer = timeout - (datetime.datetime.utcnow() - last_ok)
             message = (u'A checker has failed! Time until client'
-                       u' gets diabled: %s'
+                       u' gets disabled: %s'
                            % unicode(timer).rsplit(".", 1)[0])
         else:
             message = u"enabled"
