@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY COMMANDNAME "mandos">
-<!ENTITY TIMESTAMP "2010-09-11">
+<!ENTITY TIMESTAMP "2010-09-25">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -418,8 +418,8 @@
 	<term><filename>/var/run/mandos.pid</filename></term>
 	<listitem>
 	  <para>
-	    The file containing the process id of
-	    <command>&COMMANDNAME;</command>.
+	    The file containing the process id of the
+	    <command>&COMMANDNAME;</command> process started last.
 	  </para>
 	</listitem>
       </varlistentry>
