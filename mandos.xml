@@ -338,6 +338,26 @@
     </para>
   </refsect1>
   
+  <refsect1 id="approval">
+    <title>APPROVAL</title>
+    <para>
+      The server can be configured to require manual approval for a
+      client before it is sent its secret.  The delay to wait for such
+      approval and the default action (approve or deny) can be
+      configured both globally and per client; see <citerefentry>
+      <refentrytitle>mandos-clients.conf</refentrytitle>
+      <manvolnum>5</manvolnum></citerefentry>.  By default all clients
+      will be approved immediately without delay.
+    </para>
+    <para>
+      This can be used to deny a client its secret if not manually
+      approved within a specified time.  It can also be used to make
+      the server delay before giving a client its secret, allowing
+      optional manual denying of this specific client.
+    </para>
+    
+  </refsect1>
+  
   <refsect1 id="logging">
     <title>LOGGING</title>
     <para>

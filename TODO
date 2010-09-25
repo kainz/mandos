@@ -3,10 +3,7 @@
 * Use _attribute_((nonnull)) wherever possible.
 
 * Release critical
-** mandos
 ** Update copyright year to add 2010
-** mandos.xml
-*** Document the approval concept
 
 * mandos-client
 ** TODO [#B] use scandir(3) instead of readdir(3)
