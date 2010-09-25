@@ -3,7 +3,7 @@
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY CONFNAME "mandos-clients.conf">
 <!ENTITY CONFPATH "<filename>/etc/mandos/clients.conf</filename>">
-<!ENTITY TIMESTAMP "2010-09-12">
+<!ENTITY TIMESTAMP "2010-09-25">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -100,53 +100,53 @@
     <variablelist>
       
       <varlistentry>
-	<term><option>timeout<literal> = </literal><replaceable
+	<term><option>approval_delay<literal> = </literal><replaceable
 	>TIME</replaceable></option></term>
 	<listitem>
 	  <para>
 	    This option is <emphasis>optional</emphasis>.
 	  </para>
 	  <para>
-	    The timeout is how long the server will wait (for either a
-	    successful checker run or a client receiving its secret)
-	    until a client is disabled and not allowed to get the data
-	    this server holds.  By default Mandos will use 1 hour.
+	    How long to wait for external approval before resorting to
+	    use the <option>approved_by_default</option> value.  The
+	    default is <quote>0s</quote>, i.e. not to wait.
 	  </para>
 	  <para>
-	    The <replaceable>TIME</replaceable> is specified as a
-	    space-separated number of values, each of which is a
-	    number and a one-character suffix.  The suffix must be one
-	    of <quote>d</quote>, <quote>s</quote>, <quote>m</quote>,
-	    <quote>h</quote>, and <quote>w</quote> for days, seconds,
-	    minutes, hours, and weeks, respectively.  The values are
-	    added together to give the total time value, so all of
-	    <quote><literal>330s</literal></quote>,
-	    <quote><literal>110s 110s 110s</literal></quote>, and
-	    <quote><literal>5m 30s</literal></quote> will give a value
-	    of five minutes and thirty seconds.
+	    The format of <replaceable>TIME</replaceable> is the same
+	    as for <varname>timeout</varname> below.
 	  </para>
 	</listitem>
       </varlistentry>
       
       <varlistentry>
-	<term><option>interval<literal> = </literal><replaceable
-	>TIME</replaceable></option></term>
+	<term><option>approval_duration<literal> = </literal
+        ><replaceable>TIME</replaceable></option></term>
 	<listitem>
 	  <para>
 	    This option is <emphasis>optional</emphasis>.
 	  </para>
 	  <para>
-	    How often to run the checker to confirm that a client is
-	    still up.  <emphasis>Note:</emphasis> a new checker will
-	    not be started if an old one is still running.  The server
-	    will wait for a checker to complete until the above
-	    <quote><varname>timeout</varname></quote> occurs, at which
-	    time the client will be disabled, and any running checker
-	    killed.  The default interval is 5 minutes.
+	    How long an external approval lasts.  The default is 1
+	    second.
 	  </para>
 	  <para>
 	    The format of <replaceable>TIME</replaceable> is the same
-	    as for <varname>timeout</varname> above.
+	    as for <varname>timeout</varname> below.
+	  </para>
+	</listitem>
+      </varlistentry>
+      
+      <varlistentry>
+	<term><option>approved_by_default<literal> = </literal
+          >{ <literal >1</literal> | <literal>yes</literal> | <literal
+	  >true</literal> | <literal>on</literal> | <literal
+	  >0</literal> | <literal>no</literal> | <literal
+	  >false</literal> | <literal>off</literal> }</option></term>
+	<listitem>
+	  <para>
+	    Whether to approve a client by default after
+	    the <option>approval_delay</option>.  The default
+	    is <quote>True</quote>.
 	  </para>
 	</listitem>
       </varlistentry>
@@ -196,6 +196,70 @@
       </varlistentry>
       
       <varlistentry>
+	<term><option><literal>host = </literal><replaceable
+	>STRING</replaceable></option></term>
+	<listitem>
+	  <para>
+	    This option is <emphasis>optional</emphasis>, but highly
+	    <emphasis>recommended</emphasis> unless the
+	    <option>checker</option> option is modified to a
+	    non-standard value without <quote>%%(host)s</quote> in it.
+	  </para>
+	  <para>
+	    Host name for this client.  This is not used by the server
+	    directly, but can be, and is by default, used by the
+	    checker.  See the <option>checker</option> option.
+	  </para>
+	</listitem>
+      </varlistentry>
+      
+      <varlistentry>
+	<term><option>interval<literal> = </literal><replaceable
+	>TIME</replaceable></option></term>
+	<listitem>
+	  <para>
+	    This option is <emphasis>optional</emphasis>.
+	  </para>
+	  <para>
+	    How often to run the checker to confirm that a client is
+	    still up.  <emphasis>Note:</emphasis> a new checker will
+	    not be started if an old one is still running.  The server
+	    will wait for a checker to complete until the below
+	    <quote><varname>timeout</varname></quote> occurs, at which
+	    time the client will be disabled, and any running checker
+	    killed.  The default interval is 5 minutes.
+	  </para>
+	  <para>
+	    The format of <replaceable>TIME</replaceable> is the same
+	    as for <varname>timeout</varname> below.
+	  </para>
+	</listitem>
+      </varlistentry>
+      
+      <varlistentry>
+	<term><option>secfile<literal> = </literal><replaceable
+	>FILENAME</replaceable></option></term>
+	<listitem>
+	  <para>
+	    This option is only used if <option>secret</option> is not
+	    specified, in which case this option is
+	    <emphasis>required</emphasis>.
+	  </para>
+	  <para>
+	    Similar to the <option>secret</option>, except the secret
+	    data is in an external file.  The contents of the file
+	    should <emphasis>not</emphasis> be base64-encoded, but
+	    will be sent to clients verbatim.
+	  </para>
+	  <para>
+	    File names of the form <filename>~user/foo/bar</filename>
+	    and <filename>$<envar>ENVVAR</envar>/foo/bar</filename>
+	    are supported.
+	  </para>
+	</listitem>
+      </varlistentry>
+      
+      <varlistentry>
 	<term><option>secret<literal> = </literal><replaceable
 	>BASE64_ENCODED_DATA</replaceable></option></term>
 	<listitem>
@@ -226,94 +290,30 @@
       </varlistentry>
       
       <varlistentry>
-	<term><option>secfile<literal> = </literal><replaceable
-	>FILENAME</replaceable></option></term>
-	<listitem>
-	  <para>
-	    This option is only used if <option>secret</option> is not
-	    specified, in which case this option is
-	    <emphasis>required</emphasis>.
-	  </para>
-	  <para>
-	    Similar to the <option>secret</option>, except the secret
-	    data is in an external file.  The contents of the file
-	    should <emphasis>not</emphasis> be base64-encoded, but
-	    will be sent to clients verbatim.
-	  </para>
-	  <para>
-	    File names of the form <filename>~user/foo/bar</filename>
-	    and <filename>$<envar>ENVVAR</envar>/foo/bar</filename>
-	    are supported.
-	  </para>
-	</listitem>
-      </varlistentry>
-      
-      <varlistentry>
-	<term><option><literal>host = </literal><replaceable
-	>STRING</replaceable></option></term>
-	<listitem>
-	  <para>
-	    This option is <emphasis>optional</emphasis>, but highly
-	    <emphasis>recommended</emphasis> unless the
-	    <option>checker</option> option is modified to a
-	    non-standard value without <quote>%%(host)s</quote> in it.
-	  </para>
-	  <para>
-	    Host name for this client.  This is not used by the server
-	    directly, but can be, and is by default, used by the
-	    checker.  See the <option>checker</option> option.
-	  </para>
-	</listitem>
-      </varlistentry>
-      
-      <varlistentry>
-	<term><option>approved_by_default<literal> = </literal
-          >{ <literal >1</literal> | <literal>yes</literal> | <literal
-	  >true</literal> | <literal>on</literal> | <literal
-	  >0</literal> | <literal>no</literal> | <literal
-	  >false</literal> | <literal>off</literal> }</option></term>
-	<listitem>
-	  <para>
-	    Whether to approve a client by default after
-	    the <option>approval_delay</option>.  The default
-	    is <quote>True</quote>.
-	  </para>
-	</listitem>
-      </varlistentry>
-      
-      <varlistentry>
-	<term><option>approval_delay<literal> = </literal><replaceable
+	<term><option>timeout<literal> = </literal><replaceable
 	>TIME</replaceable></option></term>
 	<listitem>
 	  <para>
 	    This option is <emphasis>optional</emphasis>.
 	  </para>
 	  <para>
-	    How long to wait for external approval before resorting to
-	    use the <option>approved_by_default</option> value.  The
-	    default is <quote>0s</quote>, i.e. not to wait.
+	    The timeout is how long the server will wait (for either a
+	    successful checker run or a client receiving its secret)
+	    until a client is disabled and not allowed to get the data
+	    this server holds.  By default Mandos will use 1 hour.
 	  </para>
 	  <para>
-	    The format of <replaceable>TIME</replaceable> is the same
-	    as for <varname>timeout</varname> above.
-	  </para>
-	</listitem>
-      </varlistentry>
-      
-      <varlistentry>
-	<term><option>approval_duration<literal> = </literal
-        ><replaceable>TIME</replaceable></option></term>
-	<listitem>
-	  <para>
-	    This option is <emphasis>optional</emphasis>.
-	  </para>
-	  <para>
-	    How long an external approval lasts.  The default is 1
-	    second.
-	  </para>
-	  <para>
-	    The format of <replaceable>TIME</replaceable> is the same
-	    as for <varname>timeout</varname> above.
+	    The <replaceable>TIME</replaceable> is specified as a
+	    space-separated number of values, each of which is a
+	    number and a one-character suffix.  The suffix must be one
+	    of <quote>d</quote>, <quote>s</quote>, <quote>m</quote>,
+	    <quote>h</quote>, and <quote>w</quote> for days, seconds,
+	    minutes, hours, and weeks, respectively.  The values are
+	    added together to give the total time value, so all of
+	    <quote><literal>330s</literal></quote>,
+	    <quote><literal>110s 110s 110s</literal></quote>, and
+	    <quote><literal>5m 30s</literal></quote> will give a value
+	    of five minutes and thirty seconds.
 	  </para>
 	</listitem>
       </varlistentry>
