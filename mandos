@@ -1763,11 +1763,12 @@ def main():
                               gnutls_priority=
                               server_settings[u"priority"],
                               use_dbus=use_dbus)
-    pidfilename = u"/var/run/mandos.pid"
-    try:
-        pidfile = open(pidfilename, u"w")
-    except IOError:
-        logger.error(u"Could not open file %r", pidfilename)
+    if not debug:
+        pidfilename = u"/var/run/mandos.pid"
+        try:
+            pidfile = open(pidfilename, u"w")
+        except IOError:
+            logger.error(u"Could not open file %r", pidfilename)
     
     try:
         uid = pwd.getpwnam(u"_mandos").pw_uid
@@ -1875,21 +1876,22 @@ def main():
     if not tcp_server.clients:
         logger.warning(u"No clients defined")
         
-    try:
-        with pidfile:
-            pid = os.getpid()
-            pidfile.write(str(pid) + "\n")
-        del pidfile
-    except IOError:
-        logger.error(u"Could not write to file %r with PID %d",
-                     pidfilename, pid)
-    except NameError:
-        # "pidfile" was never created
-        pass
-    del pidfilename
-    
     if not debug:
+        try:
+            with pidfile:
+                pid = os.getpid()
+                pidfile.write(str(pid) + "\n")
+            del pidfile
+        except IOError:
+            logger.error(u"Could not write to file %r with PID %d",
+                         pidfilename, pid)
+        except NameError:
+            # "pidfile" was never created
+            pass
+        del pidfilename
+        
         signal.signal(signal.SIGINT, signal.SIG_IGN)
+
     signal.signal(signal.SIGHUP, lambda signum, frame: sys.exit())
     signal.signal(signal.SIGTERM, lambda signum, frame: sys.exit())
     
