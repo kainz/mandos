@@ -3,8 +3,6 @@
 * Use _attribute_((nonnull)) wherever possible.
 
 * Release critical
-** mandos-ctl.xml
-*** More examples
 ** mandos
 *** Do not write PID file if --debug is passed?
     Do other programs do this?
@@ -91,6 +89,8 @@
 ** TODO make clients to a dict!
 ** TODO [#A] Limit approval_delay to max gnutls/tls timeout value
 ** TODO [#B] break the wait on approval_delay if connection dies
+** TODO Generate Client.runtime_expansions from client options + extra
+** TODO Allow %%(checker)s as a runtime expansion
 
 * mandos.xml
 ** Add mandos contact info in manual pages

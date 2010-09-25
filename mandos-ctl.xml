@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY COMMANDNAME "mandos-ctl">
-<!ENTITY TIMESTAMP "2010-09-21">
+<!ENTITY TIMESTAMP "2010-09-25">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -422,21 +422,58 @@
     <title>EXAMPLE</title>
     <informalexample>
       <para>
-	List all clients with some of their settings:
+	To list all clients:
       </para>
       <para>
 	<userinput>&COMMANDNAME;</userinput>
       </para>
     </informalexample>
+    
     <informalexample>
       <para>
-	Show all settings for the clients named <quote>foo</quote> and
-	<quote>bar</quote>:
+	To list <emphasis>all</emphasis> settings for the clients
+        named <quote>foo1.example.org</quote> and <quote
+        >foo2.example.org</quote>:
       </para>
       <para>
 
 <!-- do not wrap this line -->
-<userinput>&COMMANDNAME; --verbose foo bar</userinput>
+<userinput>&COMMANDNAME; --verbose foo1.example.org foo2.example.org</userinput>
+
+      </para>
+    </informalexample>
+    
+    <informalexample>
+      <para>
+	To enable all clients:
+      </para>
+      <para>
+	<userinput>&COMMANDNAME; --enable --all</userinput>
+      </para>
+    </informalexample>
+    
+    <informalexample>
+      <para>
+	To change timeout and interval value for the clients
+        named <quote>foo1.example.org</quote> and <quote
+        >foo2.example.org</quote>:
+      </para>
+      <para>
+
+<!-- do not wrap this line -->
+<userinput>&COMMANDNAME; --timeout="5m" --interval="1m" foo1.example.org foo2.example.org</userinput>
+
+      </para>
+    </informalexample>
+    
+    <informalexample>
+      <para>
+	To approve all clients currently waiting for it:
+      </para>
+      <para>
+
+<!-- do not wrap this line -->
+<userinput>&COMMANDNAME; --approve --all</userinput>
 
       </para>
     </informalexample>
