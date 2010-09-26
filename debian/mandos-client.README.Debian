@@ -1,9 +1,11 @@
 * Choose the Client Network Interface
   
-  You MUST make sure that the correct network interface is specified
-  in the DEVICE setting in the "/etc/initramfs-tools/initramfs.conf"
-  file.  *If* this is changed, it will be necessary to update the
-  initrd image by running the command
+  Please make sure that the correct network interface is specified in
+  the DEVICE setting in the "/etc/initramfs-tools/initramfs.conf"
+  file.  If the setting is empty, the interface will be autodetected
+  at boot time, which may not be correct.  *If* the DEVICE setting is
+  changed, it will be necessary to update the initrd image by running
+  the command
   
 	update-initramfs -k all -u
   
@@ -84,4 +86,4 @@
   work, "--options-for=mandos-client:--connect=<ADDRESS>:<PORT>" needs
   to be manually added to the file "/etc/mandos/plugin-runner.conf".
 
- -- Teddy Hogeborn <teddy@fukt.bsnet.se>, Tue,  8 Sep 2009 08:25:58 +0200
+ -- Teddy Hogeborn <teddy@fukt.bsnet.se>, Sun, 26 Sep 2010 20:08:05 +0200
