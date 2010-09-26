@@ -246,7 +246,7 @@ class Client(object):
     checker:    subprocess.Popen(); a running checker process used
                                     to see if the client lives.
                                     'None' if no process is running.
-    checker_callback_tag:  - '' -
+    checker_callback_tag: a gobject event source tag, or None
     checker_command: string; External command which is run to check
                      if client lives.  %() expansions are done at
                      runtime with vars(self) as dict, so that for
@@ -255,12 +255,13 @@ class Client(object):
     created:    datetime.datetime(); (UTC) object creation
     current_checker_command: string; current running checker_command
     disable_hook:  If set, called by disable() as disable_hook(self)
-    disable_initiator_tag: - '' -
+    disable_initiator_tag: a gobject event source tag, or None
     enabled:    bool()
     fingerprint: string (40 or 32 hexadecimal digits); used to
                  uniquely identify the client
     host:       string; available for use by the checker command
     interval:   datetime.timedelta(); How often to start a new checker
+    last_approval_request: datetime.datetime(); (UTC) or None
     last_checked_ok: datetime.datetime(); (UTC) or None
     last_enabled: datetime.datetime(); (UTC)
     name:       string; from the config file, used in log messages and
@@ -321,6 +322,7 @@ class Client(object):
         self.host = config.get(u"host", u"")
         self.created = datetime.datetime.utcnow()
         self.enabled = False
+        self.last_approval_request = None
         self.last_enabled = None
         self.last_checked_ok = None
         self.timeout = string_to_delta(config[u"timeout"])
@@ -421,6 +423,9 @@ class Client(object):
         self.disable_initiator_tag = (gobject.timeout_add
                                       (self.timeout_milliseconds(),
                                        self.disable))
+    
+    def need_approval(self):
+        self.last_approval_request = datetime.datetime.utcnow()
     
     def start_checker(self):
         """Start a new checker subprocess if one is not running.
@@ -815,6 +820,15 @@ class ClientDBus(Client, DBusObjectWithProperties):
                                     variant_level=1)))
         return r
     
+    def need_approval(self, *args, **kwargs):
+        r = Client.need_approval(self, *args, **kwargs)
+        # Emit D-Bus signal
+        self.PropertyChanged(
+            dbus.String(u"LastApprovalRequest"),
+            (self._datetime_to_dbus(self.last_approval_request,
+                                    variant_level=1)))
+        return r
+    
     def start_checker(self, *args, **kwargs):
         old_checker = self.checker
         if self.checker is not None:
@@ -895,15 +909,15 @@ class ClientDBus(Client, DBusObjectWithProperties):
     @dbus.service.signal(_interface, signature=u"tb")
     def NeedApproval(self, timeout, default):
         "D-Bus signal"
-        pass
+        return self.need_approval()
     
     ## Methods
-
+    
     # Approve - method
     @dbus.service.method(_interface, in_signature=u"b")
     def Approve(self, value):
         self.approve(value)
-
+    
     # CheckedOK - method
     @dbus.service.method(_interface)
     def CheckedOK(self):
@@ -1028,6 +1042,15 @@ class ClientDBus(Client, DBusObjectWithProperties):
             return dbus.String(u"")
         return dbus.String(self._datetime_to_dbus(self
                                                   .last_checked_ok))
+    
+    # LastApprovalRequest - property
+    @dbus_service_property(_interface, signature=u"s", access=u"read")
+    def LastApprovalRequest_dbus_property(self):
+        if self.last_approval_request is None:
+            return dbus.String(u"")
+        return dbus.String(self.
+                           _datetime_to_dbus(self
+                                             .last_approval_request))
     
     # Timeout - property
     @dbus_service_property(_interface, signature=u"t",
