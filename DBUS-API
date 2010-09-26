@@ -76,25 +76,26 @@ This file documents the D-Bus interface to the Mandos server.
    "clients.conf", in which case they are fully documented in
    mandos-clients.conf(5).
    
-   | Name                 | Type | Access     | clients.conf        |
-   |----------------------+------+------------+---------------------|
-   | ApprovedByDefault    | b    | Read/Write | approved_by_default |
-   | ApprovalDelay (a)    | t    | Read/Write | approval_delay      |
-   | ApprovalDuration (a) | t    | Read/Write | approval_duration   |
-   | ApprovalPending (b)  | b    | Read       | N/A                 |
-   | Checker              | s    | Read/Write | checker             |
-   | CheckerRunning (c)   | b    | Read/Write | N/A                 |
-   | Created (d)          | s    | Read       | N/A                 |
-   | Enabled (e)          | b    | Read/Write | N/A                 |
-   | Fingerprint          | s    | Read       | fingerprint         |
-   | Host                 | s    | Read/Write | host                |
-   | Interval (a)         | t    | Read/Write | interval            |
-   | LastCheckedOK (f)    | s    | Read/Write | N/A                 |
-   | LastEnabled (g)      | s    | Read       | N/A                 |
-   | Name                 | s    | Read       | (Section name)      |
-   | ObjectPath           | o    | Read       | N/A                 |
-   | Secret (h)           | ay   | Write      | secret (or secfile) |
-   | Timeout (a)          | t    | Read/Write | timeout             |
+   | Name                    | Type | Access     | clients.conf        |
+   |-------------------------+------+------------+---------------------|
+   | ApprovedByDefault       | b    | Read/Write | approved_by_default |
+   | ApprovalDelay (a)       | t    | Read/Write | approval_delay      |
+   | ApprovalDuration (a)    | t    | Read/Write | approval_duration   |
+   | ApprovalPending (b)     | b    | Read       | N/A                 |
+   | Checker                 | s    | Read/Write | checker             |
+   | CheckerRunning (c)      | b    | Read/Write | N/A                 |
+   | Created (d)             | s    | Read       | N/A                 |
+   | Enabled (e)             | b    | Read/Write | N/A                 |
+   | Fingerprint             | s    | Read       | fingerprint         |
+   | Host                    | s    | Read/Write | host                |
+   | Interval (a)            | t    | Read/Write | interval            |
+   | LastApprovalRequest (f) | s    | Read       | N/A                 |
+   | LastCheckedOK (g)       | s    | Read/Write | N/A                 |
+   | LastEnabled (h)         | s    | Read       | N/A                 |
+   | Name                    | s    | Read       | (Section name)      |
+   | ObjectPath              | o    | Read       | N/A                 |
+   | Secret (i)              | ay   | Write      | secret (or secfile) |
+   | Timeout (a)             | t    | Read/Write | timeout             |
    
    a) Represented as milliseconds.
    
@@ -108,17 +109,20 @@ This file documents the D-Bus interface to the Mandos server.
    e) Setting this property is equivalent to calling Enable() or
       Disable().
    
-   f) The last time a checker was successful, as a RFC 3339 string, or
+   f) The time of the last approval request, as a RFC 3339 string, or
+      an empty string if this has not happened.
+   
+   g) The last time a checker was successful, as a RFC 3339 string, or
       an empty string if this has not happened.  Setting this property
       is equivalent to calling CheckedOK(), i.e. the current time is
       set, regardless of the string sent.  Please always use an empty
       string when setting this property, to allow for possible future
       expansion.
    
-   g) The last time this client was enabled, as a RFC 3339 string, or
+   h) The last time this client was enabled, as a RFC 3339 string, or
       an empty string if this has not happened.
    
-   h) A raw byte array, not hexadecimal digits.
+   i) A raw byte array, not hexadecimal digits.
 
 ** Signals
 *** CheckerCompleted(n: Exitcode, x: Waitstatus, s: Command)

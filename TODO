@@ -106,6 +106,7 @@
 *** Properties popup
 ** Nicer crashes. Stack traces Messes up shell.
 *** Print a nice "We are sorry" message, save stack trace to log.
+** Show timeout countdown for approval
 
 * mandos-keygen
 ** TODO Loop until passwords match when run interactively
