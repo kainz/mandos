@@ -17,6 +17,7 @@ tablewords = {
     'Enabled': u'Enabled',
     'Timeout': u'Timeout',
     'LastCheckedOK': u'Last Successful Check',
+    'LastApprovalRequest': u'Last Approval Request',
     'Created': u'Created',
     'Interval': u'Interval',
     'Host': u'Host',
@@ -239,11 +240,12 @@ def main():
                             'LastCheckedOK', 'Created', 'Interval',
                             'Host', 'Fingerprint', 'CheckerRunning',
                             'LastEnabled', 'ApprovalPending',
-                            'ApprovedByDefault', 'ApprovalDelay',
+                            'ApprovedByDefault',
+                            'LastApprovalRequest', 'ApprovalDelay',
                             'ApprovalDuration', 'Checker')
             else:
                 keywords = defaultkeywords
-                
+            
 	    print_clients(clients.values(), keywords)
         else:
             # Process each client in the list by all selected options
