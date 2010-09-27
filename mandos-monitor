@@ -367,7 +367,7 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
         elif key == u"d":
             self.proxy.Approve(dbus.Boolean(False, variant_level=1),
                                   dbus_interface = client_interface)
-        elif key == u"r" or key == u"_" or key == u"ctrl k":
+        elif key == u"R" or key == u"_" or key == u"ctrl k":
             self.server_proxy_object.RemoveClient(self.proxy
                                                   .object_path)
         elif key == u"s":
@@ -686,7 +686,7 @@ class UserInterface(object):
                                       .join((u"Clients:",
                                              u"+: Enable",
                                              u"-: Disable",
-                                             u"r: Remove",
+                                             u"R: Remove",
                                              u"s: Start new checker",
                                              u"S: Stop checker",
                                              u"C: Checker OK",
