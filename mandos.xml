@@ -87,6 +87,9 @@
       <sbr/>
       <arg><option>--debug</option></arg>
       <sbr/>
+      <arg><option>--debuglevel
+      <replaceable>LEVEL</replaceable></option></arg>
+      <sbr/>
       <arg><option>--no-dbus</option></arg>
       <sbr/>
       <arg><option>--no-ipv6</option></arg>
@@ -191,6 +194,24 @@
 	<term><option>--debug</option></term>
 	<listitem>
 	  <xi:include href="mandos-options.xml" xpointer="debug"/>
+	</listitem>
+      </varlistentry>
+      
+      <varlistentry>
+	<term><option>--debuglevel
+	<replaceable>LEVEL</replaceable></option></term>
+	<listitem>
+	  <para>
+	    Set the debugging log level.
+	    <replaceable>LEVEL</replaceable> is a string, one of
+	    <quote><literal>CRITICAL</literal></quote>,
+	    <quote><literal>ERROR</literal></quote>,
+	    <quote><literal>WARNING</literal></quote>,
+	    <quote><literal>INFO</literal></quote>, or
+	    <quote><literal>DEBUG</literal></quote>, in order of
+	    increasing verbosity.  The default level is
+	    <quote><literal>WARNING</literal></quote>.
+	  </para>
 	</listitem>
       </varlistentry>
       
