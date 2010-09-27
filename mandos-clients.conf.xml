@@ -357,10 +357,28 @@
 	<quote><literal>%%(<replaceable>foo</replaceable>)s</literal
 	></quote> will be replaced by the value of the attribute
 	<varname>foo</varname> of the internal
-	<quote><classname>Client</classname></quote> object.  See the
-	source code for details, and let the authors know of any
-	attributes that are useful so they may be preserved to any new
-	versions of this software.
+	<quote><classname>Client</classname></quote> object in the
+	Mandos server.  The currently allowed values for
+	<replaceable>foo</replaceable> are:
+	<quote><literal>approval_delay</literal></quote>,
+	<quote><literal>approval_duration</literal></quote>,
+	<quote><literal>created</literal></quote>,
+	<quote><literal>enabled</literal></quote>,
+	<quote><literal>fingerprint</literal></quote>,
+	<quote><literal>host</literal></quote>,
+	<quote><literal>interval</literal></quote>,
+	<quote><literal>last_approval_request</literal></quote>,
+	<quote><literal>last_checked_ok</literal></quote>,
+	<quote><literal>last_enabled</literal></quote>,
+	<quote><literal>name</literal></quote>,
+	<quote><literal>timeout</literal></quote>, and, if using
+	D-Bus, <quote><literal>dbus_object_path</literal></quote>.
+	See the source code for details.  <emphasis role="strong"
+	>Currently, <emphasis>none</emphasis> of these attributes
+	except <quote><literal>host</literal></quote> are guaranteed
+	to be valid in future versions.</emphasis> Therefore, please
+	let the authors know of any attributes that are useful so they
+	may be preserved to any new versions of this software.
       </para>
       <para>
 	Note that this means that, in order to include an actual
