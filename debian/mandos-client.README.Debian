@@ -76,9 +76,6 @@
   instead of using ZeroConf.  The syntax for doing this is
   "mandos=connect:<IP_ADDRESS>:<PORT_NUMBER>".
   
-  Warning: this will cause the client to make exactly one attempt at
-  connecting, and then fail if it does not succeed.
-  
   For very advanced users, it it possible to specify simply
   "mandos=connect" on the kernel command line to make the system only
   set up the network (using the data in the "ip=" option) and not pass
@@ -86,4 +83,4 @@
   work, "--options-for=mandos-client:--connect=<ADDRESS>:<PORT>" needs
   to be manually added to the file "/etc/mandos/plugin-runner.conf".
 
- -- Teddy Hogeborn <teddy@fukt.bsnet.se>, Sun, 26 Sep 2010 20:08:05 +0200
+ -- Teddy Hogeborn <teddy@fukt.bsnet.se>, Mon, 27 Sep 2010 19:53:21 +0200
