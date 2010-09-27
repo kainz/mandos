@@ -1684,7 +1684,7 @@ def main():
     parser.add_option("--debug", action=u"store_true",
                       help=u"Debug mode; run in foreground and log to"
                       u" terminal")
-    parser.add_option("--debuglevel", type=u"string", metavar="Level",
+    parser.add_option("--debuglevel", type=u"string", metavar="LEVEL",
                       help=u"Debug level for stdout output")
     parser.add_option("--priority", type=u"string", help=u"GnuTLS"
                       u" priority string (see GnuTLS documentation)")
