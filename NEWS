@@ -1,6 +1,33 @@
 This NEWS file records noteworthy changes, very tersely.
 See the manual for detailed information.
 
+Version 1.2 (2010-09-28)
+* Client:
+** New "plymouth" plugin to ask for a password using the Plymouth
+   graphical boot system.
+** The Mandos client now automatically chooses a network interface if
+   the DEVICE setting in /etc/initramfs-tools/initramfs.conf is set to
+   the empty string.  This is also the new default instead of "eth0".
+** The Mandos client --connect option now loops indefinitely until a
+   password is received from the specified server.
+** Bug fix: Quote directory correctly in mandos-keygen with --password
+** Bug fix: don't use "echo -e" in mandos-keygen; unsupported by dash.
+* Server:
+** Terminology change: clients are now "ENABLED" or "DISABLED", not
+   "valid" or "invalid".
+** New D-Bus API; see the file "DBUS-API".
+** New control utilities using the new D-Bus API:
+   + mandos-ctl		       A command-line based utility
+   + mandos-monitor	       A text-based GUI interface
+** New feature: manual interactive approval or denying of clients on a
+   case-by-case basis.
+** New --debuglevel option to control logging
+** Will not write PID file if --debug is passed
+** Bug fix: Avoid race conditions with short "interval" values or
+   fast checkers.
+** Bug fix: Don't try to bind to a network interface when none is
+   specified
+
 Version 1.0.14 (2009-10-25)
 Enable building without -pie and -fPIE if BROKEN_PIE is set.
 
