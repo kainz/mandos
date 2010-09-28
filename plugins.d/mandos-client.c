@@ -9,8 +9,8 @@
  * "browse_callback", and parts of "main".
  * 
  * Everything else is
- * Copyright © 2008,2009 Teddy Hogeborn
- * Copyright © 2008,2009 Björn Påhlsson
+ * Copyright © 2008-2010 Teddy Hogeborn
+ * Copyright © 2008-2010 Björn Påhlsson
  * 
  * This program is free software: you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -43,8 +43,8 @@
 				   stdout, ferror(), remove() */
 #include <stdint.h> 		/* uint16_t, uint32_t */
 #include <stddef.h>		/* NULL, size_t, ssize_t */
-#include <stdlib.h> 		/* free(), EXIT_SUCCESS, EXIT_FAILURE,
-				   srand(), strtof(), abort() */
+#include <stdlib.h> 		/* free(), EXIT_SUCCESS, srand(),
+				   strtof(), abort() */
 #include <stdbool.h>		/* bool, false, true */
 #include <string.h>		/* memset(), strcmp(), strlen(),
 				   strerror(), asprintf(), strcpy() */
@@ -63,7 +63,7 @@
 				   strtoimax() */
 #include <assert.h>		/* assert() */
 #include <errno.h>		/* perror(), errno */
-#include <time.h>		/* nanosleep(), time() */
+#include <time.h>		/* nanosleep(), time(), sleep() */
 #include <net/if.h>		/* ioctl, ifreq, SIOCGIFFLAGS, IFF_UP,
 				   SIOCSIFFLAGS, if_indextoname(),
 				   if_nametoindex(), IF_NAMESIZE */
@@ -82,6 +82,8 @@
 #include <signal.h>		/* sigemptyset(), sigaddset(),
 				   sigaction(), SIGTERM, sig_atomic_t,
 				   raise() */
+#include <sysexits.h>		/* EX_OSERR, EX_USAGE, EX_UNAVAILABLE,
+				   EX_NOHOST, EX_IOERR, EX_PROTOCOL */
 
 #ifdef __linux__
 #include <sys/klog.h> 		/* klogctl() */
@@ -125,6 +127,8 @@ bool debug = false;
 static const char mandos_protocol_version[] = "1";
 const char *argp_program_version = "mandos-client " VERSION;
 const char *argp_program_bug_address = "<mandos@fukt.bsnet.se>";
+static const char sys_class_net[] = "/sys/class/net";
+char *connect_to = NULL;
 
 /* Used for passing in values through the Avahi callback functions */
 typedef struct {
@@ -552,7 +556,10 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   gnutls_session_t session;
   int pf;			/* Protocol family */
   
+  errno = 0;
+  
   if(quit_now){
+    errno = EINTR;
     return -1;
   }
   
@@ -565,6 +572,7 @@ static int start_mandos_communication(const char *ip, uint16_t port,
     break;
   default:
     fprintf(stderr, "Bad address family: %d\n", af);
+    errno = EINVAL;
     return -1;
   }
   
@@ -580,11 +588,14 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   
   tcp_sd = socket(pf, SOCK_STREAM, 0);
   if(tcp_sd < 0){
+    int e = errno;
     perror("socket");
+    errno = e;
     goto mandos_end;
   }
   
   if(quit_now){
+    errno = EINTR;
     goto mandos_end;
   }
   
@@ -597,11 +608,15 @@ static int start_mandos_communication(const char *ip, uint16_t port,
     ret = inet_pton(af, ip, &to.in.sin_addr);
   }
   if(ret < 0 ){
+    int e = errno;
     perror("inet_pton");
+    errno = e;
     goto mandos_end;
   }
   if(ret == 0){
+    int e = errno;
     fprintf(stderr, "Bad address: %s\n", ip);
+    errno = e;
     goto mandos_end;
   }
   if(af == AF_INET6){
@@ -615,6 +630,7 @@ static int start_mandos_communication(const char *ip, uint16_t port,
       if(if_index == AVAHI_IF_UNSPEC){
 	fprintf(stderr, "An IPv6 link-local address is incomplete"
 		" without a network interface\n");
+	errno = EINVAL;
 	goto mandos_end;
       }
       /* Set the network interface number as scope */
@@ -627,6 +643,7 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   }
   
   if(quit_now){
+    errno = EINTR;
     goto mandos_end;
   }
   
@@ -663,6 +680,7 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   }
   
   if(quit_now){
+    errno = EINTR;
     goto mandos_end;
   }
   
@@ -672,11 +690,16 @@ static int start_mandos_communication(const char *ip, uint16_t port,
     ret = connect(tcp_sd, &to.in, sizeof(to)); /* IPv4 */
   }
   if(ret < 0){
-    perror("connect");
+    if ((errno != ECONNREFUSED and errno != ENETUNREACH) or debug){
+      int e = errno;
+      perror("connect");
+      errno = e;
+    }
     goto mandos_end;
   }
   
   if(quit_now){
+    errno = EINTR;
     goto mandos_end;
   }
   
@@ -687,7 +710,9 @@ static int start_mandos_communication(const char *ip, uint16_t port,
     ret = (int)TEMP_FAILURE_RETRY(write(tcp_sd, out + written,
 				   out_size - written));
     if(ret == -1){
+      int e = errno;
       perror("write");
+      errno = e;
       goto mandos_end;
     }
     written += (size_t)ret;
@@ -703,6 +728,7 @@ static int start_mandos_communication(const char *ip, uint16_t port,
     }
   
     if(quit_now){
+      errno = EINTR;
       goto mandos_end;
     }
   }
@@ -712,18 +738,21 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   }
   
   if(quit_now){
+    errno = EINTR;
     goto mandos_end;
   }
   
   gnutls_transport_set_ptr(session, (gnutls_transport_ptr_t) tcp_sd);
   
   if(quit_now){
+    errno = EINTR;
     goto mandos_end;
   }
   
   do {
     ret = gnutls_handshake(session);
     if(quit_now){
+      errno = EINTR;
       goto mandos_end;
     }
   } while(ret == GNUTLS_E_AGAIN or ret == GNUTLS_E_INTERRUPTED);
@@ -733,6 +762,7 @@ static int start_mandos_communication(const char *ip, uint16_t port,
       fprintf(stderr, "*** GnuTLS Handshake failed ***\n");
       gnutls_perror(ret);
     }
+    errno = EPROTO;
     goto mandos_end;
   }
   
@@ -746,17 +776,21 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   while(true){
     
     if(quit_now){
+      errno = EINTR;
       goto mandos_end;
     }
     
     buffer_capacity = incbuffer(&buffer, buffer_length,
 				   buffer_capacity);
     if(buffer_capacity == 0){
+      int e = errno;
       perror("incbuffer");
+      errno = e;
       goto mandos_end;
     }
     
     if(quit_now){
+      errno = EINTR;
       goto mandos_end;
     }
     
@@ -775,12 +809,14 @@ static int start_mandos_communication(const char *ip, uint16_t port,
 	  ret = gnutls_handshake(session);
 	  
 	  if(quit_now){
+	    errno = EINTR;
 	    goto mandos_end;
 	  }
 	} while(ret == GNUTLS_E_AGAIN or ret == GNUTLS_E_INTERRUPTED);
 	if(ret < 0){
 	  fprintf(stderr, "*** GnuTLS Re-handshake failed ***\n");
 	  gnutls_perror(ret);
+	  errno = EPROTO;
 	  goto mandos_end;
 	}
 	break;
@@ -788,6 +824,7 @@ static int start_mandos_communication(const char *ip, uint16_t port,
 	fprintf(stderr, "Unknown error while reading data from"
 		" encrypted session with Mandos server\n");
 	gnutls_bye(session, GNUTLS_SHUT_RDWR);
+	errno = EIO;
 	goto mandos_end;
       }
     } else {
@@ -800,12 +837,14 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   }
   
   if(quit_now){
+    errno = EINTR;
     goto mandos_end;
   }
   
   do {
     ret = gnutls_bye(session, GNUTLS_SHUT_RDWR);
     if(quit_now){
+      errno = EINTR;
       goto mandos_end;
     }
   } while(ret == GNUTLS_E_AGAIN or ret == GNUTLS_E_INTERRUPTED);
@@ -820,6 +859,7 @@ static int start_mandos_communication(const char *ip, uint16_t port,
       written = 0;
       while(written < (size_t) decrypted_buffer_size){
 	if(quit_now){
+	  errno = EINTR;
 	  goto mandos_end;
 	}
 	
@@ -827,10 +867,12 @@ static int start_mandos_communication(const char *ip, uint16_t port,
 			  (size_t)decrypted_buffer_size - written,
 			  stdout);
 	if(ret == 0 and ferror(stdout)){
+	  int e = errno;
 	  if(debug){
 	    fprintf(stderr, "Error writing encrypted data: %s\n",
 		    strerror(errno));
 	  }
+	  errno = e;
 	  goto mandos_end;
 	}
 	written += (size_t)ret;
@@ -842,17 +884,25 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   /* Shutdown procedure */
   
  mandos_end:
-  free(decrypted_buffer);
-  free(buffer);
-  if(tcp_sd >= 0){
-    ret = (int)TEMP_FAILURE_RETRY(close(tcp_sd));
-  }
-  if(ret == -1){
-    perror("close");
-  }
-  gnutls_deinit(session);
-  if(quit_now){
-    retval = -1;
+  {
+    int e = errno;
+    free(decrypted_buffer);
+    free(buffer);
+    if(tcp_sd >= 0){
+      ret = (int)TEMP_FAILURE_RETRY(close(tcp_sd));
+    }
+    if(ret == -1){
+      if(e == 0){
+	e = errno;
+      }
+      perror("close");
+    }
+    gnutls_deinit(session);
+    if(quit_now){
+      e = EINTR;
+      retval = -1;
+    }
+    errno = e;
   }
   return retval;
 }
@@ -974,6 +1024,101 @@ static void handle_sigterm(int sig){
   errno = old_errno;
 }
 
+/* 
+ * This function determines if a directory entry in /sys/class/net
+ * corresponds to an acceptable network device.
+ * (This function is passed to scandir(3) as a filter function.)
+ */
+int good_interface(const struct dirent *if_entry){
+  ssize_t ssret;
+  char *flagname = NULL;
+  int ret = asprintf(&flagname, "%s/%s/flags", sys_class_net,
+		     if_entry->d_name);
+  if(ret < 0){
+    perror("asprintf");
+    return 0;
+  }
+  if(if_entry->d_name[0] == '.'){
+    return 0;
+  }
+  int flags_fd = (int)TEMP_FAILURE_RETRY(open(flagname, O_RDONLY));
+  if(flags_fd == -1){
+    perror("open");
+    return 0;
+  }
+  typedef short ifreq_flags;	/* ifreq.ifr_flags in netdevice(7) */
+  /* read line from flags_fd */
+  ssize_t to_read = (sizeof(ifreq_flags)*2)+3; /* "0x1003\n" */
+  char *flagstring = malloc((size_t)to_read+1); /* +1 for final \0 */
+  flagstring[(size_t)to_read] = '\0';
+  if(flagstring == NULL){
+    perror("malloc");
+    close(flags_fd);
+    return 0;
+  }
+  while(to_read > 0){
+    ssret = (ssize_t)TEMP_FAILURE_RETRY(read(flags_fd, flagstring,
+					     (size_t)to_read));
+    if(ssret == -1){
+      perror("read");
+      free(flagstring);
+      close(flags_fd);
+      return 0;
+    }
+    to_read -= ssret;
+    if(ssret == 0){
+      break;
+    }
+  }
+  close(flags_fd);
+  intmax_t tmpmax;
+  char *tmp;
+  errno = 0;
+  tmpmax = strtoimax(flagstring, &tmp, 0);
+  if(errno != 0 or tmp == flagstring or (*tmp != '\0'
+					 and not (isspace(*tmp)))
+     or tmpmax != (ifreq_flags)tmpmax){
+    if(debug){
+      fprintf(stderr, "Invalid flags \"%s\" for interface \"%s\"\n",
+	      flagstring, if_entry->d_name);
+    }
+    free(flagstring);
+    return 0;
+  }
+  free(flagstring);
+  ifreq_flags flags = (ifreq_flags)tmpmax;
+  /* Reject the loopback device */
+  if(flags & IFF_LOOPBACK){
+    if(debug){
+      fprintf(stderr, "Rejecting loopback interface \"%s\"\n",
+	      if_entry->d_name);
+    }
+    return 0;
+  }
+  /* Accept point-to-point devices only if connect_to is specified */
+  if(connect_to != NULL and (flags & IFF_POINTOPOINT)){
+    if(debug){
+      fprintf(stderr, "Accepting point-to-point interface \"%s\"\n",
+	      if_entry->d_name);
+    }
+    return 1;
+  }
+  /* Otherwise, reject non-broadcast-capable devices */
+  if(not (flags & IFF_BROADCAST)){
+    if(debug){
+      fprintf(stderr, "Rejecting non-broadcast interface \"%s\"\n",
+	      if_entry->d_name);
+    }
+    return 0;
+  }
+  /* Accept this device */
+  if(debug){
+    fprintf(stderr, "Interface \"%s\" is acceptable\n",
+	    if_entry->d_name);
+  }
+  return 1;
+}
+
 int main(int argc, char *argv[]){
   AvahiSServiceBrowser *sb = NULL;
   int error;
@@ -981,13 +1126,12 @@ int main(int argc, char *argv[]){
   intmax_t tmpmax;
   char *tmp;
   int exitcode = EXIT_SUCCESS;
-  const char *interface = "eth0";
+  const char *interface = "";
   struct ifreq network;
   int sd = -1;
   bool take_down_interface = false;
   uid_t uid;
   gid_t gid;
-  char *connect_to = NULL;
   char tempdir[] = "/tmp/mandosXXXXXX";
   bool tempdir_created = false;
   AvahiIfIndex if_index = AVAHI_IF_UNSPEC;
@@ -1056,11 +1200,21 @@ int main(int argc, char *argv[]){
 	.arg = "SECONDS",
 	.doc = "Maximum delay to wait for interface startup",
 	.group = 2 },
+      /*
+       * These reproduce what we would get without ARGP_NO_HELP
+       */
+      { .name = "help", .key = '?',
+	.doc = "Give this help list", .group = -1 },
+      { .name = "usage", .key = -3,
+	.doc = "Give a short usage message", .group = -1 },
+      { .name = "version", .key = 'V',
+	.doc = "Print program version", .group = -1 },
       { .name = NULL }
     };
     
     error_t parse_opt(int key, char *arg,
 		      struct argp_state *state){
+      errno = 0;
       switch(key){
       case 128:			/* --debug */
 	debug = true;
@@ -1082,8 +1236,7 @@ int main(int argc, char *argv[]){
 	tmpmax = strtoimax(arg, &tmp, 10);
 	if(errno != 0 or tmp == arg or *tmp != '\0'
 	   or tmpmax != (typeof(mc.dh_bits))tmpmax){
-	  fprintf(stderr, "Bad number of DH bits\n");
-	  exit(EXIT_FAILURE);
+	  argp_error(state, "Bad number of DH bits");
 	}
 	mc.dh_bits = (typeof(mc.dh_bits))tmpmax;
 	break;
@@ -1094,34 +1247,77 @@ int main(int argc, char *argv[]){
 	errno = 0;
 	delay = strtof(arg, &tmp);
 	if(errno != 0 or tmp == arg or *tmp != '\0'){
-	  fprintf(stderr, "Bad delay\n");
-	  exit(EXIT_FAILURE);
+	  argp_error(state, "Bad delay");
 	}
 	break;
-      case ARGP_KEY_ARG:
-	argp_usage(state);
-      case ARGP_KEY_END:
+	/*
+	 * These reproduce what we would get without ARGP_NO_HELP
+	 */
+      case '?':			/* --help */
+	argp_state_help(state, state->out_stream,
+			(ARGP_HELP_STD_HELP | ARGP_HELP_EXIT_ERR)
+			& ~(unsigned int)ARGP_HELP_EXIT_OK);
+      case -3:			/* --usage */
+	argp_state_help(state, state->out_stream,
+			ARGP_HELP_USAGE | ARGP_HELP_EXIT_ERR);
+      case 'V':			/* --version */
+	fprintf(state->out_stream, "%s\n", argp_program_version);
+	exit(argp_err_exit_status);
 	break;
       default:
 	return ARGP_ERR_UNKNOWN;
       }
-      return 0;
+      return errno;
     }
     
     struct argp argp = { .options = options, .parser = parse_opt,
 			 .args_doc = "",
 			 .doc = "Mandos client -- Get and decrypt"
 			 " passwords from a Mandos server" };
-    ret = argp_parse(&argp, argc, argv, 0, 0, NULL);
-    if(ret == ARGP_ERR_UNKNOWN){
-      fprintf(stderr, "Unknown error while parsing arguments\n");
-      exitcode = EXIT_FAILURE;
+    ret = argp_parse(&argp, argc, argv,
+		     ARGP_IN_ORDER | ARGP_NO_HELP, 0, NULL);
+    switch(ret){
+    case 0:
+      break;
+    case ENOMEM:
+    default:
+      errno = ret;
+      perror("argp_parse");
+      exitcode = EX_OSERR;
+      goto end;
+    case EINVAL:
+      exitcode = EX_USAGE;
       goto end;
     }
   }
   
   if(not debug){
     avahi_set_log_function(empty_log);
+  }
+
+  if(interface[0] == '\0'){
+    struct dirent **direntries;
+    ret = scandir(sys_class_net, &direntries, good_interface,
+		  alphasort);
+    if(ret >= 1){
+      /* Pick the first good interface */
+      interface = strdup(direntries[0]->d_name);
+      if(debug){
+	fprintf(stderr, "Using interface \"%s\"\n", interface);
+      }
+      if(interface == NULL){
+	perror("malloc");
+	free(direntries);
+	exitcode = EXIT_FAILURE;
+	goto end;
+      }
+      free(direntries);
+    } else {
+      free(direntries);
+      fprintf(stderr, "Could not find a network interface\n");
+      exitcode = EXIT_FAILURE;
+      goto end;
+    }
   }
   
   /* Initialize Avahi early so avahi_simple_poll_quit() can be called
@@ -1131,7 +1327,7 @@ int main(int argc, char *argv[]){
   mc.simple_poll = avahi_simple_poll_new();
   if(mc.simple_poll == NULL){
     fprintf(stderr, "Avahi: Failed to create simple poll object.\n");
-    exitcode = EXIT_FAILURE;
+    exitcode = EX_UNAVAILABLE;
     goto end;
   }
   
@@ -1139,19 +1335,19 @@ int main(int argc, char *argv[]){
   ret = sigaddset(&sigterm_action.sa_mask, SIGINT);
   if(ret == -1){
     perror("sigaddset");
-    exitcode = EXIT_FAILURE;
+    exitcode = EX_OSERR;
     goto end;
   }
   ret = sigaddset(&sigterm_action.sa_mask, SIGHUP);
   if(ret == -1){
     perror("sigaddset");
-    exitcode = EXIT_FAILURE;
+    exitcode = EX_OSERR;
     goto end;
   }
   ret = sigaddset(&sigterm_action.sa_mask, SIGTERM);
   if(ret == -1){
     perror("sigaddset");
-    exitcode = EXIT_FAILURE;
+    exitcode = EX_OSERR;
     goto end;
   }
   /* Need to check if the handler is SIG_IGN before handling:
@@ -1161,49 +1357,49 @@ int main(int argc, char *argv[]){
   ret = sigaction(SIGINT, NULL, &old_sigterm_action);
   if(ret == -1){
     perror("sigaction");
-    return EXIT_FAILURE;
+    return EX_OSERR;
   }
   if(old_sigterm_action.sa_handler != SIG_IGN){
     ret = sigaction(SIGINT, &sigterm_action, NULL);
     if(ret == -1){
       perror("sigaction");
-      exitcode = EXIT_FAILURE;
+      exitcode = EX_OSERR;
       goto end;
     }
   }
   ret = sigaction(SIGHUP, NULL, &old_sigterm_action);
   if(ret == -1){
     perror("sigaction");
-    return EXIT_FAILURE;
+    return EX_OSERR;
   }
   if(old_sigterm_action.sa_handler != SIG_IGN){
     ret = sigaction(SIGHUP, &sigterm_action, NULL);
     if(ret == -1){
       perror("sigaction");
-      exitcode = EXIT_FAILURE;
+      exitcode = EX_OSERR;
       goto end;
     }
   }
   ret = sigaction(SIGTERM, NULL, &old_sigterm_action);
   if(ret == -1){
     perror("sigaction");
-    return EXIT_FAILURE;
+    return EX_OSERR;
   }
   if(old_sigterm_action.sa_handler != SIG_IGN){
     ret = sigaction(SIGTERM, &sigterm_action, NULL);
     if(ret == -1){
       perror("sigaction");
-      exitcode = EXIT_FAILURE;
+      exitcode = EX_OSERR;
       goto end;
     }
   }
   
   /* If the interface is down, bring it up */
-  if(interface[0] != '\0'){
+  if(strcmp(interface, "none") != 0){
     if_index = (AvahiIfIndex) if_nametoindex(interface);
     if(if_index == 0){
       fprintf(stderr, "No such interface: \"%s\"\n", interface);
-      exitcode = EXIT_FAILURE;
+      exitcode = EX_UNAVAILABLE;
       goto end;
     }
     
@@ -1220,7 +1416,7 @@ int main(int argc, char *argv[]){
     
 #ifdef __linux__
     /* Lower kernel loglevel to KERN_NOTICE to avoid KERN_INFO
-       messages to mess up the prompt */
+       messages about the network interface to mess up the prompt */
     ret = klogctl(8, NULL, 5);
     bool restore_loglevel = true;
     if(ret == -1){
@@ -1232,7 +1428,7 @@ int main(int argc, char *argv[]){
     sd = socket(PF_INET6, SOCK_DGRAM, IPPROTO_IP);
     if(sd < 0){
       perror("socket");
-      exitcode = EXIT_FAILURE;
+      exitcode = EX_OSERR;
 #ifdef __linux__
       if(restore_loglevel){
 	ret = klogctl(7, NULL, 0);
@@ -1261,7 +1457,7 @@ int main(int argc, char *argv[]){
 	}
       }
 #endif	/* __linux__ */
-      exitcode = EXIT_FAILURE;
+      exitcode = EX_OSERR;
       /* Lower privileges */
       errno = 0;
       ret = seteuid(uid);
@@ -1276,8 +1472,8 @@ int main(int argc, char *argv[]){
       ret = ioctl(sd, SIOCSIFFLAGS, &network);
       if(ret == -1){
 	take_down_interface = false;
-	perror("ioctl SIOCSIFFLAGS");
-	exitcode = EXIT_FAILURE;
+	perror("ioctl SIOCSIFFLAGS +IFF_UP");
+	exitcode = EX_OSERR;
 #ifdef __linux__
 	if(restore_loglevel){
 	  ret = klogctl(7, NULL, 0);
@@ -1349,7 +1545,7 @@ int main(int argc, char *argv[]){
   ret = init_gnutls_global(pubkey, seckey);
   if(ret == -1){
     fprintf(stderr, "init_gnutls_global failed\n");
-    exitcode = EXIT_FAILURE;
+    exitcode = EX_UNAVAILABLE;
     goto end;
   } else {
     gnutls_initialized = true;
@@ -1372,7 +1568,7 @@ int main(int argc, char *argv[]){
   
   if(not init_gpgme(pubkey, seckey, tempdir)){
     fprintf(stderr, "init_gpgme failed\n");
-    exitcode = EXIT_FAILURE;
+    exitcode = EX_UNAVAILABLE;
     goto end;
   } else {
     gpgme_initialized = true;
@@ -1388,7 +1584,7 @@ int main(int argc, char *argv[]){
     char *address = strrchr(connect_to, ':');
     if(address == NULL){
       fprintf(stderr, "No colon in address\n");
-      exitcode = EXIT_FAILURE;
+      exitcode = EX_USAGE;
       goto end;
     }
     
@@ -1402,7 +1598,7 @@ int main(int argc, char *argv[]){
     if(errno != 0 or tmp == address+1 or *tmp != '\0'
        or tmpmax != (uint16_t)tmpmax){
       fprintf(stderr, "Bad port number\n");
-      exitcode = EXIT_FAILURE;
+      exitcode = EX_USAGE;
       goto end;
     }
   
@@ -1424,13 +1620,19 @@ int main(int argc, char *argv[]){
     if(quit_now){
       goto end;
     }
-    
-    ret = start_mandos_communication(address, port, if_index, af);
-    if(ret < 0){
-      exitcode = EXIT_FAILURE;
-    } else {
+
+    while(not quit_now){
+      ret = start_mandos_communication(address, port, if_index, af);
+      if(quit_now or ret == 0){
+	break;
+      }
+      sleep(15);
+    };
+
+    if (not quit_now){
       exitcode = EXIT_SUCCESS;
     }
+
     goto end;
   }
   
@@ -1460,7 +1662,7 @@ int main(int argc, char *argv[]){
   if(mc.server == NULL){
     fprintf(stderr, "Failed to create Avahi server: %s\n",
 	    avahi_strerror(error));
-    exitcode = EXIT_FAILURE;
+    exitcode = EX_UNAVAILABLE;
     goto end;
   }
   
@@ -1475,7 +1677,7 @@ int main(int argc, char *argv[]){
   if(sb == NULL){
     fprintf(stderr, "Failed to create service browser: %s\n",
 	    avahi_strerror(avahi_server_errno(mc.server)));
-    exitcode = EXIT_FAILURE;
+    exitcode = EX_UNAVAILABLE;
     goto end;
   }
   
@@ -1530,10 +1732,10 @@ int main(int argc, char *argv[]){
       if(ret == -1){
 	perror("ioctl SIOCGIFFLAGS");
       } else if(network.ifr_flags & IFF_UP) {
-	network.ifr_flags &= ~IFF_UP; /* clear flag */
+	network.ifr_flags &= ~(short)IFF_UP; /* clear flag */
 	ret = ioctl(sd, SIOCSIFFLAGS, &network);
 	if(ret == -1){
-	  perror("ioctl SIOCSIFFLAGS");
+	  perror("ioctl SIOCSIFFLAGS -IFF_UP");
 	}
       }
       ret = (int)TEMP_FAILURE_RETRY(close(sd));

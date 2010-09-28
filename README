@@ -99,7 +99,7 @@
    Multiple Mandos servers can coexist on a network without any
    trouble.  They do not clash, and clients will try all available
    servers.  This means that if just one reboots then the other can
-   bring it back up, but if both reboots at the same time they will
+   bring it back up, but if both reboot at the same time they will
    stay down until someone types in the password on one of them.
 
 ** Faking ping replies?
@@ -144,7 +144,9 @@
   plugins to run, all competing to be the first to find a password and
   provide it to the plugin runner.
   
-  Three additional plugins are provided:
+  Four additional plugins are provided:
+  * plymouth(8mandos)
+    This prompts for a password when using plymouth(8).
   * usplash(8mandos)
     This prompts for a password when using usplash(8).
   * splashy(8mandos)
@@ -160,8 +162,8 @@
 
 * Copyright
 
-    Copyright © 2008,2009 Teddy Hogeborn
-    Copyright © 2008,2009 Björn Påhlsson
+    Copyright © 2008-2010 Teddy Hogeborn
+    Copyright © 2008-2010 Björn Påhlsson
   
 ** License:
    

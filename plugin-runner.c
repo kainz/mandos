@@ -2,8 +2,8 @@
 /*
  * Mandos plugin runner - Run Mandos plugins
  *
- * Copyright © 2008,2009 Teddy Hogeborn
- * Copyright © 2008,2009 Björn Påhlsson
+ * Copyright © 2008-2010 Teddy Hogeborn
+ * Copyright © 2008-2010 Björn Påhlsson
  * 
  * This program is free software: you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -23,14 +23,14 @@
  */
 
 #define _GNU_SOURCE		/* TEMP_FAILURE_RETRY(), getline(),
-				   asprintf() */
+				   asprintf(), O_CLOEXEC */
 #include <stddef.h>		/* size_t, NULL */
-#include <stdlib.h>		/* malloc(), exit(), EXIT_FAILURE,
-				   EXIT_SUCCESS, realloc() */
+#include <stdlib.h>		/* malloc(), exit(), EXIT_SUCCESS,
+				   realloc() */
 #include <stdbool.h>		/* bool, true, false */
-#include <stdio.h>		/* perror, fileno(), fprintf(),
+#include <stdio.h>		/* fileno(), fprintf(),
 				   stderr, STDOUT_FILENO */
-#include <sys/types.h>	        /* DIR, opendir(), stat(), struct
+#include <sys/types.h>	        /* DIR, fdopendir(), stat(), struct
 				   stat, waitpid(), WIFEXITED(),
 				   WEXITSTATUS(), wait(), pid_t,
 				   uid_t, gid_t, getuid(), getgid(),
@@ -42,7 +42,7 @@
 				   WCOREDUMP() */
 #include <sys/stat.h>		/* struct stat, stat(), S_ISREG() */
 #include <iso646.h>		/* and, or, not */
-#include <dirent.h>		/* DIR, struct dirent, opendir(),
+#include <dirent.h>		/* DIR, struct dirent, fdopendir(),
 				   readdir(), closedir(), dirfd() */
 #include <unistd.h>		/* struct stat, stat(), S_ISREG(),
 				   fcntl(), setuid(), setgid(),
@@ -54,7 +54,7 @@
 #include <fcntl.h>		/* fcntl(), F_GETFD, F_SETFD,
 				   FD_CLOEXEC */
 #include <string.h>		/* strsep, strlen(), asprintf(),
-				   strsignal() */
+				   strsignal(), strcmp(), strncmp() */
 #include <errno.h>		/* errno */
 #include <argp.h>		/* struct argp_option, struct
 				   argp_state, struct argp,
@@ -68,6 +68,10 @@
 				*/
 #include <errno.h>		/* errno, EBADF */
 #include <inttypes.h>		/* intmax_t, PRIdMAX, strtoimax() */
+#include <sysexits.h>		/* EX_OSERR, EX_USAGE, EX_IOERR,
+				   EX_CONFIG, EX_UNAVAILABLE, EX_OK */
+#include <errno.h> 		/* errno */
+#include <error.h>		/* error() */
 
 #define BUFFER_SIZE 256
 
@@ -102,7 +106,7 @@ static plugin *plugin_list = NULL;
 /* Gets an existing plugin based on name,
    or if none is found, creates a new one */
 static plugin *getplugin(char *name){
-  /* Check for exiting plugin with that name */
+  /* Check for existing plugin with that name */
   for(plugin *p = plugin_list; p != NULL; p = p->next){
     if((p->name == name)
        or (p->name and name and (strcmp(p->name, name) == 0))){
@@ -123,7 +127,9 @@ static plugin *getplugin(char *name){
       copy_name = strdup(name);
     } while(copy_name == NULL and errno == EINTR);
     if(copy_name == NULL){
+      int e = errno;
       free(new_plugin);
+      errno = e;
       return NULL;
     }
   }
@@ -137,8 +143,10 @@ static plugin *getplugin(char *name){
     new_plugin->argv = malloc(sizeof(char *) * 2);
   } while(new_plugin->argv == NULL and errno == EINTR);
   if(new_plugin->argv == NULL){
+    int e = errno;
     free(copy_name);
     free(new_plugin);
+    errno = e;
     return NULL;
   }
   new_plugin->argv[0] = copy_name;
@@ -148,9 +156,11 @@ static plugin *getplugin(char *name){
     new_plugin->environ = malloc(sizeof(char *));
   } while(new_plugin->environ == NULL and errno == EINTR);
   if(new_plugin->environ == NULL){
+    int e = errno;
     free(copy_name);
     free(new_plugin->argv);
     free(new_plugin);
+    errno = e;
     return NULL;
   }
   new_plugin->environ[0] = NULL;
@@ -258,7 +268,7 @@ static void handle_sigchld(__attribute__((unused)) int sig){
 	/* No child processes */
 	break;
       }
-      perror("waitpid");
+      error(0, errno, "waitpid");
     }
     
     /* A child exited, find it in process_list */
@@ -349,14 +359,14 @@ int main(int argc, char *argv[]){
   sigemptyset(&sigchld_action.sa_mask);
   ret = sigaddset(&sigchld_action.sa_mask, SIGCHLD);
   if(ret == -1){
-    perror("sigaddset");
-    exitstatus = EXIT_FAILURE;
+    error(0, errno, "sigaddset");
+    exitstatus = EX_OSERR;
     goto fallback;
   }
   ret = sigaction(SIGCHLD, &sigchld_action, &old_sigchld_action);
   if(ret == -1){
-    perror("sigaction");
-    exitstatus = EXIT_FAILURE;
+    error(0, errno, "sigaction");
+    exitstatus = EX_OSERR;
     goto fallback;
   }
   
@@ -394,118 +404,136 @@ int main(int argc, char *argv[]){
       .doc = "Group ID the plugins will run as", .group = 3 },
     { .name = "debug", .key = 132,
       .doc = "Debug mode", .group = 4 },
+    /*
+     * These reproduce what we would get without ARGP_NO_HELP
+     */
+    { .name = "help", .key = '?',
+      .doc = "Give this help list", .group = -1 },
+    { .name = "usage", .key = -3,
+      .doc = "Give a short usage message", .group = -1 },
+    { .name = "version", .key = 'V',
+      .doc = "Print program version", .group = -1 },
     { .name = NULL }
   };
   
-  error_t parse_opt(int key, char *arg, __attribute__((unused))
-		    struct argp_state *state){
+  error_t parse_opt(int key, char *arg, struct argp_state *state){
+    errno = 0;
     switch(key){
       char *tmp;
       intmax_t tmpmax;
     case 'g': 			/* --global-options */
-      if(arg != NULL){
+      {
 	char *plugin_option;
 	while((plugin_option = strsep(&arg, ",")) != NULL){
-	  if(plugin_option[0] == '\0'){
-	    continue;
-	  }
 	  if(not add_argument(getplugin(NULL), plugin_option)){
-	    perror("add_argument");
-	    return ARGP_ERR_UNKNOWN;
+	    break;
 	  }
 	}
       }
       break;
     case 'G':			/* --global-env */
-      if(arg == NULL){
-	break;
-      }
-      if(not add_environment(getplugin(NULL), arg, true)){
-	perror("add_environment");
-      }
+      add_environment(getplugin(NULL), arg, true);
       break;
     case 'o':			/* --options-for */
-      if(arg != NULL){
-	char *plugin_name = strsep(&arg, ":");
-	if(plugin_name[0] == '\0'){
+      {
+	char *option_list = strchr(arg, ':');
+	if(option_list == NULL){
+	  argp_error(state, "No colon in \"%s\"", arg);
+	  errno = EINVAL;
 	  break;
 	}
-	char *plugin_option;
-	while((plugin_option = strsep(&arg, ",")) != NULL){
-	  if(not add_argument(getplugin(plugin_name), plugin_option)){
-	    perror("add_argument");
-	    return ARGP_ERR_UNKNOWN;
+	*option_list = '\0';
+	option_list++;
+	if(arg[0] == '\0'){
+	  argp_error(state, "Empty plugin name");
+	  errno = EINVAL;
+	  break;
+	}
+	char *option;
+	while((option = strsep(&option_list, ",")) != NULL){
+	  if(not add_argument(getplugin(arg), option)){
+	    break;
 	  }
 	}
       }
       break;
     case 'E':			/* --env-for */
-      if(arg == NULL){
-	break;
-      }
       {
 	char *envdef = strchr(arg, ':');
 	if(envdef == NULL){
+	  argp_error(state, "No colon in \"%s\"", arg);
+	  errno = EINVAL;
 	  break;
 	}
 	*envdef = '\0';
-	if(not add_environment(getplugin(arg), envdef+1, true)){
-	  perror("add_environment");
+	envdef++;
+	if(arg[0] == '\0'){
+	  argp_error(state, "Empty plugin name");
+	  errno = EINVAL;
+	  break;
 	}
+	add_environment(getplugin(arg), envdef, true);
       }
       break;
     case 'd':			/* --disable */
-      if(arg != NULL){
+      {
 	plugin *p = getplugin(arg);
-	if(p == NULL){
-	  return ARGP_ERR_UNKNOWN;
+	if(p != NULL){
+	  p->disabled = true;
 	}
-	p->disabled = true;
       }
       break;
     case 'e':			/* --enable */
-      if(arg != NULL){
+      {
 	plugin *p = getplugin(arg);
-	if(p == NULL){
-	  return ARGP_ERR_UNKNOWN;
+	if(p != NULL){
+	  p->disabled = false;
 	}
-	p->disabled = false;
       }
       break;
     case 128:			/* --plugin-dir */
       free(plugindir);
       plugindir = strdup(arg);
-      if(plugindir == NULL){
-	perror("strdup");
-      }
       break;
     case 129:			/* --config-file */
       /* This is already done by parse_opt_config_file() */
       break;
     case 130:			/* --userid */
-      errno = 0;
       tmpmax = strtoimax(arg, &tmp, 10);
       if(errno != 0 or tmp == arg or *tmp != '\0'
 	 or tmpmax != (uid_t)tmpmax){
-	fprintf(stderr, "Bad user ID number: \"%s\", using %"
-		PRIdMAX "\n", arg, (intmax_t)uid);
-      } else {
-	uid = (uid_t)tmpmax;
+	argp_error(state, "Bad user ID number: \"%s\", using %"
+		   PRIdMAX, arg, (intmax_t)uid);
+	break;
       }
+      uid = (uid_t)tmpmax;
       break;
     case 131:			/* --groupid */
-      errno = 0;
       tmpmax = strtoimax(arg, &tmp, 10);
       if(errno != 0 or tmp == arg or *tmp != '\0'
 	 or tmpmax != (gid_t)tmpmax){
-	fprintf(stderr, "Bad group ID number: \"%s\", using %"
-		PRIdMAX "\n", arg, (intmax_t)gid);
-      } else {
-	gid = (gid_t)tmpmax;
+	argp_error(state, "Bad group ID number: \"%s\", using %"
+		   PRIdMAX, arg, (intmax_t)gid);
+	break;
       }
+      gid = (gid_t)tmpmax;
       break;
     case 132:			/* --debug */
       debug = true;
+      break;
+      /*
+       * These reproduce what we would get without ARGP_NO_HELP
+       */
+    case '?':			/* --help */
+      state->flags &= ~(unsigned int)ARGP_NO_EXIT; /* force exit */
+      argp_state_help(state, state->out_stream, ARGP_HELP_STD_HELP);
+    case -3:			/* --usage */
+      state->flags &= ~(unsigned int)ARGP_NO_EXIT; /* force exit */
+      argp_state_help(state, state->out_stream,
+		      ARGP_HELP_USAGE | ARGP_HELP_EXIT_OK);
+    case 'V':			/* --version */
+      fprintf(state->out_stream, "%s\n", argp_program_version);
+      exit(EXIT_SUCCESS);
       break;
 /*
  * When adding more options before this line, remember to also add a
@@ -515,16 +543,13 @@ int main(int argc, char *argv[]){
       /* Cryptsetup always passes an argument, which is an empty
 	 string if "none" was specified in /etc/crypttab.  So if
 	 argument was empty, we ignore it silently. */
-      if(arg[0] != '\0'){
-	fprintf(stderr, "Ignoring unknown argument \"%s\"\n", arg);
+      if(arg[0] == '\0'){
+	break;
       }
-      break;
-    case ARGP_KEY_END:
-      break;
     default:
       return ARGP_ERR_UNKNOWN;
     }
-    return 0;
+    return errno;		/* Set to 0 at start */
   }
   
   /* This option parser is the same as parse_opt() above, except it
@@ -532,6 +557,7 @@ int main(int argc, char *argv[]){
   error_t parse_opt_config_file(int key, char *arg,
 				__attribute__((unused))
 				struct argp_state *state){
+    errno = 0;
     switch(key){
     case 'g': 			/* --global-options */
     case 'G':			/* --global-env */
@@ -544,20 +570,19 @@ int main(int argc, char *argv[]){
     case 129:			/* --config-file */
       free(argfile);
       argfile = strdup(arg);
-      if(argfile == NULL){
-	perror("strdup");
-      }
       break;
     case 130:			/* --userid */
     case 131:			/* --groupid */
     case 132:			/* --debug */
+    case '?':			/* --help */
+    case -3:			/* --usage */
+    case 'V':			/* --version */
     case ARGP_KEY_ARG:
-    case ARGP_KEY_END:
       break;
     default:
       return ARGP_ERR_UNKNOWN;
     }
-    return 0;
+    return errno;
   }
   
   struct argp argp = { .options = options,
@@ -567,10 +592,20 @@ int main(int argc, char *argv[]){
   
   /* Parse using parse_opt_config_file() in order to get the custom
      config file location, if any. */
-  ret = argp_parse(&argp, argc, argv, ARGP_IN_ORDER, 0, NULL);
-  if(ret == ARGP_ERR_UNKNOWN){
-    fprintf(stderr, "Unknown error while parsing arguments\n");
-    exitstatus = EXIT_FAILURE;
+  ret = argp_parse(&argp, argc, argv,
+		   ARGP_IN_ORDER | ARGP_NO_EXIT | ARGP_NO_HELP,
+		   NULL, NULL);
+  switch(ret){
+  case 0:
+    break;
+  case ENOMEM:
+  default:
+    errno = ret;
+    error(0, errno, "argp_parse");
+    exitstatus = EX_OSERR;
+    goto fallback;
+  case EINVAL:
+    exitstatus = EX_USAGE;
     goto fallback;
   }
   
@@ -593,8 +628,8 @@ int main(int argc, char *argv[]){
     custom_argc = 1;
     custom_argv = malloc(sizeof(char*) * 2);
     if(custom_argv == NULL){
-      perror("malloc");
-      exitstatus = EXIT_FAILURE;
+      error(0, errno, "malloc");
+      exitstatus = EX_OSERR;
       goto fallback;
     }
     custom_argv[0] = argv[0];
@@ -616,8 +651,8 @@ int main(int argc, char *argv[]){
 	}
 	new_arg = strdup(p);
 	if(new_arg == NULL){
-	  perror("strdup");
-	  exitstatus = EXIT_FAILURE;
+	  error(0, errno, "strdup");
+	  exitstatus = EX_OSERR;
 	  free(org_line);
 	  goto fallback;
 	}
@@ -626,8 +661,8 @@ int main(int argc, char *argv[]){
 	custom_argv = realloc(custom_argv, sizeof(char *)
 			      * ((unsigned int) custom_argc + 1));
 	if(custom_argv == NULL){
-	  perror("realloc");
-	  exitstatus = EXIT_FAILURE;
+	  error(0, errno, "realloc");
+	  exitstatus = EX_OSERR;
 	  free(org_line);
 	  goto fallback;
 	}
@@ -639,8 +674,8 @@ int main(int argc, char *argv[]){
       ret = fclose(conffp);
     } while(ret == EOF and errno == EINTR);
     if(ret == EOF){
-      perror("fclose");
-      exitstatus = EXIT_FAILURE;
+      error(0, errno, "fclose");
+      exitstatus = EX_IOERR;
       goto fallback;
     }
     free(org_line);
@@ -648,29 +683,48 @@ int main(int argc, char *argv[]){
     /* Check for harmful errors and go to fallback. Other errors might
        not affect opening plugins */
     if(errno == EMFILE or errno == ENFILE or errno == ENOMEM){
-      perror("fopen");
-      exitstatus = EXIT_FAILURE;
+      error(0, errno, "fopen");
+      exitstatus = EX_OSERR;
       goto fallback;
     }
   }
-  /* If there was any arguments from configuration file,
-     pass them to parser as command arguments */
+  /* If there were any arguments from the configuration file, pass
+     them to parser as command line arguments */
   if(custom_argv != NULL){
-    ret = argp_parse(&argp, custom_argc, custom_argv, ARGP_IN_ORDER,
-		     0, NULL);
-    if(ret == ARGP_ERR_UNKNOWN){
-      fprintf(stderr, "Unknown error while parsing arguments\n");
-      exitstatus = EXIT_FAILURE;
+    ret = argp_parse(&argp, custom_argc, custom_argv,
+		     ARGP_IN_ORDER | ARGP_NO_EXIT | ARGP_NO_HELP,
+		     NULL, NULL);
+    switch(ret){
+    case 0:
+      break;
+    case ENOMEM:
+    default:
+      errno = ret;
+      error(0, errno, "argp_parse");
+      exitstatus = EX_OSERR;
+      goto fallback;
+    case EINVAL:
+      exitstatus = EX_CONFIG;
       goto fallback;
     }
   }
   
   /* Parse actual command line arguments, to let them override the
      config file */
-  ret = argp_parse(&argp, argc, argv, ARGP_IN_ORDER, 0, NULL);
-  if(ret == ARGP_ERR_UNKNOWN){
-    fprintf(stderr, "Unknown error while parsing arguments\n");
-    exitstatus = EXIT_FAILURE;
+  ret = argp_parse(&argp, argc, argv,
+		   ARGP_IN_ORDER | ARGP_NO_EXIT | ARGP_NO_HELP,
+		   NULL, NULL);
+  switch(ret){
+  case 0:
+    break;
+  case ENOMEM:
+  default:
+    errno = ret;
+    error(0, errno, "argp_parse");
+    exitstatus = EX_OSERR;
+    goto fallback;
+  case EINVAL:
+    exitstatus = EX_USAGE;
     goto fallback;
   }
   
@@ -691,35 +745,56 @@ int main(int argc, char *argv[]){
   /* Strip permissions down to nobody */
   setgid(gid);
   if(ret == -1){
-    perror("setgid");
+    error(0, errno, "setgid");
   }
   ret = setuid(uid);
   if(ret == -1){
-    perror("setuid");
+    error(0, errno, "setuid");
   }
   
-  if(plugindir == NULL){
-    dir = opendir(PDIR);
-  } else {
-    dir = opendir(plugindir);
-  }
-  
-  if(dir == NULL){
-    perror("Could not open plugin dir");
-    exitstatus = EXIT_FAILURE;
-    goto fallback;
-  }
-  
-  /* Set the FD_CLOEXEC flag on the directory, if possible */
+  /* Open plugin directory with close_on_exec flag */
   {
-    int dir_fd = dirfd(dir);
-    if(dir_fd >= 0){
-      ret = set_cloexec_flag(dir_fd);
-      if(ret < 0){
-	perror("set_cloexec_flag");
-	exitstatus = EXIT_FAILURE;
-	goto fallback;
-      }
+    int dir_fd = -1;
+    if(plugindir == NULL){
+      dir_fd = open(PDIR, O_RDONLY |
+#ifdef O_CLOEXEC
+		    O_CLOEXEC
+#else  /* not O_CLOEXEC */
+		    0
+#endif	/* not O_CLOEXEC */
+		    );
+    } else {
+      dir_fd = open(plugindir, O_RDONLY |
+#ifdef O_CLOEXEC
+		    O_CLOEXEC
+#else  /* not O_CLOEXEC */
+		    0
+#endif	/* not O_CLOEXEC */
+		    );
+    }
+    if(dir_fd == -1){
+      error(0, errno, "Could not open plugin dir");
+      exitstatus = EX_UNAVAILABLE;
+      goto fallback;
+    }
+    
+#ifndef O_CLOEXEC
+  /* Set the FD_CLOEXEC flag on the directory */
+    ret = set_cloexec_flag(dir_fd);
+    if(ret < 0){
+      error(0, errno, "set_cloexec_flag");
+      TEMP_FAILURE_RETRY(close(dir_fd));
+      exitstatus = EX_OSERR;
+      goto fallback;
+    }
+#endif	/* O_CLOEXEC */
+    
+    dir = fdopendir(dir_fd);
+    if(dir == NULL){
+      error(0, errno, "Could not open plugin dir");
+      TEMP_FAILURE_RETRY(close(dir_fd));
+      exitstatus = EX_OSERR;
+      goto fallback;
     }
   }
   
@@ -734,8 +809,8 @@ int main(int argc, char *argv[]){
     /* All directory entries have been processed */
     if(dirst == NULL){
       if(errno == EBADF){
-	perror("readdir");
-	exitstatus = EXIT_FAILURE;
+	error(0, errno, "readdir");
+	exitstatus = EX_IOERR;
 	goto fallback;
       }
       break;
@@ -771,7 +846,7 @@ int main(int argc, char *argv[]){
       for(const char **suf = bad_suffixes; *suf != NULL; suf++){
 	size_t suf_len = strlen(*suf);
 	if((d_name_len >= suf_len)
-	   and (strcmp((dirst->d_name)+d_name_len-suf_len, *suf)
+	   and (strcmp((dirst->d_name) + d_name_len-suf_len, *suf)
 		== 0)){
 	  if(debug){
 	    fprintf(stderr, "Ignoring plugin dir entry \"%s\""
@@ -797,13 +872,13 @@ int main(int argc, char *argv[]){
 					     dirst->d_name));
     }
     if(ret < 0){
-      perror("asprintf");
+      error(0, errno, "asprintf");
       continue;
     }
     
     ret = (int)TEMP_FAILURE_RETRY(stat(filename, &st));
     if(ret == -1){
-      perror("stat");
+      error(0, errno, "stat");
       free(filename);
       continue;
     }
@@ -821,7 +896,7 @@ int main(int argc, char *argv[]){
     
     plugin *p = getplugin(dirst->d_name);
     if(p == NULL){
-      perror("getplugin");
+      error(0, errno, "getplugin");
       free(filename);
       continue;
     }
@@ -839,13 +914,13 @@ int main(int argc, char *argv[]){
       if(g != NULL){
 	for(char **a = g->argv + 1; *a != NULL; a++){
 	  if(not add_argument(p, *a)){
-	    perror("add_argument");
+	    error(0, errno, "add_argument");
 	  }
 	}
 	/* Add global environment variables */
 	for(char **e = g->environ; *e != NULL; e++){
 	  if(not add_environment(p, *e, false)){
-	    perror("add_environment");
+	    error(0, errno, "add_environment");
 	  }
 	}
       }
@@ -856,7 +931,7 @@ int main(int argc, char *argv[]){
     if(p->environ[0] != NULL){
       for(char **e = environ; *e != NULL; e++){
 	if(not add_environment(p, *e, false)){
-	  perror("add_environment");
+	  error(0, errno, "add_environment");
 	}
       }
     }
@@ -864,21 +939,21 @@ int main(int argc, char *argv[]){
     int pipefd[2];
     ret = (int)TEMP_FAILURE_RETRY(pipe(pipefd));
     if(ret == -1){
-      perror("pipe");
-      exitstatus = EXIT_FAILURE;
+      error(0, errno, "pipe");
+      exitstatus = EX_OSERR;
       goto fallback;
     }
     /* Ask OS to automatic close the pipe on exec */
     ret = set_cloexec_flag(pipefd[0]);
     if(ret < 0){
-      perror("set_cloexec_flag");
-      exitstatus = EXIT_FAILURE;
+      error(0, errno, "set_cloexec_flag");
+      exitstatus = EX_OSERR;
       goto fallback;
     }
     ret = set_cloexec_flag(pipefd[1]);
     if(ret < 0){
-      perror("set_cloexec_flag");
-      exitstatus = EXIT_FAILURE;
+      error(0, errno, "set_cloexec_flag");
+      exitstatus = EX_OSERR;
       goto fallback;
     }
     /* Block SIGCHLD until process is safely in process list */
@@ -886,8 +961,8 @@ int main(int argc, char *argv[]){
 					      &sigchld_action.sa_mask,
 					      NULL));
     if(ret < 0){
-      perror("sigprocmask");
-      exitstatus = EXIT_FAILURE;
+      error(0, errno, "sigprocmask");
+      exitstatus = EX_OSERR;
       goto fallback;
     }
     /* Starting a new process to be watched */
@@ -896,27 +971,27 @@ int main(int argc, char *argv[]){
       pid = fork();
     } while(pid == -1 and errno == EINTR);
     if(pid == -1){
-      perror("fork");
-      exitstatus = EXIT_FAILURE;
+      error(0, errno, "fork");
+      exitstatus = EX_OSERR;
       goto fallback;
     }
     if(pid == 0){
       /* this is the child process */
       ret = sigaction(SIGCHLD, &old_sigchld_action, NULL);
       if(ret < 0){
-	perror("sigaction");
-	_exit(EXIT_FAILURE);
+	error(0, errno, "sigaction");
+	_exit(EX_OSERR);
       }
       ret = sigprocmask(SIG_UNBLOCK, &sigchld_action.sa_mask, NULL);
       if(ret < 0){
-	perror("sigprocmask");
-	_exit(EXIT_FAILURE);
+	error(0, errno, "sigprocmask");
+	_exit(EX_OSERR);
       }
       
       ret = dup2(pipefd[1], STDOUT_FILENO); /* replace our stdout */
       if(ret == -1){
-	perror("dup2");
-	_exit(EXIT_FAILURE);
+	error(0, errno, "dup2");
+	_exit(EX_OSERR);
       }
       
       if(dirfd(dir) < 0){
@@ -926,13 +1001,13 @@ int main(int argc, char *argv[]){
       }
       if(p->environ[0] == NULL){
 	if(execv(filename, p->argv) < 0){
-	  perror("execv");
-	  _exit(EXIT_FAILURE);
+	  error(0, errno, "execv for %s", filename);
+	  _exit(EX_OSERR);
 	}
       } else {
 	if(execve(filename, p->argv, p->environ) < 0){
-	  perror("execve");
-	  _exit(EXIT_FAILURE);
+	  error(0, errno, "execve for %s", filename);
+	  _exit(EX_OSERR);
 	}
       }
       /* no return */
@@ -943,14 +1018,14 @@ int main(int argc, char *argv[]){
     free(filename);
     plugin *new_plugin = getplugin(dirst->d_name);
     if(new_plugin == NULL){
-      perror("getplugin");
+      error(0, errno, "getplugin");
       ret = (int)(TEMP_FAILURE_RETRY
 		  (sigprocmask(SIG_UNBLOCK, &sigchld_action.sa_mask,
 			       NULL)));
       if(ret < 0){
-        perror("sigprocmask");
+        error(0, errno, "sigprocmask");
       }
-      exitstatus = EXIT_FAILURE;
+      exitstatus = EX_OSERR;
       goto fallback;
     }
     
@@ -963,12 +1038,13 @@ int main(int argc, char *argv[]){
 					      &sigchld_action.sa_mask,
 					      NULL));
     if(ret < 0){
-      perror("sigprocmask");
-      exitstatus = EXIT_FAILURE;
+      error(0, errno, "sigprocmask");
+      exitstatus = EX_OSERR;
       goto fallback;
     }
     
-    FD_SET(new_plugin->fd, &rfds_all);
+    FD_SET(new_plugin->fd, &rfds_all); /* Spurious warning from
+					  -Wconversion */
     
     if(maxfd < new_plugin->fd){
       maxfd = new_plugin->fd;
@@ -995,8 +1071,8 @@ int main(int argc, char *argv[]){
     fd_set rfds = rfds_all;
     int select_ret = select(maxfd+1, &rfds, NULL, NULL, NULL);
     if(select_ret == -1 and errno != EINTR){
-      perror("select");
-      exitstatus = EXIT_FAILURE;
+      error(0, errno, "select");
+      exitstatus = EX_OSERR;
       goto fallback;
     }
     /* OK, now either a process completed, or something can be read
@@ -1028,7 +1104,8 @@ int main(int argc, char *argv[]){
 	  }
 	  
 	  /* Remove the plugin */
-	  FD_CLR(proc->fd, &rfds_all);
+	  FD_CLR(proc->fd, &rfds_all); /* Spurious warning from
+					  -Wconversion */
 	  
 	  /* Block signal while modifying process_list */
 	  ret = (int)TEMP_FAILURE_RETRY(sigprocmask
@@ -1036,8 +1113,8 @@ int main(int argc, char *argv[]){
 					 &sigchld_action.sa_mask,
 					 NULL));
 	  if(ret < 0){
-	    perror("sigprocmask");
-	    exitstatus = EXIT_FAILURE;
+	    error(0, errno, "sigprocmask");
+	    exitstatus = EX_OSERR;
 	    goto fallback;
 	  }
 	  
@@ -1050,8 +1127,8 @@ int main(int argc, char *argv[]){
 		      (sigprocmask(SIG_UNBLOCK,
 				   &sigchld_action.sa_mask, NULL)));
 	  if(ret < 0){
-	    perror("sigprocmask");
-	    exitstatus = EXIT_FAILURE;
+	    error(0, errno, "sigprocmask");
+	    exitstatus = EX_OSERR;
 	    goto fallback;
 	  }
 	  
@@ -1067,14 +1144,16 @@ int main(int argc, char *argv[]){
 	bool bret = print_out_password(proc->buffer,
 				       proc->buffer_length);
 	if(not bret){
-	  perror("print_out_password");
-	  exitstatus = EXIT_FAILURE;
+	  error(0, errno, "print_out_password");
+	  exitstatus = EX_IOERR;
 	}
 	goto fallback;
       }
       
       /* This process has not completed.  Does it have any output? */
-      if(proc->eof or not FD_ISSET(proc->fd, &rfds)){
+      if(proc->eof or not FD_ISSET(proc->fd, &rfds)){ /* Spurious
+							 warning from
+							 -Wconversion */
 	/* This process had nothing to say at this time */
 	proc = proc->next;
 	continue;
@@ -1084,8 +1163,8 @@ int main(int argc, char *argv[]){
 	proc->buffer = realloc(proc->buffer, proc->buffer_size
 			       + (size_t) BUFFER_SIZE);
 	if(proc->buffer == NULL){
-	  perror("malloc");
-	  exitstatus = EXIT_FAILURE;
+	  error(0, errno, "malloc");
+	  exitstatus = EX_OSERR;
 	  goto fallback;
 	}
 	proc->buffer_size += BUFFER_SIZE;
@@ -1112,7 +1191,8 @@ int main(int argc, char *argv[]){
   
  fallback:
   
-  if(plugin_list == NULL or exitstatus != EXIT_SUCCESS){
+  if(plugin_list == NULL or (exitstatus != EXIT_SUCCESS
+			     and exitstatus != EX_OK)){
     /* Fallback if all plugins failed, none are found or an error
        occured */
     bool bret;
@@ -1126,16 +1206,16 @@ int main(int argc, char *argv[]){
     }
     bret = print_out_password(passwordbuffer, len);
     if(not bret){
-      perror("print_out_password");
-      exitstatus = EXIT_FAILURE;
+      error(0, errno, "print_out_password");
+      exitstatus = EX_IOERR;
     }
   }
   
   /* Restore old signal handler */
   ret = sigaction(SIGCHLD, &old_sigchld_action, NULL);
   if(ret == -1){
-    perror("sigaction");
-    exitstatus = EXIT_FAILURE;
+    error(0, errno, "sigaction");
+    exitstatus = EX_OSERR;
   }
   
   if(custom_argv != NULL){
@@ -1156,7 +1236,7 @@ int main(int argc, char *argv[]){
       ret = kill(p->pid, SIGTERM);
       if(ret == -1 and errno != ESRCH){
 	/* Set-uid proccesses might not get closed */
-	perror("kill");
+	error(0, errno, "kill");
       }
     }
   }
@@ -1166,7 +1246,7 @@ int main(int argc, char *argv[]){
     ret = wait(NULL);
   } while(ret >= 0);
   if(errno != ECHILD){
-    perror("wait");
+    error(0, errno, "wait");
   }
   
   free_plugin_list();

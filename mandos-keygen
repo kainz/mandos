@@ -2,8 +2,8 @@
 # 
 # Mandos key generator - create a new OpenPGP key for a Mandos client
 # 
-# Copyright © 2008,2009 Teddy Hogeborn
-# Copyright © 2008,2009 Björn Påhlsson
+# Copyright © 2008-2010 Teddy Hogeborn
+# Copyright © 2008-2010 Björn Påhlsson
 # 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -217,11 +217,26 @@ if [ "$mode" = keygen ]; then
 	%commit
 	EOF
     
+    if tty --quiet; then
+	cat <<-EOF
+	Note: Due to entropy requirements, key generation could take
+	anything from a few minutes to SEVERAL HOURS.  Please be
+	patient and/or supply the system with more entropy if needed.
+	EOF
+	echo -n "Started: "
+	date
+    fi
+    
     # Generate a new key in the key rings
     gpg --quiet --batch --no-tty --no-options --enable-dsa2 \
 	--homedir "$RINGDIR" --trust-model always \
 	--gen-key "$BATCHFILE"
     rm --force "$BATCHFILE"
+    
+    if tty --quiet; then
+	echo -n "Finished: "
+	date
+    fi
     
     # Backup any old key files
     if cp --backup=numbered --force "$SECKEYFILE" "$SECKEYFILE" \
@@ -278,12 +293,13 @@ if [ "$mode" = password ]; then
 	stty -echo
 	echo -n "Enter passphrase: " >&2
 	first="$(head --lines=1 | tr --delete '\n')"
-	echo -n -e "\nRepeat passphrase: " >&2
+	echo >&2
+	echo -n "Repeat passphrase: " >&2
 	second="$(head --lines=1 | tr --delete '\n')"
 	echo >&2
 	stty echo
 	if [ "$first" != "$second" ]; then
-	    echo -e "Passphrase mismatch" >&2
+	    echo "Passphrase mismatch" >&2
 	    touch "$RINGDIR"/mismatch
 	else
 	    echo -n "$first"

@@ -1,71 +1,109 @@
 -*- org -*-
 
+* Use _attribute_((nonnull)) wherever possible.
+
 * mandos-client
 ** TODO [#B] use scandir(3) instead of readdir(3)
-** TODO [#B] Prefix all debug output with argv[0]
+** TODO [#B] Prefix all debug output with "Mandos plugin " + program_invocation_short_name
 ** TODO [#B] Retry a server which has a non-definite reply:
 *** A closed connection during the TLS handshake
 *** A TCP timeout
 ** TODO [#B] Use capabilities instead of seteuid().
+** TODO [#A] Retry --connect forever
 
 * splashy
 ** TODO [#B] use scandir(3) instead of readdir(3)
-** TODO [#B] Prefix all debug output with "Mandos plugin " + argv[0]
+** TODO [#B] Prefix all debug output with "Mandos plugin " + program_invocation_short_name
 
 * usplash
+** TODO [#A] Make it work again
 ** TODO [#B] use scandir(3) instead of readdir(3)
-** TODO [#B] Prefix all debug output with "Mandos plugin " + argv[0]
+** TODO [#B] Prefix all debug output with "Mandos plugin " + program_invocation_short_name
+** TODO Use [[info:libc:Argz%20Functions][argz_extract]]
 
 * askpass-fifo
-** TODO [#B] Prefix all debug output with "Mandos plugin " + argv[0]
+** TODO [#B] Prefix all debug output with "Mandos plugin " + program_invocation_short_name
 ** TODO [#B] Drop privileges after opening FIFO.
 
 * password-prompt
-** TODO [#B] Prefix all debug output with "Mandos plugin " + argv[0]
+** TODO [#B] Prefix all debug output with "Mandos plugin " + program_invocation_short_name
+** TODO [#B] lock stdin (with flock()?)
+
+* TODO [#B] passdev
 
 * plugin-runner
 ** TODO [#B] use scandir(3) instead of readdir(3)
 ** TODO [#C] use same file name rules as run-parts(8)
+** kernel command line option for debug info
+** TODO [#B] Use openat()
 
 * mandos (server)
-** TODO [#B] Log level				:BUGS:
-** TODO /etc/mandos/clients.d/*.conf
-   Watch this directory and add/remove/update clients?
-** TODO config for TXT record
-** TODO [#B] Run-time communication with server :BUGS:
-   Probably using D-Bus
-*** Client class
-*** Main server
-    + SetLogLevel
-      syslogger.setLevel(logging.WARNING)
-    + [[http://log.ometer.com/2007-05.html][Best D-Bus practices]]
-** TODO Implement --foreground			:BUGS:
+** TODO [#B] Log level							  :BUGS:
+** TODO Persistent state						  :BUGS:
+   /var/lib/mandos/*
+*** TODO /etc/mandos/clients.d/*.conf
+    Watch this directory and add/remove/update clients?
+** TODO [#C] config for TXT record
+** TODO Log level option
+   syslogger.setLevel(logging.WARNING)
+   + SetLogLevel D-Bus call
+** TODO Implement --foreground						  :BUGS:
    [[info:standards:Option%20Table][Table of Long Options]]
 ** TODO Implement --socket
    [[info:standards:Option%20Table][Table of Long Options]]
-** TODO Date+time on console log messages	:BUGS:
+** TODO Date+time on console log messages				  :BUGS:
    Is this the default?
-** TODO DBusServiceObjectUsingSuper
-** Global enable/disable flag
-** By-client countdown on secrets given
-** Fix problem with fsck taking a really long time
+** TODO [#C] DBusServiceObjectUsingSuper
+** TODO [#B] Global enable/disable flag
+** TODO [#B] By-client countdown on secrets given
+** TODO [#B] Fix problem with fsck taking a really long time
    Whenever a client successfully gets a secret it could get a
    one-time timeout boost to allow for an fsck-incurred delay
+** TODO [#A] Delay before client receives key
+   This would give an operator opportunity to cancel the request if
+   desired.
+** TODO [#A] Client manual approval mode
+   A client needs manual approval on the server before it gets the
+   secret
+** TODO [#B] Support RFC 3339 time duration syntax
+** More D-Bus methods
+*** NeedsApproval(50, True) -> timeout, default approve
+    Default approval is configurable, but True by default
+    + Approve(True) -> approve sending saved
+    + Approve(False) -> Close client connection immediately
+*** NeedsPassword(50) - Timeout, default disapprove
+    + SetPass(u"gazonk", True) -> Approval, persistent
+    + Approve(False) -> Close client connection immediately
+** TODO [#C] python-parsedatetime
+** TODO [#C] systemd/launchd
+   http://0pointer.de/blog/projects/systemd.html
+** TODO Separate logging logic to own object
+** TODO make clients to a dict!
+** TODO [#A] Limit approval_delay to max gnutls/tls timeout value
+** TODO [#B] break the wait on approval_delay if connection dies
+** TODO Generate Client.runtime_expansions from client options + extra
+** TODO Allow %%(checker)s as a runtime expansion
 
 * mandos.xml
-** [[file:mandos.xml::XXX][Document D-Bus interface]]
-
-* Provide and install /etc/dbus-1/system.d/mandos.conf
+** Add mandos contact info in manual pages
 
 * mandos-ctl
 *** Handle "no D-Bus server" and/or "no Mandos server found" better
 *** [#B] --dump option
+** TODO Support RFC 3339 time duration syntax
+
+* TODO mandos-dispatch
+  Listens for specified D-Bus signals and spawns shell commands with
+  arguments.
 
 * mandos-monitor
-** D-Bus mail loop w/ signal receiver
-** Snack/Newt client data displayer
-*** Client Widgets
+** TODO help should be toggable
+** Urwid client data displayer
+   Better view of client data in the listing
 *** Properties popup
+** Nicer crashes. Stack traces Messes up shell.
+*** Print a nice "We are sorry" message, save stack trace to log.
+** Show timeout countdown for approval
 
 * mandos-keygen
 ** TODO Loop until passwords match when run interactively
@@ -75,7 +113,9 @@
    For testing decryption before rebooting.
 
 * Makefile
-** Implement DEB_BUILD_OPTIONS
+** TODO Add "--Xlinker --as-needed"
+   http://udrepper.livejournal.com/19395.html
+** TODO [#C] Implement DEB_BUILD_OPTIONS
    http://www.debian.org/doc/debian-policy/ch-source.html#s-debianrules-options
 
 * Package
@@ -85,6 +125,10 @@
     Use "/etc/initramfs-tools/hooksconf.d/mandos"?
 ** TODO [#C] /etc/bash_completion.d/mandos
    From XML sources directly?
+
+* Side Stuff
+** TODO Locate which packet move the other bin/sh when busy box is deactivated
+** TODO contact owner of packet, and ask them to have that shell static in position regardless of busybox
 
 
 #+STARTUP: showall

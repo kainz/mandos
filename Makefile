@@ -8,13 +8,15 @@ WARN=-O -Wall -Wformat=2 -Winit-self -Wmissing-include-dirs \
 #	-Wunreachable-code 
 #DEBUG=-ggdb3
 # For info about _FORTIFY_SOURCE, see
-# <http://gcc.gnu.org/ml/gcc-patches/2004-09/msg02055.html>
+# <http://www.kernel.org/doc/man-pages/online/pages/man7/feature_test_macros.7.html>
+# and <http://gcc.gnu.org/ml/gcc-patches/2004-09/msg02055.html>.
 FORTIFY=-D_FORTIFY_SOURCE=2 -fstack-protector-all -fPIC
 LINK_FORTIFY_LD=-z relro -z now
 LINK_FORTIFY=
+
+# If BROKEN_PIE is set, do not build with -pie
 ifndef BROKEN_PIE
 FORTIFY += -fPIE
-LINK_FORTIFY_LD += -fPIE
 LINK_FORTIFY += -pie
 endif
 #COVERAGE=--coverage
@@ -55,7 +57,7 @@ CFLAGS=$(WARN) $(DEBUG) $(FORTIFY) $(COVERAGE) $(OPTIMIZE) \
 LDFLAGS=$(COVERAGE) $(LINK_FORTIFY) $(foreach flag,$(LINK_FORTIFY_LD),-Xlinker $(flag))
 
 # Commands to format a DocBook <refentry> document into a manual page
-DOCBOOKTOMAN=cd $(dir $<); xsltproc --nonet --xinclude \
+DOCBOOKTOMAN=$(strip cd $(dir $<); xsltproc --nonet --xinclude \
 	--param man.charmap.use.subset		0 \
 	--param make.year.ranges		1 \
 	--param make.single.year.ranges		1 \
@@ -63,11 +65,11 @@ DOCBOOKTOMAN=cd $(dir $<); xsltproc --nonet --xinclude \
 	--param man.authors.section.enabled	0 \
 	 /usr/share/xml/docbook/stylesheet/nwalsh/manpages/docbook.xsl \
 	$(notdir $<); \
-	$(MANPOST) $(notdir $@)
+	$(MANPOST) $(notdir $@))
 # DocBook-to-man post-processing to fix a '\n' escape bug
 MANPOST=$(SED) --in-place --expression='s,\\\\en,\\en,g;s,\\n,\\en,g'
 
-DOCBOOKTOHTML=xsltproc --nonet --xinclude \
+DOCBOOKTOHTML=$(strip xsltproc --nonet --xinclude \
 	--param make.year.ranges		1 \
 	--param make.single.year.ranges		1 \
 	--param man.output.quietly		1 \
@@ -75,20 +77,22 @@ DOCBOOKTOHTML=xsltproc --nonet --xinclude \
 	--param citerefentry.link		1 \
 	--output $@ \
 	/usr/share/xml/docbook/stylesheet/nwalsh/xhtml/docbook.xsl \
-	$<; $(HTMLPOST) $@
+	$<; $(HTMLPOST) $@)
 # Fix citerefentry links
 HTMLPOST=$(SED) --in-place \
 	--expression='s/\(<a class="citerefentry" href="\)\("><span class="citerefentry"><span class="refentrytitle">\)\([^<]*\)\(<\/span>(\)\([^)]*\)\()<\/span><\/a>\)/\1\3.\5\2\3\4\5\6/g'
 
 PLUGINS=plugins.d/password-prompt plugins.d/mandos-client \
-	plugins.d/usplash plugins.d/splashy plugins.d/askpass-fifo
+	plugins.d/usplash plugins.d/splashy plugins.d/askpass-fifo \
+	plugins.d/plymouth
 CPROGS=plugin-runner $(PLUGINS)
-PROGS=mandos mandos-keygen mandos-ctl $(CPROGS)
-DOCS=mandos.8 plugin-runner.8mandos mandos-keygen.8 \
+PROGS=mandos mandos-keygen mandos-ctl mandos-monitor $(CPROGS)
+DOCS=mandos.8 mandos-keygen.8 mandos-monitor.8 mandos-ctl.8 \
+	mandos.conf.5 mandos-clients.conf.5 plugin-runner.8mandos \
 	plugins.d/mandos-client.8mandos \
-	plugins.d/password-prompt.8mandos mandos.conf.5 \
-	plugins.d/usplash.8mandos plugins.d/splashy.8mandos \
-	plugins.d/askpass-fifo.8mandos mandos-clients.conf.5
+	plugins.d/password-prompt.8mandos plugins.d/usplash.8mandos \
+	plugins.d/splashy.8mandos plugins.d/askpass-fifo.8mandos \
+	plugins.d/plymouth.8mandos
 
 htmldocs=$(addsuffix .xhtml,$(DOCS))
 
@@ -129,6 +133,20 @@ mandos-keygen.8.xhtml: mandos-keygen.xml common.ent overview.xml \
 		 legalnotice.xml
 	$(DOCBOOKTOHTML)
 
+mandos-monitor.8: mandos-monitor.xml common.ent overview.xml \
+		legalnotice.xml
+	$(DOCBOOKTOMAN)
+mandos-monitor.8.xhtml: mandos-monitor.xml common.ent overview.xml \
+		 legalnotice.xml
+	$(DOCBOOKTOHTML)
+
+mandos-ctl.8: mandos-ctl.xml common.ent overview.xml \
+		legalnotice.xml
+	$(DOCBOOKTOMAN)
+mandos-ctl.8.xhtml: mandos-ctl.xml common.ent overview.xml \
+		 legalnotice.xml
+	$(DOCBOOKTOHTML)
+
 mandos.conf.5: mandos.conf.xml common.ent mandos-options.xml \
 		legalnotice.xml
 	$(DOCBOOKTOMAN)
@@ -156,39 +174,44 @@ plugins.d/mandos-client.8mandos.xhtml: plugins.d/mandos-client.xml \
 
 # Update all these files with version number $(version)
 common.ent: Makefile
-	$(SED) --in-place \
+	$(strip $(SED) --in-place \
 		--expression='s/^\(<!ENTITY version "\)[^"]*">$$/\1$(version)">/' \
-		$@
+		$@)
 
 mandos: Makefile
-	$(SED) --in-place \
+	$(strip $(SED) --in-place \
 		--expression='s/^\(version = "\)[^"]*"$$/\1$(version)"/' \
-		$@
+		$@)
 
 mandos-keygen: Makefile
-	$(SED) --in-place \
+	$(strip $(SED) --in-place \
 		--expression='s/^\(VERSION="\)[^"]*"$$/\1$(version)"/' \
-		$@
+		$@)
 
 mandos-ctl: Makefile
-	$(SED) --in-place \
+	$(strip $(SED) --in-place \
 		--expression='s/^\(version = "\)[^"]*"$$/\1$(version)"/' \
-		$@
+		$@)
+
+mandos-monitor: Makefile
+	$(strip $(SED) --in-place \
+		--expression='s/^\(version = "\)[^"]*"$$/\1$(version)"/' \
+		$@)
 
 mandos.lsm: Makefile
-	$(SED) --in-place \
+	$(strip $(SED) --in-place \
 		--expression='s/^\(Version:\).*/\1\t$(version)/' \
-		$@
-	$(SED) --in-place \
+		$@)
+	$(strip $(SED) --in-place \
 		--expression='s/^\(Entered-date:\).*/\1\t$(shell date --rfc-3339=date --reference=Makefile)/' \
-		$@
-	$(SED) --in-place \
+		$@)
+	$(strip $(SED) --in-place \
 		--expression='s/\(mandos_\)[0-9.]\+\(\.orig\.tar\.gz\)/\1$(version)\2/' \
-		$@
+		$@)
 
-plugins.d/mandos-client: plugins.d/mandos-client.o
-	$(LINK.o) $(GNUTLS_LIBS) $(AVAHI_LIBS) $(GPGME_LIBS) \
-		$(COMMON) $^ $(LOADLIBES) $(LDLIBS) -o $@
+plugins.d/mandos-client: plugins.d/mandos-client.c
+	$(LINK.c) $(GNUTLS_LIBS) $(AVAHI_LIBS) $(GPGME_LIBS) $(strip\
+		) $(COMMON) $^ $(LOADLIBES) $(LDLIBS) -o $@
 
 .PHONY : all doc html clean distclean run-client run-server install \
 	install-server install-client uninstall uninstall-server \
@@ -207,6 +230,17 @@ check:	all
 
 # Run the client with a local config and key
 run-client: all keydir/seckey.txt keydir/pubkey.txt
+	@echo "###################################################################"
+	@echo "# The following error messages are harmless and can be safely     #"
+	@echo "# ignored.  The messages are caused by not running as root, but   #"
+	@echo "# you should NOT run \"make run-client\" as root unless you also    #"
+	@echo "# unpacked and compiled Mandos as root, which is NOT recommended. #"
+	@echo "# From plugin-runner: setuid: Operation not permitted             #"
+	@echo "# From askpass-fifo:  mkfifo: Permission denied                   #"
+	@echo "# From mandos-client: setuid: Operation not permitted             #"
+	@echo "#                     seteuid: Operation not permitted            #"
+	@echo "#                     klogctl: Operation not permitted            #"
+	@echo "###################################################################"
 	./plugin-runner --plugin-dir=plugins.d \
 		--config-file=plugin-runner.conf \
 		--options-for=mandos-client:--seckey=keydir/seckey.txt,--pubkey=keydir/pubkey.txt \
@@ -219,6 +253,12 @@ keydir/seckey.txt keydir/pubkey.txt: mandos-keygen
 
 # Run the server with a local config
 run-server: confdir/mandos.conf confdir/clients.conf
+	@echo "#################################################################"
+	@echo "# NOTE: Please IGNORE the error about \"Could not open file      #"
+	@echo "# u'/var/run/mandos.pid'\" -  it is harmless and is caused by    #"
+	@echo "# the server not running as root.  Do NOT run \"make run-server\" #"
+	@echo "# server as root if you didn't also unpack and compile it thus. #"
+	@echo "#################################################################"
 	./mandos --debug --no-dbus --configdir=confdir $(SERVERARGS)
 
 # Used by run-server
@@ -241,10 +281,16 @@ install-html: html
 install-server: doc
 	install --directory $(CONFDIR)
 	install --mode=u=rwx,go=rx mandos $(PREFIX)/sbin/mandos
+	install --mode=u=rwx,go=rx --target-directory=$(PREFIX)/sbin \
+		mandos-ctl
+	install --mode=u=rwx,go=rx --target-directory=$(PREFIX)/sbin \
+		mandos-monitor
 	install --mode=u=rw,go=r --target-directory=$(CONFDIR) \
 		mandos.conf
 	install --mode=u=rw --target-directory=$(CONFDIR) \
 		clients.conf
+	install --mode=u=rw,go=r dbus-mandos.conf \
+		$(DESTDIR)/etc/dbus-1/system.d/mandos.conf
 	install --mode=u=rwx,go=rx init.d-mandos \
 		$(DESTDIR)/etc/init.d/mandos
 	install --mode=u=rw,go=r default-mandos \
@@ -254,6 +300,10 @@ install-server: doc
 	fi
 	gzip --best --to-stdout mandos.8 \
 		> $(MANDIR)/man8/mandos.8.gz
+	gzip --best --to-stdout mandos-monitor.8 \
+		> $(MANDIR)/man8/mandos-monitor.8.gz
+	gzip --best --to-stdout mandos-ctl.8 \
+		> $(MANDIR)/man8/mandos-ctl.8.gz
 	gzip --best --to-stdout mandos.conf.5 \
 		> $(MANDIR)/man5/mandos.conf.5.gz
 	gzip --best --to-stdout mandos-clients.conf.5 \
@@ -286,6 +336,9 @@ install-client-nokey: all doc
 	install --mode=u=rwxs,go=rx \
 		--target-directory=$(PREFIX)/lib/mandos/plugins.d \
 		plugins.d/askpass-fifo
+	install --mode=u=rwxs,go=rx \
+		--target-directory=$(PREFIX)/lib/mandos/plugins.d \
+		plugins.d/plymouth
 	install initramfs-tools-hook \
 		$(INITRAMFSTOOLS)/hooks/mandos
 	install --mode=u=rw,go=r initramfs-tools-hook-conf \
@@ -297,16 +350,18 @@ install-client-nokey: all doc
 		> $(MANDIR)/man8/mandos-keygen.8.gz
 	gzip --best --to-stdout plugin-runner.8mandos \
 		> $(MANDIR)/man8/plugin-runner.8mandos.gz
-	gzip --best --to-stdout plugins.d/password-prompt.8mandos \
-		> $(MANDIR)/man8/password-prompt.8mandos.gz
 	gzip --best --to-stdout plugins.d/mandos-client.8mandos \
 		> $(MANDIR)/man8/mandos-client.8mandos.gz
+	gzip --best --to-stdout plugins.d/password-prompt.8mandos \
+		> $(MANDIR)/man8/password-prompt.8mandos.gz
 	gzip --best --to-stdout plugins.d/usplash.8mandos \
 		> $(MANDIR)/man8/usplash.8mandos.gz
 	gzip --best --to-stdout plugins.d/splashy.8mandos \
 		> $(MANDIR)/man8/splashy.8mandos.gz
 	gzip --best --to-stdout plugins.d/askpass-fifo.8mandos \
 		> $(MANDIR)/man8/askpass-fifo.8mandos.gz
+	gzip --best --to-stdout plugins.d/plymouth.8mandos \
+		> $(MANDIR)/man8/plymouth.8mandos.gz
 
 install-client: install-client-nokey
 # Post-installation stuff
@@ -318,7 +373,11 @@ uninstall: uninstall-server uninstall-client
 
 uninstall-server:
 	-rm --force $(PREFIX)/sbin/mandos \
+		$(PREFIX)/sbin/mandos-ctl \
+		$(PREFIX)/sbin/mandos-monitor \
 		$(MANDIR)/man8/mandos.8.gz \
+		$(MANDIR)/man8/mandos-monitor.8.gz \
+		$(MANDIR)/man8/mandos-ctl.8.gz \
 		$(MANDIR)/man5/mandos.conf.5.gz \
 		$(MANDIR)/man5/mandos-clients.conf.5.gz
 	update-rc.d -f mandos remove
@@ -336,16 +395,18 @@ uninstall-client:
 		$(PREFIX)/lib/mandos/plugins.d/usplash \
 		$(PREFIX)/lib/mandos/plugins.d/splashy \
 		$(PREFIX)/lib/mandos/plugins.d/askpass-fifo \
+		$(PREFIX)/lib/mandos/plugins.d/plymouth \
 		$(INITRAMFSTOOLS)/hooks/mandos \
 		$(INITRAMFSTOOLS)/conf-hooks.d/mandos \
 		$(INITRAMFSTOOLS)/scripts/init-premount/mandos \
-		$(MANDIR)/man8/plugin-runner.8mandos.gz \
 		$(MANDIR)/man8/mandos-keygen.8.gz \
+		$(MANDIR)/man8/plugin-runner.8mandos.gz \
+		$(MANDIR)/man8/mandos-client.8mandos.gz
 		$(MANDIR)/man8/password-prompt.8mandos.gz \
 		$(MANDIR)/man8/usplash.8mandos.gz \
 		$(MANDIR)/man8/splashy.8mandos.gz \
 		$(MANDIR)/man8/askpass-fifo.8mandos.gz \
-		$(MANDIR)/man8/mandos-client.8mandos.gz
+		$(MANDIR)/man8/plymouth.8mandos.gz \
 	-rmdir $(PREFIX)/lib/mandos/plugins.d $(CONFDIR)/plugins.d \
 		 $(PREFIX)/lib/mandos $(CONFDIR) $(KEYDIR)
 	update-initramfs -k all -u
@@ -354,6 +415,7 @@ purge: purge-server purge-client
 
 purge-server: uninstall-server
 	-rm --force $(CONFDIR)/mandos.conf $(CONFDIR)/clients.conf \
+		$(DESTDIR)/etc/dbus-1/system.d/mandos.conf
 		$(DESTDIR)/etc/default/mandos \
 		$(DESTDIR)/etc/init.d/mandos \
 		$(DESTDIR)/var/run/mandos.pid
