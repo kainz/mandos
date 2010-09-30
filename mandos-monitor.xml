@@ -167,7 +167,7 @@
 	<entry>Deny client</entry>
       </row>
       <row>
-	<entry>r, _, Ctrl-K</entry>
+	<entry>R, _, Ctrl-K</entry>
 	<entry>Remove client</entry>
       </row>
       <row>

@@ -2,8 +2,6 @@
 *.8
 *.8mandos
 confdir
-debian/po/messages.mo
-debian/po/templates.pot
 keydir
 man
 plugin-runner
@@ -12,3 +10,4 @@ plugins.d/mandos-client
 plugins.d/password-prompt
 plugins.d/splashy
 plugins.d/usplash
+plugins.d/plymouth
