@@ -1,3 +1,22 @@
+mandos (1.2-1) unstable; urgency=low
+
+  * New upstream release.
+  * Makefile (LINK_FORTIFY_LD): Remove "-fPIE". (Closes: #557076)
+  * debian/control: Add gnupg dependency to "mandos-client" and removed it
+    from "mandos".  Added dependency on "python-urwid" "mandos" since the
+    new "mandos-monitor" utility needs it, and on "python (>=2.6) |
+    python-multiprocessing" since the Mandos server now uses it.
+  * debian/rules: Set BROKEN_PIE on mips and mipsel if a known buggy
+    version of binutils is used.
+  * debian/mandos.docs: Also install "/usr/share/doc/mandos/DBUS-API".
+  * debian/mandos.dirs: Added "etc/dbus-1/system.d".
+  * debian/mandos-client.README.Debian: Update info about DEVICE setting
+    of initramfs.conf.
+  * debian/mandos-client.README.Debian: Remove warning about --connect not
+    looping, since it now does.
+
+ -- Teddy Hogeborn <teddy@fukt.bsnet.se>  Tue, 28 Sep 2010 20:46:11 +0200
+
 mandos (1.0.14-1) unstable; urgency=low (HIGH on mips and mipsel)
 
   * New upstream release.

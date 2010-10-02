@@ -2,10 +2,6 @@
 
 * Use _attribute_((nonnull)) wherever possible.
 
-* Release critical
-** mandos-ctl.xml
-*** More examples
-
 * mandos-client
 ** TODO [#B] use scandir(3) instead of readdir(3)
 ** TODO [#B] Prefix all debug output with "Mandos plugin " + program_invocation_short_name
@@ -85,6 +81,8 @@
 ** TODO make clients to a dict!
 ** TODO [#A] Limit approval_delay to max gnutls/tls timeout value
 ** TODO [#B] break the wait on approval_delay if connection dies
+** TODO Generate Client.runtime_expansions from client options + extra
+** TODO Allow %%(checker)s as a runtime expansion
 
 * mandos.xml
 ** Add mandos contact info in manual pages
@@ -105,6 +103,7 @@
 *** Properties popup
 ** Nicer crashes. Stack traces Messes up shell.
 *** Print a nice "We are sorry" message, save stack trace to log.
+** Show timeout countdown for approval
 
 * mandos-keygen
 ** TODO Loop until passwords match when run interactively
