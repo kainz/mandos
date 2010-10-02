@@ -1,6 +1,11 @@
 This NEWS file records noteworthy changes, very tersely.
 See the manual for detailed information.
 
+Version 1.2.1 (2010-10-02)
+* Server:
+** mandos-monitor(8): Documentation bug fix: Key for removing client
+   is "R", not "r".
+
 Version 1.2 (2010-09-28)
 * Client:
 ** New "plymouth" plugin to ask for a password using the Plymouth
