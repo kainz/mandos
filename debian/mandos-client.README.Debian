@@ -1,9 +1,11 @@
 * Choose the Client Network Interface
   
-  You MUST make sure that the correct network interface is specified
-  in the DEVICE setting in the "/etc/initramfs-tools/initramfs.conf"
-  file.  *If* this is changed, it will be necessary to update the
-  initrd image by running the command
+  Please make sure that the correct network interface is specified in
+  the DEVICE setting in the "/etc/initramfs-tools/initramfs.conf"
+  file.  If the setting is empty, the interface will be autodetected
+  at boot time, which may not be correct.  *If* the DEVICE setting is
+  changed, it will be necessary to update the initrd image by running
+  the command
   
 	update-initramfs -k all -u
   
@@ -74,9 +76,6 @@
   instead of using ZeroConf.  The syntax for doing this is
   "mandos=connect:<IP_ADDRESS>:<PORT_NUMBER>".
   
-  Warning: this will cause the client to make exactly one attempt at
-  connecting, and then fail if it does not succeed.
-  
   For very advanced users, it it possible to specify simply
   "mandos=connect" on the kernel command line to make the system only
   set up the network (using the data in the "ip=" option) and not pass
@@ -84,4 +83,4 @@
   work, "--options-for=mandos-client:--connect=<ADDRESS>:<PORT>" needs
   to be manually added to the file "/etc/mandos/plugin-runner.conf".
 
- -- Teddy Hogeborn <teddy@fukt.bsnet.se>, Tue,  8 Sep 2009 08:25:58 +0200
+ -- Teddy Hogeborn <teddy@fukt.bsnet.se>, Mon, 27 Sep 2010 19:53:21 +0200

@@ -1,5 +1,26 @@
 #!/usr/bin/python
 # -*- mode: python; coding: utf-8 -*-
+# 
+# Mandos Monitor - Control and monitor the Mandos server
+# 
+# Copyright © 2009,2010 Teddy Hogeborn
+# Copyright © 2009,2010 Björn Påhlsson
+# 
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+#     This program is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+# 
+# Contact the authors at <mandos@fukt.bsnet.se>.
+# 
 
 from __future__ import division, absolute_import, with_statement
 
@@ -30,7 +51,7 @@ logging.getLogger('dbus.proxies').setLevel(logging.CRITICAL)
 domain = 'se.bsnet.fukt'
 server_interface = domain + '.Mandos'
 client_interface = domain + '.Mandos.Client'
-version = "1.0.15"
+version = "1.2"
 
 # Always run in monochrome mode
 urwid.curses_display.curses.has_colors = lambda : False
@@ -102,6 +123,7 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
         self.logger = logger
         
         self._update_timer_callback_tag = None
+        self._update_timer_callback_lock = 0
         self.last_checker_failed = False
         
         # The widget shown normally
@@ -113,6 +135,25 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
             *args, **kwargs)
         self.update()
         self.opened = False
+        
+        last_checked_ok = isoformat_to_datetime(self.properties
+                                                [u"LastCheckedOK"])
+        if last_checked_ok is None:
+            self.last_checker_failed = True
+        else:
+            self.last_checker_failed = ((datetime.datetime.utcnow()
+                                         - last_checked_ok)
+                                        > datetime.timedelta
+                                        (milliseconds=
+                                         self.properties
+                                         [u"Interval"]))
+        
+        if self.last_checker_failed:
+            self.using_timer(True)
+        
+        if self.need_approval:
+            self.using_timer(True)
+        
         self.proxy.connect_to_signal(u"CheckerCompleted",
                                      self.checker_completed,
                                      client_interface,
@@ -133,28 +174,35 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
                                      self.rejected,
                                      client_interface,
                                      byte_arrays=True)
-        last_checked_ok = isoformat_to_datetime(self.properties
-                                                [u"LastCheckedOK"])
-        if last_checked_ok is None:
-            self.last_checker_failed = True
+    
+    def property_changed(self, property=None, value=None):
+        super(self, MandosClientWidget).property_changed(property,
+                                                         value)
+        if property == u"ApprovalPending":
+            using_timer(bool(value))
+        
+    def using_timer(self, flag):
+        """Call this method with True or False when timer should be
+        activated or deactivated.
+        """
+        old = self._update_timer_callback_lock
+        if flag:
+            self._update_timer_callback_lock += 1
         else:
-            self.last_checker_failed = ((datetime.datetime.utcnow()
-                                         - last_checked_ok)
-                                        > datetime.timedelta
-                                        (milliseconds=
-                                         self.properties
-                                         [u"Interval"]))
-        if self.last_checker_failed:
+            self._update_timer_callback_lock -= 1
+        if old == 0 and self._update_timer_callback_lock:
             self._update_timer_callback_tag = (gobject.timeout_add
                                                (1000,
                                                 self.update_timer))
+        elif old and self._update_timer_callback_lock == 0:
+            gobject.source_remove(self._update_timer_callback_tag)
+            self._update_timer_callback_tag = None
     
     def checker_completed(self, exitstatus, condition, command):
         if exitstatus == 0:
             if self.last_checker_failed:
                 self.last_checker_failed = False
-                gobject.source_remove(self._update_timer_callback_tag)
-                self._update_timer_callback_tag = None
+                self.using_timer(False)
             #self.logger(u'Checker for client %s (command "%s")'
             #            u' was successful'
             #            % (self.properties[u"Name"], command))
@@ -163,9 +211,7 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
         # Checker failed
         if not self.last_checker_failed:
             self.last_checker_failed = True
-            self._update_timer_callback_tag = (gobject.timeout_add
-                                               (1000,
-                                                self.update_timer))
+            self.using_timer(True)
         if os.WIFEXITED(condition):
             self.logger(u'Checker for client %s (command "%s")'
                         u' failed with exit code %s'
@@ -202,6 +248,7 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
             message = u'Client %s will get its secret in %s seconds'
         self.logger(message
                     % (self.properties[u"Name"], timeout/1000))
+        self.using_timer(True)
     
     def rejected(self, reason):
         self.logger(u'Client %s was rejected; reason: %s'
@@ -242,10 +289,21 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
         if not self.properties[u"Enabled"]:
             message = u"DISABLED"
         elif self.properties[u"ApprovalPending"]:
-            if self.properties[u"ApprovedByDefault"]:
-                message = u"Connection established to client. (d)eny?"
+            timeout = datetime.timedelta(milliseconds
+                                         = self.properties
+                                         [u"ApprovalDelay"])
+            last_approval_request = isoformat_to_datetime(
+                self.properties[u"LastApprovalRequest"])
+            if last_approval_request is not None:
+                timer = timeout - (datetime.datetime.utcnow()
+                                   - last_approval_request)
             else:
-                message = u"Seeks approval to send secret. (a)pprove?"
+                timer = datetime.timedelta()
+            if self.properties[u"ApprovedByDefault"]:
+                message = u"Approval in %s. (d)eny?"
+            else:
+                message = u"Denial in %s. (a)pprove?"
+            message = message % unicode(timer).rsplit(".", 1)[0]
         elif self.last_checker_failed:
             timeout = datetime.timedelta(milliseconds
                                          = self.properties
@@ -256,7 +314,7 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
                     self.properties[u"LastEnabled"]))
             timer = timeout - (datetime.datetime.utcnow() - last_ok)
             message = (u'A checker has failed! Time until client'
-                       u' gets diabled: %s'
+                       u' gets disabled: %s'
                            % unicode(timer).rsplit(".", 1)[0])
         else:
             message = u"enabled"
@@ -309,7 +367,7 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
         elif key == u"d":
             self.proxy.Approve(dbus.Boolean(False, variant_level=1),
                                   dbus_interface = client_interface)
-        elif key == u"r" or key == u"_" or key == u"ctrl k":
+        elif key == u"R" or key == u"_" or key == u"ctrl k":
             self.server_proxy_object.RemoveClient(self.proxy
                                                   .object_path)
         elif key == u"s":
@@ -628,7 +686,7 @@ class UserInterface(object):
                                       .join((u"Clients:",
                                              u"+: Enable",
                                              u"-: Disable",
-                                             u"r: Remove",
+                                             u"R: Remove",
                                              u"s: Start new checker",
                                              u"S: Stop checker",
                                              u"C: Checker OK",

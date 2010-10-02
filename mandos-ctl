@@ -1,5 +1,26 @@
 #!/usr/bin/python
 # -*- mode: python; coding: utf-8 -*-
+# 
+# Mandos Monitor - Control and monitor the Mandos server
+# 
+# Copyright © 2008-2010 Teddy Hogeborn
+# Copyright © 2008-2010 Björn Påhlsson
+# 
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+#     This program is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+# 
+# Contact the authors at <mandos@fukt.bsnet.se>.
+# 
 
 from __future__ import division
 import sys
@@ -17,12 +38,17 @@ tablewords = {
     'Enabled': u'Enabled',
     'Timeout': u'Timeout',
     'LastCheckedOK': u'Last Successful Check',
+    'LastApprovalRequest': u'Last Approval Request',
     'Created': u'Created',
     'Interval': u'Interval',
     'Host': u'Host',
     'Fingerprint': u'Fingerprint',
     'CheckerRunning': u'Check Is Running',
     'LastEnabled': u'Last Enabled',
+    'ApprovalPending': u'Approval Is Pending',
+    'ApprovedByDefault': u'Approved By Default',
+    'ApprovalDelay': u"Approval Delay",
+    'ApprovalDuration': u"Approval Duration",
     'Checker': u'Checker',
     }
 defaultkeywords = ('Name', 'Enabled', 'Timeout', 'LastCheckedOK')
@@ -31,7 +57,7 @@ busname = domain + '.Mandos'
 server_path = '/'
 server_interface = domain + '.Mandos'
 client_interface = domain + '.Mandos.Client'
-version = "1.0.14"
+version = "1.2"
 
 def timedelta_to_milliseconds(td):
     "Convert a datetime.timedelta object to milliseconds"
@@ -93,7 +119,8 @@ def print_clients(clients, keywords):
     def valuetostring(value, keyword):
         if type(value) is dbus.Boolean:
             return u"Yes" if value else u"No"
-        if keyword in (u"timeout", u"interval"):
+        if keyword in (u"Timeout", u"Interval", u"ApprovalDelay",
+                       u"ApprovalDuration"):
             return milliseconds_to_string(value)
         return unicode(value)
     
@@ -110,6 +137,7 @@ def print_clients(clients, keywords):
     for client in clients:
         print format_string % tuple(valuetostring(client[key], key)
                                     for key in keywords)
+
 def has_actions(options):
     return any((options.enable,
                 options.disable,
@@ -121,6 +149,9 @@ def has_actions(options):
                 options.checker is not None,
                 options.timeout is not None,
                 options.interval is not None,
+                options.approved_by_default is not None,
+                options.approval_delay is not None,
+                options.approval_duration is not None,
                 options.host is not None,
                 options.secret is not None,
                 options.approve,
@@ -152,6 +183,16 @@ def main():
 	                  help="Set timeout for client")
 	parser.add_option("-i", "--interval", type="string",
 	                  help="Set checker interval for client")
+        parser.add_option("--approve-by-default", action="store_true",
+                          dest=u"approved_by_default",
+                          help="Set client to be approved by default")
+        parser.add_option("--deny-by-default", action="store_false",
+                          dest=u"approved_by_default",
+                          help="Set client to be denied by default")
+        parser.add_option("--approval-delay", type="string",
+                          help="Set delay before client approve/deny")
+        parser.add_option("--approval-duration", type="string",
+                          help="Set duration of one client approval")
 	parser.add_option("-H", "--host", type="string",
 	                  help="Set host for client")
 	parser.add_option("-s", "--secret", type="string",
@@ -161,14 +202,15 @@ def main():
 	parser.add_option("-D", "--deny", action="store_true",
 	                  help="Deny any current client request")
 	options, client_names = parser.parse_args()
-
+        
         if has_actions(options) and not client_names and not options.all:
-            parser.error('Options requires clients names or --all.')
+            parser.error('Options require clients names or --all.')
         if options.verbose and has_actions(options):
-            parser.error('Verbose option can only be used alone or with --all.')
+            parser.error('--verbose can only be used alone or with'
+                         ' --all.')
         if options.all and not has_actions(options):
-            parser.error('--all requires an action')
-            
+            parser.error('--all requires an action.')
+        
         try:
             bus = dbus.SystemBus()
             mandos_dbus_objc = bus.get_object(busname, server_path)
@@ -195,17 +237,19 @@ def main():
             print >> sys.stderr, "Access denied: Accessing mandos server through dbus."
             sys.exit(1)
             
-	# Compile list of clients to process
-	clients=[]
-
+	# Compile dict of (clients: properties) to process
+	clients={}
+        
         if options.all or not client_names:
-            clients = (bus.get_object(busname, path) for path in mandos_clients.iterkeys())
+            clients = dict((bus.get_object(busname, path), properties)
+                           for path, properties in
+                           mandos_clients.iteritems())
         else:
             for name in client_names:
                 for path, client in mandos_clients.iteritems():
                     if client['Name'] == name:
                         client_objc = bus.get_object(busname, path)
-                        clients.append(client_objc)
+                        clients[client_objc] = client
                         break
                 else:
                     print >> sys.stderr, "Client not found on server: %r" % name
@@ -213,13 +257,17 @@ def main():
             
 	if not has_actions(options) and clients:
 	    if options.verbose:
-	        keywords = ('Name', 'Enabled', 'Timeout', 'LastCheckedOK',
-	                    'Created', 'Interval', 'Host', 'Fingerprint',
-	                    'CheckerRunning', 'LastEnabled', 'Checker')
+	        keywords = ('Name', 'Enabled', 'Timeout',
+                            'LastCheckedOK', 'Created', 'Interval',
+                            'Host', 'Fingerprint', 'CheckerRunning',
+                            'LastEnabled', 'ApprovalPending',
+                            'ApprovedByDefault',
+                            'LastApprovalRequest', 'ApprovalDelay',
+                            'ApprovalDuration', 'Checker')
             else:
                 keywords = defaultkeywords
-                
-	    print_clients(mandos_clients.values(), keywords)
+            
+	    print_clients(clients.values(), keywords)
         else:
             # Process each client in the list by all selected options
             for client in clients:
@@ -251,19 +299,39 @@ def main():
                                timedelta_to_milliseconds
                                (string_to_delta(options.interval)),
                                dbus_interface=dbus.PROPERTIES_IFACE)
+                if options.approval_delay:
+                    client.Set(client_interface, u"ApprovalDelay",
+                               timedelta_to_milliseconds
+                               (string_to_delta(options.
+                                                approval_delay)),
+                               dbus_interface=dbus.PROPERTIES_IFACE)
+                if options.approval_duration:
+                    client.Set(client_interface, u"ApprovalDuration",
+                               timedelta_to_milliseconds
+                               (string_to_delta(options.
+                                                approval_duration)),
+                               dbus_interface=dbus.PROPERTIES_IFACE)
                 if options.timeout:
                     client.Set(client_interface, u"Timeout",
-                               timedelta_to_milliseconds(string_to_delta
-                                                         (options.timeout)),
+                               timedelta_to_milliseconds
+                               (string_to_delta(options.timeout)),
                                dbus_interface=dbus.PROPERTIES_IFACE)
                 if options.secret:
                     client.Set(client_interface, u"Secret",
-                               dbus.ByteArray(open(options.secret, u'rb').read()),
+                               dbus.ByteArray(open(options.secret,
+                                                   u'rb').read()),
+                               dbus_interface=dbus.PROPERTIES_IFACE)
+                if options.approved_by_default is not None:
+                    client.Set(client_interface, u"ApprovedByDefault",
+                               dbus.Boolean(options
+                                            .approved_by_default),
                                dbus_interface=dbus.PROPERTIES_IFACE)
                 if options.approve:
-                    client.Approve(dbus.Boolean(True), dbus_interface=client_interface)
-                if options.deny:
-                    client.Approve(dbus.Boolean(False), dbus_interface=client_interface)
+                    client.Approve(dbus.Boolean(True),
+                                   dbus_interface=client_interface)
+                elif options.deny:
+                    client.Approve(dbus.Boolean(False),
+                                   dbus_interface=client_interface)
 
 if __name__ == '__main__':
     main()
