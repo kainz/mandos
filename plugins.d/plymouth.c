@@ -1,3 +1,27 @@
+/*  -*- coding: utf-8 -*- */
+/*
+ * Usplash - Read a password from usplash and output it
+ * 
+ * Copyright © 2010 Teddy Hogeborn
+ * Copyright © 2010 Björn Påhlsson
+ * 
+ * This program is free software: you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see
+ * <http://www.gnu.org/licenses/>.
+ * 
+ * Contact the authors at <mandos@fukt.bsnet.se>.
+ */
+
 #define _GNU_SOURCE		/* asprintf(), TEMP_FAILURE_RETRY() */
 #include <signal.h>		/* sig_atomic_t, struct sigaction,
 				   sigemptyset(), sigaddset(), SIGINT,
@@ -6,14 +30,15 @@
 #include <stdbool.h>		/* bool, false, true */
 #include <fcntl.h>		/* open(), O_RDONLY */
 #include <iso646.h>		/* and, or, not*/
-#include <sys/types.h>		/* size_t, ssize_t, pid_t, struct dirent,
-				   waitpid() */
+#include <sys/types.h>		/* size_t, ssize_t, pid_t, struct
+				   dirent, waitpid() */
 #include <sys/wait.h>		/* waitpid() */
 #include <stddef.h>		/* NULL */
 #include <string.h>		/* strchr(), memcmp() */
-#include <stdio.h>		/* asprintf(), perror(), fopen(), fscanf() */
-#include <unistd.h>		/* close(), readlink(), read(), fork()
-				   setsid(), chdir(), dup2()
+#include <stdio.h>		/* asprintf(), perror(), fopen(),
+				   fscanf() */
+#include <unistd.h>		/* close(), readlink(), read(),
+				   fork(), setsid(), chdir(), dup2(),
 				   STDERR_FILENO, execv(), access() */
 #include <stdlib.h>		/* free(), EXIT_FAILURE, realloc(),
 				   EXIT_SUCCESS, malloc(), _exit(),
@@ -21,7 +46,7 @@
 #include <dirent.h>		/* scandir(), alphasort() */
 #include <inttypes.h>		/* intmax_t, strtoumax(), SCNuMAX */
 #include <sys/stat.h>		/* struct stat, lstat() */
-#include <sysexits.h>		/* EX_OSERR */
+#include <sysexits.h>		/* EX_OSERR, EX_UNAVAILABLE */
 #include <error.h>		/* error() */
 #include <errno.h>		/* TEMP_FAILURE_RETRY */
 #include <argz.h>		/* argz_count(), argz_extract() */
@@ -30,9 +55,12 @@ sig_atomic_t interrupted_by_signal = 0;
 const char plymouth_pid[] = "/dev/.initramfs/plymouth.pid";
 const char plymouth_path[] = "/bin/plymouth";
 const char plymouthd_path[] = "/sbin/plymouthd";
-const char *plymouthd_default_argv[] = {"/sbin/plymouthd", "--mode=boot",
+const char *plymouthd_default_argv[] = {"/sbin/plymouthd",
+					"--mode=boot",
 					"--attach-to-session",
-					"--pid-file=/dev/.initramfs/plymouth.pid",
+					"--pid-file="
+					"/dev/.initramfs/"
+					"plymouth.pid",
 					NULL };
 
 static void termination_handler(__attribute__((unused))int signum){
@@ -123,7 +151,7 @@ bool exec_and_wait(pid_t *pid_return, const char *path,
       if (tmp == NULL){
 	error(0, errno, "realloc");
 	free(new_argv);
-	_exit(EXIT_FAILURE);
+	_exit(EX_OSERR);
       }
       new_argv = (char **)tmp;
       new_argv[i] = strdup(argv[i]);
@@ -149,7 +177,7 @@ bool exec_and_wait(pid_t *pid_return, const char *path,
     error(0, errno, "waitpid");
     return false;
   }
-  if(WIFEXITED(status) and WEXITSTATUS(status) == 0){
+  if(WIFEXITED(status) and (WEXITSTATUS(status) == 0)){
     return true;
   }
   return false;
@@ -163,7 +191,8 @@ int is_plymouth(const struct dirent *proc_entry){
     errno = 0;
     maxvalue = strtoumax(proc_entry->d_name, &tmp, 10);
 
-    if(errno != 0 or *tmp != '\0' or maxvalue != (uintmax_t)((pid_t)maxvalue)){
+    if(errno != 0 or *tmp != '\0'
+       or maxvalue != (uintmax_t)((pid_t)maxvalue)){
       return 0;
     }
   }
@@ -174,7 +203,7 @@ int is_plymouth(const struct dirent *proc_entry){
     error(0, errno, "asprintf");
     return 0;
   }
-
+  
   struct stat exe_stat;
   ret = lstat(exe_link, &exe_stat);
   if(ret == -1){
@@ -191,7 +220,7 @@ int is_plymouth(const struct dirent *proc_entry){
     free(exe_link);
     return 0;
   }
-
+  
   ssize_t sret = readlink(exe_link, exe_target, sizeof(exe_target));
   free(exe_link);
   if((sret != (ssize_t)sizeof(plymouth_path)-1) or
@@ -308,92 +337,95 @@ int main(__attribute__((unused))int argc,
   /* test -x /bin/plymouth */
   ret = access(plymouth_path, X_OK);
   if(ret == -1){
-    exit(EXIT_FAILURE);
+    /* Plymouth is probably not installed.  Don't print an error
+       message, just exit. */
+    exit(EX_UNAVAILABLE);
   }
-
+  
   { /* Add signal handlers */
     struct sigaction old_action,
       new_action = { .sa_handler = termination_handler,
 		     .sa_flags = 0 };
     sigemptyset(&new_action.sa_mask);
-    for(int *sig = (int[]){ SIGINT, SIGHUP, SIGTERM, 0 }; *sig != 0; sig++){
+    for(int *sig = (int[]){ SIGINT, SIGHUP, SIGTERM, 0 };
+	*sig != 0; sig++){
       ret = sigaddset(&new_action.sa_mask, *sig);
       if(ret == -1){
-	error(0, errno, "sigaddset");
-	exit(EX_OSERR);
+	error(EX_OSERR, errno, "sigaddset");
       }
       ret = sigaction(*sig, NULL, &old_action);
       if(ret == -1){
-	error(0, errno, "sigaction");
-	exit(EX_OSERR);
+	error(EX_OSERR, errno, "sigaction");
       }
       if(old_action.sa_handler != SIG_IGN){
 	ret = sigaction(*sig, &new_action, NULL);
 	if(ret == -1){
-	  error(0, errno, "sigaction");
-	  exit(EX_OSERR);
+	  error(EX_OSERR, errno, "sigaction");
 	}
       }
     }
   }
-    
+  
   /* plymouth --ping */
   bret = exec_and_wait(&plymouth_command_pid, plymouth_path,
-		       (const char *[]){ (const char *)plymouth_path, (const char *)"--ping", (const char *)NULL},
+		       (const char *[])
+		       { plymouth_path, "--ping", NULL },
 		       true, false);
   if(not bret){
     if(interrupted_by_signal){
       kill_and_wait(plymouth_command_pid);
+      exit(EXIT_FAILURE);
     }
-    exit(EXIT_FAILURE);
+    /* Plymouth is probably not running.  Don't print an error
+       message, just exit. */
+    exit(EX_UNAVAILABLE);
   }
   
   prompt = makeprompt();
   ret = asprintf(&prompt_arg, "--prompt=%s", prompt);
   free(prompt);
   if(ret == -1){
-    error(0, errno, "asprintf");
-    exit(EXIT_FAILURE);
+    error(EX_OSERR, errno, "asprintf");
   }
   
   /* plymouth ask-for-password --prompt="$prompt" */
-  bret = exec_and_wait(&plymouth_command_pid, plymouth_path,
-		       (const char *[]){plymouth_path, "ask-for-password", prompt_arg, NULL},
+  bret = exec_and_wait(&plymouth_command_pid,
+		       plymouth_path, (const char *[])
+		       { plymouth_path, "ask-for-password",
+			   prompt_arg, NULL },
 		       true, false);
   free(prompt_arg);
-  if(not bret){
-    if(interrupted_by_signal){
-      kill_and_wait(plymouth_command_pid);
-    } else {
-      exit(EXIT_FAILURE);
-    }
-  }
-  
   if(bret){
     exit(EXIT_SUCCESS);
   }
+  if(not interrupted_by_signal){
+    /* exec_and_wait failed for some other reason */
+    exit(EXIT_FAILURE);
+  }
+  kill_and_wait(plymouth_command_pid);
   
-  const char **plymouthd_argv = NULL;
+  const char **plymouthd_argv;
   pid_t pid = get_pid();
   if(pid == 0){
     error(0, 0, "plymouthd pid not found");
+    plymouthd_argv = plymouthd_default_argv;
   } else {
     plymouthd_argv = getargv(pid);
   }
-  if(plymouthd_argv == NULL){
-    plymouthd_argv = plymouthd_default_argv;
-  }
   
-  bret = exec_and_wait(NULL, plymouth_path,
-  		       (const char *[]){plymouth_path, "quit", NULL}, false, false);
+  bret = exec_and_wait(NULL, plymouth_path, (const char *[])
+		       { plymouth_path, "quit", NULL },
+		       false, false);
   if(not bret){
     exit(EXIT_FAILURE);
   }
-  bret = exec_and_wait(NULL, plymouthd_path, plymouthd_argv, false, true);
+  bret = exec_and_wait(NULL, plymouthd_path, plymouthd_argv,
+		       false, true);
   if(not bret){
     exit(EXIT_FAILURE);
   }
-  exec_and_wait(NULL, plymouth_path,
-  		(const char *[]){ plymouth_path, "show-splash", NULL }, false, false);
+  exec_and_wait(NULL, plymouth_path, (const char *[])
+		{ plymouth_path, "show-splash", NULL },
+		false, false);
   exit(EXIT_FAILURE);
 }

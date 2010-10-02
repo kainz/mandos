@@ -11,8 +11,8 @@
 # "AvahiService" class, and some lines in "main".
 # 
 # Everything else is
-# Copyright © 2008,2009 Teddy Hogeborn
-# Copyright © 2008,2009 Björn Påhlsson
+# Copyright © 2008-2010 Teddy Hogeborn
+# Copyright © 2008-2010 Björn Påhlsson
 # 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -81,7 +81,7 @@ except AttributeError:
         SO_BINDTODEVICE = None
 
 
-version = "1.0.14"
+version = "1.2"
 
 #logger = logging.getLogger(u'mandos')
 logger = logging.Logger(u'mandos')
@@ -240,35 +240,42 @@ class Client(object):
     """A representation of a client host served by this server.
     
     Attributes:
-    name:       string; from the config file, used in log messages and
-                        D-Bus identifiers
-    fingerprint: string (40 or 32 hexadecimal digits); used to
-                 uniquely identify the client
-    secret:     bytestring; sent verbatim (over TLS) to client
-    host:       string; available for use by the checker command
-    created:    datetime.datetime(); (UTC) object creation
-    last_enabled: datetime.datetime(); (UTC)
-    enabled:    bool()
-    last_checked_ok: datetime.datetime(); (UTC) or None
-    timeout:    datetime.timedelta(); How long from last_checked_ok
-                                      until this client is disabled
-    interval:   datetime.timedelta(); How often to start a new checker
-    disable_hook:  If set, called by disable() as disable_hook(self)
+    _approved:   bool(); 'None' if not yet approved/disapproved
+    approval_delay: datetime.timedelta(); Time to wait for approval
+    approval_duration: datetime.timedelta(); Duration of one approval
     checker:    subprocess.Popen(); a running checker process used
                                     to see if the client lives.
                                     'None' if no process is running.
-    checker_initiator_tag: a gobject event source tag, or None
-    disable_initiator_tag: - '' -
-    checker_callback_tag:  - '' -
-    checker_command: string; External command which is run to check if
-                     client lives.  %() expansions are done at
+    checker_callback_tag: a gobject event source tag, or None
+    checker_command: string; External command which is run to check
+                     if client lives.  %() expansions are done at
                      runtime with vars(self) as dict, so that for
                      instance %(name)s can be used in the command.
+    checker_initiator_tag: a gobject event source tag, or None
+    created:    datetime.datetime(); (UTC) object creation
     current_checker_command: string; current running checker_command
-    approval_delay: datetime.timedelta(); Time to wait for approval
-    _approved:   bool(); 'None' if not yet approved/disapproved
-    approval_duration: datetime.timedelta(); Duration of one approval
+    disable_hook:  If set, called by disable() as disable_hook(self)
+    disable_initiator_tag: a gobject event source tag, or None
+    enabled:    bool()
+    fingerprint: string (40 or 32 hexadecimal digits); used to
+                 uniquely identify the client
+    host:       string; available for use by the checker command
+    interval:   datetime.timedelta(); How often to start a new checker
+    last_approval_request: datetime.datetime(); (UTC) or None
+    last_checked_ok: datetime.datetime(); (UTC) or None
+    last_enabled: datetime.datetime(); (UTC)
+    name:       string; from the config file, used in log messages and
+                        D-Bus identifiers
+    secret:     bytestring; sent verbatim (over TLS) to client
+    timeout:    datetime.timedelta(); How long from last_checked_ok
+                                      until this client is disabled
+    runtime_expansions: Allowed attributes for runtime expansion.
     """
+    
+    runtime_expansions = (u"approval_delay", u"approval_duration",
+                          u"created", u"enabled", u"fingerprint",
+                          u"host", u"interval", u"last_checked_ok",
+                          u"last_enabled", u"name", u"timeout")
     
     @staticmethod
     def _timedelta_to_milliseconds(td):
@@ -315,6 +322,7 @@ class Client(object):
         self.host = config.get(u"host", u"")
         self.created = datetime.datetime.utcnow()
         self.enabled = False
+        self.last_approval_request = None
         self.last_enabled = None
         self.last_checked_ok = None
         self.timeout = string_to_delta(config[u"timeout"])
@@ -416,6 +424,9 @@ class Client(object):
                                       (self.timeout_milliseconds(),
                                        self.disable))
     
+    def need_approval(self):
+        self.last_approval_request = datetime.datetime.utcnow()
+    
     def start_checker(self):
         """Start a new checker subprocess if one is not running.
         
@@ -450,12 +461,14 @@ class Client(object):
                 command = self.checker_command % self.host
             except TypeError:
                 # Escape attributes for the shell
-                escaped_attrs = dict((key,
-                                      re.escape(unicode(str(val),
-                                                        errors=
-                                                        u'replace')))
-                                     for key, val in
-                                     vars(self).iteritems())
+                escaped_attrs = dict(
+                    (attr,
+                     re.escape(unicode(str(getattr(self, attr, u"")),
+                                       errors=
+                                       u'replace')))
+                    for attr in
+                    self.runtime_expansions)
+
                 try:
                     command = self.checker_command % escaped_attrs
                 except TypeError, error:
@@ -703,6 +716,10 @@ class ClientDBus(Client, DBusObjectWithProperties):
     dbus_object_path: dbus.ObjectPath
     bus: dbus.SystemBus()
     """
+    
+    runtime_expansions = (Client.runtime_expansions
+                          + (u"dbus_object_path",))
+    
     # dbus.service.Object doesn't use super(), so we can't either.
     
     def __init__(self, bus = None, *args, **kwargs):
@@ -711,9 +728,11 @@ class ClientDBus(Client, DBusObjectWithProperties):
         Client.__init__(self, *args, **kwargs)
         # Only now, when this client is initialized, can it show up on
         # the D-Bus
+        client_object_name = unicode(self.name).translate(
+            {ord(u"."): ord(u"_"),
+             ord(u"-"): ord(u"_")})
         self.dbus_object_path = (dbus.ObjectPath
-                                 (u"/clients/"
-                                  + self.name.replace(u".", u"_")))
+                                 (u"/clients/" + client_object_name))
         DBusObjectWithProperties.__init__(self, self.bus,
                                           self.dbus_object_path)
         
@@ -801,6 +820,15 @@ class ClientDBus(Client, DBusObjectWithProperties):
                                     variant_level=1)))
         return r
     
+    def need_approval(self, *args, **kwargs):
+        r = Client.need_approval(self, *args, **kwargs)
+        # Emit D-Bus signal
+        self.PropertyChanged(
+            dbus.String(u"LastApprovalRequest"),
+            (self._datetime_to_dbus(self.last_approval_request,
+                                    variant_level=1)))
+        return r
+    
     def start_checker(self, *args, **kwargs):
         old_checker = self.checker
         if self.checker is not None:
@@ -881,15 +909,15 @@ class ClientDBus(Client, DBusObjectWithProperties):
     @dbus.service.signal(_interface, signature=u"tb")
     def NeedApproval(self, timeout, default):
         "D-Bus signal"
-        pass
+        return self.need_approval()
     
     ## Methods
-
+    
     # Approve - method
     @dbus.service.method(_interface, in_signature=u"b")
     def Approve(self, value):
         self.approve(value)
-
+    
     # CheckedOK - method
     @dbus.service.method(_interface)
     def CheckedOK(self):
@@ -1014,6 +1042,15 @@ class ClientDBus(Client, DBusObjectWithProperties):
             return dbus.String(u"")
         return dbus.String(self._datetime_to_dbus(self
                                                   .last_checked_ok))
+    
+    # LastApprovalRequest - property
+    @dbus_service_property(_interface, signature=u"s", access=u"read")
+    def LastApprovalRequest_dbus_property(self):
+        if self.last_approval_request is None:
+            return dbus.String(u"")
+        return dbus.String(self.
+                           _datetime_to_dbus(self
+                                             .last_approval_request))
     
     # Timeout - property
     @dbus_service_property(_interface, signature=u"t",
@@ -1508,7 +1545,7 @@ class MandosServer(IPv6_TCPServer):
                                u"dress: %s", fpr, address)
                 if self.use_dbus:
                     # Emit D-Bus signal
-                    mandos_dbus_service.ClientNotFound(fpr, address)
+                    mandos_dbus_service.ClientNotFound(fpr, address[0])
                 parent_pipe.send(False)
                 return False
             
@@ -1647,7 +1684,7 @@ def main():
     parser.add_option("--debug", action=u"store_true",
                       help=u"Debug mode; run in foreground and log to"
                       u" terminal")
-    parser.add_option("--debuglevel", type=u"string", metavar="Level",
+    parser.add_option("--debuglevel", type=u"string", metavar="LEVEL",
                       help=u"Debug level for stdout output")
     parser.add_option("--priority", type=u"string", help=u"GnuTLS"
                       u" priority string (see GnuTLS documentation)")
@@ -1751,11 +1788,12 @@ def main():
                               gnutls_priority=
                               server_settings[u"priority"],
                               use_dbus=use_dbus)
-    pidfilename = u"/var/run/mandos.pid"
-    try:
-        pidfile = open(pidfilename, u"w")
-    except IOError:
-        logger.error(u"Could not open file %r", pidfilename)
+    if not debug:
+        pidfilename = u"/var/run/mandos.pid"
+        try:
+            pidfile = open(pidfilename, u"w")
+        except IOError:
+            logger.error(u"Could not open file %r", pidfilename)
     
     try:
         uid = pwd.getpwnam(u"_mandos").pw_uid
@@ -1863,21 +1901,22 @@ def main():
     if not tcp_server.clients:
         logger.warning(u"No clients defined")
         
-    try:
-        with pidfile:
-            pid = os.getpid()
-            pidfile.write(str(pid) + "\n")
-        del pidfile
-    except IOError:
-        logger.error(u"Could not write to file %r with PID %d",
-                     pidfilename, pid)
-    except NameError:
-        # "pidfile" was never created
-        pass
-    del pidfilename
-    
     if not debug:
+        try:
+            with pidfile:
+                pid = os.getpid()
+                pidfile.write(str(pid) + "\n")
+            del pidfile
+        except IOError:
+            logger.error(u"Could not write to file %r with PID %d",
+                         pidfilename, pid)
+        except NameError:
+            # "pidfile" was never created
+            pass
+        del pidfilename
+        
         signal.signal(signal.SIGINT, signal.SIG_IGN)
+
     signal.signal(signal.SIGHUP, lambda signum, frame: sys.exit())
     signal.signal(signal.SIGTERM, lambda signum, frame: sys.exit())
     

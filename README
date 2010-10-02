@@ -144,7 +144,9 @@
   plugins to run, all competing to be the first to find a password and
   provide it to the plugin runner.
   
-  Three additional plugins are provided:
+  Four additional plugins are provided:
+  * plymouth(8mandos)
+    This prompts for a password when using plymouth(8).
   * usplash(8mandos)
     This prompts for a password when using usplash(8).
   * splashy(8mandos)
@@ -160,8 +162,8 @@
 
 * Copyright
 
-    Copyright © 2008,2009 Teddy Hogeborn
-    Copyright © 2008,2009 Björn Påhlsson
+    Copyright © 2008-2010 Teddy Hogeborn
+    Copyright © 2008-2010 Björn Påhlsson
   
 ** License:
    

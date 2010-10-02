@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY COMMANDNAME "mandos">
-<!ENTITY TIMESTAMP "2010-09-11">
+<!ENTITY TIMESTAMP "2010-09-26">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -33,6 +33,7 @@
     <copyright>
       <year>2008</year>
       <year>2009</year>
+      <year>2010</year>
       <holder>Teddy Hogeborn</holder>
       <holder>Björn Påhlsson</holder>
     </copyright>
@@ -85,6 +86,9 @@
       <replaceable>DIRECTORY</replaceable></option></arg>
       <sbr/>
       <arg><option>--debug</option></arg>
+      <sbr/>
+      <arg><option>--debuglevel
+      <replaceable>LEVEL</replaceable></option></arg>
       <sbr/>
       <arg><option>--no-dbus</option></arg>
       <sbr/>
@@ -190,6 +194,24 @@
 	<term><option>--debug</option></term>
 	<listitem>
 	  <xi:include href="mandos-options.xml" xpointer="debug"/>
+	</listitem>
+      </varlistentry>
+      
+      <varlistentry>
+	<term><option>--debuglevel
+	<replaceable>LEVEL</replaceable></option></term>
+	<listitem>
+	  <para>
+	    Set the debugging log level.
+	    <replaceable>LEVEL</replaceable> is a string, one of
+	    <quote><literal>CRITICAL</literal></quote>,
+	    <quote><literal>ERROR</literal></quote>,
+	    <quote><literal>WARNING</literal></quote>,
+	    <quote><literal>INFO</literal></quote>, or
+	    <quote><literal>DEBUG</literal></quote>, in order of
+	    increasing verbosity.  The default level is
+	    <quote><literal>WARNING</literal></quote>.
+	  </para>
 	</listitem>
       </varlistentry>
       
@@ -338,6 +360,26 @@
     </para>
   </refsect1>
   
+  <refsect1 id="approval">
+    <title>APPROVAL</title>
+    <para>
+      The server can be configured to require manual approval for a
+      client before it is sent its secret.  The delay to wait for such
+      approval and the default action (approve or deny) can be
+      configured both globally and per client; see <citerefentry>
+      <refentrytitle>mandos-clients.conf</refentrytitle>
+      <manvolnum>5</manvolnum></citerefentry>.  By default all clients
+      will be approved immediately without delay.
+    </para>
+    <para>
+      This can be used to deny a client its secret if not manually
+      approved within a specified time.  It can also be used to make
+      the server delay before giving a client its secret, allowing
+      optional manual denying of this specific client.
+    </para>
+    
+  </refsect1>
+  
   <refsect1 id="logging">
     <title>LOGGING</title>
     <para>
@@ -418,8 +460,8 @@
 	<term><filename>/var/run/mandos.pid</filename></term>
 	<listitem>
 	  <para>
-	    The file containing the process id of
-	    <command>&COMMANDNAME;</command>.
+	    The file containing the process id of the
+	    <command>&COMMANDNAME;</command> process started last.
 	  </para>
 	</listitem>
       </varlistentry>
