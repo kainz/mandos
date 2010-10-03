@@ -1,3 +1,16 @@
+mandos (1.2.1-2) unstable; urgency=low
+
+  * debian/source/format: New; contains "3.0 (quilt)".  Really.
+
+ -- Björn Påhlsson <belorn@fukt.bsnet.se>  Sat, 02 Oct 2010 19:46:59 +0200
+
+mandos (1.2.1-1) unstable; urgency=low
+
+  * New upstream release.
+  * debian/source/format: New; contains "3.0 (quilt)".
+
+ -- Björn Påhlsson <belorn@fukt.bsnet.se>  Sat, 02 Oct 2010 19:03:58 +0200
+
 mandos (1.2-1) unstable; urgency=low
 
   * New upstream release.
