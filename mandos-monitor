@@ -51,7 +51,7 @@ logging.getLogger('dbus.proxies').setLevel(logging.CRITICAL)
 domain = 'se.bsnet.fukt'
 server_interface = domain + '.Mandos'
 client_interface = domain + '.Mandos.Client'
-version = "1.2"
+version = "1.2.1"
 
 # Always run in monochrome mode
 urwid.curses_display.curses.has_colors = lambda : False
