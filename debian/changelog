@@ -30,6 +30,13 @@ mandos (1.2-1) unstable; urgency=low
 
  -- Teddy Hogeborn <teddy@fukt.bsnet.se>  Tue, 28 Sep 2010 20:46:11 +0200
 
+mandos (1.0.14-1.1) unstable; urgency=low
+
+  * Non-maintainer upload.
+  * Rebuild against libavahi-core-dev (>= 0.6.26-1).
+
+ -- Michael Biebl <biebl@debian.org>  Mon, 12 Jul 2010 16:34:34 +0200
+
 mandos (1.0.14-1) unstable; urgency=low (HIGH on mips and mipsel)
 
   * New upstream release.
