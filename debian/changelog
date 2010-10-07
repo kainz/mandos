@@ -1,3 +1,10 @@
+mandos (1.2.2-1) experimental; urgency=low
+
+  * New upstream release.
+  * plugins.d/splashy.c: Only use ELIBBAD if defined. (Closes: #599256)
+
+ -- Teddy Hogeborn <teddy@fukt.bsnet.se>  Thu, 07 Oct 2010 20:27:54 +0200
+
 mandos (1.2.1-3) experimental; urgency=low
 
   * debian/changelog: Include entry for NMU of version 1.0.14-1.1.
