@@ -314,7 +314,9 @@ int main(__attribute__((unused))int argc,
       case ENOTDIR:
       case ELOOP:
       case EISDIR:
-      case ELIBBAD:
+#ifdef ELIBBAD
+      case ELIBBAD:		/* Linux only */
+#endif
       case EPERM:
 	_exit(EX_OSFILE);
       }
