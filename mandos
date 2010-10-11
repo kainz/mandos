@@ -1847,6 +1847,10 @@ def main():
         # No console logging
         logger.removeHandler(console)
     
+    # Need to fork before connecting to D-Bus
+    if not debug:
+        # Close all input and output, do double fork, etc.
+        daemon()
     
     global main_loop
     # From the Avahi example code
@@ -1870,11 +1874,7 @@ def main():
     if server_settings["interface"]:
         service.interface = (if_nametoindex
                              (str(server_settings[u"interface"])))
-
-    if not debug:
-        # Close all input and output, do double fork, etc.
-        daemon()
-        
+    
     global multiprocessing_manager
     multiprocessing_manager = multiprocessing.Manager()
     
