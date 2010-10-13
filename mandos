@@ -204,7 +204,7 @@ class AvahiService(object):
         if state == avahi.ENTRY_GROUP_ESTABLISHED:
             logger.debug(u"Zeroconf service established.")
         elif state == avahi.ENTRY_GROUP_COLLISION:
-            logger.warning(u"Zeroconf service name collision.")
+            logger.info(u"Zeroconf service name collision.")
             self.rename()
         elif state == avahi.ENTRY_GROUP_FAILURE:
             logger.critical(u"Avahi: Error in group state changed %s",
