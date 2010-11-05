@@ -196,7 +196,7 @@ int is_plymouth(const struct dirent *proc_entry){
       return 0;
     }
   }
-  char exe_target[sizeof(plymouth_path)];
+  char exe_target[sizeof(plymouthd_path)];
   char *exe_link;
   ret = asprintf(&exe_link, "/proc/%s/exe", proc_entry->d_name);
   if(ret == -1){
@@ -223,9 +223,9 @@ int is_plymouth(const struct dirent *proc_entry){
   
   ssize_t sret = readlink(exe_link, exe_target, sizeof(exe_target));
   free(exe_link);
-  if((sret != (ssize_t)sizeof(plymouth_path)-1) or
-      (memcmp(plymouth_path, exe_target,
-	      sizeof(plymouth_path)-1) != 0)){
+  if((sret != (ssize_t)sizeof(plymouthd_path)-1) or
+      (memcmp(plymouthd_path, exe_target,
+	      sizeof(plymouthd_path)-1) != 0)){
     return 0;
   }
   return 1;
@@ -245,7 +245,15 @@ pid_t get_pid(void){
   if(maxvalue == 0){
     struct dirent **direntries;
     ret = scandir("/proc", &direntries, is_plymouth, alphasort);
-    sscanf(direntries[0]->d_name, "%" SCNuMAX, &maxvalue);
+    if (ret == -1){
+      error(0, errno, "scandir");
+    }
+    if (ret > 0){
+      ret = sscanf(direntries[0]->d_name, "%" SCNuMAX, &maxvalue);
+      if (ret < 0){
+	error(0, errno, "sscanf");
+      }
+    }
   }
   pid_t pid;
   pid = (pid_t)maxvalue;
