@@ -2,6 +2,8 @@
 
 * Use _attribute_((nonnull)) wherever possible.
 
+* mandos-applet
+
 * mandos-client
 ** TODO [#B] use scandir(3) instead of readdir(3)
 ** TODO [#B] Prefix all debug output with "Mandos plugin " + program_invocation_short_name
