@@ -22,22 +22,23 @@
  * Contact the authors at <mandos@fukt.bsnet.se>.
  */
 
-#define _GNU_SOURCE		/* getline() */
+#define _GNU_SOURCE		/* getline(), asprintf() */
 
 #include <termios.h> 		/* struct termios, tcsetattr(),
 				   TCSAFLUSH, tcgetattr(), ECHO */
 #include <unistd.h>		/* struct termios, tcsetattr(),
 				   STDIN_FILENO, TCSAFLUSH,
-				   tcgetattr(), ECHO */
+				   tcgetattr(), ECHO, readlink() */
 #include <signal.h>		/* sig_atomic_t, raise(), struct
 				   sigaction, sigemptyset(),
 				   sigaction(), sigaddset(), SIGINT,
 				   SIGQUIT, SIGHUP, SIGTERM,
 				   raise() */
 #include <stddef.h>		/* NULL, size_t, ssize_t */
-#include <sys/types.h>		/* ssize_t */
+#include <sys/types.h>		/* ssize_t, struct dirent, pid_t, ssize_t */
 #include <stdlib.h>		/* EXIT_SUCCESS, EXIT_FAILURE,
-				   getenv() */
+				   getenv(), free() */
+#include <dirent.h>		/* scandir(), alphasort() */
 #include <stdio.h>		/* fprintf(), stderr, getline(),
 				   stdin, feof(), fputc()
 				*/
@@ -47,7 +48,9 @@
 #include <error.h>		/* error() */
 #include <iso646.h>		/* or, not */
 #include <stdbool.h>		/* bool, false, true */
-#include <string.h> 		/* strlen, rindex */
+#include <inttypes.h>		/* strtoumax() */
+#include <sys/stat.h> 		/* struct stat, lstat() */
+#include <string.h> 		/* strlen, rindex, memcmp */
 #include <argp.h>		/* struct argp_option, struct
 				   argp_state, struct argp,
 				   argp_parse(), error_t,
@@ -62,6 +65,10 @@ bool debug = false;
 const char *argp_program_version = "password-prompt " VERSION;
 const char *argp_program_bug_address = "<mandos@fukt.bsnet.se>";
 
+/* Needed for conflic resolution */
+const char plymouthd_path[] = "/sbin/plymouth";
+
+
 static void termination_handler(int signum){
   if(quit_now){
     return;
@@ -69,6 +76,74 @@ static void termination_handler(int signum){
   quit_now = 1;
   signal_received = signum;
 }
+
+bool conflict_detection(void){
+
+  /* plymouth conflicts with password-promt since both want to control the
+     associated terminal. Password-prompt exit since plymouth perferms the same
+     functionallity.
+   */
+  int is_plymouth(const struct dirent *proc_entry){
+    int ret;
+    {
+      uintmax_t maxvalue;
+      char *tmp;
+      errno = 0;
+      maxvalue = strtoumax(proc_entry->d_name, &tmp, 10);
+      
+      if(errno != 0 or *tmp != '\0'
+	 or maxvalue != (uintmax_t)((pid_t)maxvalue)){
+	return 0;
+      }
+    }
+    char exe_target[sizeof(plymouthd_path)];
+    char *exe_link;
+    ret = asprintf(&exe_link, "/proc/%s/exe", proc_entry->d_name);
+    if(ret == -1){
+      error(0, errno, "asprintf");
+      return 0;
+    }
+  
+    struct stat exe_stat;
+    ret = lstat(exe_link, &exe_stat);
+    if(ret == -1){
+      free(exe_link);
+      if(errno != ENOENT){
+	error(0, errno, "lstat");
+      }
+      return 0;
+    }
+  
+    if(not S_ISLNK(exe_stat.st_mode)
+       or exe_stat.st_uid != 0
+       or exe_stat.st_gid != 0){
+      free(exe_link);
+      return 0;
+    }
+  
+    ssize_t sret = readlink(exe_link, exe_target, sizeof(exe_target));
+    free(exe_link);
+    if((sret != (ssize_t)sizeof(plymouthd_path)-1) or
+       (memcmp(plymouthd_path, exe_target,
+	       sizeof(plymouthd_path)-1) != 0)){
+      return 0;
+    }
+    return 1;
+  }
+
+  struct dirent **direntries;
+  int ret;
+  ret = scandir("/proc", &direntries, is_plymouth, alphasort);
+  if (ret == -1){
+    error(1, errno, "scandir");
+  }
+  if (ret < 0){
+    return 1;
+  } else {
+    return 0;
+  }
+}
+
 
 int main(int argc, char **argv){
   ssize_t sret;
@@ -151,6 +226,14 @@ int main(int argc, char **argv){
   if(debug){
     fprintf(stderr, "Starting %s\n", argv[0]);
   }
+
+  if (conflict_detection()){
+    if(debug){
+      fprintf(stderr, "Stopping %s because of conflict", argv[0]);
+    }
+    return EXIT_FAILURE;
+  }
+  
   if(debug){
     fprintf(stderr, "Storing current terminal attributes\n");
   }
