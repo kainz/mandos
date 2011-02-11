@@ -22,7 +22,7 @@
 # Contact the authors at <mandos@fukt.bsnet.se>.
 # 
 
-from __future__ import division, absolute_import, with_statement
+from __future__ import division, absolute_import, print_function, unicode_literals
 
 import sys
 import os
@@ -42,16 +42,16 @@ import UserList
 
 import locale
 
-locale.setlocale(locale.LC_ALL, u'')
+locale.setlocale(locale.LC_ALL, '')
 
 import logging
-logging.getLogger(u'dbus.proxies').setLevel(logging.CRITICAL)
+logging.getLogger('dbus.proxies').setLevel(logging.CRITICAL)
 
 # Some useful constants
-domain = u'se.bsnet.fukt'
-server_interface = domain + u'.Mandos'
-client_interface = domain + u'.Mandos.Client'
-version = u"1.2.3"
+domain = 'se.bsnet.fukt'
+server_interface = domain + '.Mandos'
+client_interface = domain + '.Mandos.Client'
+version = "1.2.3"
 
 # Always run in monochrome mode
 urwid.curses_display.curses.has_colors = lambda : False
@@ -65,9 +65,9 @@ def isoformat_to_datetime(iso):
     "Parse an ISO 8601 date string to a datetime.datetime()"
     if not iso:
         return None
-    d, t = iso.split(u"T", 1)
-    year, month, day = d.split(u"-", 2)
-    hour, minute, second = t.split(u":", 2)
+    d, t = iso.split("T", 1)
+    year, month, day = d.split("-", 2)
+    hour, minute, second = t.split(":", 2)
     second, fraction = divmod(float(second), 1)
     return datetime.datetime(int(year),
                              int(month),
@@ -86,7 +86,7 @@ class MandosClientPropertyCache(object):
         self.proxy = proxy_object # Mandos Client proxy object
         
         self.properties = dict()
-        self.proxy.connect_to_signal(u"PropertyChanged",
+        self.proxy.connect_to_signal("PropertyChanged",
                                      self.property_changed,
                                      client_interface,
                                      byte_arrays=True)
@@ -127,9 +127,9 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
         self.last_checker_failed = False
         
         # The widget shown normally
-        self._text_widget = urwid.Text(u"")
+        self._text_widget = urwid.Text("")
         # The widget shown when we have focus
-        self._focus_text_widget = urwid.Text(u"")
+        self._focus_text_widget = urwid.Text("")
         super(MandosClientWidget, self).__init__(
             update_hook=update_hook, delete_hook=delete_hook,
             *args, **kwargs)
@@ -137,7 +137,7 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
         self.opened = False
         
         last_checked_ok = isoformat_to_datetime(self.properties
-                                                [u"LastCheckedOK"])
+                                                ["LastCheckedOK"])
         if last_checked_ok is None:
             self.last_checker_failed = True
         else:
@@ -146,7 +146,7 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
                                         > datetime.timedelta
                                         (milliseconds=
                                          self.properties
-                                         [u"Interval"]))
+                                         ["Interval"]))
         
         if self.last_checker_failed:
             self.using_timer(True)
@@ -154,23 +154,23 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
         if self.need_approval:
             self.using_timer(True)
         
-        self.proxy.connect_to_signal(u"CheckerCompleted",
+        self.proxy.connect_to_signal("CheckerCompleted",
                                      self.checker_completed,
                                      client_interface,
                                      byte_arrays=True)
-        self.proxy.connect_to_signal(u"CheckerStarted",
+        self.proxy.connect_to_signal("CheckerStarted",
                                      self.checker_started,
                                      client_interface,
                                      byte_arrays=True)
-        self.proxy.connect_to_signal(u"GotSecret",
+        self.proxy.connect_to_signal("GotSecret",
                                      self.got_secret,
                                      client_interface,
                                      byte_arrays=True)
-        self.proxy.connect_to_signal(u"NeedApproval",
+        self.proxy.connect_to_signal("NeedApproval",
                                      self.need_approval,
                                      client_interface,
                                      byte_arrays=True)
-        self.proxy.connect_to_signal(u"Rejected",
+        self.proxy.connect_to_signal("Rejected",
                                      self.rejected,
                                      client_interface,
                                      byte_arrays=True)
@@ -178,7 +178,7 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
     def property_changed(self, property=None, value=None):
         super(self, MandosClientWidget).property_changed(property,
                                                          value)
-        if property == u"ApprovalPending":
+        if property == "ApprovalPending":
             using_timer(bool(value))
         
     def using_timer(self, flag):
@@ -203,9 +203,9 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
             if self.last_checker_failed:
                 self.last_checker_failed = False
                 self.using_timer(False)
-            #self.logger(u'Checker for client %s (command "%s")'
-            #            u' was successful'
-            #            % (self.properties[u"Name"], command))
+            #self.logger('Checker for client %s (command "%s")'
+            #            ' was successful'
+            #            % (self.properties["Name"], command))
             self.update()
             return
         # Checker failed
@@ -213,46 +213,46 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
             self.last_checker_failed = True
             self.using_timer(True)
         if os.WIFEXITED(condition):
-            self.logger(u'Checker for client %s (command "%s")'
-                        u' failed with exit code %s'
-                        % (self.properties[u"Name"], command,
+            self.logger('Checker for client %s (command "%s")'
+                        ' failed with exit code %s'
+                        % (self.properties["Name"], command,
                            os.WEXITSTATUS(condition)))
         elif os.WIFSIGNALED(condition):
-            self.logger(u'Checker for client %s (command "%s")'
-                        u' was killed by signal %s'
-                        % (self.properties[u"Name"], command,
+            self.logger('Checker for client %s (command "%s")'
+                        ' was killed by signal %s'
+                        % (self.properties["Name"], command,
                            os.WTERMSIG(condition)))
         elif os.WCOREDUMP(condition):
-            self.logger(u'Checker for client %s (command "%s")'
-                        u' dumped core'
-                        % (self.properties[u"Name"], command))
+            self.logger('Checker for client %s (command "%s")'
+                        ' dumped core'
+                        % (self.properties["Name"], command))
         else:
-            self.logger(u'Checker for client %s completed'
-                        u' mysteriously')
+            self.logger('Checker for client %s completed'
+                        ' mysteriously')
         self.update()
     
     def checker_started(self, command):
-        #self.logger(u'Client %s started checker "%s"'
-        #            % (self.properties[u"Name"], unicode(command)))
+        #self.logger('Client %s started checker "%s"'
+        #            % (self.properties["Name"], unicode(command)))
         pass
     
     def got_secret(self):
         self.last_checker_failed = False
-        self.logger(u'Client %s received its secret'
-                    % self.properties[u"Name"])
+        self.logger('Client %s received its secret'
+                    % self.properties["Name"])
     
     def need_approval(self, timeout, default):
         if not default:
-            message = u'Client %s needs approval within %s seconds'
+            message = 'Client %s needs approval within %s seconds'
         else:
-            message = u'Client %s will get its secret in %s seconds'
+            message = 'Client %s will get its secret in %s seconds'
         self.logger(message
-                    % (self.properties[u"Name"], timeout/1000))
+                    % (self.properties["Name"], timeout/1000))
         self.using_timer(True)
     
     def rejected(self, reason):
-        self.logger(u'Client %s was rejected; reason: %s'
-                    % (self.properties[u"Name"], reason))
+        self.logger('Client %s was rejected; reason: %s'
+                    % (self.properties["Name"], reason))
     
     def selectable(self):
         """Make this a "selectable" widget.
@@ -273,56 +273,56 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
     def update(self):
         "Called when what is visible on the screen should be updated."
         # How to add standout mode to a style
-        with_standout = { u"normal": u"standout",
-                          u"bold": u"bold-standout",
-                          u"underline-blink":
-                              u"underline-blink-standout",
-                          u"bold-underline-blink":
-                              u"bold-underline-blink-standout",
+        with_standout = { "normal": "standout",
+                          "bold": "bold-standout",
+                          "underline-blink":
+                              "underline-blink-standout",
+                          "bold-underline-blink":
+                              "bold-underline-blink-standout",
                           }
 
         # Rebuild focus and non-focus widgets using current properties
 
         # Base part of a client. Name!
-        base = (u'%(name)s: '
-                      % {u"name": self.properties[u"Name"]})
-        if not self.properties[u"Enabled"]:
-            message = u"DISABLED"
-        elif self.properties[u"ApprovalPending"]:
+        base = ('%(name)s: '
+                      % {"name": self.properties["Name"]})
+        if not self.properties["Enabled"]:
+            message = "DISABLED"
+        elif self.properties["ApprovalPending"]:
             timeout = datetime.timedelta(milliseconds
                                          = self.properties
-                                         [u"ApprovalDelay"])
+                                         ["ApprovalDelay"])
             last_approval_request = isoformat_to_datetime(
-                self.properties[u"LastApprovalRequest"])
+                self.properties["LastApprovalRequest"])
             if last_approval_request is not None:
                 timer = timeout - (datetime.datetime.utcnow()
                                    - last_approval_request)
             else:
                 timer = datetime.timedelta()
-            if self.properties[u"ApprovedByDefault"]:
-                message = u"Approval in %s. (d)eny?"
+            if self.properties["ApprovedByDefault"]:
+                message = "Approval in %s. (d)eny?"
             else:
-                message = u"Denial in %s. (a)pprove?"
+                message = "Denial in %s. (a)pprove?"
             message = message % unicode(timer).rsplit(".", 1)[0]
         elif self.last_checker_failed:
             timeout = datetime.timedelta(milliseconds
                                          = self.properties
-                                         [u"Timeout"])
+                                         ["Timeout"])
             last_ok = isoformat_to_datetime(
-                max((self.properties[u"LastCheckedOK"]
-                     or self.properties[u"Created"]),
-                    self.properties[u"LastEnabled"]))
+                max((self.properties["LastCheckedOK"]
+                     or self.properties["Created"]),
+                    self.properties["LastEnabled"]))
             timer = timeout - (datetime.datetime.utcnow() - last_ok)
-            message = (u'A checker has failed! Time until client'
-                       u' gets disabled: %s'
+            message = ('A checker has failed! Time until client'
+                       ' gets disabled: %s'
                            % unicode(timer).rsplit(".", 1)[0])
         else:
-            message = u"enabled"
-        self._text = u"%s%s" % (base, message)
+            message = "enabled"
+        self._text = "%s%s" % (base, message)
             
         if not urwid.supports_unicode():
-            self._text = self._text.encode(u"ascii", u"replace")
-        textlist = [(u"normal", self._text)]
+            self._text = self._text.encode("ascii", "replace")
+        textlist = [("normal", self._text)]
         self._text_widget.set_text(textlist)
         self._focus_text_widget.set_text([(with_standout[text[0]],
                                            text[1])
@@ -331,7 +331,7 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
                                           for text in textlist])
         self._widget = self._text_widget
         self._focus_widget = urwid.AttrWrap(self._focus_text_widget,
-                                            u"standout")
+                                            "standout")
         # Run update hook, if any
         if self.update_hook is not None:
             self.update_hook()
@@ -357,31 +357,31 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
     def keypress(self, maxcolrow, key):
         """Handle keys.
         This overrides the method from urwid.FlowWidget"""
-        if key == u"+":
+        if key == "+":
             self.proxy.Enable(dbus_interface = client_interface)
-        elif key == u"-":
+        elif key == "-":
             self.proxy.Disable(dbus_interface = client_interface)
-        elif key == u"a":
+        elif key == "a":
             self.proxy.Approve(dbus.Boolean(True, variant_level=1),
                                dbus_interface = client_interface)
-        elif key == u"d":
+        elif key == "d":
             self.proxy.Approve(dbus.Boolean(False, variant_level=1),
                                   dbus_interface = client_interface)
-        elif key == u"R" or key == u"_" or key == u"ctrl k":
+        elif key == "R" or key == "_" or key == "ctrl k":
             self.server_proxy_object.RemoveClient(self.proxy
                                                   .object_path)
-        elif key == u"s":
+        elif key == "s":
             self.proxy.StartChecker(dbus_interface = client_interface)
-        elif key == u"S":
+        elif key == "S":
             self.proxy.StopChecker(dbus_interface = client_interface)
-        elif key == u"C":
+        elif key == "C":
             self.proxy.CheckedOK(dbus_interface = client_interface)
         # xxx
-#         elif key == u"p" or key == "=":
+#         elif key == "p" or key == "=":
 #             self.proxy.pause()
-#         elif key == u"u" or key == ":":
+#         elif key == "u" or key == ":":
 #             self.proxy.unpause()
-#         elif key == u"RET":
+#         elif key == "RET":
 #             self.open()
         else:
             return key
@@ -405,7 +405,7 @@ class ConstrainedListBox(urwid.ListBox):
     """
     def keypress(self, maxcolrow, key):
         ret = super(ConstrainedListBox, self).keypress(maxcolrow, key)
-        if ret in (u"up", u"down"):
+        if ret in ("up", "down"):
             return
         return ret
 
@@ -420,31 +420,31 @@ class UserInterface(object):
         self.screen = urwid.curses_display.Screen()
         
         self.screen.register_palette((
-                (u"normal",
-                 u"default", u"default", None),
-                (u"bold",
-                 u"default", u"default", u"bold"),
-                (u"underline-blink",
-                 u"default", u"default", u"underline"),
-                (u"standout",
-                 u"default", u"default", u"standout"),
-                (u"bold-underline-blink",
-                 u"default", u"default", (u"bold", u"underline")),
-                (u"bold-standout",
-                 u"default", u"default", (u"bold", u"standout")),
-                (u"underline-blink-standout",
-                 u"default", u"default", (u"underline", u"standout")),
-                (u"bold-underline-blink-standout",
-                 u"default", u"default", (u"bold", u"underline",
-                                          u"standout")),
+                ("normal",
+                 "default", "default", None),
+                ("bold",
+                 "default", "default", "bold"),
+                ("underline-blink",
+                 "default", "default", "underline"),
+                ("standout",
+                 "default", "default", "standout"),
+                ("bold-underline-blink",
+                 "default", "default", ("bold", "underline")),
+                ("bold-standout",
+                 "default", "default", ("bold", "standout")),
+                ("underline-blink-standout",
+                 "default", "default", ("underline", "standout")),
+                ("bold-underline-blink-standout",
+                 "default", "default", ("bold", "underline",
+                                          "standout")),
                 ))
         
         if urwid.supports_unicode():
-            self.divider = u"─" # \u2500
-            #self.divider = u"━" # \u2501
+            self.divider = "─" # \u2500
+            #self.divider = "━" # \u2501
         else:
-            #self.divider = u"-" # \u002d
-            self.divider = u"_" # \u005f
+            #self.divider = "-" # \u002d
+            self.divider = "_" # \u005f
         
         self.screen.start()
         
@@ -464,19 +464,19 @@ class UserInterface(object):
         # This keeps track of whether self.uilist currently has
         # self.logbox in it or not
         self.log_visible = True
-        self.log_wrap = u"any"
+        self.log_wrap = "any"
         
         self.rebuild()
-        self.log_message_raw((u"bold",
-                              u"Mandos Monitor version " + version))
-        self.log_message_raw((u"bold",
-                              u"q: Quit  ?: Help"))
+        self.log_message_raw(("bold",
+                              "Mandos Monitor version " + version))
+        self.log_message_raw(("bold",
+                              "q: Quit  ?: Help"))
         
         self.busname = domain + '.Mandos'
         self.main_loop = gobject.MainLoop()
         self.bus = dbus.SystemBus()
         mandos_dbus_objc = self.bus.get_object(
-            self.busname, u"/", follow_name_owner_changes=True)
+            self.busname, "/", follow_name_owner_changes=True)
         self.mandos_serv = dbus.Interface(mandos_dbus_objc,
                                           dbus_interface
                                           = server_interface)
@@ -487,17 +487,17 @@ class UserInterface(object):
             mandos_clients = dbus.Dictionary()
         
         (self.mandos_serv
-         .connect_to_signal(u"ClientRemoved",
+         .connect_to_signal("ClientRemoved",
                             self.find_and_remove_client,
                             dbus_interface=server_interface,
                             byte_arrays=True))
         (self.mandos_serv
-         .connect_to_signal(u"ClientAdded",
+         .connect_to_signal("ClientAdded",
                             self.add_new_client,
                             dbus_interface=server_interface,
                             byte_arrays=True))
         (self.mandos_serv
-         .connect_to_signal(u"ClientNotFound",
+         .connect_to_signal("ClientNotFound",
                             self.client_not_found,
                             dbus_interface=server_interface,
                             byte_arrays=True))
@@ -518,8 +518,8 @@ class UserInterface(object):
                             path=path)
     
     def client_not_found(self, fingerprint, address):
-        self.log_message((u"Client with address %s and fingerprint %s"
-                          u" could not be found" % (address,
+        self.log_message(("Client with address %s and fingerprint %s"
+                          " could not be found" % (address,
                                                     fingerprint)))
     
     def rebuild(self):
@@ -541,7 +541,7 @@ class UserInterface(object):
     
     def log_message(self, message):
         timestamp = datetime.datetime.now().isoformat()
-        self.log_message_raw(timestamp + u": " + message)
+        self.log_message_raw(timestamp + ": " + message)
     
     def log_message_raw(self, markup):
         """Add a log message to the log buffer."""
@@ -550,26 +550,26 @@ class UserInterface(object):
             and len(self.log) > self.max_log_length):
             del self.log[0:len(self.log)-self.max_log_length-1]
         self.logbox.set_focus(len(self.logbox.body.contents),
-                              coming_from=u"above")
+                              coming_from="above")
         self.refresh()
     
     def toggle_log_display(self):
         """Toggle visibility of the log buffer."""
         self.log_visible = not self.log_visible
         self.rebuild()
-        #self.log_message(u"Log visibility changed to: "
+        #self.log_message("Log visibility changed to: "
         #                 + unicode(self.log_visible))
     
     def change_log_display(self):
         """Change type of log display.
         Currently, this toggles wrapping of text lines."""
-        if self.log_wrap == u"clip":
-            self.log_wrap = u"any"
+        if self.log_wrap == "clip":
+            self.log_wrap = "any"
         else:
-            self.log_wrap = u"clip"
+            self.log_wrap = "clip"
         for textwidget in self.log:
             textwidget.set_wrap_mode(self.log_wrap)
-        #self.log_message(u"Wrap mode: " + self.log_wrap)
+        #self.log_message("Wrap mode: " + self.log_wrap)
     
     def find_and_remove_client(self, path, name):
         """Find an client from its object path and remove it.
@@ -602,7 +602,7 @@ class UserInterface(object):
         if path is None:
             path = client.proxy.object_path
         self.clients_dict[path] = client
-        self.clients.sort(None, lambda c: c.properties[u"Name"])
+        self.clients.sort(None, lambda c: c.properties["Name"])
         self.refresh()
     
     def remove_client(self, client, path=None):
@@ -639,15 +639,15 @@ class UserInterface(object):
     
     def process_input(self, source, condition):
         keys = self.screen.get_input()
-        translations = { u"ctrl n": u"down",      # Emacs
-                         u"ctrl p": u"up",        # Emacs
-                         u"ctrl v": u"page down", # Emacs
-                         u"meta v": u"page up",   # Emacs
-                         u" ": u"page down",      # less
-                         u"f": u"page down",      # less
-                         u"b": u"page up",        # less
-                         u"j": u"down",           # vi
-                         u"k": u"up",             # vi
+        translations = { "ctrl n": "down",      # Emacs
+                         "ctrl p": "up",        # Emacs
+                         "ctrl v": "page down", # Emacs
+                         "meta v": "page up",   # Emacs
+                         " ": "page down",      # less
+                         "f": "page down",      # less
+                         "b": "page up",        # less
+                         "j": "down",           # vi
+                         "k": "up",             # vi
                          }
         for key in keys:
             try:
@@ -655,66 +655,66 @@ class UserInterface(object):
             except KeyError:    # :-)
                 pass
             
-            if key == u"q" or key == u"Q":
+            if key == "q" or key == "Q":
                 self.stop()
                 break
-            elif key == u"window resize":
+            elif key == "window resize":
                 self.size = self.screen.get_cols_rows()
                 self.refresh()
-            elif key == u"\f":  # Ctrl-L
+            elif key == "\f":  # Ctrl-L
                 self.refresh()
-            elif key == u"l" or key == u"D":
+            elif key == "l" or key == "D":
                 self.toggle_log_display()
                 self.refresh()
-            elif key == u"w" or key == u"i":
+            elif key == "w" or key == "i":
                 self.change_log_display()
                 self.refresh()
-            elif key == u"?" or key == u"f1" or key == u"esc":
+            elif key == "?" or key == "f1" or key == "esc":
                 if not self.log_visible:
                     self.log_visible = True
                     self.rebuild()
-                self.log_message_raw((u"bold",
-                                      u"  ".
-                                      join((u"q: Quit",
-                                            u"?: Help",
-                                            u"l: Log window toggle",
-                                            u"TAB: Switch window",
-                                            u"w: Wrap (log)"))))
-                self.log_message_raw((u"bold",
-                                      u"  "
-                                      .join((u"Clients:",
-                                             u"+: Enable",
-                                             u"-: Disable",
-                                             u"R: Remove",
-                                             u"s: Start new checker",
-                                             u"S: Stop checker",
-                                             u"C: Checker OK",
-                                             u"a: Approve",
-                                             u"d: Deny"))))
+                self.log_message_raw(("bold",
+                                      "  ".
+                                      join(("q: Quit",
+                                            "?: Help",
+                                            "l: Log window toggle",
+                                            "TAB: Switch window",
+                                            "w: Wrap (log)"))))
+                self.log_message_raw(("bold",
+                                      "  "
+                                      .join(("Clients:",
+                                             "+: Enable",
+                                             "-: Disable",
+                                             "R: Remove",
+                                             "s: Start new checker",
+                                             "S: Stop checker",
+                                             "C: Checker OK",
+                                             "a: Approve",
+                                             "d: Deny"))))
                 self.refresh()
-            elif key == u"tab":
+            elif key == "tab":
                 if self.topwidget.get_focus() is self.logbox:
                     self.topwidget.set_focus(0)
                 else:
                     self.topwidget.set_focus(self.logbox)
                 self.refresh()
-            #elif (key == u"end" or key == u"meta >" or key == u"G"
-            #      or key == u">"):
+            #elif (key == "end" or key == "meta >" or key == "G"
+            #      or key == ">"):
             #    pass            # xxx end-of-buffer
-            #elif (key == u"home" or key == u"meta <" or key == u"g"
-            #      or key == u"<"):
+            #elif (key == "home" or key == "meta <" or key == "g"
+            #      or key == "<"):
             #    pass            # xxx beginning-of-buffer
-            #elif key == u"ctrl e" or key == u"$":
+            #elif key == "ctrl e" or key == "$":
             #    pass            # xxx move-end-of-line
-            #elif key == u"ctrl a" or key == u"^":
+            #elif key == "ctrl a" or key == "^":
             #    pass            # xxx move-beginning-of-line
-            #elif key == u"ctrl b" or key == u"meta (" or key == u"h":
+            #elif key == "ctrl b" or key == "meta (" or key == "h":
             #    pass            # xxx left
-            #elif key == u"ctrl f" or key == u"meta )" or key == u"l":
+            #elif key == "ctrl f" or key == "meta )" or key == "l":
             #    pass            # xxx right
-            #elif key == u"a":
+            #elif key == "a":
             #    pass            # scroll up log
-            #elif key == u"z":
+            #elif key == "z":
             #    pass            # scroll down log
             elif self.topwidget.selectable():
                 self.topwidget.keypress(self.size, key)
