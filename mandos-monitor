@@ -45,13 +45,13 @@ import locale
 locale.setlocale(locale.LC_ALL, u'')
 
 import logging
-logging.getLogger('dbus.proxies').setLevel(logging.CRITICAL)
+logging.getLogger(u'dbus.proxies').setLevel(logging.CRITICAL)
 
 # Some useful constants
-domain = 'se.bsnet.fukt'
-server_interface = domain + '.Mandos'
-client_interface = domain + '.Mandos.Client'
-version = "1.2.3"
+domain = u'se.bsnet.fukt'
+server_interface = domain + u'.Mandos'
+client_interface = domain + u'.Mandos.Client'
+version = u"1.2.3"
 
 # Always run in monochrome mode
 urwid.curses_display.curses.has_colors = lambda : False
@@ -259,11 +259,11 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
         This overrides the method from urwid.FlowWidget."""
         return True
     
-    def rows(self, (maxcol,), focus=False):
+    def rows(self, maxcolrow, focus=False):
         """How many rows this widget will occupy might depend on
         whether we have focus or not.
         This overrides the method from urwid.FlowWidget"""
-        return self.current_widget(focus).rows((maxcol,), focus=focus)
+        return self.current_widget(focus).rows(maxcolrow, focus=focus)
     
     def current_widget(self, focus=False):
         if focus or self.opened:
@@ -318,10 +318,10 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
                            % unicode(timer).rsplit(".", 1)[0])
         else:
             message = u"enabled"
-        self._text = "%s%s" % (base, message)
+        self._text = u"%s%s" % (base, message)
             
         if not urwid.supports_unicode():
-            self._text = self._text.encode("ascii", "replace")
+            self._text = self._text.encode(u"ascii", u"replace")
         textlist = [(u"normal", self._text)]
         self._text_widget.set_text(textlist)
         self._focus_text_widget.set_text([(with_standout[text[0]],
@@ -331,7 +331,7 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
                                           for text in textlist])
         self._widget = self._text_widget
         self._focus_widget = urwid.AttrWrap(self._focus_text_widget,
-                                            "standout")
+                                            u"standout")
         # Run update hook, if any
         if self.update_hook is not None:
             self.update_hook()
@@ -348,13 +348,13 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
         if self.delete_hook is not None:
             self.delete_hook(self)
     
-    def render(self, (maxcol,), focus=False):
+    def render(self, maxcolrow, focus=False):
         """Render differently if we have focus.
         This overrides the method from urwid.FlowWidget"""
-        return self.current_widget(focus).render((maxcol,),
+        return self.current_widget(focus).render(maxcolrow,
                                                  focus=focus)
     
-    def keypress(self, (maxcol,), key):
+    def keypress(self, maxcolrow, key):
         """Handle keys.
         This overrides the method from urwid.FlowWidget"""
         if key == u"+":
@@ -403,9 +403,8 @@ class ConstrainedListBox(urwid.ListBox):
     "down" key presses, thus not allowing any containing widgets to
     use them as an excuse to shift focus away from this widget.
     """
-    def keypress(self, (maxcol, maxrow), key):
-        ret = super(ConstrainedListBox, self).keypress((maxcol,
-                                                        maxrow), key)
+    def keypress(self, maxcolrow, key):
+        ret = super(ConstrainedListBox, self).keypress(maxcolrow, key)
         if ret in (u"up", u"down"):
             return
         return ret
