@@ -81,13 +81,13 @@ except AttributeError:
         SO_BINDTODEVICE = None
 
 
-version = "1.2.3"
+version = u"1.2.3"
 
 #logger = logging.getLogger(u'mandos')
 logger = logging.Logger(u'mandos')
 syslogger = (logging.handlers.SysLogHandler
              (facility = logging.handlers.SysLogHandler.LOG_DAEMON,
-              address = "/dev/log"))
+              address = u"/dev/log"))
 syslogger.setFormatter(logging.Formatter
                        (u'Mandos [%(process)d]: %(levelname)s:'
                         u' %(message)s'))
@@ -314,7 +314,7 @@ class Client(object):
         elif u"secfile" in config:
             with open(os.path.expanduser(os.path.expandvars
                                          (config[u"secfile"])),
-                      "rb") as secfile:
+                      u"rb") as secfile:
                 self.secret = secfile.read()
         else:
             raise TypeError(u"No secret or secfile for client %s"
@@ -372,7 +372,7 @@ class Client(object):
     
     def disable(self, quiet=True):
         """Disable this client."""
-        if not getattr(self, "enabled", False):
+        if not getattr(self, u"enabled", False):
             return False
         if not quiet:
             self.send_changedstate()
@@ -663,8 +663,8 @@ class DBusObjectWithProperties(dbus.service.Object):
     
     @dbus.service.method(dbus.INTROSPECTABLE_IFACE,
                          out_signature=u"s",
-                         path_keyword='object_path',
-                         connection_keyword='connection')
+                         path_keyword=u'object_path',
+                         connection_keyword=u'connection')
     def Introspect(self, object_path, connection):
         """Standard D-Bus method, overloaded to insert property tags.
         """
@@ -742,7 +742,7 @@ class ClientDBus(Client, DBusObjectWithProperties):
         old_value = self._approvals_pending
         self._approvals_pending = value
         bval = bool(value)
-        if (hasattr(self, "dbus_object_path")
+        if (hasattr(self, u"dbus_object_path")
             and bval is not bool(old_value)):
             dbus_bool = dbus.Boolean(bval, variant_level=1)
             self.PropertyChanged(dbus.String(u"ApprovalPending"),
@@ -1138,27 +1138,27 @@ class ClientDBus(Client, DBusObjectWithProperties):
 class ProxyClient(object):
     def __init__(self, child_pipe, fpr, address):
         self._pipe = child_pipe
-        self._pipe.send(('init', fpr, address))
+        self._pipe.send((u'init', fpr, address))
         if not self._pipe.recv():
             raise KeyError()
 
     def __getattribute__(self, name):
-        if(name == '_pipe'):
+        if(name == u'_pipe'):
             return super(ProxyClient, self).__getattribute__(name)
-        self._pipe.send(('getattr', name))
+        self._pipe.send((u'getattr', name))
         data = self._pipe.recv()
-        if data[0] == 'data':
+        if data[0] == u'data':
             return data[1]
-        if data[0] == 'function':
+        if data[0] == u'function':
             def func(*args, **kwargs):
-                self._pipe.send(('funcall', name, args, kwargs))
+                self._pipe.send((u'funcall', name, args, kwargs))
                 return self._pipe.recv()[1]
             return func
 
     def __setattr__(self, name, value):
-        if(name == '_pipe'):
+        if(name == u'_pipe'):
             return super(ProxyClient, self).__setattr__(name, value)
-        self._pipe.send(('setattr', name, value))
+        self._pipe.send((u'setattr', name, value))
 
 
 class ClientHandler(socketserver.BaseRequestHandler, object):
@@ -1244,7 +1244,7 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
                                        client.name)
                         if self.server.use_dbus:
                             # Emit D-Bus signal
-                            client.Rejected("Disabled")                    
+                            client.Rejected(u"Disabled")                    
                         return
                     
                     if client._approved or not client.approval_delay:
@@ -1263,7 +1263,7 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
                                        client.name)
                         if self.server.use_dbus:
                             # Emit D-Bus signal
-                            client.Rejected("Denied")
+                            client.Rejected(u"Denied")
                         return
                     
                     #wait until timeout or approved
@@ -1275,12 +1275,12 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
                     time2 = datetime.datetime.now()
                     if (time2 - time) >= delay:
                         if not client.approved_by_default:
-                            logger.warning("Client %s timed out while"
-                                           " waiting for approval",
+                            logger.warning(u"Client %s timed out while"
+                                           u" waiting for approval",
                                            client.name)
                             if self.server.use_dbus:
                                 # Emit D-Bus signal
-                                client.Rejected("Approval timed out")
+                                client.Rejected(u"Approval timed out")
                             return
                         else:
                             break
@@ -1292,7 +1292,7 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
                     try:
                         sent = session.send(client.secret[sent_size:])
                     except (gnutls.errors.GNUTLSError), error:
-                        logger.warning("gnutls send failed")
+                        logger.warning(u"gnutls send failed")
                         return
                     logger.debug(u"Sent: %d, remaining: %d",
                                  sent, len(client.secret)
@@ -1312,7 +1312,7 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
                 try:
                     session.bye()
                 except (gnutls.errors.GNUTLSError), error:
-                    logger.warning("GnuTLS bye failed")
+                    logger.warning(u"GnuTLS bye failed")
     
     @staticmethod
     def peer_certificate(session):
@@ -1520,7 +1520,7 @@ class MandosServer(IPv6_TCPServer):
                                     # broken, usually for pipes and
                                     # sockets).
             }
-        conditions_string = ' | '.join(name
+        conditions_string = u' | '.join(name
                                        for cond, name in
                                        condition_names.iteritems()
                                        if cond & condition)
@@ -1532,7 +1532,7 @@ class MandosServer(IPv6_TCPServer):
         request = parent_pipe.recv()
         command = request[0]
         
-        if command == 'init':
+        if command == u'init':
             fpr = request[1]
             address = request[2]
             
@@ -1557,21 +1557,21 @@ class MandosServer(IPv6_TCPServer):
             parent_pipe.send(True)
             # remove the old hook in favor of the new above hook on same fileno
             return False
-        if command == 'funcall':
+        if command == u'funcall':
             funcname = request[1]
             args = request[2]
             kwargs = request[3]
             
-            parent_pipe.send(('data', getattr(client_object, funcname)(*args, **kwargs)))
+            parent_pipe.send((u'data', getattr(client_object, funcname)(*args, **kwargs)))
 
-        if command == 'getattr':
+        if command == u'getattr':
             attrname = request[1]
             if callable(client_object.__getattribute__(attrname)):
-                parent_pipe.send(('function',))
+                parent_pipe.send((u'function',))
             else:
-                parent_pipe.send(('data', client_object.__getattribute__(attrname)))
+                parent_pipe.send((u'data', client_object.__getattribute__(attrname)))
         
-        if command == 'setattr':
+        if command == u'setattr':
             attrname = request[1]
             value = request[2]
             setattr(client_object, attrname, value)
@@ -1672,32 +1672,32 @@ def main():
     ##################################################################
     # Parsing of options, both command line and config file
     
-    parser = optparse.OptionParser(version = "%%prog %s" % version)
-    parser.add_option("-i", u"--interface", type=u"string",
-                      metavar="IF", help=u"Bind to interface IF")
-    parser.add_option("-a", u"--address", type=u"string",
+    parser = optparse.OptionParser(version = u"%%prog %s" % version)
+    parser.add_option(u"-i", u"--interface", type=u"string",
+                      metavar=u"IF", help=u"Bind to interface IF")
+    parser.add_option(u"-a", u"--address", type=u"string",
                       help=u"Address to listen for requests on")
-    parser.add_option("-p", u"--port", type=u"int",
+    parser.add_option(u"-p", u"--port", type=u"int",
                       help=u"Port number to receive requests on")
-    parser.add_option("--check", action=u"store_true",
+    parser.add_option(u"--check", action=u"store_true",
                       help=u"Run self-test")
-    parser.add_option("--debug", action=u"store_true",
+    parser.add_option(u"--debug", action=u"store_true",
                       help=u"Debug mode; run in foreground and log to"
                       u" terminal")
-    parser.add_option("--debuglevel", type=u"string", metavar="LEVEL",
+    parser.add_option(u"--debuglevel", type=u"string", metavar="LEVEL",
                       help=u"Debug level for stdout output")
-    parser.add_option("--priority", type=u"string", help=u"GnuTLS"
+    parser.add_option(u"--priority", type=u"string", help=u"GnuTLS"
                       u" priority string (see GnuTLS documentation)")
-    parser.add_option("--servicename", type=u"string",
+    parser.add_option(u"--servicename", type=u"string",
                       metavar=u"NAME", help=u"Zeroconf service name")
-    parser.add_option("--configdir", type=u"string",
+    parser.add_option(u"--configdir", type=u"string",
                       default=u"/etc/mandos", metavar=u"DIR",
                       help=u"Directory to search for configuration"
                       u" files")
-    parser.add_option("--no-dbus", action=u"store_false",
+    parser.add_option(u"--no-dbus", action=u"store_false",
                       dest=u"use_dbus", help=u"Do not provide D-Bus"
                       u" system bus interface")
-    parser.add_option("--no-ipv6", action=u"store_false",
+    parser.add_option(u"--no-ipv6", action=u"store_false",
                       dest=u"use_ipv6", help=u"Do not use IPv6")
     options = parser.parse_args()[0]
     
@@ -1730,8 +1730,8 @@ def main():
     for option in (u"debug", u"use_dbus", u"use_ipv6"):
         server_settings[option] = server_config.getboolean(u"DEFAULT",
                                                            option)
-    if server_settings["port"]:
-        server_settings["port"] = server_config.getint(u"DEFAULT",
+    if server_settings[u"port"]:
+        server_settings[u"port"] = server_config.getint(u"DEFAULT",
                                                        u"port")
     del server_config
     
@@ -1871,7 +1871,7 @@ def main():
     service = AvahiService(name = server_settings[u"servicename"],
                            servicetype = u"_mandos._tcp",
                            protocol = protocol, bus = bus)
-    if server_settings["interface"]:
+    if server_settings[u"interface"]:
         service.interface = (if_nametoindex
                              (str(server_settings[u"interface"])))
     
@@ -1883,9 +1883,9 @@ def main():
         client_class = functools.partial(ClientDBus, bus = bus)
     def client_config_items(config, section):
         special_settings = {
-            "approved_by_default":
+            u"approved_by_default":
                 lambda: config.getboolean(section,
-                                          "approved_by_default"),
+                                          u"approved_by_default"),
             }
         for name, value in config.items(section):
             try:
@@ -1905,7 +1905,7 @@ def main():
         try:
             with pidfile:
                 pid = os.getpid()
-                pidfile.write(str(pid) + "\n")
+                pidfile.write(str(pid) + u"\n".encode("utf-8"))
             del pidfile
         except IOError:
             logger.error(u"Could not write to file %r with PID %d",
@@ -2006,7 +2006,7 @@ def main():
     service.port = tcp_server.socket.getsockname()[1]
     if use_ipv6:
         logger.info(u"Now listening on address %r, port %d,"
-                    " flowinfo %d, scope_id %d"
+                    u" flowinfo %d, scope_id %d"
                     % tcp_server.socket.getsockname())
     else:                       # IPv4
         logger.info(u"Now listening on address %r, port %d"
@@ -2043,5 +2043,5 @@ def main():
     # Must run before the D-Bus bus name gets deregistered
     cleanup()
 
-if __name__ == '__main__':
+if __name__ == u'__main__':
     main()
