@@ -31,7 +31,8 @@
 # Contact the authors at <mandos@fukt.bsnet.se>.
 # 
 
-from __future__ import division, absolute_import, unicode_literals
+from __future__ import (division, absolute_import, print_function,
+                        unicode_literals)
 
 import SocketServer as socketserver
 import socket
@@ -2037,7 +2038,7 @@ def main():
         sys.exit(1)
     except KeyboardInterrupt:
         if debug:
-            print >> sys.stderr
+            print("", file=sys.stderr)
         logger.debug("Server received KeyboardInterrupt")
     logger.debug("Server exiting")
     # Must run before the D-Bus bus name gets deregistered
