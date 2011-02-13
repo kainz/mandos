@@ -88,7 +88,7 @@ version = "1.2.3"
 logger = logging.Logger('mandos')
 syslogger = (logging.handlers.SysLogHandler
              (facility = logging.handlers.SysLogHandler.LOG_DAEMON,
-              address = "/dev/log"))
+              address = str("/dev/log")))
 syslogger.setFormatter(logging.Formatter
                        ('Mandos [%(process)d]: %(levelname)s:'
                         ' %(message)s'))
