@@ -22,7 +22,8 @@
 # Contact the authors at <mandos@fukt.bsnet.se>.
 # 
 
-from __future__ import division, absolute_import, unicode_literals
+from __future__ import (division, absolute_import, print_function,
+                        unicode_literals)
 
 import sys
 import dbus
@@ -134,10 +135,10 @@ def print_clients(clients, keywords):
                                      clients))
                              for key in keywords)
     # Print header line
-    print format_string % tuple(tablewords[key] for key in keywords)
+    print(format_string % tuple(tablewords[key] for key in keywords))
     for client in clients:
-        print format_string % tuple(valuetostring(client[key], key)
-                                    for key in keywords)
+        print(format_string % tuple(valuetostring(client[key], key)
+                                    for key in keywords))
 
 def has_actions(options):
     return any((options.enable,
@@ -216,7 +217,8 @@ def main():
             bus = dbus.SystemBus()
             mandos_dbus_objc = bus.get_object(busname, server_path)
         except dbus.exceptions.DBusException:
-            print >> sys.stderr, "Could not connect to Mandos server"
+            print("Could not connect to Mandos server",
+                  file=sys.stderr)
             sys.exit(1)
     
         mandos_serv = dbus.Interface(mandos_dbus_objc,
@@ -235,7 +237,8 @@ def main():
                 os.dup2(stderrcopy, sys.stderr.fileno())
                 os.close(stderrcopy)
         except dbus.exceptions.DBusException, e:
-            print >> sys.stderr, "Access denied: Accessing mandos server through dbus."
+            print("Access denied: Accessing mandos server through dbus.",
+                  file=sys.stderr)
             sys.exit(1)
             
 	# Compile dict of (clients: properties) to process
@@ -253,7 +256,8 @@ def main():
                         clients[client_objc] = client
                         break
                 else:
-                    print >> sys.stderr, "Client not found on server: %r" % name
+                    print("Client not found on server: %r" % name,
+                          file=sys.stderr)
                     sys.exit(1)
             
 	if not has_actions(options) and clients:
