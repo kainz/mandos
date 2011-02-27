@@ -35,7 +35,8 @@
 				   SIGQUIT, SIGHUP, SIGTERM,
 				   raise() */
 #include <stddef.h>		/* NULL, size_t, ssize_t */
-#include <sys/types.h>		/* ssize_t, struct dirent, pid_t, ssize_t */
+#include <sys/types.h>		/* ssize_t, struct dirent, pid_t,
+				   ssize_t, open() */
 #include <stdlib.h>		/* EXIT_SUCCESS, EXIT_FAILURE,
 				   getenv(), free() */
 #include <dirent.h>		/* scandir(), alphasort() */
@@ -49,7 +50,7 @@
 #include <iso646.h>		/* or, not */
 #include <stdbool.h>		/* bool, false, true */
 #include <inttypes.h>		/* strtoumax() */
-#include <sys/stat.h> 		/* struct stat, lstat() */
+#include <sys/stat.h> 		/* struct stat, lstat(), open() */
 #include <string.h> 		/* strlen, rindex, memcmp */
 #include <argp.h>		/* struct argp_option, struct
 				   argp_state, struct argp,
@@ -58,6 +59,7 @@
 				   ARGP_ERR_UNKNOWN */
 #include <sysexits.h>		/* EX_SOFTWARE, EX_OSERR,
 				   EX_UNAVAILABLE, EX_IOERR, EX_OK */
+#include <fcntl.h>		/* open() */
 
 volatile sig_atomic_t quit_now = 0;
 int signal_received;
@@ -66,7 +68,7 @@ const char *argp_program_version = "password-prompt " VERSION;
 const char *argp_program_bug_address = "<mandos@fukt.bsnet.se>";
 
 /* Needed for conflic resolution */
-const char plymouthd_path[] = "/sbin/plymouth";
+const char plymouthd_name[] = "plymouthd";
 
 
 static void termination_handler(int signum){
@@ -79,12 +81,13 @@ static void termination_handler(int signum){
 
 bool conflict_detection(void){
 
-  /* plymouth conflicts with password-promt since both want to control the
-     associated terminal. Password-prompt exit since plymouth perferms the same
-     functionallity.
+  /* plymouth conflicts with password-prompt since both want to read
+     from the terminal.  Password-prompt will exit if it detects
+     plymouth since plymouth performs the same functionality.
    */
   int is_plymouth(const struct dirent *proc_entry){
     int ret;
+    int cl_fd;
     {
       uintmax_t maxvalue;
       char *tmp;
@@ -96,38 +99,77 @@ bool conflict_detection(void){
 	return 0;
       }
     }
-    char exe_target[sizeof(plymouthd_path)];
-    char *exe_link;
-    ret = asprintf(&exe_link, "/proc/%s/exe", proc_entry->d_name);
+    
+    char *cmdline_filename;
+    ret = asprintf(&cmdline_filename, "/proc/%s/cmdline", proc_entry->d_name);
     if(ret == -1){
       error(0, errno, "asprintf");
       return 0;
     }
-  
-    struct stat exe_stat;
-    ret = lstat(exe_link, &exe_stat);
-    if(ret == -1){
-      free(exe_link);
-      if(errno != ENOENT){
-	error(0, errno, "lstat");
+    
+    /* Open /proc/<pid>/cmdline  */
+    cl_fd = open(cmdline_filename, O_RDONLY);
+    free(cmdline_filename);
+    if(cl_fd == -1){
+      error(0, errno, "open");
+      return 0;
+    }
+    
+    char *cmdline = NULL;
+    {
+      size_t cmdline_len = 0;
+      size_t cmdline_allocated = 0;
+      char *tmp;
+      const size_t blocksize = 1024;
+      ssize_t sret;
+      do {
+	/* Allocate more space? */
+	if(cmdline_len + blocksize + 1 > cmdline_allocated){
+	  tmp = realloc(cmdline, cmdline_allocated + blocksize + 1);
+	  if(tmp == NULL){
+	    error(0, errno, "realloc");
+	    free(cmdline);
+	    close(cl_fd);
+	    return 0;
+	  }
+	  cmdline = tmp;
+	  cmdline_allocated += blocksize;
+	}
+	
+	/* Read data */
+	sret = read(cl_fd, cmdline + cmdline_len,
+		    cmdline_allocated - cmdline_len);
+	if(sret == -1){
+	  error(0, errno, "read");
+	  free(cmdline);
+	  close(cl_fd);
+	  return 0;
+	}
+	cmdline_len += (size_t)sret;
+      } while(sret != 0);
+      ret = close(cl_fd);
+      if(ret == -1){
+	error(0, errno, "close");
+	free(cmdline);
+	return 0;
       }
+      cmdline[cmdline_len] = '\0'; /* Make sure it is terminated */
+    }
+    /* we now have cmdline */
+    
+    /* get basename */
+    char *cmdline_base = strrchr(cmdline, '/');
+    if(cmdline_base != NULL){
+      cmdline_base += 1;		/* skip the slash */
+    } else {
+      cmdline_base = cmdline;
+    }
+    
+    if(strcmp(cmdline_base, plymouthd_name) != 0){
+      free(cmdline);
       return 0;
     }
-  
-    if(not S_ISLNK(exe_stat.st_mode)
-       or exe_stat.st_uid != 0
-       or exe_stat.st_gid != 0){
-      free(exe_link);
-      return 0;
-    }
-  
-    ssize_t sret = readlink(exe_link, exe_target, sizeof(exe_target));
-    free(exe_link);
-    if((sret != (ssize_t)sizeof(plymouthd_path)-1) or
-       (memcmp(plymouthd_path, exe_target,
-	       sizeof(plymouthd_path)-1) != 0)){
-      return 0;
-    }
+    free(cmdline);
     return 1;
   }
 
@@ -137,11 +179,7 @@ bool conflict_detection(void){
   if (ret == -1){
     error(1, errno, "scandir");
   }
-  if (ret < 0){
-    return 1;
-  } else {
-    return 0;
-  }
+  return ret > 0;
 }
 
 
