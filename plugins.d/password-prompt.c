@@ -67,8 +67,9 @@ bool debug = false;
 const char *argp_program_version = "password-prompt " VERSION;
 const char *argp_program_bug_address = "<mandos@fukt.bsnet.se>";
 
-/* Needed for conflic resolution */
-const char plymouthd_name[] = "plymouthd";
+/* Needed for conflict resolution */
+const char plymouth_name[] = "plymouthd";
+const char plymouth_alt_name[] = "plymouthd";
 
 
 static void termination_handler(int signum){
@@ -165,7 +166,8 @@ bool conflict_detection(void){
       cmdline_base = cmdline;
     }
     
-    if(strcmp(cmdline_base, plymouthd_name) != 0){
+    if((strcmp(cmdline_base, plymouth_name) != 0)
+       and (strcmp(cmdline_base, plymouth_alt_name) != 0)){
       free(cmdline);
       return 0;
     }
