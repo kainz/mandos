@@ -37,7 +37,7 @@ Package: mandos-client
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}, adduser, cryptsetup,
 	gnupg (<< 2)
-Conflicts: dropbear (< 0.52-5)
+Conflicts: dropbear (<< 0.52-5)
 Enhances: cryptsetup
 Description: do unattended reboots with an encrypted root file system
  This is the client part of the Mandos system, which allows
