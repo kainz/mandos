@@ -1408,7 +1408,7 @@ class MultiprocessingMixInWithPipe(MultiprocessingMixIn, object):
 
     def add_pipe(self, parent_pipe):
         """Dummy function; override as necessary"""
-        pass
+        raise NotImplementedError
 
 class IPv6_TCPServer(MultiprocessingMixInWithPipe,
                      socketserver.TCPServer, object):
@@ -1613,7 +1613,7 @@ def string_to_delta(interval):
             else:
                 raise ValueError(u"Unknown suffix %r" % suffix)
         except (ValueError, IndexError), e:
-            raise ValueError(e.message)
+            raise ValueError(*(e.args))
         timevalue += delta
     return timevalue
 
