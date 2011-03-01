@@ -24,7 +24,7 @@
 
 #define _GNU_SOURCE		/* getline(), asprintf() */
 
-#include <termios.h> 		/* struct termios, tcsetattr(),
+#include <termios.h>		/* struct termios, tcsetattr(),
 				   TCSAFLUSH, tcgetattr(), ECHO */
 #include <unistd.h>		/* struct termios, tcsetattr(),
 				   STDIN_FILENO, TCSAFLUSH,
@@ -50,8 +50,8 @@
 #include <iso646.h>		/* or, not */
 #include <stdbool.h>		/* bool, false, true */
 #include <inttypes.h>		/* strtoumax() */
-#include <sys/stat.h> 		/* struct stat, lstat(), open() */
-#include <string.h> 		/* strlen, rindex, memcmp */
+#include <sys/stat.h>		/* struct stat, lstat(), open() */
+#include <string.h>		/* strlen, rindex, memcmp */
 #include <argp.h>		/* struct argp_option, struct
 				   argp_state, struct argp,
 				   argp_parse(), error_t,
@@ -102,13 +102,14 @@ bool conflict_detection(void){
     }
     
     char *cmdline_filename;
-    ret = asprintf(&cmdline_filename, "/proc/%s/cmdline", proc_entry->d_name);
+    ret = asprintf(&cmdline_filename, "/proc/%s/cmdline",
+		   proc_entry->d_name);
     if(ret == -1){
       error(0, errno, "asprintf");
       return 0;
     }
     
-    /* Open /proc/<pid>/cmdline  */
+    /* Open /proc/<pid>/cmdline */
     cl_fd = open(cmdline_filename, O_RDONLY);
     free(cmdline_filename);
     if(cl_fd == -1){
@@ -168,13 +169,19 @@ bool conflict_detection(void){
     
     if((strcmp(cmdline_base, plymouth_name) != 0)
        and (strcmp(cmdline_base, plymouth_alt_name) != 0)){
+      if(debug){
+	fprintf(stderr, "\"%s\" is not \"%s\" or \"%s\"\n",
+		cmdline_base, plymouth_name, plymouth_alt_name);
+      }
       free(cmdline);
       return 0;
     }
+    fprintf(stderr, "\"%s\" equals \"%s\" or \"%s\"\n",
+	    cmdline_base, plymouth_name, plymouth_alt_name);
     free(cmdline);
     return 1;
   }
-
+  
   struct dirent **direntries;
   int ret;
   ret = scandir("/proc", &direntries, is_plymouth, alphasort);
@@ -269,7 +276,7 @@ int main(int argc, char **argv){
 
   if (conflict_detection()){
     if(debug){
-      fprintf(stderr, "Stopping %s because of conflict", argv[0]);
+      fprintf(stderr, "Stopping %s because of conflict\n", argv[0]);
     }
     return EXIT_FAILURE;
   }
@@ -477,8 +484,8 @@ int main(int argc, char **argv){
 	break;
       }
     }
-    /* if(sret == 0), then the only sensible thing to do is to retry to
-       read from stdin */
+    /* if(sret == 0), then the only sensible thing to do is to retry
+       to read from stdin */
     fputc('\n', stderr);
     if(debug and not quit_now){
       /* If quit_now is nonzero, we were interrupted by a signal, and
