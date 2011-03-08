@@ -69,8 +69,6 @@ const char *argp_program_bug_address = "<mandos@fukt.bsnet.se>";
 
 /* Needed for conflict resolution */
 const char plymouth_name[] = "plymouthd";
-const char plymouth_alt_name[] = "plymouthd";
-
 
 static void termination_handler(int signum){
   if(quit_now){
@@ -167,17 +165,18 @@ bool conflict_detection(void){
       cmdline_base = cmdline;
     }
     
-    if((strcmp(cmdline_base, plymouth_name) != 0)
-       and (strcmp(cmdline_base, plymouth_alt_name) != 0)){
+    if(strcmp(cmdline_base, plymouth_name) != 0){
       if(debug){
-	fprintf(stderr, "\"%s\" is not \"%s\" or \"%s\"\n",
-		cmdline_base, plymouth_name, plymouth_alt_name);
+	fprintf(stderr, "\"%s\" is not \"%s\"\n", cmdline_base,
+		plymouth_name);
       }
       free(cmdline);
       return 0;
     }
-    fprintf(stderr, "\"%s\" equals \"%s\" or \"%s\"\n",
-	    cmdline_base, plymouth_name, plymouth_alt_name);
+    if(debug){
+      fprintf(stderr, "\"%s\" equals \"%s\"\n", cmdline_base,
+	      plymouth_name);
+    }
     free(cmdline);
     return 1;
   }
