@@ -22,7 +22,9 @@
 # Contact the authors at <mandos@fukt.bsnet.se>.
 # 
 
-from __future__ import division
+from __future__ import (division, absolute_import, print_function,
+                        unicode_literals)
+
 import sys
 import dbus
 from optparse import OptionParser
@@ -31,43 +33,43 @@ import datetime
 import re
 import os
 
-locale.setlocale(locale.LC_ALL, u'')
+locale.setlocale(locale.LC_ALL, "")
 
 tablewords = {
-    'Name': u'Name',
-    'Enabled': u'Enabled',
-    'Timeout': u'Timeout',
-    'LastCheckedOK': u'Last Successful Check',
-    'LastApprovalRequest': u'Last Approval Request',
-    'Created': u'Created',
-    'Interval': u'Interval',
-    'Host': u'Host',
-    'Fingerprint': u'Fingerprint',
-    'CheckerRunning': u'Check Is Running',
-    'LastEnabled': u'Last Enabled',
-    'ApprovalPending': u'Approval Is Pending',
-    'ApprovedByDefault': u'Approved By Default',
-    'ApprovalDelay': u"Approval Delay",
-    'ApprovalDuration': u"Approval Duration",
-    'Checker': u'Checker',
+    "Name": "Name",
+    "Enabled": "Enabled",
+    "Timeout": "Timeout",
+    "LastCheckedOK": "Last Successful Check",
+    "LastApprovalRequest": "Last Approval Request",
+    "Created": "Created",
+    "Interval": "Interval",
+    "Host": "Host",
+    "Fingerprint": "Fingerprint",
+    "CheckerRunning": "Check Is Running",
+    "LastEnabled": "Last Enabled",
+    "ApprovalPending": "Approval Is Pending",
+    "ApprovedByDefault": "Approved By Default",
+    "ApprovalDelay": "Approval Delay",
+    "ApprovalDuration": "Approval Duration",
+    "Checker": "Checker",
     }
-defaultkeywords = ('Name', 'Enabled', 'Timeout', 'LastCheckedOK')
-domain = 'se.bsnet.fukt'
-busname = domain + '.Mandos'
-server_path = '/'
-server_interface = domain + '.Mandos'
-client_interface = domain + '.Mandos.Client'
+defaultkeywords = ("Name", "Enabled", "Timeout", "LastCheckedOK")
+domain = "se.bsnet.fukt"
+busname = domain + ".Mandos"
+server_path = "/"
+server_interface = domain + ".Mandos"
+client_interface = domain + ".Mandos.Client"
 version = "1.2.3"
 
 def timedelta_to_milliseconds(td):
-    "Convert a datetime.timedelta object to milliseconds"
+    """Convert a datetime.timedelta object to milliseconds"""
     return ((td.days * 24 * 60 * 60 * 1000)
             + (td.seconds * 1000)
             + (td.microseconds // 1000))
 
 def milliseconds_to_string(ms):
     td = datetime.timedelta(0, 0, 0, ms)
-    return (u"%(days)s%(hours)02d:%(minutes)02d:%(seconds)02d"
+    return ("%(days)s%(hours)02d:%(minutes)02d:%(seconds)02d"
             % { "days": "%dT" % td.days if td.days else "",
                 "hours": td.seconds // 3600,
                 "minutes": (td.seconds % 3600) // 60,
@@ -78,17 +80,17 @@ def milliseconds_to_string(ms):
 def string_to_delta(interval):
     """Parse a string and return a datetime.timedelta
 
-    >>> string_to_delta('7d')
+    >>> string_to_delta("7d")
     datetime.timedelta(7)
-    >>> string_to_delta('60s')
+    >>> string_to_delta("60s")
     datetime.timedelta(0, 60)
-    >>> string_to_delta('60m')
+    >>> string_to_delta("60m")
     datetime.timedelta(0, 3600)
-    >>> string_to_delta('24h')
+    >>> string_to_delta("24h")
     datetime.timedelta(1)
-    >>> string_to_delta(u'1w')
+    >>> string_to_delta("1w")
     datetime.timedelta(7)
-    >>> string_to_delta('5m 30s')
+    >>> string_to_delta("5m 30s")
     datetime.timedelta(0, 330)
     """
     timevalue = datetime.timedelta(0)
@@ -98,15 +100,15 @@ def string_to_delta(interval):
         try:
             suffix = unicode(s[-1])
             value = int(s[:-1])
-            if suffix == u"d":
+            if suffix == "d":
                 delta = datetime.timedelta(value)
-            elif suffix == u"s":
+            elif suffix == "s":
                 delta = datetime.timedelta(0, value)
-            elif suffix == u"m":
+            elif suffix == "m":
                 delta = datetime.timedelta(0, 0, 0, 0, value)
-            elif suffix == u"h":
+            elif suffix == "h":
                 delta = datetime.timedelta(0, 0, 0, 0, 0, value)
-            elif suffix == u"w":
+            elif suffix == "w":
                 delta = datetime.timedelta(0, 0, 0, 0, 0, 0, value)
             else:
                 raise ValueError
@@ -118,25 +120,25 @@ def string_to_delta(interval):
 def print_clients(clients, keywords):
     def valuetostring(value, keyword):
         if type(value) is dbus.Boolean:
-            return u"Yes" if value else u"No"
-        if keyword in (u"Timeout", u"Interval", u"ApprovalDelay",
-                       u"ApprovalDuration"):
+            return "Yes" if value else "No"
+        if keyword in ("Timeout", "Interval", "ApprovalDelay",
+                       "ApprovalDuration"):
             return milliseconds_to_string(value)
         return unicode(value)
     
     # Create format string to print table rows
-    format_string = u' '.join(u'%%-%ds' %
-                              max(len(tablewords[key]),
-                                  max(len(valuetostring(client[key],
-                                                        key))
-                                      for client in
-                                      clients))
-                              for key in keywords)
+    format_string = " ".join("%%-%ds" %
+                             max(len(tablewords[key]),
+                                 max(len(valuetostring(client[key],
+                                                       key))
+                                     for client in
+                                     clients))
+                             for key in keywords)
     # Print header line
-    print format_string % tuple(tablewords[key] for key in keywords)
+    print(format_string % tuple(tablewords[key] for key in keywords))
     for client in clients:
-        print format_string % tuple(valuetostring(client[key], key)
-                                    for key in keywords)
+        print(format_string % tuple(valuetostring(client[key], key)
+                                    for key in keywords))
 
 def has_actions(options):
     return any((options.enable,
@@ -184,10 +186,10 @@ def main():
 	parser.add_option("-i", "--interval", type="string",
 	                  help="Set checker interval for client")
         parser.add_option("--approve-by-default", action="store_true",
-                          dest=u"approved_by_default",
+                          dest="approved_by_default",
                           help="Set client to be approved by default")
         parser.add_option("--deny-by-default", action="store_false",
-                          dest=u"approved_by_default",
+                          dest="approved_by_default",
                           help="Set client to be denied by default")
         parser.add_option("--approval-delay", type="string",
                           help="Set delay before client approve/deny")
@@ -204,18 +206,19 @@ def main():
 	options, client_names = parser.parse_args()
         
         if has_actions(options) and not client_names and not options.all:
-            parser.error('Options require clients names or --all.')
+            parser.error("Options require clients names or --all.")
         if options.verbose and has_actions(options):
-            parser.error('--verbose can only be used alone or with'
-                         ' --all.')
+            parser.error("--verbose can only be used alone or with"
+                         " --all.")
         if options.all and not has_actions(options):
-            parser.error('--all requires an action.')
+            parser.error("--all requires an action.")
         
         try:
             bus = dbus.SystemBus()
             mandos_dbus_objc = bus.get_object(busname, server_path)
         except dbus.exceptions.DBusException:
-            print >> sys.stderr, "Could not connect to Mandos server"
+            print("Could not connect to Mandos server",
+                  file=sys.stderr)
             sys.exit(1)
     
         mandos_serv = dbus.Interface(mandos_dbus_objc,
@@ -234,7 +237,8 @@ def main():
                 os.dup2(stderrcopy, sys.stderr.fileno())
                 os.close(stderrcopy)
         except dbus.exceptions.DBusException, e:
-            print >> sys.stderr, "Access denied: Accessing mandos server through dbus."
+            print("Access denied: Accessing mandos server through dbus.",
+                  file=sys.stderr)
             sys.exit(1)
             
 	# Compile dict of (clients: properties) to process
@@ -247,23 +251,24 @@ def main():
         else:
             for name in client_names:
                 for path, client in mandos_clients.iteritems():
-                    if client['Name'] == name:
+                    if client["Name"] == name:
                         client_objc = bus.get_object(busname, path)
                         clients[client_objc] = client
                         break
                 else:
-                    print >> sys.stderr, "Client not found on server: %r" % name
+                    print("Client not found on server: %r" % name,
+                          file=sys.stderr)
                     sys.exit(1)
             
 	if not has_actions(options) and clients:
 	    if options.verbose:
-	        keywords = ('Name', 'Enabled', 'Timeout',
-                            'LastCheckedOK', 'Created', 'Interval',
-                            'Host', 'Fingerprint', 'CheckerRunning',
-                            'LastEnabled', 'ApprovalPending',
-                            'ApprovedByDefault',
-                            'LastApprovalRequest', 'ApprovalDelay',
-                            'ApprovalDuration', 'Checker')
+	        keywords = ("Name", "Enabled", "Timeout",
+                            "LastCheckedOK", "Created", "Interval",
+                            "Host", "Fingerprint", "CheckerRunning",
+                            "LastEnabled", "ApprovalPending",
+                            "ApprovedByDefault",
+                            "LastApprovalRequest", "ApprovalDelay",
+                            "ApprovalDuration", "Checker")
             else:
                 keywords = defaultkeywords
             
@@ -285,44 +290,44 @@ def main():
                     client.StopChecker(dbus_interface=client_interface)
                 if options.is_enabled:
                     sys.exit(0 if client.Get(client_interface,
-                                             u"Enabled",
+                                             "Enabled",
                                              dbus_interface=dbus.PROPERTIES_IFACE)
                              else 1)
                 if options.checker:
-                    client.Set(client_interface, u"Checker", options.checker,
+                    client.Set(client_interface, "Checker", options.checker,
                                dbus_interface=dbus.PROPERTIES_IFACE)
                 if options.host:
-                    client.Set(client_interface, u"Host", options.host,
+                    client.Set(client_interface, "Host", options.host,
                                dbus_interface=dbus.PROPERTIES_IFACE)
                 if options.interval:
-                    client.Set(client_interface, u"Interval",
+                    client.Set(client_interface, "Interval",
                                timedelta_to_milliseconds
                                (string_to_delta(options.interval)),
                                dbus_interface=dbus.PROPERTIES_IFACE)
                 if options.approval_delay:
-                    client.Set(client_interface, u"ApprovalDelay",
+                    client.Set(client_interface, "ApprovalDelay",
                                timedelta_to_milliseconds
                                (string_to_delta(options.
                                                 approval_delay)),
                                dbus_interface=dbus.PROPERTIES_IFACE)
                 if options.approval_duration:
-                    client.Set(client_interface, u"ApprovalDuration",
+                    client.Set(client_interface, "ApprovalDuration",
                                timedelta_to_milliseconds
                                (string_to_delta(options.
                                                 approval_duration)),
                                dbus_interface=dbus.PROPERTIES_IFACE)
                 if options.timeout:
-                    client.Set(client_interface, u"Timeout",
+                    client.Set(client_interface, "Timeout",
                                timedelta_to_milliseconds
                                (string_to_delta(options.timeout)),
                                dbus_interface=dbus.PROPERTIES_IFACE)
                 if options.secret:
-                    client.Set(client_interface, u"Secret",
+                    client.Set(client_interface, "Secret",
                                dbus.ByteArray(open(options.secret,
-                                                   u'rb').read()),
+                                                   "rb").read()),
                                dbus_interface=dbus.PROPERTIES_IFACE)
                 if options.approved_by_default is not None:
-                    client.Set(client_interface, u"ApprovedByDefault",
+                    client.Set(client_interface, "ApprovedByDefault",
                                dbus.Boolean(options
                                             .approved_by_default),
                                dbus_interface=dbus.PROPERTIES_IFACE)
@@ -333,5 +338,5 @@ def main():
                     client.Approve(dbus.Boolean(False),
                                    dbus_interface=client_interface)
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

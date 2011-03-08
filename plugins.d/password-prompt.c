@@ -22,22 +22,24 @@
  * Contact the authors at <mandos@fukt.bsnet.se>.
  */
 
-#define _GNU_SOURCE		/* getline() */
+#define _GNU_SOURCE		/* getline(), asprintf() */
 
-#include <termios.h> 		/* struct termios, tcsetattr(),
+#include <termios.h>		/* struct termios, tcsetattr(),
 				   TCSAFLUSH, tcgetattr(), ECHO */
 #include <unistd.h>		/* struct termios, tcsetattr(),
 				   STDIN_FILENO, TCSAFLUSH,
-				   tcgetattr(), ECHO */
+				   tcgetattr(), ECHO, readlink() */
 #include <signal.h>		/* sig_atomic_t, raise(), struct
 				   sigaction, sigemptyset(),
 				   sigaction(), sigaddset(), SIGINT,
 				   SIGQUIT, SIGHUP, SIGTERM,
 				   raise() */
 #include <stddef.h>		/* NULL, size_t, ssize_t */
-#include <sys/types.h>		/* ssize_t */
+#include <sys/types.h>		/* ssize_t, struct dirent, pid_t,
+				   ssize_t, open() */
 #include <stdlib.h>		/* EXIT_SUCCESS, EXIT_FAILURE,
-				   getenv() */
+				   getenv(), free() */
+#include <dirent.h>		/* scandir(), alphasort() */
 #include <stdio.h>		/* fprintf(), stderr, getline(),
 				   stdin, feof(), fputc()
 				*/
@@ -47,7 +49,9 @@
 #include <error.h>		/* error() */
 #include <iso646.h>		/* or, not */
 #include <stdbool.h>		/* bool, false, true */
-#include <string.h> 		/* strlen, rindex */
+#include <inttypes.h>		/* strtoumax() */
+#include <sys/stat.h>		/* struct stat, lstat(), open() */
+#include <string.h>		/* strlen, rindex, memcmp */
 #include <argp.h>		/* struct argp_option, struct
 				   argp_state, struct argp,
 				   argp_parse(), error_t,
@@ -55,12 +59,16 @@
 				   ARGP_ERR_UNKNOWN */
 #include <sysexits.h>		/* EX_SOFTWARE, EX_OSERR,
 				   EX_UNAVAILABLE, EX_IOERR, EX_OK */
+#include <fcntl.h>		/* open() */
 
 volatile sig_atomic_t quit_now = 0;
 int signal_received;
 bool debug = false;
 const char *argp_program_version = "password-prompt " VERSION;
 const char *argp_program_bug_address = "<mandos@fukt.bsnet.se>";
+
+/* Needed for conflict resolution */
+const char plymouth_name[] = "plymouthd";
 
 static void termination_handler(int signum){
   if(quit_now){
@@ -69,6 +77,119 @@ static void termination_handler(int signum){
   quit_now = 1;
   signal_received = signum;
 }
+
+bool conflict_detection(void){
+
+  /* plymouth conflicts with password-prompt since both want to read
+     from the terminal.  Password-prompt will exit if it detects
+     plymouth since plymouth performs the same functionality.
+   */
+  int is_plymouth(const struct dirent *proc_entry){
+    int ret;
+    int cl_fd;
+    {
+      uintmax_t maxvalue;
+      char *tmp;
+      errno = 0;
+      maxvalue = strtoumax(proc_entry->d_name, &tmp, 10);
+      
+      if(errno != 0 or *tmp != '\0'
+	 or maxvalue != (uintmax_t)((pid_t)maxvalue)){
+	return 0;
+      }
+    }
+    
+    char *cmdline_filename;
+    ret = asprintf(&cmdline_filename, "/proc/%s/cmdline",
+		   proc_entry->d_name);
+    if(ret == -1){
+      error(0, errno, "asprintf");
+      return 0;
+    }
+    
+    /* Open /proc/<pid>/cmdline */
+    cl_fd = open(cmdline_filename, O_RDONLY);
+    free(cmdline_filename);
+    if(cl_fd == -1){
+      error(0, errno, "open");
+      return 0;
+    }
+    
+    char *cmdline = NULL;
+    {
+      size_t cmdline_len = 0;
+      size_t cmdline_allocated = 0;
+      char *tmp;
+      const size_t blocksize = 1024;
+      ssize_t sret;
+      do {
+	/* Allocate more space? */
+	if(cmdline_len + blocksize + 1 > cmdline_allocated){
+	  tmp = realloc(cmdline, cmdline_allocated + blocksize + 1);
+	  if(tmp == NULL){
+	    error(0, errno, "realloc");
+	    free(cmdline);
+	    close(cl_fd);
+	    return 0;
+	  }
+	  cmdline = tmp;
+	  cmdline_allocated += blocksize;
+	}
+	
+	/* Read data */
+	sret = read(cl_fd, cmdline + cmdline_len,
+		    cmdline_allocated - cmdline_len);
+	if(sret == -1){
+	  error(0, errno, "read");
+	  free(cmdline);
+	  close(cl_fd);
+	  return 0;
+	}
+	cmdline_len += (size_t)sret;
+      } while(sret != 0);
+      ret = close(cl_fd);
+      if(ret == -1){
+	error(0, errno, "close");
+	free(cmdline);
+	return 0;
+      }
+      cmdline[cmdline_len] = '\0'; /* Make sure it is terminated */
+    }
+    /* we now have cmdline */
+    
+    /* get basename */
+    char *cmdline_base = strrchr(cmdline, '/');
+    if(cmdline_base != NULL){
+      cmdline_base += 1;		/* skip the slash */
+    } else {
+      cmdline_base = cmdline;
+    }
+    
+    if(strcmp(cmdline_base, plymouth_name) != 0){
+      if(debug){
+	fprintf(stderr, "\"%s\" is not \"%s\"\n", cmdline_base,
+		plymouth_name);
+      }
+      free(cmdline);
+      return 0;
+    }
+    if(debug){
+      fprintf(stderr, "\"%s\" equals \"%s\"\n", cmdline_base,
+	      plymouth_name);
+    }
+    free(cmdline);
+    return 1;
+  }
+  
+  struct dirent **direntries;
+  int ret;
+  ret = scandir("/proc", &direntries, is_plymouth, alphasort);
+  if (ret == -1){
+    error(1, errno, "scandir");
+  }
+  return ret > 0;
+}
+
 
 int main(int argc, char **argv){
   ssize_t sret;
@@ -151,6 +272,14 @@ int main(int argc, char **argv){
   if(debug){
     fprintf(stderr, "Starting %s\n", argv[0]);
   }
+
+  if (conflict_detection()){
+    if(debug){
+      fprintf(stderr, "Stopping %s because of conflict\n", argv[0]);
+    }
+    return EXIT_FAILURE;
+  }
+  
   if(debug){
     fprintf(stderr, "Storing current terminal attributes\n");
   }
@@ -354,8 +483,8 @@ int main(int argc, char **argv){
 	break;
       }
     }
-    /* if(sret == 0), then the only sensible thing to do is to retry to
-       read from stdin */
+    /* if(sret == 0), then the only sensible thing to do is to retry
+       to read from stdin */
     fputc('\n', stderr);
     if(debug and not quit_now){
       /* If quit_now is nonzero, we were interrupted by a signal, and
