@@ -16,7 +16,7 @@ Package: mandos
 Architecture: all
 Depends: ${misc:Depends}, python (>=2.6), python-gnutls, python-dbus,
 	python-avahi, python-gobject, avahi-daemon, adduser,
-	python-urwid
+	python-urwid, python (>=2.7) | python-argparse
 Recommends: fping
 Description: a server giving encrypted passwords to Mandos clients
  This is the server part of the Mandos system, which allows

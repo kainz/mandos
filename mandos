@@ -36,7 +36,7 @@ from __future__ import (division, absolute_import, print_function,
 
 import SocketServer as socketserver
 import socket
-import optparse
+import argparse
 import datetime
 import errno
 import gnutls.crypto
@@ -1673,34 +1673,37 @@ def main():
     ##################################################################
     # Parsing of options, both command line and config file
     
-    parser = optparse.OptionParser(version = "%%prog %s" % version)
-    parser.add_option("-i", "--interface", type="string",
-                      metavar="IF", help="Bind to interface IF")
-    parser.add_option("-a", "--address", type="string",
-                      help="Address to listen for requests on")
-    parser.add_option("-p", "--port", type="int",
-                      help="Port number to receive requests on")
-    parser.add_option("--check", action="store_true",
-                      help="Run self-test")
-    parser.add_option("--debug", action="store_true",
-                      help="Debug mode; run in foreground and log to"
-                      " terminal")
-    parser.add_option("--debuglevel", type="string", metavar="LEVEL",
-                      help="Debug level for stdout output")
-    parser.add_option("--priority", type="string", help="GnuTLS"
-                      " priority string (see GnuTLS documentation)")
-    parser.add_option("--servicename", type="string",
-                      metavar="NAME", help="Zeroconf service name")
-    parser.add_option("--configdir", type="string",
-                      default="/etc/mandos", metavar="DIR",
-                      help="Directory to search for configuration"
-                      " files")
-    parser.add_option("--no-dbus", action="store_false",
-                      dest="use_dbus", help="Do not provide D-Bus"
-                      " system bus interface")
-    parser.add_option("--no-ipv6", action="store_false",
-                      dest="use_ipv6", help="Do not use IPv6")
-    options = parser.parse_args()[0]
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-v", "--version", action="version",
+                        version = "%%(prog)s %s" % version,
+                        help="show version number and exit")
+    parser.add_argument("-i", "--interface", metavar="IF",
+                        help="Bind to interface IF")
+    parser.add_argument("-a", "--address",
+                        help="Address to listen for requests on")
+    parser.add_argument("-p", "--port", type=int,
+                        help="Port number to receive requests on")
+    parser.add_argument("--check", action="store_true",
+                        help="Run self-test")
+    parser.add_argument("--debug", action="store_true",
+                        help="Debug mode; run in foreground and log"
+                        " to terminal")
+    parser.add_argument("--debuglevel", metavar="LEVEL",
+                        help="Debug level for stdout output")
+    parser.add_argument("--priority", help="GnuTLS"
+                        " priority string (see GnuTLS documentation)")
+    parser.add_argument("--servicename",
+                        metavar="NAME", help="Zeroconf service name")
+    parser.add_argument("--configdir",
+                        default="/etc/mandos", metavar="DIR",
+                        help="Directory to search for configuration"
+                        " files")
+    parser.add_argument("--no-dbus", action="store_false",
+                        dest="use_dbus", help="Do not provide D-Bus"
+                        " system bus interface")
+    parser.add_argument("--no-ipv6", action="store_false",
+                        dest="use_ipv6", help="Do not use IPv6")
+    options = parser.parse_args()
     
     if options.check:
         import doctest
