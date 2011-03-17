@@ -111,7 +111,9 @@ bool conflict_detection(void){
     cl_fd = open(cmdline_filename, O_RDONLY);
     free(cmdline_filename);
     if(cl_fd == -1){
-      error(0, errno, "open");
+      if(errno != ENOENT){
+	error(0, errno, "open");
+      }
       return 0;
     }
     
