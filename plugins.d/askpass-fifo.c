@@ -51,19 +51,19 @@ int main(__attribute__((unused))int argc,
   ret = mkfifo(passfifo, S_IRUSR | S_IWUSR);
   if(ret == -1){
     int e = errno;
-    error(0, errno, "mkfifo");
     switch(e){
     case EACCES:
     case ENOTDIR:
     case ELOOP:
-      return EX_OSFILE;
+      error(EX_OSFILE, errno, "mkfifo");
     case ENAMETOOLONG:
     case ENOSPC:
     case EROFS:
     default:
-      return EX_OSERR;
+      error(EX_OSERR, errno, "mkfifo");
     case ENOENT:
-      return EX_UNAVAILABLE;	/* no "/lib/cryptsetup"? */
+      /* no "/lib/cryptsetup"? */
+      error(EX_UNAVAILABLE, errno, "mkfifo");
     case EEXIST:
       break;			/* not an error */
     }
