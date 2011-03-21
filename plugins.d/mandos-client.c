@@ -1113,6 +1113,14 @@ int good_interface(const struct dirent *if_entry){
     }
     return 0;
   }
+  /* Reject non-ARP interfaces (including dummy interfaces) */
+  if(flags & IFF_NOARP){
+    if(debug){
+      fprintf(stderr, "Rejecting non-ARP interface \"%s\"\n",
+	      if_entry->d_name);
+    }
+    return 0;
+  }
   /* Accept this device */
   if(debug){
     fprintf(stderr, "Interface \"%s\" is acceptable\n",
