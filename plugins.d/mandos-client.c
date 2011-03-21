@@ -1032,20 +1032,22 @@ static void handle_sigterm(int sig){
 int good_interface(const struct dirent *if_entry){
   ssize_t ssret;
   char *flagname = NULL;
+  if(if_entry->d_name[0] == '.'){
+    return 0;
+  }
   int ret = asprintf(&flagname, "%s/%s/flags", sys_class_net,
 		     if_entry->d_name);
   if(ret < 0){
     perror("asprintf");
     return 0;
   }
-  if(if_entry->d_name[0] == '.'){
-    return 0;
-  }
   int flags_fd = (int)TEMP_FAILURE_RETRY(open(flagname, O_RDONLY));
   if(flags_fd == -1){
     perror("open");
+    free(flagname);
     return 0;
   }
+  free(flagname);
   typedef short ifreq_flags;	/* ifreq.ifr_flags in netdevice(7) */
   /* read line from flags_fd */
   ssize_t to_read = (sizeof(ifreq_flags)*2)+3; /* "0x1003\n" */
