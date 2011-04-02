@@ -358,24 +358,32 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
         """Handle keys.
         This overrides the method from urwid.FlowWidget"""
         if key == "+":
-            self.proxy.Enable(dbus_interface = client_interface)
+            self.proxy.Enable(dbus_interface = client_interface,
+                              ignore_reply=True)
         elif key == "-":
-            self.proxy.Disable(dbus_interface = client_interface)
+            self.proxy.Disable(dbus_interface = client_interface,
+                               ignore_reply=True)
         elif key == "a":
             self.proxy.Approve(dbus.Boolean(True, variant_level=1),
-                               dbus_interface = client_interface)
+                               dbus_interface = client_interface,
+                               ignore_reply=True)
         elif key == "d":
             self.proxy.Approve(dbus.Boolean(False, variant_level=1),
-                                  dbus_interface = client_interface)
+                                  dbus_interface = client_interface,
+                               ignore_reply=True)
         elif key == "R" or key == "_" or key == "ctrl k":
             self.server_proxy_object.RemoveClient(self.proxy
-                                                  .object_path)
+                                                  .object_path,
+                                                  ignore_reply=True)
         elif key == "s":
-            self.proxy.StartChecker(dbus_interface = client_interface)
+            self.proxy.StartChecker(dbus_interface = client_interface,
+                                    ignore_reply=True)
         elif key == "S":
-            self.proxy.StopChecker(dbus_interface = client_interface)
+            self.proxy.StopChecker(dbus_interface = client_interface,
+                                   ignore_reply=True)
         elif key == "C":
-            self.proxy.CheckedOK(dbus_interface = client_interface)
+            self.proxy.CheckedOK(dbus_interface = client_interface,
+                                 ignore_reply=True)
         # xxx
 #         elif key == "p" or key == "=":
 #             self.proxy.pause()
