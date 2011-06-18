@@ -741,7 +741,8 @@ static int start_mandos_communication(const char *ip, uint16_t port,
     errno = EINTR;
     goto mandos_end;
   }
-  
+
+  /* Spurious warnings from -Wint-to-pointer-cast */
   gnutls_transport_set_ptr(session, (gnutls_transport_ptr_t) tcp_sd);
   
   if(quit_now){
@@ -1125,6 +1126,17 @@ int good_interface(const struct dirent *if_entry){
   if(debug){
     fprintf(stderr, "Interface \"%s\" is acceptable\n",
 	    if_entry->d_name);
+  }
+  return 1;
+}
+
+int notdotentries(const struct dirent *direntry){
+  /* Skip "." and ".." */
+  if(direntry->d_name[0] == '.'
+     and (direntry->d_name[1] == '\0'
+	  or (direntry->d_name[1] == '.'
+	      and direntry->d_name[2] == '\0'))){
+    return 0;
   }
   return 1;
 }
@@ -1565,12 +1577,11 @@ int main(int argc, char *argv[]){
     goto end;
   }
   
-  tempdir_created = true;
   if(mkdtemp(tempdir) == NULL){
-    tempdir_created = false;
     perror("mkdtemp");
     goto end;
   }
+  tempdir_created = true;
   
   if(quit_now){
     goto end;
@@ -1761,28 +1772,14 @@ int main(int argc, char *argv[]){
     }
   }
   
-  /* Removes the temp directory used by GPGME */
+  /* Removes the GPGME temp directory and all files inside */
   if(tempdir_created){
-    DIR *d;
-    struct dirent *direntry;
-    d = opendir(tempdir);
-    if(d == NULL){
-      if(errno != ENOENT){
-	perror("opendir");
-      }
-    } else {
-      while(true){
-	direntry = readdir(d);
-	if(direntry == NULL){
-	  break;
-	}
-	/* Skip "." and ".." */
-	if(direntry->d_name[0] == '.'
-	   and (direntry->d_name[1] == '\0'
-		or (direntry->d_name[1] == '.'
-		    and direntry->d_name[2] == '\0'))){
-	  continue;
-	}
+    struct dirent **direntries = NULL;
+    struct dirent *direntry = NULL;
+    ret = scandir(tempdir, &direntries, notdotentries, alphasort);
+    if (ret > 0){
+      for(int i = 0; i < ret; i++){
+	direntry = direntries[i];
 	char *fullname = NULL;
 	ret = asprintf(&fullname, "%s/%s", tempdir,
 		       direntry->d_name);
@@ -1797,7 +1794,12 @@ int main(int argc, char *argv[]){
 	}
 	free(fullname);
       }
-      closedir(d);
+    }
+
+    /* need to be cleaned even if ret == 0 because man page dont specify */
+    free(direntries);
+    if (ret == -1){
+      perror("scandir");
     }
     ret = rmdir(tempdir);
     if(ret == -1 and errno != ENOENT){
