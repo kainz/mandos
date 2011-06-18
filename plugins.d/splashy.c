@@ -2,8 +2,8 @@
 /*
  * Splashy - Read a password from splashy and output it
  * 
- * Copyright © 2008-2010 Teddy Hogeborn
- * Copyright © 2008-2010 Björn Påhlsson
+ * Copyright © 2008-2011 Teddy Hogeborn
+ * Copyright © 2008-2011 Björn Påhlsson
  * 
  * This program is free software: you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -314,7 +314,9 @@ int main(__attribute__((unused))int argc,
       case ENOTDIR:
       case ELOOP:
       case EISDIR:
-      case ELIBBAD:
+#ifdef ELIBBAD
+      case ELIBBAD:		/* Linux only */
+#endif
       case EPERM:
 	_exit(EX_OSFILE);
       }
