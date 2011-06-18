@@ -2,8 +2,8 @@
 /*
  * Usplash - Read a password from usplash and output it
  * 
- * Copyright © 2008-2010 Teddy Hogeborn
- * Copyright © 2008-2010 Björn Påhlsson
+ * Copyright © 2008-2011 Teddy Hogeborn
+ * Copyright © 2008-2011 Björn Påhlsson
  * 
  * This program is free software: you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
