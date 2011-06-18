@@ -1,9 +1,9 @@
 /*  -*- coding: utf-8 -*- */
 /*
- * Usplash - Read a password from usplash and output it
+ * Plymouth - Read a password from Plymouth and output it
  * 
- * Copyright © 2010 Teddy Hogeborn
- * Copyright © 2010 Björn Påhlsson
+ * Copyright © 2010-2011 Teddy Hogeborn
+ * Copyright © 2010-2011 Björn Påhlsson
  * 
  * This program is free software: you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -76,21 +76,23 @@ char *makeprompt(void){
   char *prompt;
   const char *const cryptsource = getenv("cryptsource");
   const char *const crypttarget = getenv("crypttarget");
-  const char prompt_start[] = "Enter passphrase to unlock the disk";
+  const char prompt_start[] = "Unlocking the disk";
+  const char prompt_end[] = "Enter passphrase";
   
   if(cryptsource == NULL){
     if(crypttarget == NULL){
-      ret = asprintf(&prompt, "%s: ", prompt_start);
+      ret = asprintf(&prompt, "%s\n%s", prompt_start, prompt_end);
     } else {
-      ret = asprintf(&prompt, "%s (%s): ", prompt_start,
-		     crypttarget);
+      ret = asprintf(&prompt, "%s (%s)\n%s", prompt_start,
+		     crypttarget, prompt_end);
     }
   } else {
     if(crypttarget == NULL){
-      ret = asprintf(&prompt, "%s %s: ", prompt_start, cryptsource);
+      ret = asprintf(&prompt, "%s %s\n%s", prompt_start, cryptsource,
+		     prompt_end);
     } else {
-      ret = asprintf(&prompt, "%s %s (%s): ", prompt_start,
-		     cryptsource, crypttarget);
+      ret = asprintf(&prompt, "%s %s (%s)\n%s", prompt_start,
+		     cryptsource, crypttarget, prompt_end);
     }
   }
   if(ret == -1){
@@ -142,21 +144,21 @@ bool exec_and_wait(pid_t *pid_return, const char *path,
 	_exit(EX_OSERR);
       }
     }
-
+    
     char **new_argv = NULL;
-    char *tmp;
+    char **tmp;
     int i = 0;
-    for (; argv[i]!=(char *)NULL; i++){
+    for (; argv[i]!=NULL; i++){
       tmp = realloc(new_argv, sizeof(const char *) * ((size_t)i + 1));
       if (tmp == NULL){
 	error(0, errno, "realloc");
 	free(new_argv);
 	_exit(EX_OSERR);
       }
-      new_argv = (char **)tmp;
+      new_argv = tmp;
       new_argv[i] = strdup(argv[i]);
     }
-    new_argv[i] = (char *) NULL;
+    new_argv[i] = NULL;
     
     execv(path, (char *const *)new_argv);
     error(0, errno, "execv");
@@ -196,7 +198,7 @@ int is_plymouth(const struct dirent *proc_entry){
       return 0;
     }
   }
-  char exe_target[sizeof(plymouth_path)];
+  char exe_target[sizeof(plymouthd_path)];
   char *exe_link;
   ret = asprintf(&exe_link, "/proc/%s/exe", proc_entry->d_name);
   if(ret == -1){
@@ -223,9 +225,9 @@ int is_plymouth(const struct dirent *proc_entry){
   
   ssize_t sret = readlink(exe_link, exe_target, sizeof(exe_target));
   free(exe_link);
-  if((sret != (ssize_t)sizeof(plymouth_path)-1) or
-      (memcmp(plymouth_path, exe_target,
-	      sizeof(plymouth_path)-1) != 0)){
+  if((sret != (ssize_t)sizeof(plymouthd_path)-1) or
+      (memcmp(plymouthd_path, exe_target,
+	      sizeof(plymouthd_path)-1) != 0)){
     return 0;
   }
   return 1;
@@ -245,7 +247,15 @@ pid_t get_pid(void){
   if(maxvalue == 0){
     struct dirent **direntries;
     ret = scandir("/proc", &direntries, is_plymouth, alphasort);
-    sscanf(direntries[0]->d_name, "%" SCNuMAX, &maxvalue);
+    if (ret == -1){
+      error(0, errno, "scandir");
+    }
+    if (ret > 0){
+      ret = sscanf(direntries[0]->d_name, "%" SCNuMAX, &maxvalue);
+      if (ret < 0){
+	error(0, errno, "sscanf");
+      }
+    }
   }
   pid_t pid;
   pid = (pid_t)maxvalue;

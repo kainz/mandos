@@ -4,14 +4,14 @@
   
 ** Operating System
    
-   Debian 5.0 "lenny" or Ubuntu 8.04 "Hardy Heron".
+   Debian 6.0 "squeeze" or Ubuntu 10.10 "Maverick Meerkat".
    
    This is mostly for the support scripts which make sure that the
    client is installed and started in the initial RAM disk environment
    and that the initrd.img file is automatically made unreadable.  The
    server and client programs themselves *could* be run in other
    distributions, but they *are* specific to GNU/Linux systems, and
-   are not intended to be portable to other Unixes.
+   are not written with portabillity to other Unixes in mind.
   
 ** Libraries
    
@@ -39,18 +39,18 @@
 *** Mandos Server
     + GnuTLS 2.4          http://www.gnu.org/software/gnutls/
     + Avahi 0.6.16        http://www.avahi.org/
-    + Python 2.5          http://www.python.org/
+    + Python 2.6          http://www.python.org/
     + Python-GnuTLS 1.1.5 http://pypi.python.org/pypi/python-gnutls/
     + dbus-python 0.82.4  http://dbus.freedesktop.org/doc/dbus-python/
-    + python-ctypes 1.0.0 http://pypi.python.org/pypi/ctypes
     + PyGObject 2.14.2    http://library.gnome.org/devel/pygobject/
+    + Urwid 0.9.8.3       http://excess.org/urwid/
     
     Strongly recommended:
     + fping 2.4b2-to-ipv6 http://www.fping.com/
     
     Package names:
     python-gnutls avahi-daemon python python-avahi python-dbus
-    python-ctypes python-gobject
+    python-gobject python-urwid
    
 *** Mandos Client
     + initramfs-tools 0.85i
@@ -99,16 +99,20 @@
      server computer*.
   
   4. Configure the client to use the correct network interface.  The
-     default is "eth0", and if this needs to be adjusted, it will be
-     necessary to edit /etc/mandos/plugin-runner.conf to uncomment and
-     change the line there.  If that file is changed, the initrd.img
-     file must be updated, possibly using the following command:
+     interface to use is automatically chosen at boot, and if this
+     needs to be adjusted, it will be necessary to edit
+     /etc/initramfs-tools/initramfs.conf to change the DEVICE setting
+     there.  Alternatively, the file /etc/mandos/plugin-runner.conf
+     can be edited to add a "--device" parameter for the
+     mandos-client(8) plugin.  Please note: If any of those files are
+     changed, the initrd.img file must be updated, possibly using the
+     following command:
      
 	# update-initramfs -k all -u
   
   5. On the server computer, start the server by running the command
      For Debian: su -c 'invoke-rc.d mandos start'
-     For Ubuntu: sudo invoke-rc.d mandos start
+     For Ubuntu: sudo service mandos start
      
      At this point, it is possible to verify that the correct password
      will be received by the client by running the command:

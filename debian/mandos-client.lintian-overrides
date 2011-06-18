@@ -19,6 +19,7 @@ mandos-client binary: setuid-binary usr/lib/mandos/plugins.d/mandos-client 4755 
 mandos-client binary: setuid-binary usr/lib/mandos/plugins.d/askpass-fifo 4755 root/root
 mandos-client binary: setuid-binary usr/lib/mandos/plugins.d/splashy 4755 root/root
 mandos-client binary: setuid-binary usr/lib/mandos/plugins.d/usplash 4755 root/root
+mandos-client binary: setuid-binary usr/lib/mandos/plugins.d/plymouth 4755 root/root
 
 # The directory /etc/mandos/plugins.d can be used by local system
 # administrators to place plugins in, overriding and complementing
