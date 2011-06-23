@@ -5,35 +5,27 @@
 * mandos-applet
 
 * mandos-client
-** TODO [#B] use scandir(3) instead of readdir(3)
-** TODO [#B] Prefix all debug output with "Mandos plugin " + program_invocation_short_name
-** TODO [#B] Retry a server which has a non-definite reply:
-*** A closed connection during the TLS handshake
-*** A TCP timeout
 ** TODO [#B] Use capabilities instead of seteuid().
-** TODO [#A] Retry --connect forever
 
 * splashy
 ** TODO [#B] use scandir(3) instead of readdir(3)
-** TODO [#B] Prefix all debug output with "Mandos plugin " + program_invocation_short_name
 
 * usplash
 ** TODO [#A] Make it work again
 ** TODO [#B] use scandir(3) instead of readdir(3)
-** TODO [#B] Prefix all debug output with "Mandos plugin " + program_invocation_short_name
 ** TODO Use [[info:libc:Argz%20Functions][argz_extract]]
 
 * askpass-fifo
-** TODO [#B] Prefix all debug output with "Mandos plugin " + program_invocation_short_name
 ** TODO [#B] Drop privileges after opening FIFO.
 
 * password-prompt
-** TODO [#B] Prefix all debug output with "Mandos plugin " + program_invocation_short_name
 ** TODO [#B] lock stdin (with flock()?)
 
 * TODO [#B] passdev
 
 * plugin-runner
+** TODO handle printing for errors for plugins
+*** Hook up stderr of plugins, buffer them, and prepend mandos pluig [plugin name]
 ** TODO [#B] use scandir(3) instead of readdir(3)
 ** TODO [#C] use same file name rules as run-parts(8)
 ** kernel command line option for debug info
@@ -99,7 +91,7 @@
   arguments.
 
 * mandos-monitor
-** TODO help should be toggable
+** TODO help should be toggleable
 ** Urwid client data displayer
    Better view of client data in the listing
 *** Properties popup

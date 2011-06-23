@@ -62,7 +62,7 @@
 #include <inttypes.h>		/* PRIu16, PRIdMAX, intmax_t,
 				   strtoimax() */
 #include <assert.h>		/* assert() */
-#include <errno.h>		/* perror(), errno */
+#include <errno.h>		/* perror(), errno, program_invocation_short_name */
 #include <time.h>		/* nanosleep(), time(), sleep() */
 #include <net/if.h>		/* ioctl, ifreq, SIOCGIFFLAGS, IFF_UP,
 				   SIOCSIFFLAGS, if_indextoname(),
@@ -130,6 +130,17 @@ const char *argp_program_bug_address = "<mandos@fukt.bsnet.se>";
 static const char sys_class_net[] = "/sys/class/net";
 char *connect_to = NULL;
 
+/* Doubly linked list that need to be circular linked when ever used */
+typedef struct server{
+  const char *ip;
+  uint16_t port;
+  AvahiIfIndex if_index;
+  int af;
+  struct timespec last_seen;
+  struct server *next;
+  struct server *prev;
+} server;
+
 /* Used for passing in values through the Avahi callback functions */
 typedef struct {
   AvahiSimplePoll *simple_poll;
@@ -139,15 +150,22 @@ typedef struct {
   gnutls_dh_params_t dh_params;
   const char *priority;
   gpgme_ctx_t ctx;
+  server *current_server;
 } mandos_context;
 
 /* global context so signal handler can reach it*/
 mandos_context mc = { .simple_poll = NULL, .server = NULL,
 		      .dh_bits = 1024, .priority = "SECURE256"
-		      ":!CTYPE-X.509:+CTYPE-OPENPGP" };
+		      ":!CTYPE-X.509:+CTYPE-OPENPGP", .current_server = NULL };
 
 sig_atomic_t quit_now = 0;
 int signal_received = 0;
+
+/* Function to use when printing errors */
+void perror_plus(const char *print_text){
+  fprintf(stderr, "Mandos plugin %s: ", program_invocation_short_name);
+  perror(print_text);
+}
 
 /*
  * Make additional room in "buffer" for at least BUFFER_SIZE more
@@ -164,6 +182,43 @@ size_t incbuffer(char **buffer, size_t buffer_length,
     buffer_capacity += BUFFER_SIZE;
   }
   return buffer_capacity;
+}
+
+int add_server(const char *ip, uint16_t port,
+		 AvahiIfIndex if_index,
+		 int af){
+  int ret;
+  server *new_server = malloc(sizeof(server));
+  if(new_server == NULL){
+    perror_plus("malloc");
+    return -1;
+  }
+  *new_server = (server){ .ip = strdup(ip),
+			 .port = port,
+			 .if_index = if_index,
+			 .af = af };
+  if(new_server->ip == NULL){
+    perror_plus("strdup");
+    return -1;    
+  }
+  /* uniqe case of first server */
+  if (mc.current_server == NULL){
+    new_server->next = new_server;
+    new_server->prev = new_server;
+    mc.current_server = new_server;
+  /* Placing the new server last in the list */
+  } else {
+    new_server->next = mc.current_server;
+    new_server->prev = mc.current_server->prev;
+    new_server->prev->next = new_server;
+    mc.current_server->prev = new_server;
+  }
+  ret = clock_gettime(CLOCK_MONOTONIC, &mc.current_server->last_seen);
+  if(ret == -1){
+    perror_plus("clock_gettime");
+    return -1;
+  }
+  return 0;
 }
 
 /* 
@@ -185,7 +240,7 @@ static bool init_gpgme(const char *seckey,
     
     fd = (int)TEMP_FAILURE_RETRY(open(filename, O_RDONLY));
     if(fd == -1){
-      perror("open");
+      perror_plus("open");
       return false;
     }
     
@@ -205,7 +260,7 @@ static bool init_gpgme(const char *seckey,
     
     ret = (int)TEMP_FAILURE_RETRY(close(fd));
     if(ret == -1){
-      perror("close");
+      perror_plus("close");
     }
     gpgme_data_release(pgp_data);
     return true;
@@ -336,7 +391,7 @@ static ssize_t pgp_packet_decrypt(const char *cryptotext,
   
   /* Seek back to the beginning of the GPGME plaintext data buffer */
   if(gpgme_data_seek(dh_plain, (off_t)0, SEEK_SET) == -1){
-    perror("gpgme_data_seek");
+    perror_plus("gpgme_data_seek");
     plaintext_length = -1;
     goto decrypt_end;
   }
@@ -347,7 +402,7 @@ static ssize_t pgp_packet_decrypt(const char *cryptotext,
 				      (size_t)plaintext_length,
 				      plaintext_capacity);
     if(plaintext_capacity == 0){
-	perror("incbuffer");
+	perror_plus("incbuffer");
 	plaintext_length = -1;
 	goto decrypt_end;
     }
@@ -360,7 +415,7 @@ static ssize_t pgp_packet_decrypt(const char *cryptotext,
       break;
     }
     if(ret < 0){
-      perror("gpgme_data_read");
+      perror_plus("gpgme_data_read");
       plaintext_length = -1;
       goto decrypt_end;
     }
@@ -589,7 +644,7 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   tcp_sd = socket(pf, SOCK_STREAM, 0);
   if(tcp_sd < 0){
     int e = errno;
-    perror("socket");
+    perror_plus("socket");
     errno = e;
     goto mandos_end;
   }
@@ -609,7 +664,7 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   }
   if(ret < 0 ){
     int e = errno;
-    perror("inet_pton");
+    perror_plus("inet_pton");
     errno = e;
     goto mandos_end;
   }
@@ -651,7 +706,7 @@ static int start_mandos_communication(const char *ip, uint16_t port,
     if(af == AF_INET6 and if_index != AVAHI_IF_UNSPEC){
       char interface[IF_NAMESIZE];
       if(if_indextoname((unsigned int)if_index, interface) == NULL){
-	perror("if_indextoname");
+	perror_plus("if_indextoname");
       } else {
 	fprintf(stderr, "Connection to: %s%%%s, port %" PRIu16 "\n",
 		ip, interface, port);
@@ -671,7 +726,7 @@ static int start_mandos_communication(const char *ip, uint16_t port,
 			sizeof(addrstr));
     }
     if(pcret == NULL){
-      perror("inet_ntop");
+      perror_plus("inet_ntop");
     } else {
       if(strcmp(addrstr, ip) != 0){
 	fprintf(stderr, "Canonical address form: %s\n", addrstr);
@@ -692,7 +747,7 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   if(ret < 0){
     if ((errno != ECONNREFUSED and errno != ENETUNREACH) or debug){
       int e = errno;
-      perror("connect");
+      perror_plus("connect");
       errno = e;
     }
     goto mandos_end;
@@ -711,7 +766,7 @@ static int start_mandos_communication(const char *ip, uint16_t port,
 				   out_size - written));
     if(ret == -1){
       int e = errno;
-      perror("write");
+      perror_plus("write");
       errno = e;
       goto mandos_end;
     }
@@ -785,7 +840,7 @@ static int start_mandos_communication(const char *ip, uint16_t port,
 				   buffer_capacity);
     if(buffer_capacity == 0){
       int e = errno;
-      perror("incbuffer");
+      perror_plus("incbuffer");
       errno = e;
       goto mandos_end;
     }
@@ -896,14 +951,14 @@ static int start_mandos_communication(const char *ip, uint16_t port,
       if(e == 0){
 	e = errno;
       }
-      perror("close");
+      perror_plus("close");
     }
     gnutls_deinit(session);
+    errno = e;
     if(quit_now){
-      e = EINTR;
+      errno = EINTR;
       retval = -1;
     }
-    errno = e;
   }
   return retval;
 }
@@ -952,6 +1007,9 @@ static void resolve_callback(AvahiSServiceResolver *r,
 					   avahi_proto_to_af(proto));
       if(ret == 0){
 	avahi_simple_poll_quit(mc.simple_poll);
+      } else {
+	ret = add_server(ip, port, interface,
+			 avahi_proto_to_af(proto));
       }
     }
   }
@@ -1011,7 +1069,7 @@ static void browse_callback(AvahiSServiceBrowser *b,
   }
 }
 
-/* stop main loop after sigterm has been called */
+/* Signal handler that stops main loop after sigterm has been called */
 static void handle_sigterm(int sig){
   if(quit_now){
     return;
@@ -1019,6 +1077,7 @@ static void handle_sigterm(int sig){
   quit_now = 1;
   signal_received = sig;
   int old_errno = errno;
+  /* set main loop to exit */
   if(mc.simple_poll != NULL){
     avahi_simple_poll_quit(mc.simple_poll);
   }
@@ -1039,12 +1098,12 @@ int good_interface(const struct dirent *if_entry){
   int ret = asprintf(&flagname, "%s/%s/flags", sys_class_net,
 		     if_entry->d_name);
   if(ret < 0){
-    perror("asprintf");
+    perror_plus("asprintf");
     return 0;
   }
   int flags_fd = (int)TEMP_FAILURE_RETRY(open(flagname, O_RDONLY));
   if(flags_fd == -1){
-    perror("open");
+    perror_plus("open");
     free(flagname);
     return 0;
   }
@@ -1055,7 +1114,7 @@ int good_interface(const struct dirent *if_entry){
   char *flagstring = malloc((size_t)to_read+1); /* +1 for final \0 */
   flagstring[(size_t)to_read] = '\0';
   if(flagstring == NULL){
-    perror("malloc");
+    perror_plus("malloc");
     close(flags_fd);
     return 0;
   }
@@ -1063,7 +1122,7 @@ int good_interface(const struct dirent *if_entry){
     ssret = (ssize_t)TEMP_FAILURE_RETRY(read(flags_fd, flagstring,
 					     (size_t)to_read));
     if(ssret == -1){
-      perror("read");
+      perror_plus("read");
       free(flagstring);
       close(flags_fd);
       return 0;
@@ -1141,6 +1200,67 @@ int notdotentries(const struct dirent *direntry){
   return 1;
 }
 
+int avahi_loop_with_timeout(AvahiSimplePoll *s, int retry_interval){
+  int ret;
+  struct timespec now;
+  struct timespec waited_time;
+  intmax_t block_time;
+
+  while(true){
+    if(mc.current_server == NULL){
+      if (debug){
+	fprintf(stderr, "Wait until first server is found. No timeout!\n");	
+      }
+      ret = avahi_simple_poll_iterate(s, -1);
+    } else {
+      if (debug){
+	fprintf(stderr, "Check current_server if we should run it, or wait\n");	
+      }
+      /* the current time */
+      ret = clock_gettime(CLOCK_MONOTONIC, &now);
+      if(ret == -1){
+	perror_plus("clock_gettime");
+	return -1;
+      }
+      /* Calculating in ms how long time between now and server
+	 who we visted longest time ago. Now - last seen.  */
+      waited_time.tv_sec = now.tv_sec - mc.current_server->last_seen.tv_sec;
+      waited_time.tv_nsec = now.tv_nsec - mc.current_server->last_seen.tv_nsec;
+      /* total time is 10s/10000ms. Converting to s to ms by 1000/s, and ns to ms by divind by 1000000. */
+      block_time = (retry_interval - ((intmax_t)waited_time.tv_sec * 1000)) - ((intmax_t)waited_time.tv_nsec / 1000000);
+
+      if (debug){
+	fprintf(stderr, "Blocking for %ld ms\n", block_time);	
+      }
+
+      if(block_time <= 0){
+	ret = start_mandos_communication(mc.current_server->ip,
+				   mc.current_server->port,
+				   mc.current_server->if_index,
+				   mc.current_server->af);
+	if(ret == 0){
+	  avahi_simple_poll_quit(mc.simple_poll);
+	  return 0;
+	}
+	ret = clock_gettime(CLOCK_MONOTONIC, &mc.current_server->last_seen);
+	if(ret == -1){
+	  perror_plus("clock_gettime");
+	  return -1;
+	}
+	mc.current_server = mc.current_server->next;
+	block_time = 0; 	/* call avahi to find new mandos servers, but dont block */
+      }
+      
+      ret = avahi_simple_poll_iterate(s, (int)block_time);
+    }
+    if(ret != 0){
+      if (ret > 0 or errno != EINTR) {
+	return (ret != 1) ? ret : 0;
+      }
+    }
+  }
+}
+
 int main(int argc, char *argv[]){
   AvahiSServiceBrowser *sb = NULL;
   int error;
@@ -1163,6 +1283,7 @@ int main(int argc, char *argv[]){
   bool gnutls_initialized = false;
   bool gpgme_initialized = false;
   float delay = 2.5f;
+  double retry_interval = 10; /* 10s between retrying a server and checking again*/
   
   struct sigaction old_sigterm_action = { .sa_handler = SIG_DFL };
   struct sigaction sigterm_action = { .sa_handler = handle_sigterm };
@@ -1174,14 +1295,14 @@ int main(int argc, char *argv[]){
   errno = 0;
   ret = setgid(gid);
   if(ret == -1){
-    perror("setgid");
+    perror_plus("setgid");
   }
   
   /* Lower user privileges (temporarily) */
   errno = 0;
   ret = seteuid(uid);
   if(ret == -1){
-    perror("seteuid");
+    perror_plus("seteuid");
   }
   
   if(quit_now){
@@ -1221,6 +1342,10 @@ int main(int argc, char *argv[]){
       { .name = "delay", .key = 131,
 	.arg = "SECONDS",
 	.doc = "Maximum delay to wait for interface startup",
+	.group = 2 },
+      { .name = "retry", .key = 132,
+	.arg = "SECONDS",
+	.doc = "Retry interval used when denied by the mandos server",
 	.group = 2 },
       /*
        * These reproduce what we would get without ARGP_NO_HELP
@@ -1271,6 +1396,13 @@ int main(int argc, char *argv[]){
 	if(errno != 0 or tmp == arg or *tmp != '\0'){
 	  argp_error(state, "Bad delay");
 	}
+      case 132:			/* --retry */
+	errno = 0;
+	retry_interval = strtod(arg, &tmp);
+	if(errno != 0 or tmp == arg or *tmp != '\0'
+	   or (retry_interval * 1000) > INT_MAX){
+	  argp_error(state, "Bad retry interval");
+	}
 	break;
 	/*
 	 * These reproduce what we would get without ARGP_NO_HELP
@@ -1304,7 +1436,7 @@ int main(int argc, char *argv[]){
     case ENOMEM:
     default:
       errno = ret;
-      perror("argp_parse");
+      perror_plus("argp_parse");
       exitcode = EX_OSERR;
       goto end;
     case EINVAL:
@@ -1328,7 +1460,7 @@ int main(int argc, char *argv[]){
 	fprintf(stderr, "Using interface \"%s\"\n", interface);
       }
       if(interface == NULL){
-	perror("malloc");
+	perror_plus("malloc");
 	free(direntries);
 	exitcode = EXIT_FAILURE;
 	goto end;
@@ -1356,19 +1488,19 @@ int main(int argc, char *argv[]){
   sigemptyset(&sigterm_action.sa_mask);
   ret = sigaddset(&sigterm_action.sa_mask, SIGINT);
   if(ret == -1){
-    perror("sigaddset");
+    perror_plus("sigaddset");
     exitcode = EX_OSERR;
     goto end;
   }
   ret = sigaddset(&sigterm_action.sa_mask, SIGHUP);
   if(ret == -1){
-    perror("sigaddset");
+    perror_plus("sigaddset");
     exitcode = EX_OSERR;
     goto end;
   }
   ret = sigaddset(&sigterm_action.sa_mask, SIGTERM);
   if(ret == -1){
-    perror("sigaddset");
+    perror_plus("sigaddset");
     exitcode = EX_OSERR;
     goto end;
   }
@@ -1378,39 +1510,39 @@ int main(int argc, char *argv[]){
   */
   ret = sigaction(SIGINT, NULL, &old_sigterm_action);
   if(ret == -1){
-    perror("sigaction");
+    perror_plus("sigaction");
     return EX_OSERR;
   }
   if(old_sigterm_action.sa_handler != SIG_IGN){
     ret = sigaction(SIGINT, &sigterm_action, NULL);
     if(ret == -1){
-      perror("sigaction");
+      perror_plus("sigaction");
       exitcode = EX_OSERR;
       goto end;
     }
   }
   ret = sigaction(SIGHUP, NULL, &old_sigterm_action);
   if(ret == -1){
-    perror("sigaction");
+    perror_plus("sigaction");
     return EX_OSERR;
   }
   if(old_sigterm_action.sa_handler != SIG_IGN){
     ret = sigaction(SIGHUP, &sigterm_action, NULL);
     if(ret == -1){
-      perror("sigaction");
+      perror_plus("sigaction");
       exitcode = EX_OSERR;
       goto end;
     }
   }
   ret = sigaction(SIGTERM, NULL, &old_sigterm_action);
   if(ret == -1){
-    perror("sigaction");
+    perror_plus("sigaction");
     return EX_OSERR;
   }
   if(old_sigterm_action.sa_handler != SIG_IGN){
     ret = sigaction(SIGTERM, &sigterm_action, NULL);
     if(ret == -1){
-      perror("sigaction");
+      perror_plus("sigaction");
       exitcode = EX_OSERR;
       goto end;
     }
@@ -1433,7 +1565,7 @@ int main(int argc, char *argv[]){
     errno = 0;
     ret = seteuid(0);
     if(ret == -1){
-      perror("seteuid");
+      perror_plus("seteuid");
     }
     
 #ifdef __linux__
@@ -1443,19 +1575,19 @@ int main(int argc, char *argv[]){
     bool restore_loglevel = true;
     if(ret == -1){
       restore_loglevel = false;
-      perror("klogctl");
+      perror_plus("klogctl");
     }
 #endif	/* __linux__ */
     
     sd = socket(PF_INET6, SOCK_DGRAM, IPPROTO_IP);
     if(sd < 0){
-      perror("socket");
+      perror_plus("socket");
       exitcode = EX_OSERR;
 #ifdef __linux__
       if(restore_loglevel){
 	ret = klogctl(7, NULL, 0);
 	if(ret == -1){
-	  perror("klogctl");
+	  perror_plus("klogctl");
 	}
       }
 #endif	/* __linux__ */
@@ -1463,19 +1595,19 @@ int main(int argc, char *argv[]){
       errno = 0;
       ret = seteuid(uid);
       if(ret == -1){
-	perror("seteuid");
+	perror_plus("seteuid");
       }
       goto end;
     }
     strcpy(network.ifr_name, interface);
     ret = ioctl(sd, SIOCGIFFLAGS, &network);
     if(ret == -1){
-      perror("ioctl SIOCGIFFLAGS");
+      perror_plus("ioctl SIOCGIFFLAGS");
 #ifdef __linux__
       if(restore_loglevel){
 	ret = klogctl(7, NULL, 0);
 	if(ret == -1){
-	  perror("klogctl");
+	  perror_plus("klogctl");
 	}
       }
 #endif	/* __linux__ */
@@ -1484,7 +1616,7 @@ int main(int argc, char *argv[]){
       errno = 0;
       ret = seteuid(uid);
       if(ret == -1){
-	perror("seteuid");
+	perror_plus("seteuid");
       }
       goto end;
     }
@@ -1494,13 +1626,13 @@ int main(int argc, char *argv[]){
       ret = ioctl(sd, SIOCSIFFLAGS, &network);
       if(ret == -1){
 	take_down_interface = false;
-	perror("ioctl SIOCSIFFLAGS +IFF_UP");
+	perror_plus("ioctl SIOCSIFFLAGS +IFF_UP");
 	exitcode = EX_OSERR;
 #ifdef __linux__
 	if(restore_loglevel){
 	  ret = klogctl(7, NULL, 0);
 	  if(ret == -1){
-	    perror("klogctl");
+	    perror_plus("klogctl");
 	  }
 	}
 #endif	/* __linux__ */
@@ -1508,30 +1640,30 @@ int main(int argc, char *argv[]){
 	errno = 0;
 	ret = seteuid(uid);
 	if(ret == -1){
-	  perror("seteuid");
+	  perror_plus("seteuid");
 	}
 	goto end;
       }
     }
-    /* sleep checking until interface is running */
+    /* sleep checking until interface is running. Check every 0.25s, up to total time of delay */
     for(int i=0; i < delay * 4; i++){
       ret = ioctl(sd, SIOCGIFFLAGS, &network);
       if(ret == -1){
-	perror("ioctl SIOCGIFFLAGS");
+	perror_plus("ioctl SIOCGIFFLAGS");
       } else if(network.ifr_flags & IFF_RUNNING){
 	break;
       }
       struct timespec sleeptime = { .tv_nsec = 250000000 };
       ret = nanosleep(&sleeptime, NULL);
       if(ret == -1 and errno != EINTR){
-	perror("nanosleep");
+	perror_plus("nanosleep");
       }
     }
     if(not take_down_interface){
       /* We won't need the socket anymore */
       ret = (int)TEMP_FAILURE_RETRY(close(sd));
       if(ret == -1){
-	perror("close");
+	perror_plus("close");
       }
     }
 #ifdef __linux__
@@ -1539,7 +1671,7 @@ int main(int argc, char *argv[]){
       /* Restores kernel loglevel to default */
       ret = klogctl(7, NULL, 0);
       if(ret == -1){
-	perror("klogctl");
+	perror_plus("klogctl");
       }
     }
 #endif	/* __linux__ */
@@ -1549,13 +1681,13 @@ int main(int argc, char *argv[]){
       /* Lower privileges */
       ret = seteuid(uid);
       if(ret == -1){
-	perror("seteuid");
+	perror_plus("seteuid");
       }
     } else {
       /* Lower privileges permanently */
       ret = setuid(uid);
       if(ret == -1){
-	perror("setuid");
+	perror_plus("setuid");
       }
     }
   }
@@ -1578,7 +1710,7 @@ int main(int argc, char *argv[]){
   }
   
   if(mkdtemp(tempdir) == NULL){
-    perror("mkdtemp");
+    perror_plus("mkdtemp");
     goto end;
   }
   tempdir_created = true;
@@ -1647,7 +1779,7 @@ int main(int argc, char *argv[]){
       if(quit_now or ret == 0){
 	break;
       }
-      sleep(15);
+      sleep((int)retry_interval or 1);
     };
 
     if (not quit_now){
@@ -1711,8 +1843,12 @@ int main(int argc, char *argv[]){
   if(debug){
     fprintf(stderr, "Starting Avahi loop search\n");
   }
-  
-  avahi_simple_poll_loop(mc.simple_poll);
+
+  ret = avahi_loop_with_timeout(mc.simple_poll, (int)(retry_interval * 1000));
+  if(debug){
+    fprintf(stderr, "avahi_loop_with_timeout exited %s\n",
+	    (ret == 0) ? "successfully" : "with error");
+  }
   
  end:
   
@@ -1739,6 +1875,16 @@ int main(int argc, char *argv[]){
   if(gpgme_initialized){
     gpgme_release(mc.ctx);
   }
+
+  /* cleans up the circular linked list of mandos servers the client has seen */
+  if(mc.current_server != NULL){
+    mc.current_server->prev->next = NULL;
+    while(mc.current_server != NULL){
+      server *next = mc.current_server->next;
+      free(mc.current_server);
+      mc.current_server = next;
+    }
+  }
   
   /* Take down the network interface */
   if(take_down_interface){
@@ -1746,28 +1892,28 @@ int main(int argc, char *argv[]){
     errno = 0;
     ret = seteuid(0);
     if(ret == -1){
-      perror("seteuid");
+      perror_plus("seteuid");
     }
     if(geteuid() == 0){
       ret = ioctl(sd, SIOCGIFFLAGS, &network);
       if(ret == -1){
-	perror("ioctl SIOCGIFFLAGS");
+	perror_plus("ioctl SIOCGIFFLAGS");
       } else if(network.ifr_flags & IFF_UP) {
 	network.ifr_flags &= ~(short)IFF_UP; /* clear flag */
 	ret = ioctl(sd, SIOCSIFFLAGS, &network);
 	if(ret == -1){
-	  perror("ioctl SIOCSIFFLAGS -IFF_UP");
+	  perror_plus("ioctl SIOCSIFFLAGS -IFF_UP");
 	}
       }
       ret = (int)TEMP_FAILURE_RETRY(close(sd));
       if(ret == -1){
-	perror("close");
+	perror_plus("close");
       }
       /* Lower privileges permanently */
       errno = 0;
       ret = setuid(uid);
       if(ret == -1){
-	perror("setuid");
+	perror_plus("setuid");
       }
     }
   }
@@ -1784,7 +1930,7 @@ int main(int argc, char *argv[]){
 	ret = asprintf(&fullname, "%s/%s", tempdir,
 		       direntry->d_name);
 	if(ret < 0){
-	  perror("asprintf");
+	  perror_plus("asprintf");
 	  continue;
 	}
 	ret = remove(fullname);
@@ -1799,11 +1945,11 @@ int main(int argc, char *argv[]){
     /* need to be cleaned even if ret == 0 because man page dont specify */
     free(direntries);
     if (ret == -1){
-      perror("scandir");
+      perror_plus("scandir");
     }
     ret = rmdir(tempdir);
     if(ret == -1 and errno != ENOENT){
-      perror("rmdir");
+      perror_plus("rmdir");
     }
   }
   
@@ -1814,13 +1960,13 @@ int main(int argc, char *argv[]){
 					    &old_sigterm_action,
 					    NULL));
     if(ret == -1){
-      perror("sigaction");
+      perror_plus("sigaction");
     }
     do {
       ret = raise(signal_received);
     } while(ret != 0 and errno == EINTR);
     if(ret != 0){
-      perror("raise");
+      perror_plus("raise");
       abort();
     }
     TEMP_FAILURE_RETRY(pause());

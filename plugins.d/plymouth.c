@@ -36,7 +36,7 @@
 #include <stddef.h>		/* NULL */
 #include <string.h>		/* strchr(), memcmp() */
 #include <stdio.h>		/* asprintf(), perror(), fopen(),
-				   fscanf() */
+				   fscanf(), vasprintf(), fprintf(), vfprintf() */
 #include <unistd.h>		/* close(), readlink(), read(),
 				   fork(), setsid(), chdir(), dup2(),
 				   STDERR_FILENO, execv(), access() */
@@ -50,6 +50,7 @@
 #include <error.h>		/* error() */
 #include <errno.h>		/* TEMP_FAILURE_RETRY */
 #include <argz.h>		/* argz_count(), argz_extract() */
+#include <stdarg.h>		/* va_list, va_start(), ... */
 
 sig_atomic_t interrupted_by_signal = 0;
 const char plymouth_pid[] = "/dev/.initramfs/plymouth.pid";
@@ -68,6 +69,27 @@ static void termination_handler(__attribute__((unused))int signum){
     return;
   }
   interrupted_by_signal = 1;
+}
+
+/* Function to use when printing errors */
+void error_plus(int status, int errnum, const char *formatstring, ...){
+  va_list ap;
+  char *text;
+  int ret;
+  
+  va_start(ap, formatstring);
+  ret = vasprintf(&text, formatstring, ap);
+  if (ret == -1){
+    fprintf(stderr, "Mandos plugin %s: ", program_invocation_short_name);
+    vfprintf(stderr, formatstring, ap);
+    fprintf(stderr, ": ");
+    fprintf(stderr, "%s\n", strerror(errnum));
+    error(status, errno, "vasprintf while printing error");
+    return;
+  }
+  fprintf(stderr, "Mandos plugin ");
+  error(status, errnum, "%s", text);
+  free(text);
 }
 
 /* Create prompt string */
@@ -109,18 +131,18 @@ void kill_and_wait(pid_t pid){
 bool become_a_daemon(void){
   int ret = setuid(geteuid());
   if(ret == -1){
-    error(0, errno, "setuid");
+    error_plus(0, errno, "setuid");
   }
     
   setsid();
   ret = chdir("/");
   if(ret == -1){
-    error(0, errno, "chdir");
+    error_plus(0, errno, "chdir");
     return false;
   }
   ret = dup2(STDERR_FILENO, STDOUT_FILENO); /* replace our stdout */
   if(ret == -1){
-    error(0, errno, "dup2");
+    error_plus(0, errno, "dup2");
     return false;
   }
   return true;
@@ -134,7 +156,7 @@ bool exec_and_wait(pid_t *pid_return, const char *path,
   pid_t pid;
   pid = fork();
   if(pid == -1){
-    error(0, errno, "fork");
+    error_plus(0, errno, "fork");
     return false;
   }
   if(pid == 0){
@@ -151,7 +173,7 @@ bool exec_and_wait(pid_t *pid_return, const char *path,
     for (; argv[i]!=NULL; i++){
       tmp = realloc(new_argv, sizeof(const char *) * ((size_t)i + 1));
       if (tmp == NULL){
-	error(0, errno, "realloc");
+	error_plus(0, errno, "realloc");
 	free(new_argv);
 	_exit(EX_OSERR);
       }
@@ -161,7 +183,7 @@ bool exec_and_wait(pid_t *pid_return, const char *path,
     new_argv[i] = NULL;
     
     execv(path, (char *const *)new_argv);
-    error(0, errno, "execv");
+    error_plus(0, errno, "execv");
     _exit(EXIT_FAILURE);
   }
   if(pid_return != NULL){
@@ -176,7 +198,7 @@ bool exec_and_wait(pid_t *pid_return, const char *path,
     return false;
   }
   if(ret == -1){
-    error(0, errno, "waitpid");
+    error_plus(0, errno, "waitpid");
     return false;
   }
   if(WIFEXITED(status) and (WEXITSTATUS(status) == 0)){
@@ -202,7 +224,7 @@ int is_plymouth(const struct dirent *proc_entry){
   char *exe_link;
   ret = asprintf(&exe_link, "/proc/%s/exe", proc_entry->d_name);
   if(ret == -1){
-    error(0, errno, "asprintf");
+    error_plus(0, errno, "asprintf");
     return 0;
   }
   
@@ -211,7 +233,7 @@ int is_plymouth(const struct dirent *proc_entry){
   if(ret == -1){
     free(exe_link);
     if(errno != ENOENT){
-      error(0, errno, "lstat");
+      error_plus(0, errno, "lstat");
     }
     return 0;
   }
@@ -245,17 +267,20 @@ pid_t get_pid(void){
     fclose(pidfile);
   }
   if(maxvalue == 0){
-    struct dirent **direntries;
+    struct dirent **direntries = NULL;
     ret = scandir("/proc", &direntries, is_plymouth, alphasort);
     if (ret == -1){
-      error(0, errno, "scandir");
+      error_plus(0, errno, "scandir");
     }
     if (ret > 0){
       ret = sscanf(direntries[0]->d_name, "%" SCNuMAX, &maxvalue);
       if (ret < 0){
-	error(0, errno, "sscanf");
+	error_plus(0, errno, "sscanf");
       }
     }
+    /* scandir might preallocate for this variable (man page unclear).
+       even if ret == 0, we need to free it. */
+    free(direntries);
   }
   pid_t pid;
   pid = (pid_t)maxvalue;
@@ -275,7 +300,7 @@ const char **getargv(pid_t pid){
   ret = asprintf(&cmdline_filename, "/proc/%" PRIuMAX "/cmdline",
 		 (uintmax_t)pid);
   if(ret == -1){
-    error(0, errno, "asprintf");
+    error_plus(0, errno, "asprintf");
     return NULL;
   }
   
@@ -283,7 +308,7 @@ const char **getargv(pid_t pid){
   cl_fd = open(cmdline_filename, O_RDONLY);
   free(cmdline_filename);
   if(cl_fd == -1){
-    error(0, errno, "open");
+    error_plus(0, errno, "open");
     return NULL;
   }
   
@@ -297,7 +322,7 @@ const char **getargv(pid_t pid){
     if(cmdline_len + blocksize > cmdline_allocated){
       tmp = realloc(cmdline, cmdline_allocated + blocksize);
       if(tmp == NULL){
-	error(0, errno, "realloc");
+	error_plus(0, errno, "realloc");
 	free(cmdline);
 	close(cl_fd);
 	return NULL;
@@ -310,7 +335,7 @@ const char **getargv(pid_t pid){
     sret = read(cl_fd, cmdline + cmdline_len,
 		cmdline_allocated - cmdline_len);
     if(sret == -1){
-      error(0, errno, "read");
+      error_plus(0, errno, "read");
       free(cmdline);
       close(cl_fd);
       return NULL;
@@ -319,7 +344,7 @@ const char **getargv(pid_t pid){
   } while(sret != 0);
   ret = close(cl_fd);
   if(ret == -1){
-    error(0, errno, "close");
+    error_plus(0, errno, "close");
     free(cmdline);
     return NULL;
   }
@@ -328,7 +353,7 @@ const char **getargv(pid_t pid){
   char **argv = malloc((argz_count(cmdline, cmdline_len) + 1)
 		       * sizeof(char *)); /* Get number of args */
   if(argv == NULL){
-    error(0, errno, "argv = malloc()");
+    error_plus(0, errno, "argv = malloc()");
     free(cmdline);
     return NULL;
   }
@@ -361,16 +386,16 @@ int main(__attribute__((unused))int argc,
 	*sig != 0; sig++){
       ret = sigaddset(&new_action.sa_mask, *sig);
       if(ret == -1){
-	error(EX_OSERR, errno, "sigaddset");
+	error_plus(EX_OSERR, errno, "sigaddset");
       }
       ret = sigaction(*sig, NULL, &old_action);
       if(ret == -1){
-	error(EX_OSERR, errno, "sigaction");
+	error_plus(EX_OSERR, errno, "sigaction");
       }
       if(old_action.sa_handler != SIG_IGN){
 	ret = sigaction(*sig, &new_action, NULL);
 	if(ret == -1){
-	  error(EX_OSERR, errno, "sigaction");
+	  error_plus(EX_OSERR, errno, "sigaction");
 	}
       }
     }
@@ -395,7 +420,7 @@ int main(__attribute__((unused))int argc,
   ret = asprintf(&prompt_arg, "--prompt=%s", prompt);
   free(prompt);
   if(ret == -1){
-    error(EX_OSERR, errno, "asprintf");
+    error_plus(EX_OSERR, errno, "asprintf");
   }
   
   /* plymouth ask-for-password --prompt="$prompt" */
@@ -417,7 +442,7 @@ int main(__attribute__((unused))int argc,
   const char **plymouthd_argv;
   pid_t pid = get_pid();
   if(pid == 0){
-    error(0, 0, "plymouthd pid not found");
+    error_plus(0, 0, "plymouthd pid not found");
     plymouthd_argv = plymouthd_default_argv;
   } else {
     plymouthd_argv = getargv(pid);
