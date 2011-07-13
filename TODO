@@ -4,6 +4,8 @@
 
 * mandos-applet
 
+* Convert README into intro(8mandos) man page
+
 * mandos-client
 ** TODO [#B] use scandir(3) instead of readdir(3)
 ** TODO [#B] Prefix all debug output with "Mandos plugin " + program_invocation_short_name
@@ -12,6 +14,10 @@
 *** A TCP timeout
 ** TODO [#B] Use capabilities instead of seteuid().
 ** TODO [#A] Retry --connect forever
+** TODO [#B] Use struct sockaddr_storage instead of a union
+** TODO [#B] Use getaddrinfo(hints=AI_NUMERICHOST) instead of inet_pton()
+** TODO [#B] Use getnameinfo(serv=NULL, NI_NUMERICHOST) instead of inet_ntop()
+** TODO [#B] Accept [] around IPv6 address in --connect option; see [[http://tools.ietf.org/html/rfc5952][RFC 5952 - A Recommendation for IPv6 Address Text Representation]]
 
 * splashy
 ** TODO [#B] use scandir(3) instead of readdir(3)
@@ -30,6 +36,10 @@
 * password-prompt
 ** TODO [#B] Prefix all debug output with "Mandos plugin " + program_invocation_short_name
 ** TODO [#B] lock stdin (with flock()?)
+** TODO [#A] Free direntries after scandir()
+
+* plymouth
+** TODO [#A] Free direntries after scandir()
 
 * TODO [#B] passdev
 
@@ -85,6 +95,7 @@
 ** TODO [#B] break the wait on approval_delay if connection dies
 ** TODO Generate Client.runtime_expansions from client options + extra
 ** TODO Allow %%(checker)s as a runtime expansion
+** TODO Use python-tlslite?
 
 * mandos.xml
 ** Add mandos contact info in manual pages

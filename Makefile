@@ -210,8 +210,8 @@ mandos.lsm: Makefile
 		$@)
 
 plugins.d/mandos-client: plugins.d/mandos-client.c
-	$(LINK.c) $(GNUTLS_LIBS) $(AVAHI_LIBS) $(GPGME_LIBS) $(strip\
-		) $(COMMON) $^ $(LOADLIBES) $(LDLIBS) -o $@
+	$(LINK.c) $^ $(GNUTLS_LIBS) $(AVAHI_LIBS) $(strip\
+		) $(GPGME_LIBS) $(LOADLIBES) $(LDLIBS) -o $@
 
 .PHONY : all doc html clean distclean run-client run-server install \
 	install-server install-client uninstall uninstall-server \
