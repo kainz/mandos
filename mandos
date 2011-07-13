@@ -1268,7 +1268,7 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
                 
                 while True:
                     if not client.enabled:
-                        logger.warning("Client %s is disabled",
+                        logger.info("Client %s is disabled",
                                        client.name)
                         if self.server.use_dbus:
                             # Emit D-Bus signal
@@ -1569,8 +1569,8 @@ class MandosServer(IPv6_TCPServer):
                     client = c
                     break
             else:
-                logger.warning("Client not found for fingerprint: %s, ad"
-                               "dress: %s", fpr, address)
+                logger.info("Client not found for fingerprint: %s, ad"
+                            "dress: %s", fpr, address)
                 if self.use_dbus:
                     # Emit D-Bus signal
                     mandos_dbus_service.ClientNotFound(fpr, address[0])
