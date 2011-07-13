@@ -73,7 +73,7 @@
 #include <unistd.h>		/* close(), SEEK_SET, off_t, write(),
 				   getuid(), getgid(), seteuid(),
 				   setgid(), pause() */
-#include <arpa/inet.h>		/* inet_pton(), htons */
+#include <arpa/inet.h>		/* inet_pton(), htons, inet_ntop() */
 #include <iso646.h>		/* not, or, and */
 #include <argp.h>		/* struct argp_option, error_t, struct
 				   argp_state, struct argp,
@@ -423,12 +423,9 @@ static int init_gnutls_global(const char *pubkeyfilename,
   }
   
   /* OpenPGP credentials */
-  gnutls_certificate_allocate_credentials(&mc.cred);
+  ret = gnutls_certificate_allocate_credentials(&mc.cred);
   if(ret != GNUTLS_E_SUCCESS){
-    fprintf(stderr, "GnuTLS memory error: %s\n", /* Spurious warning
-						    from
-						    -Wunreachable-code
-						 */
+    fprintf(stderr, "GnuTLS memory error: %s\n",
 	    safer_gnutls_strerror(ret));
     gnutls_global_deinit();
     return -1;
@@ -1050,7 +1047,7 @@ int good_interface(const struct dirent *if_entry){
   free(flagname);
   typedef short ifreq_flags;	/* ifreq.ifr_flags in netdevice(7) */
   /* read line from flags_fd */
-  ssize_t to_read = (sizeof(ifreq_flags)*2)+3; /* "0x1003\n" */
+  ssize_t to_read = 2+(sizeof(ifreq_flags)*2)+1; /* "0x1003\n" */
   char *flagstring = malloc((size_t)to_read+1); /* +1 for final \0 */
   flagstring[(size_t)to_read] = '\0';
   if(flagstring == NULL){
