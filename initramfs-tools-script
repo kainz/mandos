@@ -156,7 +156,7 @@ mandos_user="65534"
 mandos_group="65534"
 while read line; do
     line="${line%%#*}"
-    TEMP=`getopt --quiet --longoptions userid:,groupid: -- $line`
+    TEMP=`getopt --quiet --longoptions userid:,groupid: --options "" -- $line`
     eval set -- "$TEMP"
     while true; do
 	case "$1" in
