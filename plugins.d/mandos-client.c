@@ -1455,6 +1455,62 @@ int main(int argc, char *argv[]){
       goto end;
     }
   }
+    
+  {
+    /* Work around Debian bug #633582:
+       <http://bugs.debian.org/633582> */
+    struct stat st;
+    
+    /* Re-raise priviliges */
+    errno = 0;
+    ret = seteuid(0);
+    if(ret == -1){
+      perror_plus("seteuid");
+    }
+    
+    int seckey_fd = open(PATHDIR "/" SECKEY, O_RDONLY);
+    if(seckey_fd == -1){
+      perror_plus("open");
+    } else {
+      ret = (int)TEMP_FAILURE_RETRY(fstat(seckey_fd, &st));
+      if(ret == -1){
+	perror_plus("fstat");
+      } else {
+	if(S_ISREG(st.st_mode) and st.st_uid == 0 and st.st_gid == 0){
+	  ret = fchown(seckey_fd, uid, gid);
+	  if(ret == -1){
+	    perror_plus("fchown");
+	  }
+	}
+      }
+      TEMP_FAILURE_RETRY(close(seckey_fd));
+    }
+    
+    int pubkey_fd = open(PATHDIR "/" PUBKEY, O_RDONLY);
+    if(pubkey_fd == -1){
+      perror_plus("open");
+    } else {
+      ret = (int)TEMP_FAILURE_RETRY(fstat(pubkey_fd, &st));
+      if(ret == -1){
+	perror_plus("fstat");
+      } else {
+	if(S_ISREG(st.st_mode) and st.st_uid == 0 and st.st_gid == 0){
+	  ret = fchown(pubkey_fd, uid, gid);
+	  if(ret == -1){
+	    perror_plus("fchown");
+	  }
+	}
+      }
+      TEMP_FAILURE_RETRY(close(pubkey_fd));
+    }
+    
+    /* Lower privileges */
+    errno = 0;
+    ret = seteuid(uid);
+    if(ret == -1){
+      perror_plus("seteuid");
+    }
+  }
   
   if(not debug){
     avahi_set_log_function(empty_log);

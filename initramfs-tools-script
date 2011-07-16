@@ -108,6 +108,7 @@ replace_cryptroot=no
 
 # Our keyscript
 mandos=/lib/mandos/plugin-runner
+test -x "$mandos"
 
 # parse /conf/conf.d/cryptroot.  Format:
 # target=sda2_crypt,source=/dev/sda2,key=none,keyscript=/foo/bar/baz
@@ -149,24 +150,3 @@ if [ "$replace_cryptroot" = yes ]; then
 else
     rm /conf/conf.d/cryptroot.mandos
 fi
-
-## Work around Debian bug #633582: <http://bugs.debian.org/633582>
-# First determine the mandos user and group ID
-mandos_user="65534"
-mandos_group="65534"
-while read line; do
-    line="${line%%#*}"
-    TEMP=`getopt --quiet --longoptions userid:,groupid: --options "" -- $line`
-    eval set -- "$TEMP"
-    while true; do
-	case "$1" in
-	    --userid) mandos_user="$2"; shift 2;;
-	    --groupid) mandos_group="$2"; shift 2;;
-	    --) shift; break;;
-	esac
-    done
-done < /conf/conf.d/mandos/plugin-runner.conf
-chown "${mandos_user}:${mandos_group}" \
-    /lib/mandos/plugins.d \
-    /conf/conf.d/mandos/pubkey.txt \
-    /conf/conf.d/mandos/seckey.txt
