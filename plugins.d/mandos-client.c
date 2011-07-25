@@ -62,7 +62,8 @@
 #include <inttypes.h>		/* PRIu16, PRIdMAX, intmax_t,
 				   strtoimax() */
 #include <assert.h>		/* assert() */
-#include <errno.h>		/* perror(), errno, program_invocation_short_name */
+#include <errno.h>		/* perror(), errno,
+				   program_invocation_short_name */
 #include <time.h>		/* nanosleep(), time(), sleep() */
 #include <net/if.h>		/* ioctl, ifreq, SIOCGIFFLAGS, IFF_UP,
 				   SIOCSIFFLAGS, if_indextoname(),
@@ -73,7 +74,7 @@
 #include <unistd.h>		/* close(), SEEK_SET, off_t, write(),
 				   getuid(), getgid(), seteuid(),
 				   setgid(), pause() */
-#include <arpa/inet.h>		/* inet_pton(), htons */
+#include <arpa/inet.h>		/* inet_pton(), htons, inet_ntop() */
 #include <iso646.h>		/* not, or, and */
 #include <argp.h>		/* struct argp_option, error_t, struct
 				   argp_state, struct argp,
@@ -130,7 +131,7 @@ const char *argp_program_bug_address = "<mandos@fukt.bsnet.se>";
 static const char sys_class_net[] = "/sys/class/net";
 char *connect_to = NULL;
 
-/* Doubly linked list that need to be circular linked when ever used */
+/* Doubly linked list that need to be circularly linked when used */
 typedef struct server{
   const char *ip;
   uint16_t port;
@@ -156,14 +157,16 @@ typedef struct {
 /* global context so signal handler can reach it*/
 mandos_context mc = { .simple_poll = NULL, .server = NULL,
 		      .dh_bits = 1024, .priority = "SECURE256"
-		      ":!CTYPE-X.509:+CTYPE-OPENPGP", .current_server = NULL };
+		      ":!CTYPE-X.509:+CTYPE-OPENPGP",
+		      .current_server = NULL };
 
 sig_atomic_t quit_now = 0;
 int signal_received = 0;
 
 /* Function to use when printing errors */
 void perror_plus(const char *print_text){
-  fprintf(stderr, "Mandos plugin %s: ", program_invocation_short_name);
+  fprintf(stderr, "Mandos plugin %s: ",
+	  program_invocation_short_name);
   perror(print_text);
 }
 
@@ -199,9 +202,9 @@ int add_server(const char *ip, uint16_t port,
 			 .af = af };
   if(new_server->ip == NULL){
     perror_plus("strdup");
-    return -1;    
+    return -1;
   }
-  /* uniqe case of first server */
+  /* unique case of first server */
   if (mc.current_server == NULL){
     new_server->next = new_server;
     new_server->prev = new_server;
@@ -478,12 +481,9 @@ static int init_gnutls_global(const char *pubkeyfilename,
   }
   
   /* OpenPGP credentials */
-  gnutls_certificate_allocate_credentials(&mc.cred);
+  ret = gnutls_certificate_allocate_credentials(&mc.cred);
   if(ret != GNUTLS_E_SUCCESS){
-    fprintf(stderr, "GnuTLS memory error: %s\n", /* Spurious warning
-						    from
-						    -Wunreachable-code
-						 */
+    fprintf(stderr, "GnuTLS memory error: %s\n",
 	    safer_gnutls_strerror(ret));
     gnutls_global_deinit();
     return -1;
@@ -796,8 +796,8 @@ static int start_mandos_communication(const char *ip, uint16_t port,
     errno = EINTR;
     goto mandos_end;
   }
-
-  /* Spurious warnings from -Wint-to-pointer-cast */
+  
+  /* Spurious warning from -Wint-to-pointer-cast */
   gnutls_transport_set_ptr(session, (gnutls_transport_ptr_t) tcp_sd);
   
   if(quit_now){
@@ -1069,7 +1069,7 @@ static void browse_callback(AvahiSServiceBrowser *b,
   }
 }
 
-/* Signal handler that stops main loop after sigterm has been called */
+/* Signal handler that stops main loop after SIGTERM */
 static void handle_sigterm(int sig){
   if(quit_now){
     return;
@@ -1110,7 +1110,7 @@ int good_interface(const struct dirent *if_entry){
   free(flagname);
   typedef short ifreq_flags;	/* ifreq.ifr_flags in netdevice(7) */
   /* read line from flags_fd */
-  ssize_t to_read = (sizeof(ifreq_flags)*2)+3; /* "0x1003\n" */
+  ssize_t to_read = 2+(sizeof(ifreq_flags)*2)+1; /* "0x1003\n" */
   char *flagstring = malloc((size_t)to_read+1); /* +1 for final \0 */
   flagstring[(size_t)to_read] = '\0';
   if(flagstring == NULL){
@@ -1209,12 +1209,14 @@ int avahi_loop_with_timeout(AvahiSimplePoll *s, int retry_interval){
   while(true){
     if(mc.current_server == NULL){
       if (debug){
-	fprintf(stderr, "Wait until first server is found. No timeout!\n");	
+	fprintf(stderr,
+		"Wait until first server is found. No timeout!\n");
       }
       ret = avahi_simple_poll_iterate(s, -1);
     } else {
       if (debug){
-	fprintf(stderr, "Check current_server if we should run it, or wait\n");	
+	fprintf(stderr, "Check current_server if we should run it,"
+		" or wait\n");
       }
       /* the current time */
       ret = clock_gettime(CLOCK_MONOTONIC, &now);
@@ -1224,31 +1226,39 @@ int avahi_loop_with_timeout(AvahiSimplePoll *s, int retry_interval){
       }
       /* Calculating in ms how long time between now and server
 	 who we visted longest time ago. Now - last seen.  */
-      waited_time.tv_sec = now.tv_sec - mc.current_server->last_seen.tv_sec;
-      waited_time.tv_nsec = now.tv_nsec - mc.current_server->last_seen.tv_nsec;
-      /* total time is 10s/10000ms. Converting to s to ms by 1000/s, and ns to ms by divind by 1000000. */
-      block_time = (retry_interval - ((intmax_t)waited_time.tv_sec * 1000)) - ((intmax_t)waited_time.tv_nsec / 1000000);
+      waited_time.tv_sec = (now.tv_sec
+			    - mc.current_server->last_seen.tv_sec);
+      waited_time.tv_nsec = (now.tv_nsec
+			     - mc.current_server->last_seen.tv_nsec);
+      /* total time is 10s/10,000ms.
+	 Converting to s from ms by dividing by 1,000,
+	 and ns to ms by dividing by 1,000,000. */
+      block_time = ((retry_interval
+		     - ((intmax_t)waited_time.tv_sec * 1000))
+		    - ((intmax_t)waited_time.tv_nsec / 1000000));
 
       if (debug){
-	fprintf(stderr, "Blocking for %ld ms\n", block_time);	
+	fprintf(stderr, "Blocking for %ld ms\n", block_time);
       }
 
       if(block_time <= 0){
 	ret = start_mandos_communication(mc.current_server->ip,
-				   mc.current_server->port,
-				   mc.current_server->if_index,
-				   mc.current_server->af);
+					 mc.current_server->port,
+					 mc.current_server->if_index,
+					 mc.current_server->af);
 	if(ret == 0){
 	  avahi_simple_poll_quit(mc.simple_poll);
 	  return 0;
 	}
-	ret = clock_gettime(CLOCK_MONOTONIC, &mc.current_server->last_seen);
+	ret = clock_gettime(CLOCK_MONOTONIC,
+			    &mc.current_server->last_seen);
 	if(ret == -1){
 	  perror_plus("clock_gettime");
 	  return -1;
 	}
 	mc.current_server = mc.current_server->next;
-	block_time = 0; 	/* call avahi to find new mandos servers, but dont block */
+	block_time = 0; 	/* Call avahi to find new Mandos
+				   servers, but don't block */
       }
       
       ret = avahi_simple_poll_iterate(s, (int)block_time);
@@ -1283,7 +1293,8 @@ int main(int argc, char *argv[]){
   bool gnutls_initialized = false;
   bool gpgme_initialized = false;
   float delay = 2.5f;
-  double retry_interval = 10; /* 10s between retrying a server and checking again*/
+  double retry_interval = 10; /* 10s between trying a server and
+				 retrying the same server again */
   
   struct sigaction old_sigterm_action = { .sa_handler = SIG_DFL };
   struct sigaction sigterm_action = { .sa_handler = handle_sigterm };
@@ -1442,6 +1453,62 @@ int main(int argc, char *argv[]){
     case EINVAL:
       exitcode = EX_USAGE;
       goto end;
+    }
+  }
+    
+  {
+    /* Work around Debian bug #633582:
+       <http://bugs.debian.org/633582> */
+    struct stat st;
+    
+    /* Re-raise priviliges */
+    errno = 0;
+    ret = seteuid(0);
+    if(ret == -1){
+      perror_plus("seteuid");
+    }
+    
+    int seckey_fd = open(PATHDIR "/" SECKEY, O_RDONLY);
+    if(seckey_fd == -1){
+      perror_plus("open");
+    } else {
+      ret = (int)TEMP_FAILURE_RETRY(fstat(seckey_fd, &st));
+      if(ret == -1){
+	perror_plus("fstat");
+      } else {
+	if(S_ISREG(st.st_mode) and st.st_uid == 0 and st.st_gid == 0){
+	  ret = fchown(seckey_fd, uid, gid);
+	  if(ret == -1){
+	    perror_plus("fchown");
+	  }
+	}
+      }
+      TEMP_FAILURE_RETRY(close(seckey_fd));
+    }
+    
+    int pubkey_fd = open(PATHDIR "/" PUBKEY, O_RDONLY);
+    if(pubkey_fd == -1){
+      perror_plus("open");
+    } else {
+      ret = (int)TEMP_FAILURE_RETRY(fstat(pubkey_fd, &st));
+      if(ret == -1){
+	perror_plus("fstat");
+      } else {
+	if(S_ISREG(st.st_mode) and st.st_uid == 0 and st.st_gid == 0){
+	  ret = fchown(pubkey_fd, uid, gid);
+	  if(ret == -1){
+	    perror_plus("fchown");
+	  }
+	}
+      }
+      TEMP_FAILURE_RETRY(close(pubkey_fd));
+    }
+    
+    /* Lower privileges */
+    errno = 0;
+    ret = seteuid(uid);
+    if(ret == -1){
+      perror_plus("seteuid");
     }
   }
   
@@ -1645,7 +1712,8 @@ int main(int argc, char *argv[]){
 	goto end;
       }
     }
-    /* sleep checking until interface is running. Check every 0.25s, up to total time of delay */
+    /* Sleep checking until interface is running.
+       Check every 0.25s, up to total time of delay */
     for(int i=0; i < delay * 4; i++){
       ret = ioctl(sd, SIOCGIFFLAGS, &network);
       if(ret == -1){
@@ -1844,7 +1912,8 @@ int main(int argc, char *argv[]){
     fprintf(stderr, "Starting Avahi loop search\n");
   }
 
-  ret = avahi_loop_with_timeout(mc.simple_poll, (int)(retry_interval * 1000));
+  ret = avahi_loop_with_timeout(mc.simple_poll,
+				(int)(retry_interval * 1000));
   if(debug){
     fprintf(stderr, "avahi_loop_with_timeout exited %s\n",
 	    (ret == 0) ? "successfully" : "with error");
@@ -1876,7 +1945,8 @@ int main(int argc, char *argv[]){
     gpgme_release(mc.ctx);
   }
 
-  /* cleans up the circular linked list of mandos servers the client has seen */
+  /* Cleans up the circular linked list of Mandos servers the client
+     has seen */
   if(mc.current_server != NULL){
     mc.current_server->prev->next = NULL;
     while(mc.current_server != NULL){
@@ -1942,7 +2012,8 @@ int main(int argc, char *argv[]){
       }
     }
 
-    /* need to be cleaned even if ret == 0 because man page dont specify */
+    /* need to be cleaned even if ret == 0 because man page doesn't
+       specify */
     free(direntries);
     if (ret == -1){
       perror_plus("scandir");

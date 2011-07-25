@@ -53,7 +53,7 @@ GPGME_LIBS=$(shell gpgme-config --libs; getconf LFS_LIBS; \
 # Do not change these two
 CFLAGS=$(WARN) $(DEBUG) $(FORTIFY) $(COVERAGE) $(OPTIMIZE) \
 	$(LANGUAGE) $(GNUTLS_CFLAGS) $(AVAHI_CFLAGS) $(GPGME_CFLAGS) \
-	-lrt -DVERSION='"$(version)"'
+	-DVERSION='"$(version)"'
 LDFLAGS=$(COVERAGE) $(LINK_FORTIFY) $(foreach flag,$(LINK_FORTIFY_LD),-Xlinker $(flag))
 
 # Commands to format a DocBook <refentry> document into a manual page
@@ -210,8 +210,8 @@ mandos.lsm: Makefile
 		$@)
 
 plugins.d/mandos-client: plugins.d/mandos-client.c
-	$(LINK.c) $(GNUTLS_LIBS) $(AVAHI_LIBS) $(GPGME_LIBS) $(strip\
-		) $(COMMON) $^ $(LOADLIBES) $(LDLIBS) -o $@
+	$(LINK.c) $^ -lrt $(GNUTLS_LIBS) $(AVAHI_LIBS) $(strip\
+		) $(GPGME_LIBS) $(LOADLIBES) $(LDLIBS) -o $@
 
 .PHONY : all doc html clean distclean run-client run-server install \
 	install-server install-client uninstall uninstall-server \
