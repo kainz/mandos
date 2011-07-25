@@ -36,7 +36,8 @@
 #include <stddef.h>		/* NULL */
 #include <string.h>		/* strchr(), memcmp() */
 #include <stdio.h>		/* asprintf(), perror(), fopen(),
-				   fscanf(), vasprintf(), fprintf(), vfprintf() */
+				   fscanf(), vasprintf(), fprintf(),
+				   vfprintf() */
 #include <unistd.h>		/* close(), readlink(), read(),
 				   fork(), setsid(), chdir(), dup2(),
 				   STDERR_FILENO, execv(), access() */
@@ -72,7 +73,8 @@ static void termination_handler(__attribute__((unused))int signum){
 }
 
 /* Function to use when printing errors */
-void error_plus(int status, int errnum, const char *formatstring, ...){
+void error_plus(int status, int errnum, const char *formatstring,
+		...){
   va_list ap;
   char *text;
   int ret;
@@ -80,7 +82,8 @@ void error_plus(int status, int errnum, const char *formatstring, ...){
   va_start(ap, formatstring);
   ret = vasprintf(&text, formatstring, ap);
   if (ret == -1){
-    fprintf(stderr, "Mandos plugin %s: ", program_invocation_short_name);
+    fprintf(stderr, "Mandos plugin %s: ",
+	    program_invocation_short_name);
     vfprintf(stderr, formatstring, ap);
     fprintf(stderr, ": ");
     fprintf(stderr, "%s\n", strerror(errnum));
@@ -279,7 +282,7 @@ pid_t get_pid(void){
       }
     }
     /* scandir might preallocate for this variable (man page unclear).
-       even if ret == 0, we need to free it. */
+       even if ret == 0, therefore we need to free it. */
     free(direntries);
   }
   pid_t pid;
