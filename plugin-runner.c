@@ -742,7 +742,29 @@ int main(int argc, char *argv[]){
     }
   }
   
-  /* Strip permissions down to nobody */
+  {
+    /* Work around Debian bug #633582:
+       <http://bugs.debian.org/633582> */
+    int plugindir_fd = open(/* plugindir or */ PDIR, O_RDONLY);
+    if(plugindir_fd == -1){
+      error(0, errno, "open");
+    } else {
+      ret = (int)TEMP_FAILURE_RETRY(fstat(plugindir_fd, &st));
+      if(ret == -1){
+	error(0, errno, "fstat");
+      } else {
+	if(S_ISDIR(st.st_mode) and st.st_uid == 0 and st.st_gid == 0){
+	  ret = fchown(plugindir_fd, uid, gid);
+	  if(ret == -1){
+	    error(0, errno, "fchown");
+	  }
+	}
+      }
+      TEMP_FAILURE_RETRY(close(plugindir_fd));
+    }
+  }
+  
+  /* Lower permissions */
   setgid(gid);
   if(ret == -1){
     error(0, errno, "setgid");

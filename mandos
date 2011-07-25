@@ -36,7 +36,7 @@ from __future__ import (division, absolute_import, print_function,
 
 import SocketServer as socketserver
 import socket
-import optparse
+import argparse
 import datetime
 import errno
 import gnutls.crypto
@@ -151,6 +151,7 @@ class AvahiService(object):
         self.group = None       # our entry group
         self.server = None
         self.bus = bus
+        self.entry_group_state_changed_match = None
     def rename(self):
         """Derived from the Avahi example code"""
         if self.rename_count >= self.max_renames:
@@ -168,25 +169,29 @@ class AvahiService(object):
         self.remove()
         try:
             self.add()
-        except dbus.exceptions.DBusException, error:
+        except dbus.exceptions.DBusException as error:
             logger.critical("DBusException: %s", error)
             self.cleanup()
             os._exit(1)
         self.rename_count += 1
     def remove(self):
         """Derived from the Avahi example code"""
+        if self.entry_group_state_changed_match is not None:
+            self.entry_group_state_changed_match.remove()
+            self.entry_group_state_changed_match = None
         if self.group is not None:
             self.group.Reset()
     def add(self):
         """Derived from the Avahi example code"""
+        self.remove()
         if self.group is None:
             self.group = dbus.Interface(
                 self.bus.get_object(avahi.DBUS_NAME,
                                     self.server.EntryGroupNew()),
                 avahi.DBUS_INTERFACE_ENTRY_GROUP)
-            self.group.connect_to_signal('StateChanged',
-                                         self
-                                         .entry_group_state_changed)
+        self.entry_group_state_changed_match = (
+            self.group.connect_to_signal(
+                'StateChanged', self .entry_group_state_changed))
         logger.debug("Adding Zeroconf service '%s' of type '%s' ...",
                      self.name, self.type)
         self.group.AddService(
@@ -215,22 +220,44 @@ class AvahiService(object):
     def cleanup(self):
         """Derived from the Avahi example code"""
         if self.group is not None:
-            self.group.Free()
+            try:
+                self.group.Free()
+            except (dbus.exceptions.UnknownMethodException,
+                    dbus.exceptions.DBusException) as e:
+                pass
             self.group = None
-    def server_state_changed(self, state):
+        self.remove()
+    def server_state_changed(self, state, error=None):
         """Derived from the Avahi example code"""
         logger.debug("Avahi server state change: %i", state)
-        if state == avahi.SERVER_COLLISION:
-            logger.error("Zeroconf server name collision")
-            self.remove()
+        bad_states = { avahi.SERVER_INVALID:
+                           "Zeroconf server invalid",
+                       avahi.SERVER_REGISTERING: None,
+                       avahi.SERVER_COLLISION:
+                           "Zeroconf server name collision",
+                       avahi.SERVER_FAILURE:
+                           "Zeroconf server failure" }
+        if state in bad_states:
+            if bad_states[state] is not None:
+                if error is None:
+                    logger.error(bad_states[state])
+                else:
+                    logger.error(bad_states[state] + ": %r", error)
+            self.cleanup()
         elif state == avahi.SERVER_RUNNING:
             self.add()
+        else:
+            if error is None:
+                logger.debug("Unknown state: %r", state)
+            else:
+                logger.debug("Unknown state: %r: %r", state, error)
     def activate(self):
         """Derived from the Avahi example code"""
         if self.server is None:
             self.server = dbus.Interface(
                 self.bus.get_object(avahi.DBUS_NAME,
-                                    avahi.DBUS_PATH_SERVER),
+                                    avahi.DBUS_PATH_SERVER,
+                                    follow_name_owner_changes=True),
                 avahi.DBUS_INTERFACE_SERVER)
         self.server.connect_to_signal("StateChanged",
                                  self.server_state_changed)
@@ -445,7 +472,7 @@ class Client(object):
         # If a checker exists, make sure it is not a zombie
         try:
             pid, status = os.waitpid(self.checker.pid, os.WNOHANG)
-        except (AttributeError, OSError), error:
+        except (AttributeError, OSError) as error:
             if (isinstance(error, OSError)
                 and error.errno != errno.ECHILD):
                 raise error
@@ -472,7 +499,7 @@ class Client(object):
 
                 try:
                     command = self.checker_command % escaped_attrs
-                except TypeError, error:
+                except TypeError as error:
                     logger.error('Could not format string "%s":'
                                  ' %s', self.checker_command, error)
                     return True # Try again later
@@ -497,7 +524,7 @@ class Client(object):
                 if pid:
                     gobject.source_remove(self.checker_callback_tag)
                     self.checker_callback(pid, status, command)
-            except OSError, error:
+            except OSError as error:
                 logger.error("Failed to start subprocess: %s",
                              error)
         # Re-run this periodically if run by gobject.timeout_add
@@ -516,7 +543,7 @@ class Client(object):
             #time.sleep(0.5)
             #if self.checker.poll() is None:
             #    os.kill(self.checker.pid, signal.SIGKILL)
-        except OSError, error:
+        except OSError as error:
             if error.errno != errno.ESRCH: # No such process
                 raise
         self.checker = None
@@ -704,7 +731,7 @@ class DBusObjectWithProperties(dbus.service.Object):
             xmlstring = document.toxml("utf-8")
             document.unlink()
         except (AttributeError, xml.dom.DOMException,
-                xml.parsers.expat.ExpatError), error:
+                xml.parsers.expat.ExpatError) as error:
             logger.error("Failed to override Introspection method",
                          error)
         return xmlstring
@@ -813,13 +840,12 @@ class ClientDBus(Client, DBusObjectWithProperties):
                                        *args, **kwargs)
     
     def checked_ok(self, *args, **kwargs):
-        r = Client.checked_ok(self, *args, **kwargs)
+        Client.checked_ok(self, *args, **kwargs)
         # Emit D-Bus signal
         self.PropertyChanged(
             dbus.String("LastCheckedOK"),
             (self._datetime_to_dbus(self.last_checked_ok,
                                     variant_level=1)))
-        return r
     
     def need_approval(self, *args, **kwargs):
         r = Client.need_approval(self, *args, **kwargs)
@@ -922,7 +948,7 @@ class ClientDBus(Client, DBusObjectWithProperties):
     # CheckedOK - method
     @dbus.service.method(_interface)
     def CheckedOK(self):
-        return self.checked_ok()
+        self.checked_ok()
     
     # Enable - method
     @dbus.service.method(_interface)
@@ -1204,14 +1230,14 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
             try:
                 if int(line.strip().split()[0]) > 1:
                     raise RuntimeError
-            except (ValueError, IndexError, RuntimeError), error:
+            except (ValueError, IndexError, RuntimeError) as error:
                 logger.error("Unknown protocol version: %s", error)
                 return
 
             # Start GnuTLS connection
             try:
                 session.handshake()
-            except gnutls.errors.GNUTLSError, error:
+            except gnutls.errors.GNUTLSError as error:
                 logger.warning("Handshake failed: %s", error)
                 # Do not run session.bye() here: the session is not
                 # established.  Just abandon the request.
@@ -1223,7 +1249,8 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
                 try:
                     fpr = self.fingerprint(self.peer_certificate
                                            (session))
-                except (TypeError, gnutls.errors.GNUTLSError), error:
+                except (TypeError,
+                        gnutls.errors.GNUTLSError) as error:
                     logger.warning("Bad certificate: %s", error)
                     return
                 logger.debug("Fingerprint: %s", fpr)
@@ -1241,7 +1268,7 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
                 
                 while True:
                     if not client.enabled:
-                        logger.warning("Client %s is disabled",
+                        logger.info("Client %s is disabled",
                                        client.name)
                         if self.server.use_dbus:
                             # Emit D-Bus signal
@@ -1292,7 +1319,7 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
                 while sent_size < len(client.secret):
                     try:
                         sent = session.send(client.secret[sent_size:])
-                    except (gnutls.errors.GNUTLSError), error:
+                    except gnutls.errors.GNUTLSError as error:
                         logger.warning("gnutls send failed")
                         return
                     logger.debug("Sent: %d, remaining: %d",
@@ -1312,7 +1339,7 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
                     client.approvals_pending -= 1
                 try:
                     session.bye()
-                except (gnutls.errors.GNUTLSError), error:
+                except gnutls.errors.GNUTLSError as error:
                     logger.warning("GnuTLS bye failed")
     
     @staticmethod
@@ -1442,7 +1469,7 @@ class IPv6_TCPServer(MultiprocessingMixInWithPipe,
                                            SO_BINDTODEVICE,
                                            str(self.interface
                                                + '\0'))
-                except socket.error, error:
+                except socket.error as error:
                     if error[0] == errno.EPERM:
                         logger.error("No permission to"
                                      " bind to interface %s",
@@ -1542,8 +1569,8 @@ class MandosServer(IPv6_TCPServer):
                     client = c
                     break
             else:
-                logger.warning("Client not found for fingerprint: %s, ad"
-                               "dress: %s", fpr, address)
+                logger.info("Client not found for fingerprint: %s, ad"
+                            "dress: %s", fpr, address)
                 if self.use_dbus:
                     # Emit D-Bus signal
                     mandos_dbus_service.ClientNotFound(fpr, address[0])
@@ -1613,7 +1640,7 @@ def string_to_delta(interval):
                 delta = datetime.timedelta(0, 0, 0, 0, 0, 0, value)
             else:
                 raise ValueError("Unknown suffix %r" % suffix)
-        except (ValueError, IndexError), e:
+        except (ValueError, IndexError) as e:
             raise ValueError(*(e.args))
         timevalue += delta
     return timevalue
@@ -1673,34 +1700,37 @@ def main():
     ##################################################################
     # Parsing of options, both command line and config file
     
-    parser = optparse.OptionParser(version = "%%prog %s" % version)
-    parser.add_option("-i", "--interface", type="string",
-                      metavar="IF", help="Bind to interface IF")
-    parser.add_option("-a", "--address", type="string",
-                      help="Address to listen for requests on")
-    parser.add_option("-p", "--port", type="int",
-                      help="Port number to receive requests on")
-    parser.add_option("--check", action="store_true",
-                      help="Run self-test")
-    parser.add_option("--debug", action="store_true",
-                      help="Debug mode; run in foreground and log to"
-                      " terminal")
-    parser.add_option("--debuglevel", type="string", metavar="LEVEL",
-                      help="Debug level for stdout output")
-    parser.add_option("--priority", type="string", help="GnuTLS"
-                      " priority string (see GnuTLS documentation)")
-    parser.add_option("--servicename", type="string",
-                      metavar="NAME", help="Zeroconf service name")
-    parser.add_option("--configdir", type="string",
-                      default="/etc/mandos", metavar="DIR",
-                      help="Directory to search for configuration"
-                      " files")
-    parser.add_option("--no-dbus", action="store_false",
-                      dest="use_dbus", help="Do not provide D-Bus"
-                      " system bus interface")
-    parser.add_option("--no-ipv6", action="store_false",
-                      dest="use_ipv6", help="Do not use IPv6")
-    options = parser.parse_args()[0]
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-v", "--version", action="version",
+                        version = "%%(prog)s %s" % version,
+                        help="show version number and exit")
+    parser.add_argument("-i", "--interface", metavar="IF",
+                        help="Bind to interface IF")
+    parser.add_argument("-a", "--address",
+                        help="Address to listen for requests on")
+    parser.add_argument("-p", "--port", type=int,
+                        help="Port number to receive requests on")
+    parser.add_argument("--check", action="store_true",
+                        help="Run self-test")
+    parser.add_argument("--debug", action="store_true",
+                        help="Debug mode; run in foreground and log"
+                        " to terminal")
+    parser.add_argument("--debuglevel", metavar="LEVEL",
+                        help="Debug level for stdout output")
+    parser.add_argument("--priority", help="GnuTLS"
+                        " priority string (see GnuTLS documentation)")
+    parser.add_argument("--servicename",
+                        metavar="NAME", help="Zeroconf service name")
+    parser.add_argument("--configdir",
+                        default="/etc/mandos", metavar="DIR",
+                        help="Directory to search for configuration"
+                        " files")
+    parser.add_argument("--no-dbus", action="store_false",
+                        dest="use_dbus", help="Do not provide D-Bus"
+                        " system bus interface")
+    parser.add_argument("--no-ipv6", action="store_false",
+                        dest="use_ipv6", help="Do not use IPv6")
+    options = parser.parse_args()
     
     if options.check:
         import doctest
@@ -1813,7 +1843,7 @@ def main():
     try:
         os.setgid(gid)
         os.setuid(uid)
-    except OSError, error:
+    except OSError as error:
         if error[0] != errno.EPERM:
             raise error
     
@@ -1863,7 +1893,7 @@ def main():
         try:
             bus_name = dbus.service.BusName("se.bsnet.fukt.Mandos",
                                             bus, do_not_queue=True)
-        except dbus.exceptions.NameExistsException, e:
+        except dbus.exceptions.NameExistsException as e:
             logger.error(unicode(e) + ", disabling D-Bus")
             use_dbus = False
             server_settings["use_dbus"] = False
@@ -2019,7 +2049,7 @@ def main():
         # From the Avahi example code
         try:
             service.activate()
-        except dbus.exceptions.DBusException, error:
+        except dbus.exceptions.DBusException as error:
             logger.critical("DBusException: %s", error)
             cleanup()
             sys.exit(1)
@@ -2032,7 +2062,7 @@ def main():
         
         logger.debug("Starting main loop")
         main_loop.run()
-    except AvahiError, error:
+    except AvahiError as error:
         logger.critical("AvahiError: %s", error)
         cleanup()
         sys.exit(1)

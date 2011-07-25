@@ -104,22 +104,22 @@ This file documents the D-Bus interface to the Mandos server.
    c) Setting this property is equivalent to calling StartChecker() or
       StopChecker().
    
-   d) The creation time of this client object, as a RFC 3339 string.
+   d) The creation time of this client object, as an RFC 3339 string.
    
    e) Setting this property is equivalent to calling Enable() or
       Disable().
    
-   f) The time of the last approval request, as a RFC 3339 string, or
+   f) The time of the last approval request, as an RFC 3339 string, or
       an empty string if this has not happened.
    
-   g) The last time a checker was successful, as a RFC 3339 string, or
-      an empty string if this has not happened.  Setting this property
-      is equivalent to calling CheckedOK(), i.e. the current time is
-      set, regardless of the string sent.  Please always use an empty
-      string when setting this property, to allow for possible future
-      expansion.
+   g) The last time a checker was successful, as an RFC 3339 string,
+      or an empty string if this has not happened.  Setting this
+      property is equivalent to calling CheckedOK(), i.e. the current
+      time is set, regardless of the string sent.  Please always use
+      an empty string when setting this property, to allow for
+      possible future expansion.
    
-   h) The last time this client was enabled, as a RFC 3339 string, or
+   h) The last time this client was enabled, as an RFC 3339 string, or
       an empty string if this has not happened.
    
    i) A raw byte array, not hexadecimal digits.
@@ -140,10 +140,10 @@ This file documents the D-Bus interface to the Mandos server.
     This client will be approved or denied in exactly Timeout
     milliseconds, depending on ApprovedByDefault.  Approve() can now
     usefully be called on this client object.
-
+    
 *** PropertyChanged(s: Property, v: Value)
     The Property on this client has changed to Value.
-
+    
 *** Rejected(s: Reason)
     This client was not given its secret for a specified Reason.
 

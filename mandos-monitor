@@ -22,7 +22,8 @@
 # Contact the authors at <mandos@fukt.bsnet.se>.
 # 
 
-from __future__ import division, absolute_import, print_function, unicode_literals
+from __future__ import (division, absolute_import, print_function,
+                        unicode_literals)
 
 import sys
 import os
@@ -86,16 +87,17 @@ class MandosClientPropertyCache(object):
         self.proxy = proxy_object # Mandos Client proxy object
         
         self.properties = dict()
-        self.proxy.connect_to_signal("PropertyChanged",
-                                     self.property_changed,
-                                     client_interface,
-                                     byte_arrays=True)
+        self.property_changed_match = (
+            self.proxy.connect_to_signal("PropertyChanged",
+                                         self.property_changed,
+                                         client_interface,
+                                         byte_arrays=True))
         
         self.properties.update(
             self.proxy.GetAll(client_interface,
                               dbus_interface = dbus.PROPERTIES_IFACE))
 
-        #XXX This break good super behaviour!
+        #XXX This breaks good super behaviour
 #        super(MandosClientPropertyCache, self).__init__(
 #            *args, **kwargs)
     
@@ -105,6 +107,11 @@ class MandosClientPropertyCache(object):
         """
         # Update properties dict with new value
         self.properties[property] = value
+    
+    def delete(self, *args, **kwargs):
+        self.property_changed_match.remove()
+        super(MandosClientPropertyCache, self).__init__(
+            *args, **kwargs)
 
 
 class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
@@ -154,26 +161,28 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
         if self.need_approval:
             self.using_timer(True)
         
-        self.proxy.connect_to_signal("CheckerCompleted",
-                                     self.checker_completed,
-                                     client_interface,
-                                     byte_arrays=True)
-        self.proxy.connect_to_signal("CheckerStarted",
-                                     self.checker_started,
-                                     client_interface,
-                                     byte_arrays=True)
-        self.proxy.connect_to_signal("GotSecret",
-                                     self.got_secret,
-                                     client_interface,
-                                     byte_arrays=True)
-        self.proxy.connect_to_signal("NeedApproval",
-                                     self.need_approval,
-                                     client_interface,
-                                     byte_arrays=True)
-        self.proxy.connect_to_signal("Rejected",
-                                     self.rejected,
-                                     client_interface,
-                                     byte_arrays=True)
+        self.match_objects = (
+            self.proxy.connect_to_signal("CheckerCompleted",
+                                         self.checker_completed,
+                                         client_interface,
+                                         byte_arrays=True),
+            self.proxy.connect_to_signal("CheckerStarted",
+                                         self.checker_started,
+                                         client_interface,
+                                         byte_arrays=True),
+            self.proxy.connect_to_signal("GotSecret",
+                                         self.got_secret,
+                                         client_interface,
+                                         byte_arrays=True),
+            self.proxy.connect_to_signal("NeedApproval",
+                                         self.need_approval,
+                                         client_interface,
+                                         byte_arrays=True),
+            self.proxy.connect_to_signal("Rejected",
+                                         self.rejected,
+                                         client_interface,
+                                         byte_arrays=True))
+        #self.logger('Created client %s' % (self.properties["Name"]))
     
     def property_changed(self, property=None, value=None):
         super(self, MandosClientWidget).property_changed(property,
@@ -341,12 +350,16 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
         self.update()
         return True             # Keep calling this
     
-    def delete(self):
+    def delete(self, *args, **kwargs):
         if self._update_timer_callback_tag is not None:
             gobject.source_remove(self._update_timer_callback_tag)
             self._update_timer_callback_tag = None
+        for match in self.match_objects:
+            match.remove()
+        self.match_objects = ()
         if self.delete_hook is not None:
             self.delete_hook(self)
+        return super(MandosClientWidget, self).delete(*args, **kwargs)
     
     def render(self, maxcolrow, focus=False):
         """Render differently if we have focus.
@@ -358,24 +371,32 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
         """Handle keys.
         This overrides the method from urwid.FlowWidget"""
         if key == "+":
-            self.proxy.Enable(dbus_interface = client_interface)
+            self.proxy.Enable(dbus_interface = client_interface,
+                              ignore_reply=True)
         elif key == "-":
-            self.proxy.Disable(dbus_interface = client_interface)
+            self.proxy.Disable(dbus_interface = client_interface,
+                               ignore_reply=True)
         elif key == "a":
             self.proxy.Approve(dbus.Boolean(True, variant_level=1),
-                               dbus_interface = client_interface)
+                               dbus_interface = client_interface,
+                               ignore_reply=True)
         elif key == "d":
             self.proxy.Approve(dbus.Boolean(False, variant_level=1),
-                                  dbus_interface = client_interface)
+                                  dbus_interface = client_interface,
+                               ignore_reply=True)
         elif key == "R" or key == "_" or key == "ctrl k":
             self.server_proxy_object.RemoveClient(self.proxy
-                                                  .object_path)
+                                                  .object_path,
+                                                  ignore_reply=True)
         elif key == "s":
-            self.proxy.StartChecker(dbus_interface = client_interface)
+            self.proxy.StartChecker(dbus_interface = client_interface,
+                                    ignore_reply=True)
         elif key == "S":
-            self.proxy.StopChecker(dbus_interface = client_interface)
+            self.proxy.StopChecker(dbus_interface = client_interface,
+                                   ignore_reply=True)
         elif key == "C":
-            self.proxy.CheckedOK(dbus_interface = client_interface)
+            self.proxy.CheckedOK(dbus_interface = client_interface,
+                                 ignore_reply=True)
         # xxx
 #         elif key == "p" or key == "=":
 #             self.proxy.pause()
@@ -572,7 +593,7 @@ class UserInterface(object):
         #self.log_message("Wrap mode: " + self.log_wrap)
     
     def find_and_remove_client(self, path, name):
-        """Find an client from its object path and remove it.
+        """Find a client by its object path and remove it.
         
         This is connected to the ClientRemoved signal from the
         Mandos server object."""
@@ -580,8 +601,10 @@ class UserInterface(object):
             client = self.clients_dict[path]
         except KeyError:
             # not found?
+            self.log_message("Unknown client %r (%r) removed", name,
+                             path)
             return
-        self.remove_client(client, path)
+        client.delete()
     
     def add_new_client(self, path):
         client_proxy_object = self.bus.get_object(self.busname, path)
