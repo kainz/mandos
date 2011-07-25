@@ -32,6 +32,8 @@
 				   ENFILE, ENOMEM, EBADF, EINVAL, EIO,
 				   EISDIR, EFBIG */
 #include <error.h>		/* error() */
+#include <stdio.h>		/* fprintf(), vfprintf(),
+				   vasprintf() */
 #include <stdlib.h>		/* EXIT_FAILURE, NULL, size_t, free(),
 				   realloc(), EXIT_SUCCESS */
 #include <fcntl.h>		/* open(), O_RDONLY */
@@ -39,7 +41,32 @@
 				   STDOUT_FILENO */
 #include <sysexits.h>		/* EX_OSERR, EX_OSFILE,
 				   EX_UNAVAILABLE, EX_IOERR */
+#include <string.h> 		/* strerror() */
+#include <stdarg.h>		/* va_list, va_start(), ... */
 
+
+/* Function to use when printing errors */
+void error_plus(int status, int errnum, const char *formatstring,
+		...){
+  va_list ap;
+  char *text;
+  int ret;
+  
+  va_start(ap, formatstring);
+  ret = vasprintf(&text, formatstring, ap);
+  if (ret == -1){
+    fprintf(stderr, "Mandos plugin %s: ",
+	    program_invocation_short_name);
+    vfprintf(stderr, formatstring, ap);
+    fprintf(stderr, ": ");
+    fprintf(stderr, "%s\n", strerror(errnum));
+    error(status, errno, "vasprintf while printing error");
+    return;
+  }
+  fprintf(stderr, "Mandos plugin ");
+  error(status, errnum, "%s", text);
+  free(text);
+}
 
 int main(__attribute__((unused))int argc,
 	 __attribute__((unused))char **argv){
@@ -51,19 +78,19 @@ int main(__attribute__((unused))int argc,
   ret = mkfifo(passfifo, S_IRUSR | S_IWUSR);
   if(ret == -1){
     int e = errno;
-    error(0, errno, "mkfifo");
     switch(e){
     case EACCES:
     case ENOTDIR:
     case ELOOP:
-      return EX_OSFILE;
+      error_plus(EX_OSFILE, errno, "mkfifo");
     case ENAMETOOLONG:
     case ENOSPC:
     case EROFS:
     default:
-      return EX_OSERR;
+      error_plus(EX_OSERR, errno, "mkfifo");
     case ENOENT:
-      return EX_UNAVAILABLE;	/* no "/lib/cryptsetup"? */
+      /* no "/lib/cryptsetup"? */
+      error_plus(EX_UNAVAILABLE, errno, "mkfifo");
     case EEXIST:
       break;			/* not an error */
     }
@@ -73,7 +100,7 @@ int main(__attribute__((unused))int argc,
   int fifo_fd = open(passfifo, O_RDONLY);
   if(fifo_fd == -1){
     int e = errno;
-    error(0, errno, "open");
+    error_plus(0, errno, "open");
     switch(e){
     case EACCES:
     case ENOENT:
@@ -101,7 +128,7 @@ int main(__attribute__((unused))int argc,
       if(buf_len + blocksize > buf_allocated){
 	char *tmp = realloc(buf, buf_allocated + blocksize);
 	if(tmp == NULL){
-	  error(0, errno, "realloc");
+	  error_plus(0, errno, "realloc");
 	  free(buf);
 	  return EX_OSERR;
 	}
@@ -113,7 +140,7 @@ int main(__attribute__((unused))int argc,
 	int e = errno;
 	free(buf);
 	errno = e;
-	error(0, errno, "read");
+	error_plus(0, errno, "read");
 	switch(e){
 	case EBADF:
 	case EFAULT:
@@ -141,7 +168,7 @@ int main(__attribute__((unused))int argc,
       int e = errno;
       free(buf);
       errno = e;
-      error(0, errno, "write");
+      error_plus(0, errno, "write");
       switch(e){
       case EBADF:
       case EFAULT:
@@ -161,7 +188,7 @@ int main(__attribute__((unused))int argc,
   ret = close(STDOUT_FILENO);
   if(ret == -1){
     int e = errno;
-    error(0, errno, "close");
+    error_plus(0, errno, "close");
     switch(e){
     case EBADF:
       return EX_OSFILE;

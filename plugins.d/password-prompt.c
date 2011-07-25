@@ -41,8 +41,8 @@
 				   getenv(), free() */
 #include <dirent.h>		/* scandir(), alphasort() */
 #include <stdio.h>		/* fprintf(), stderr, getline(),
-				   stdin, feof(), fputc()
-				*/
+				   stdin, feof(), fputc(), vfprintf(),
+				   vasprintf() */
 #include <errno.h>		/* errno, EBADF, ENOTTY, EINVAL,
 				   EFAULT, EFBIG, EIO, ENOSPC, EINTR
 				*/
@@ -51,7 +51,8 @@
 #include <stdbool.h>		/* bool, false, true */
 #include <inttypes.h>		/* strtoumax() */
 #include <sys/stat.h>		/* struct stat, lstat(), open() */
-#include <string.h>		/* strlen, rindex, memcmp */
+#include <string.h>		/* strlen, rindex, memcmp, strerror()
+				 */
 #include <argp.h>		/* struct argp_option, struct
 				   argp_state, struct argp,
 				   argp_parse(), error_t,
@@ -60,6 +61,7 @@
 #include <sysexits.h>		/* EX_SOFTWARE, EX_OSERR,
 				   EX_UNAVAILABLE, EX_IOERR, EX_OK */
 #include <fcntl.h>		/* open() */
+#include <stdarg.h>		/* va_list, va_start(), ... */
 
 volatile sig_atomic_t quit_now = 0;
 int signal_received;
@@ -69,6 +71,29 @@ const char *argp_program_bug_address = "<mandos@fukt.bsnet.se>";
 
 /* Needed for conflict resolution */
 const char plymouth_name[] = "plymouthd";
+
+/* Function to use when printing errors */
+void error_plus(int status, int errnum, const char *formatstring,
+		...){
+  va_list ap;
+  char *text;
+  int ret;
+  
+  va_start(ap, formatstring);
+  ret = vasprintf(&text, formatstring, ap);
+  if (ret == -1){
+    fprintf(stderr, "Mandos plugin %s: ",
+	    program_invocation_short_name);
+    vfprintf(stderr, formatstring, ap);
+    fprintf(stderr, ": ");
+    fprintf(stderr, "%s\n", strerror(errnum));
+    error(status, errno, "vasprintf while printing error");
+    return;
+  }
+  fprintf(stderr, "Mandos plugin ");
+  error(status, errnum, "%s", text);
+  free(text);
+}
 
 static void termination_handler(int signum){
   if(quit_now){
@@ -111,7 +136,9 @@ bool conflict_detection(void){
     cl_fd = open(cmdline_filename, O_RDONLY);
     free(cmdline_filename);
     if(cl_fd == -1){
-      error(0, errno, "open");
+      if(errno != ENOENT){
+	error(0, errno, "open");
+      }
       return 0;
     }
     
@@ -181,12 +208,13 @@ bool conflict_detection(void){
     return 1;
   }
   
-  struct dirent **direntries;
+  struct dirent **direntries = NULL;
   int ret;
   ret = scandir("/proc", &direntries, is_plymouth, alphasort);
   if (ret == -1){
     error(1, errno, "scandir");
   }
+  free(dirent);
   return ret > 0;
 }
 

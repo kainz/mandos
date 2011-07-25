@@ -29,7 +29,8 @@
 				   SIG_IGN, kill(), SIGKILL */
 #include <stddef.h>		/* NULL */
 #include <stdlib.h>		/* getenv() */
-#include <stdio.h>		/* asprintf() */
+#include <stdio.h>		/* asprintf(), vasprintf(), vprintf(),
+				   fprintf() */
 #include <stdlib.h>		/* EXIT_FAILURE, free(),
 				   EXIT_SUCCESS */
 #include <sys/types.h>		/* pid_t, DIR, struct dirent,
@@ -42,7 +43,7 @@
 				   sleep(), dup2() STDERR_FILENO,
 				   STDOUT_FILENO, _exit(),
 				   pause() */
-#include <string.h>		/* memcmp() */
+#include <string.h>		/* memcmp(), strerror() */
 #include <errno.h>		/* errno, EACCES, ENOTDIR, ELOOP,
 				   ENOENT, ENAMETOOLONG, EMFILE,
 				   ENFILE, ENOMEM, ENOEXEC, EINVAL,
@@ -54,9 +55,34 @@
 				   WEXITSTATUS() */
 #include <sysexits.h>		/* EX_OSERR, EX_OSFILE,
 				   EX_UNAVAILABLE */
+#include <stdarg.h>		/* va_list, va_start(), ... */
 
 sig_atomic_t interrupted_by_signal = 0;
 int signal_received;
+
+/* Function to use when printing errors */
+void error_plus(int status, int errnum, const char *formatstring,
+		...){
+  va_list ap;
+  char *text;
+  int ret;
+  
+  va_start(ap, formatstring);
+  ret = vasprintf(&text, formatstring, ap);
+  if (ret == -1){
+    fprintf(stderr, "Mandos plugin %s: ",
+	    program_invocation_short_name);
+    vfprintf(stderr, formatstring, ap);
+    fprintf(stderr, ": ");
+    fprintf(stderr, "%s\n", strerror(errnum));
+    error(status, errno, "vasprintf while printing error");
+    return;
+  }
+  fprintf(stderr, "Mandos plugin ");
+  error(status, errnum, "%s", text);
+  free(text);
+}
+
 
 static void termination_handler(int signum){
   if(interrupted_by_signal){
@@ -110,7 +136,7 @@ int main(__attribute__((unused))int argc,
     proc_dir = opendir("/proc");
     if(proc_dir == NULL){
       int e = errno;
-      error(0, errno, "opendir");
+      error_plus(0, errno, "opendir");
       switch(e){
       case EACCES:
       case ENOTDIR:
@@ -152,7 +178,7 @@ int main(__attribute__((unused))int argc,
 	char *exe_link;
 	ret = asprintf(&exe_link, "/proc/%s/exe", proc_ent->d_name);
 	if(ret == -1){
-	  error(0, errno, "asprintf");
+	  error_plus(0, errno, "asprintf");
 	  exitstatus = EX_OSERR;
 	  goto failure;
 	}
@@ -166,7 +192,7 @@ int main(__attribute__((unused))int argc,
 	    continue;
 	  }
 	  int e = errno;
-	  error(0, errno, "lstat");
+	  error_plus(0, errno, "lstat");
 	  free(exe_link);
 	  switch(e){
 	  case EACCES:
@@ -214,60 +240,60 @@ int main(__attribute__((unused))int argc,
     sigemptyset(&new_action.sa_mask);
     ret = sigaddset(&new_action.sa_mask, SIGINT);
     if(ret == -1){
-      error(0, errno, "sigaddset");
+      error_plus(0, errno, "sigaddset");
       exitstatus = EX_OSERR;
       goto failure;
     }
     ret = sigaddset(&new_action.sa_mask, SIGHUP);
     if(ret == -1){
-      error(0, errno, "sigaddset");
+      error_plus(0, errno, "sigaddset");
       exitstatus = EX_OSERR;
       goto failure;
     }
     ret = sigaddset(&new_action.sa_mask, SIGTERM);
     if(ret == -1){
-      error(0, errno, "sigaddset");
+      error_plus(0, errno, "sigaddset");
       exitstatus = EX_OSERR;
       goto failure;
     }
     ret = sigaction(SIGINT, NULL, &old_action);
     if(ret == -1){
-      error(0, errno, "sigaction");
+      error_plus(0, errno, "sigaction");
       exitstatus = EX_OSERR;
       goto failure;
     }
     if(old_action.sa_handler != SIG_IGN){
       ret = sigaction(SIGINT, &new_action, NULL);
       if(ret == -1){
-	error(0, errno, "sigaction");
+	error_plus(0, errno, "sigaction");
 	exitstatus = EX_OSERR;
 	goto failure;
       }
     }
     ret = sigaction(SIGHUP, NULL, &old_action);
     if(ret == -1){
-      error(0, errno, "sigaction");
+      error_plus(0, errno, "sigaction");
       exitstatus = EX_OSERR;
       goto failure;
     }
     if(old_action.sa_handler != SIG_IGN){
       ret = sigaction(SIGHUP, &new_action, NULL);
       if(ret == -1){
-	error(0, errno, "sigaction");
+	error_plus(0, errno, "sigaction");
 	exitstatus = EX_OSERR;
 	goto failure;
       }
     }
     ret = sigaction(SIGTERM, NULL, &old_action);
     if(ret == -1){
-      error(0, errno, "sigaction");
+      error_plus(0, errno, "sigaction");
       exitstatus = EX_OSERR;
       goto failure;
     }
     if(old_action.sa_handler != SIG_IGN){
       ret = sigaction(SIGTERM, &new_action, NULL);
       if(ret == -1){
-	error(0, errno, "sigaction");
+	error_plus(0, errno, "sigaction");
 	exitstatus = EX_OSERR;
 	goto failure;
       }
@@ -284,7 +310,7 @@ int main(__attribute__((unused))int argc,
     goto failure;
   }
   if(splashy_command_pid == -1){
-    error(0, errno, "fork");
+    error_plus(0, errno, "fork");
     exitstatus = EX_OSERR;
     goto failure;
   }
@@ -294,7 +320,7 @@ int main(__attribute__((unused))int argc,
       const char splashy_command[] = "/sbin/splashy_update";
       execl(splashy_command, splashy_command, prompt, (char *)NULL);
       int e = errno;
-      error(0, errno, "execl");
+      error_plus(0, errno, "execl");
       switch(e){
       case EACCES:
       case ENOENT:
@@ -344,7 +370,7 @@ int main(__attribute__((unused))int argc,
       goto failure;
     }
     if(ret == -1){
-      error(0, errno, "waitpid");
+      error_plus(0, errno, "waitpid");
       if(errno == ECHILD){
 	splashy_command_pid = 0;
       }
@@ -382,27 +408,27 @@ int main(__attribute__((unused))int argc,
 	 the real user ID (_mandos) */
       ret = setuid(geteuid());
       if(ret == -1){
-	error(0, errno, "setuid");
+	error_plus(0, errno, "setuid");
       }
       
       setsid();
       ret = chdir("/");
       if(ret == -1){
-	error(0, errno, "chdir");
+	error_plus(0, errno, "chdir");
       }
 /*       if(fork() != 0){ */
 /* 	_exit(EXIT_SUCCESS); */
 /*       } */
       ret = dup2(STDERR_FILENO, STDOUT_FILENO); /* replace stdout */
       if(ret == -1){
-	error(0, errno, "dup2");
+	error_plus(0, errno, "dup2");
 	_exit(EX_OSERR);
       }
       
       execl("/sbin/splashy", "/sbin/splashy", "boot", (char *)NULL);
       {
 	int e = errno;
-	error(0, errno, "execl");
+	error_plus(0, errno, "execl");
 	switch(e){
 	case EACCES:
 	case ENOENT:
@@ -428,13 +454,13 @@ int main(__attribute__((unused))int argc,
     ret = (int)TEMP_FAILURE_RETRY(sigaction(signal_received,
 					    &signal_action, NULL));
     if(ret == -1){
-      error(0, errno, "sigaction");
+      error_plus(0, errno, "sigaction");
     }
     do {
       ret = raise(signal_received);
     } while(ret != 0 and errno == EINTR);
     if(ret != 0){
-      error(0, errno, "raise");
+      error_plus(0, errno, "raise");
       abort();
     }
     TEMP_FAILURE_RETRY(pause());
