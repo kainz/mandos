@@ -27,7 +27,7 @@ from __future__ import (division, absolute_import, print_function,
 
 import sys
 import dbus
-from optparse import OptionParser
+import argparse
 import locale
 import datetime
 import re
@@ -76,10 +76,9 @@ def milliseconds_to_string(ms):
                 "seconds": td.seconds % 60,
                 })
 
-
 def string_to_delta(interval):
     """Parse a string and return a datetime.timedelta
-
+    
     >>> string_to_delta("7d")
     datetime.timedelta(7)
     >>> string_to_delta("60s")
@@ -158,185 +157,190 @@ def has_actions(options):
                 options.secret is not None,
                 options.approve,
                 options.deny))
-        
-def main():
-	parser = OptionParser(version = "%%prog %s" % version)
-	parser.add_option("-a", "--all", action="store_true",
-	                  help="Select all clients")
-	parser.add_option("-v", "--verbose", action="store_true",
-	                  help="Print all fields")
-	parser.add_option("-e", "--enable", action="store_true",
-	                  help="Enable client")
-	parser.add_option("-d", "--disable", action="store_true",
-	                  help="disable client")
-	parser.add_option("-b", "--bump-timeout", action="store_true",
-	                  help="Bump timeout for client")
-	parser.add_option("--start-checker", action="store_true",
-	                  help="Start checker for client")
-	parser.add_option("--stop-checker", action="store_true",
-	                  help="Stop checker for client")
-	parser.add_option("-V", "--is-enabled", action="store_true",
-	                  help="Check if client is enabled")
-	parser.add_option("-r", "--remove", action="store_true",
-	                  help="Remove client")
-	parser.add_option("-c", "--checker", type="string",
-	                  help="Set checker command for client")
-	parser.add_option("-t", "--timeout", type="string",
-	                  help="Set timeout for client")
-	parser.add_option("-i", "--interval", type="string",
-	                  help="Set checker interval for client")
-        parser.add_option("--approve-by-default", action="store_true",
-                          dest="approved_by_default",
-                          help="Set client to be approved by default")
-        parser.add_option("--deny-by-default", action="store_false",
-                          dest="approved_by_default",
-                          help="Set client to be denied by default")
-        parser.add_option("--approval-delay", type="string",
-                          help="Set delay before client approve/deny")
-        parser.add_option("--approval-duration", type="string",
-                          help="Set duration of one client approval")
-	parser.add_option("-H", "--host", type="string",
-	                  help="Set host for client")
-	parser.add_option("-s", "--secret", type="string",
-	                  help="Set password blob (file) for client")
-	parser.add_option("-A", "--approve", action="store_true",
-	                  help="Approve any current client request")
-	parser.add_option("-D", "--deny", action="store_true",
-	                  help="Deny any current client request")
-	options, client_names = parser.parse_args()
-        
-        if has_actions(options) and not client_names and not options.all:
-            parser.error("Options require clients names or --all.")
-        if options.verbose and has_actions(options):
-            parser.error("--verbose can only be used alone or with"
-                         " --all.")
-        if options.all and not has_actions(options):
-            parser.error("--all requires an action.")
-        
-        try:
-            bus = dbus.SystemBus()
-            mandos_dbus_objc = bus.get_object(busname, server_path)
-        except dbus.exceptions.DBusException:
-            print("Could not connect to Mandos server",
-                  file=sys.stderr)
-            sys.exit(1)
-    
-        mandos_serv = dbus.Interface(mandos_dbus_objc,
-                                     dbus_interface = server_interface)
 
-        #block stderr since dbus library prints to stderr
-        null = os.open(os.path.devnull, os.O_RDWR)
-        stderrcopy = os.dup(sys.stderr.fileno())
-        os.dup2(null, sys.stderr.fileno())
-        os.close(null)
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--version", action="version",
+                        version = "%%prog %s" % version,
+                        help="show version number and exit")
+    parser.add_argument("-a", "--all", action="store_true",
+                        help="Select all clients")
+    parser.add_argument("-v", "--verbose", action="store_true",
+                        help="Print all fields")
+    parser.add_argument("-e", "--enable", action="store_true",
+                        help="Enable client")
+    parser.add_argument("-d", "--disable", action="store_true",
+                        help="disable client")
+    parser.add_argument("-b", "--bump-timeout", action="store_true",
+                        help="Bump timeout for client")
+    parser.add_argument("--start-checker", action="store_true",
+                        help="Start checker for client")
+    parser.add_argument("--stop-checker", action="store_true",
+                        help="Stop checker for client")
+    parser.add_argument("-V", "--is-enabled", action="store_true",
+                        help="Check if client is enabled")
+    parser.add_argument("-r", "--remove", action="store_true",
+                        help="Remove client")
+    parser.add_argument("-c", "--checker",
+                        help="Set checker command for client")
+    parser.add_argument("-t", "--timeout",
+                        help="Set timeout for client")
+    parser.add_argument("-i", "--interval",
+                        help="Set checker interval for client")
+    parser.add_argument("--approve-by-default", action="store_true",
+                        default=None, dest="approved_by_default",
+                        help="Set client to be approved by default")
+    parser.add_argument("--deny-by-default", action="store_false",
+                        dest="approved_by_default",
+                        help="Set client to be denied by default")
+    parser.add_argument("--approval-delay",
+                        help="Set delay before client approve/deny")
+    parser.add_argument("--approval-duration",
+                        help="Set duration of one client approval")
+    parser.add_argument("-H", "--host", help="Set host for client")
+    parser.add_argument("-s", "--secret", type=file,
+                        help="Set password blob (file) for client")
+    parser.add_argument("-A", "--approve", action="store_true",
+                        help="Approve any current client request")
+    parser.add_argument("-D", "--deny", action="store_true",
+                        help="Deny any current client request")
+    parser.add_argument("client", nargs="*", help="Client name")
+    options = parser.parse_args()
+    
+    if has_actions(options) and not options.client and not options.all:
+        parser.error("Options require clients names or --all.")
+    if options.verbose and has_actions(options):
+        parser.error("--verbose can only be used alone or with"
+                     " --all.")
+    if options.all and not has_actions(options):
+        parser.error("--all requires an action.")
+    
+    try:
+        bus = dbus.SystemBus()
+        mandos_dbus_objc = bus.get_object(busname, server_path)
+    except dbus.exceptions.DBusException:
+        print("Could not connect to Mandos server",
+              file=sys.stderr)
+        sys.exit(1)
+    
+    mandos_serv = dbus.Interface(mandos_dbus_objc,
+                                 dbus_interface = server_interface)
+    
+    #block stderr since dbus library prints to stderr
+    null = os.open(os.path.devnull, os.O_RDWR)
+    stderrcopy = os.dup(sys.stderr.fileno())
+    os.dup2(null, sys.stderr.fileno())
+    os.close(null)
+    try:
         try:
-            try:
-                mandos_clients = mandos_serv.GetAllClientsWithProperties()
-            finally:
-                #restore stderr
-                os.dup2(stderrcopy, sys.stderr.fileno())
-                os.close(stderrcopy)
-        except dbus.exceptions.DBusException, e:
-            print("Access denied: Accessing mandos server through dbus.",
-                  file=sys.stderr)
-            sys.exit(1)
-            
-	# Compile dict of (clients: properties) to process
-	clients={}
-        
-        if options.all or not client_names:
-            clients = dict((bus.get_object(busname, path), properties)
-                           for path, properties in
-                           mandos_clients.iteritems())
-        else:
-            for name in client_names:
-                for path, client in mandos_clients.iteritems():
-                    if client["Name"] == name:
-                        client_objc = bus.get_object(busname, path)
-                        clients[client_objc] = client
-                        break
-                else:
-                    print("Client not found on server: %r" % name,
-                          file=sys.stderr)
-                    sys.exit(1)
-            
-	if not has_actions(options) and clients:
-	    if options.verbose:
-	        keywords = ("Name", "Enabled", "Timeout",
-                            "LastCheckedOK", "Created", "Interval",
-                            "Host", "Fingerprint", "CheckerRunning",
-                            "LastEnabled", "ApprovalPending",
-                            "ApprovedByDefault",
-                            "LastApprovalRequest", "ApprovalDelay",
-                            "ApprovalDuration", "Checker")
+            mandos_clients = mandos_serv.GetAllClientsWithProperties()
+        finally:
+            #restore stderr
+            os.dup2(stderrcopy, sys.stderr.fileno())
+            os.close(stderrcopy)
+    except dbus.exceptions.DBusException, e:
+        print("Access denied: Accessing mandos server through dbus.",
+              file=sys.stderr)
+        sys.exit(1)
+    
+    # Compile dict of (clients: properties) to process
+    clients={}
+    
+    if options.all or not options.client:
+        clients = dict((bus.get_object(busname, path), properties)
+                       for path, properties in
+                       mandos_clients.iteritems())
+    else:
+        for name in options.client:
+            for path, client in mandos_clients.iteritems():
+                if client["Name"] == name:
+                    client_objc = bus.get_object(busname, path)
+                    clients[client_objc] = client
+                    break
             else:
-                keywords = defaultkeywords
-            
-	    print_clients(clients.values(), keywords)
+                print("Client not found on server: %r" % name,
+                      file=sys.stderr)
+                sys.exit(1)
+    
+    if not has_actions(options) and clients:
+        if options.verbose:
+            keywords = ("Name", "Enabled", "Timeout",
+                        "LastCheckedOK", "Created", "Interval",
+                        "Host", "Fingerprint", "CheckerRunning",
+                        "LastEnabled", "ApprovalPending",
+                        "ApprovedByDefault",
+                        "LastApprovalRequest", "ApprovalDelay",
+                        "ApprovalDuration", "Checker")
         else:
-            # Process each client in the list by all selected options
-            for client in clients:
-                if options.remove:
-                    mandos_serv.RemoveClient(client.__dbus_object_path__)
-                if options.enable:
-                    client.Enable(dbus_interface=client_interface)
-                if options.disable:
-                    client.Disable(dbus_interface=client_interface)
-                if options.bump_timeout:
-                    client.CheckedOK(dbus_interface=client_interface)
-                if options.start_checker:
-                    client.StartChecker(dbus_interface=client_interface)
-                if options.stop_checker:
-                    client.StopChecker(dbus_interface=client_interface)
-                if options.is_enabled:
-                    sys.exit(0 if client.Get(client_interface,
-                                             "Enabled",
-                                             dbus_interface=dbus.PROPERTIES_IFACE)
-                             else 1)
-                if options.checker:
-                    client.Set(client_interface, "Checker", options.checker,
-                               dbus_interface=dbus.PROPERTIES_IFACE)
-                if options.host:
-                    client.Set(client_interface, "Host", options.host,
-                               dbus_interface=dbus.PROPERTIES_IFACE)
-                if options.interval:
-                    client.Set(client_interface, "Interval",
-                               timedelta_to_milliseconds
-                               (string_to_delta(options.interval)),
-                               dbus_interface=dbus.PROPERTIES_IFACE)
-                if options.approval_delay:
-                    client.Set(client_interface, "ApprovalDelay",
-                               timedelta_to_milliseconds
-                               (string_to_delta(options.
-                                                approval_delay)),
-                               dbus_interface=dbus.PROPERTIES_IFACE)
-                if options.approval_duration:
-                    client.Set(client_interface, "ApprovalDuration",
-                               timedelta_to_milliseconds
-                               (string_to_delta(options.
-                                                approval_duration)),
-                               dbus_interface=dbus.PROPERTIES_IFACE)
-                if options.timeout:
-                    client.Set(client_interface, "Timeout",
-                               timedelta_to_milliseconds
-                               (string_to_delta(options.timeout)),
-                               dbus_interface=dbus.PROPERTIES_IFACE)
-                if options.secret:
-                    client.Set(client_interface, "Secret",
-                               dbus.ByteArray(open(options.secret,
-                                                   "rb").read()),
-                               dbus_interface=dbus.PROPERTIES_IFACE)
-                if options.approved_by_default is not None:
-                    client.Set(client_interface, "ApprovedByDefault",
-                               dbus.Boolean(options
-                                            .approved_by_default),
-                               dbus_interface=dbus.PROPERTIES_IFACE)
-                if options.approve:
-                    client.Approve(dbus.Boolean(True),
-                                   dbus_interface=client_interface)
-                elif options.deny:
-                    client.Approve(dbus.Boolean(False),
-                                   dbus_interface=client_interface)
+            keywords = defaultkeywords
+        
+        print_clients(clients.values(), keywords)
+    else:
+        # Process each client in the list by all selected options
+        for client in clients:
+            if options.remove:
+                mandos_serv.RemoveClient(client.__dbus_object_path__)
+            if options.enable:
+                client.Enable(dbus_interface=client_interface)
+            if options.disable:
+                client.Disable(dbus_interface=client_interface)
+            if options.bump_timeout:
+                client.CheckedOK(dbus_interface=client_interface)
+            if options.start_checker:
+                client.StartChecker(dbus_interface=client_interface)
+            if options.stop_checker:
+                client.StopChecker(dbus_interface=client_interface)
+            if options.is_enabled:
+                sys.exit(0 if client.Get(client_interface,
+                                         "Enabled",
+                                         dbus_interface=
+                                         dbus.PROPERTIES_IFACE)
+                         else 1)
+            if options.checker:
+                client.Set(client_interface, "Checker",
+                           options.checker,
+                           dbus_interface=dbus.PROPERTIES_IFACE)
+            if options.host:
+                client.Set(client_interface, "Host", options.host,
+                           dbus_interface=dbus.PROPERTIES_IFACE)
+            if options.interval:
+                client.Set(client_interface, "Interval",
+                           timedelta_to_milliseconds
+                           (string_to_delta(options.interval)),
+                           dbus_interface=dbus.PROPERTIES_IFACE)
+            if options.approval_delay:
+                client.Set(client_interface, "ApprovalDelay",
+                           timedelta_to_milliseconds
+                           (string_to_delta(options.
+                                            approval_delay)),
+                           dbus_interface=dbus.PROPERTIES_IFACE)
+            if options.approval_duration:
+                client.Set(client_interface, "ApprovalDuration",
+                           timedelta_to_milliseconds
+                           (string_to_delta(options.
+                                            approval_duration)),
+                           dbus_interface=dbus.PROPERTIES_IFACE)
+            if options.timeout:
+                client.Set(client_interface, "Timeout",
+                           timedelta_to_milliseconds
+                           (string_to_delta(options.timeout)),
+                           dbus_interface=dbus.PROPERTIES_IFACE)
+            if options.secret:
+                client.Set(client_interface, "Secret",
+                           dbus.ByteArray(open(options.secret,
+                                               "rb").read()),
+                           dbus_interface=dbus.PROPERTIES_IFACE)
+            if options.approved_by_default is not None:
+                client.Set(client_interface, "ApprovedByDefault",
+                           dbus.Boolean(options
+                                        .approved_by_default),
+                           dbus_interface=dbus.PROPERTIES_IFACE)
+            if options.approve:
+                client.Approve(dbus.Boolean(True),
+                               dbus_interface=client_interface)
+            elif options.deny:
+                client.Approve(dbus.Boolean(False),
+                               dbus_interface=client_interface)
 
 if __name__ == "__main__":
     main()

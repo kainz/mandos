@@ -4,36 +4,36 @@
 
 * mandos-applet
 
+* Convert README into intro(8mandos) man page
+
 * mandos-client
-** TODO [#B] use scandir(3) instead of readdir(3)
-** TODO [#B] Prefix all debug output with "Mandos plugin " + program_invocation_short_name
-** TODO [#B] Retry a server which has a non-definite reply:
-*** A closed connection during the TLS handshake
-*** A TCP timeout
 ** TODO [#B] Use capabilities instead of seteuid().
-** TODO [#A] Retry --connect forever
+** TODO [#B] Use struct sockaddr_storage instead of a union
+** TODO [#B] Use getaddrinfo(hints=AI_NUMERICHOST) instead of inet_pton()
+** TODO [#B] Use getnameinfo(serv=NULL, NI_NUMERICHOST) instead of inet_ntop()
+** TODO [#B] Accept [] around IPv6 address in --connect option; see [[http://tools.ietf.org/html/rfc5952][RFC 5952 - A Recommendation for IPv6 Address Text Representation]]
 
 * splashy
 ** TODO [#B] use scandir(3) instead of readdir(3)
-** TODO [#B] Prefix all debug output with "Mandos plugin " + program_invocation_short_name
 
 * usplash
 ** TODO [#A] Make it work again
 ** TODO [#B] use scandir(3) instead of readdir(3)
-** TODO [#B] Prefix all debug output with "Mandos plugin " + program_invocation_short_name
 ** TODO Use [[info:libc:Argz%20Functions][argz_extract]]
 
 * askpass-fifo
-** TODO [#B] Prefix all debug output with "Mandos plugin " + program_invocation_short_name
 ** TODO [#B] Drop privileges after opening FIFO.
 
 * password-prompt
-** TODO [#B] Prefix all debug output with "Mandos plugin " + program_invocation_short_name
 ** TODO [#B] lock stdin (with flock()?)
+
+* plymouth
 
 * TODO [#B] passdev
 
 * plugin-runner
+** TODO handle printing for errors for plugins
+*** Hook up stderr of plugins, buffer them, and prepend mandos pluig [plugin name]
 ** TODO [#B] use scandir(3) instead of readdir(3)
 ** TODO [#C] use same file name rules as run-parts(8)
 ** kernel command line option for debug info
@@ -85,6 +85,7 @@
 ** TODO [#B] break the wait on approval_delay if connection dies
 ** TODO Generate Client.runtime_expansions from client options + extra
 ** TODO Allow %%(checker)s as a runtime expansion
+** TODO Use python-tlslite?
 
 * mandos.xml
 ** Add mandos contact info in manual pages
@@ -99,7 +100,7 @@
   arguments.
 
 * mandos-monitor
-** TODO help should be toggable
+** TODO help should be toggleable
 ** Urwid client data displayer
    Better view of client data in the listing
 *** Properties popup
