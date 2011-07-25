@@ -208,12 +208,13 @@ bool conflict_detection(void){
     return 1;
   }
   
-  struct dirent **direntries;
+  struct dirent **direntries = NULL;
   int ret;
   ret = scandir("/proc", &direntries, is_plymouth, alphasort);
   if (ret == -1){
     error(1, errno, "scandir");
   }
+  free(dirent);
   return ret > 0;
 }
 
