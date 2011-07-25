@@ -26,10 +26,8 @@
 
 * password-prompt
 ** TODO [#B] lock stdin (with flock()?)
-** TODO [#A] Free direntries after scandir()
 
 * plymouth
-** TODO [#A] Free direntries after scandir()
 
 * TODO [#B] passdev
 
