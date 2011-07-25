@@ -29,7 +29,8 @@
 				   SIG_IGN, kill(), SIGKILL */
 #include <stddef.h>		/* NULL */
 #include <stdlib.h>		/* getenv() */
-#include <stdio.h>		/* asprintf(), vasprintf(), vprintf(), fprintf() */
+#include <stdio.h>		/* asprintf(), vasprintf(), vprintf(),
+				   fprintf() */
 #include <stdlib.h>		/* EXIT_FAILURE, free(),
 				   EXIT_SUCCESS */
 #include <sys/types.h>		/* pid_t, DIR, struct dirent,
@@ -60,7 +61,8 @@ sig_atomic_t interrupted_by_signal = 0;
 int signal_received;
 
 /* Function to use when printing errors */
-void error_plus(int status, int errnum, const char *formatstring, ...){
+void error_plus(int status, int errnum, const char *formatstring,
+		...){
   va_list ap;
   char *text;
   int ret;
@@ -68,7 +70,8 @@ void error_plus(int status, int errnum, const char *formatstring, ...){
   va_start(ap, formatstring);
   ret = vasprintf(&text, formatstring, ap);
   if (ret == -1){
-    fprintf(stderr, "Mandos plugin %s: ", program_invocation_short_name);
+    fprintf(stderr, "Mandos plugin %s: ",
+	    program_invocation_short_name);
     vfprintf(stderr, formatstring, ap);
     fprintf(stderr, ": ");
     fprintf(stderr, "%s\n", strerror(errnum));

@@ -32,7 +32,8 @@
 				   ENFILE, ENOMEM, EBADF, EINVAL, EIO,
 				   EISDIR, EFBIG */
 #include <error.h>		/* error() */
-#include <stdio.h>		/* fprintf(), vfprintf(), vasprintf() */
+#include <stdio.h>		/* fprintf(), vfprintf(),
+				   vasprintf() */
 #include <stdlib.h>		/* EXIT_FAILURE, NULL, size_t, free(),
 				   realloc(), EXIT_SUCCESS */
 #include <fcntl.h>		/* open(), O_RDONLY */
@@ -45,7 +46,8 @@
 
 
 /* Function to use when printing errors */
-void error_plus(int status, int errnum, const char *formatstring, ...){
+void error_plus(int status, int errnum, const char *formatstring,
+		...){
   va_list ap;
   char *text;
   int ret;
@@ -53,7 +55,8 @@ void error_plus(int status, int errnum, const char *formatstring, ...){
   va_start(ap, formatstring);
   ret = vasprintf(&text, formatstring, ap);
   if (ret == -1){
-    fprintf(stderr, "Mandos plugin %s: ", program_invocation_short_name);
+    fprintf(stderr, "Mandos plugin %s: ",
+	    program_invocation_short_name);
     vfprintf(stderr, formatstring, ap);
     fprintf(stderr, ": ");
     fprintf(stderr, "%s\n", strerror(errnum));

@@ -41,8 +41,8 @@
 				   getenv(), free() */
 #include <dirent.h>		/* scandir(), alphasort() */
 #include <stdio.h>		/* fprintf(), stderr, getline(),
-				   stdin, feof(), fputc(), vfprintf(), vasprintf()
-				*/
+				   stdin, feof(), fputc(), vfprintf(),
+				   vasprintf() */
 #include <errno.h>		/* errno, EBADF, ENOTTY, EINVAL,
 				   EFAULT, EFBIG, EIO, ENOSPC, EINTR
 				*/
@@ -51,7 +51,8 @@
 #include <stdbool.h>		/* bool, false, true */
 #include <inttypes.h>		/* strtoumax() */
 #include <sys/stat.h>		/* struct stat, lstat(), open() */
-#include <string.h>		/* strlen, rindex, memcmp, strerror() */
+#include <string.h>		/* strlen, rindex, memcmp, strerror()
+				 */
 #include <argp.h>		/* struct argp_option, struct
 				   argp_state, struct argp,
 				   argp_parse(), error_t,
@@ -72,7 +73,8 @@ const char *argp_program_bug_address = "<mandos@fukt.bsnet.se>";
 const char plymouth_name[] = "plymouthd";
 
 /* Function to use when printing errors */
-void error_plus(int status, int errnum, const char *formatstring, ...){
+void error_plus(int status, int errnum, const char *formatstring,
+		...){
   va_list ap;
   char *text;
   int ret;
@@ -80,7 +82,8 @@ void error_plus(int status, int errnum, const char *formatstring, ...){
   va_start(ap, formatstring);
   ret = vasprintf(&text, formatstring, ap);
   if (ret == -1){
-    fprintf(stderr, "Mandos plugin %s: ", program_invocation_short_name);
+    fprintf(stderr, "Mandos plugin %s: ",
+	    program_invocation_short_name);
     vfprintf(stderr, formatstring, ap);
     fprintf(stderr, ": ");
     fprintf(stderr, "%s\n", strerror(errnum));

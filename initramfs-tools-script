@@ -108,6 +108,7 @@ replace_cryptroot=no
 
 # Our keyscript
 mandos=/lib/mandos/plugin-runner
+test -x "$mandos"
 
 # parse /conf/conf.d/cryptroot.  Format:
 # target=sda2_crypt,source=/dev/sda2,key=none,keyscript=/foo/bar/baz

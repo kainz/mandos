@@ -36,7 +36,8 @@
 				   dirent */
 #include <stddef.h>		/* NULL */
 #include <string.h>		/* strlen(), memcmp(), strerror() */
-#include <stdio.h>		/* asprintf(), vasprintf(), vprintf(), fprintf() */
+#include <stdio.h>		/* asprintf(), vasprintf(), vprintf(),
+				   fprintf() */
 #include <unistd.h>		/* close(), write(), readlink(),
 				   read(), STDOUT_FILENO, sleep(),
 				   fork(), setuid(), geteuid(),
@@ -57,7 +58,8 @@ int signal_received;
 const char usplash_name[] = "/sbin/usplash";
 
 /* Function to use when printing errors */
-void error_plus(int status, int errnum, const char *formatstring, ...){
+void error_plus(int status, int errnum, const char *formatstring,
+		...){
   va_list ap;
   char *text;
   int ret;
@@ -65,7 +67,8 @@ void error_plus(int status, int errnum, const char *formatstring, ...){
   va_start(ap, formatstring);
   ret = vasprintf(&text, formatstring, ap);
   if (ret == -1){
-    fprintf(stderr, "Mandos plugin %s: ", program_invocation_short_name);
+    fprintf(stderr, "Mandos plugin %s: ",
+	    program_invocation_short_name);
     vfprintf(stderr, formatstring, ap);
     fprintf(stderr, ": ");
     fprintf(stderr, "%s\n", strerror(errnum));
