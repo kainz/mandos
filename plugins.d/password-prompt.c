@@ -214,7 +214,7 @@ bool conflict_detection(void){
   if (ret == -1){
     error(1, errno, "scandir");
   }
-  free(dirent);
+  free(direntries);
   return ret > 0;
 }
 
