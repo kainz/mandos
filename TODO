@@ -11,7 +11,6 @@
 ** TODO [#B] Use struct sockaddr_storage instead of a union
 ** TODO [#B] Use getaddrinfo(hints=AI_NUMERICHOST) instead of inet_pton()
 ** TODO [#B] Use getnameinfo(serv=NULL, NI_NUMERICHOST) instead of inet_ntop()
-** TODO [#B] Accept [] around IPv6 address in --connect option; see [[http://tools.ietf.org/html/rfc5952][RFC 5952 - A Recommendation for IPv6 Address Text Representation]]
 
 * splashy
 ** TODO [#B] use scandir(3) instead of readdir(3)
