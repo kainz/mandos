@@ -187,6 +187,7 @@ size_t incbuffer(char **buffer, size_t buffer_length,
   return buffer_capacity;
 }
 
+/* Add server to set of servers to retry periodically */
 int add_server(const char *ip, uint16_t port,
 		 AvahiIfIndex if_index,
 		 int af){
@@ -204,12 +205,12 @@ int add_server(const char *ip, uint16_t port,
     perror_plus("strdup");
     return -1;
   }
-  /* unique case of first server */
+  /* Special case of first server */
   if (mc.current_server == NULL){
     new_server->next = new_server;
     new_server->prev = new_server;
     mc.current_server = new_server;
-  /* Placing the new server last in the list */
+  /* Place the new server last in the list */
   } else {
     new_server->next = mc.current_server;
     new_server->prev = mc.current_server->prev;
@@ -1205,7 +1206,7 @@ int avahi_loop_with_timeout(AvahiSimplePoll *s, int retry_interval){
   struct timespec now;
   struct timespec waited_time;
   intmax_t block_time;
-
+  
   while(true){
     if(mc.current_server == NULL){
       if (debug){
@@ -1236,11 +1237,11 @@ int avahi_loop_with_timeout(AvahiSimplePoll *s, int retry_interval){
       block_time = ((retry_interval
 		     - ((intmax_t)waited_time.tv_sec * 1000))
 		    - ((intmax_t)waited_time.tv_nsec / 1000000));
-
+      
       if (debug){
-	fprintf(stderr, "Blocking for %ld ms\n", block_time);
+	fprintf(stderr, "Blocking for %" PRIdMAX " ms\n", block_time);
       }
-
+      
       if(block_time <= 0){
 	ret = start_mandos_communication(mc.current_server->ip,
 					 mc.current_server->port,
@@ -1411,7 +1412,8 @@ int main(int argc, char *argv[]){
 	errno = 0;
 	retry_interval = strtod(arg, &tmp);
 	if(errno != 0 or tmp == arg or *tmp != '\0'
-	   or (retry_interval * 1000) > INT_MAX){
+	   or (retry_interval * 1000) > INT_MAX
+	   or retry_interval < 0){
 	  argp_error(state, "Bad retry interval");
 	}
 	break;
@@ -1829,25 +1831,35 @@ int main(int argc, char *argv[]){
     
     port = (uint16_t)tmpmax;
     *address = '\0';
-    address = connect_to;
     /* Colon in address indicates IPv6 */
     int af;
-    if(strchr(address, ':') != NULL){
+    if(strchr(connect_to, ':') != NULL){
       af = AF_INET6;
+      /* Accept [] around IPv6 address - see RFC 5952 */
+      if(connect_to[0] == '[' and address[-1] == ']')
+	{
+	  connect_to++;
+	  address[-1] = '\0';
+	}
     } else {
       af = AF_INET;
     }
+    address = connect_to;
     
     if(quit_now){
       goto end;
     }
-
+    
     while(not quit_now){
       ret = start_mandos_communication(address, port, if_index, af);
       if(quit_now or ret == 0){
 	break;
       }
-      sleep((int)retry_interval or 1);
+      if(debug){
+	fprintf(stderr, "Retrying in %d seconds\n",
+		(int)retry_interval);
+      }
+      sleep((int)retry_interval);
     };
 
     if (not quit_now){
