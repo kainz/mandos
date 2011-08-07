@@ -283,7 +283,7 @@ static bool init_gpgme(const char *seckey,
     return false;
   }
   
-    /* Set GPGME home directory for the OpenPGP engine only */
+  /* Set GPGME home directory for the OpenPGP engine only */
   rc = gpgme_get_engine_info(&engine_info);
   if(rc != GPG_ERR_NO_ERROR){
     fprintf(stderr, "bad gpgme_get_engine_info: %s: %s\n",
@@ -1470,40 +1470,44 @@ int main(int argc, char *argv[]){
       perror_plus("seteuid");
     }
     
-    int seckey_fd = open(PATHDIR "/" SECKEY, O_RDONLY);
-    if(seckey_fd == -1){
-      perror_plus("open");
-    } else {
-      ret = (int)TEMP_FAILURE_RETRY(fstat(seckey_fd, &st));
-      if(ret == -1){
-	perror_plus("fstat");
+    if(strcmp(seckey, PATHDIR "/" SECKEY) == 0){
+      int seckey_fd = open(seckey, O_RDONLY);
+      if(seckey_fd == -1){
+	perror_plus("open");
       } else {
-	if(S_ISREG(st.st_mode) and st.st_uid == 0 and st.st_gid == 0){
-	  ret = fchown(seckey_fd, uid, gid);
-	  if(ret == -1){
-	    perror_plus("fchown");
+	ret = (int)TEMP_FAILURE_RETRY(fstat(seckey_fd, &st));
+	if(ret == -1){
+	  perror_plus("fstat");
+	} else {
+	  if(S_ISREG(st.st_mode) and st.st_uid == 0 and st.st_gid == 0){
+	    ret = fchown(seckey_fd, uid, gid);
+	    if(ret == -1){
+	      perror_plus("fchown");
+	    }
 	  }
 	}
+	TEMP_FAILURE_RETRY(close(seckey_fd));
       }
-      TEMP_FAILURE_RETRY(close(seckey_fd));
     }
     
-    int pubkey_fd = open(PATHDIR "/" PUBKEY, O_RDONLY);
-    if(pubkey_fd == -1){
-      perror_plus("open");
-    } else {
-      ret = (int)TEMP_FAILURE_RETRY(fstat(pubkey_fd, &st));
-      if(ret == -1){
-	perror_plus("fstat");
+    if(strcmp(pubkey, PATHDIR "/" PUBKEY) == 0){
+      int pubkey_fd = open(pubkey, O_RDONLY);
+      if(pubkey_fd == -1){
+	perror_plus("open");
       } else {
-	if(S_ISREG(st.st_mode) and st.st_uid == 0 and st.st_gid == 0){
-	  ret = fchown(pubkey_fd, uid, gid);
-	  if(ret == -1){
-	    perror_plus("fchown");
+	ret = (int)TEMP_FAILURE_RETRY(fstat(pubkey_fd, &st));
+	if(ret == -1){
+	  perror_plus("fstat");
+	} else {
+	  if(S_ISREG(st.st_mode) and st.st_uid == 0 and st.st_gid == 0){
+	    ret = fchown(pubkey_fd, uid, gid);
+	    if(ret == -1){
+	      perror_plus("fchown");
+	    }
 	  }
 	}
+	TEMP_FAILURE_RETRY(close(pubkey_fd));
       }
-      TEMP_FAILURE_RETRY(close(pubkey_fd));
     }
     
     /* Lower privileges */
@@ -1860,8 +1864,8 @@ int main(int argc, char *argv[]){
 		(int)retry_interval);
       }
       sleep((int)retry_interval);
-    };
-
+    }
+    
     if (not quit_now){
       exitcode = EXIT_SUCCESS;
     }
@@ -2004,9 +2008,10 @@ int main(int argc, char *argv[]){
   if(tempdir_created){
     struct dirent **direntries = NULL;
     struct dirent *direntry = NULL;
-    ret = scandir(tempdir, &direntries, notdotentries, alphasort);
-    if (ret > 0){
-      for(int i = 0; i < ret; i++){
+    int numentries = scandir(tempdir, &direntries, notdotentries,
+			     alphasort);
+    if (numentries > 0){
+      for(int i = 0; i < numentries; i++){
 	direntry = direntries[i];
 	char *fullname = NULL;
 	ret = asprintf(&fullname, "%s/%s", tempdir,
@@ -2024,10 +2029,9 @@ int main(int argc, char *argv[]){
       }
     }
 
-    /* need to be cleaned even if ret == 0 because man page doesn't
-       specify */
+    /* need to clean even if 0 because man page doesn't specify */
     free(direntries);
-    if (ret == -1){
+    if (numentries == -1){
       perror_plus("scandir");
     }
     ret = rmdir(tempdir);
