@@ -4,8 +4,6 @@
 
 * mandos-applet
 
-* Convert README into intro(8mandos) man page
-
 * mandos-client
 ** TODO [#B] Use capabilities instead of seteuid().
 ** TODO [#B] Use struct sockaddr_storage instead of a union

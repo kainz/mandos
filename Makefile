@@ -92,7 +92,7 @@ DOCS=mandos.8 mandos-keygen.8 mandos-monitor.8 mandos-ctl.8 \
 	plugins.d/mandos-client.8mandos \
 	plugins.d/password-prompt.8mandos plugins.d/usplash.8mandos \
 	plugins.d/splashy.8mandos plugins.d/askpass-fifo.8mandos \
-	plugins.d/plymouth.8mandos
+	plugins.d/plymouth.8mandos intro.8mandos
 
 htmldocs=$(addsuffix .xhtml,$(DOCS))
 
@@ -117,6 +117,11 @@ html: $(htmldocs)
 %.8mandos: %.xml common.ent legalnotice.xml
 	$(DOCBOOKTOMAN)
 %.8mandos.xhtml: %.xml common.ent legalnotice.xml
+	$(DOCBOOKTOHTML)
+
+intro.8mandos: intro.xml common.ent legalnotice.xml
+	$(DOCBOOKTOMAN)
+intro.8mandos.xhtml: intro.xml common.ent legalnotice.xml
 	$(DOCBOOKTOHTML)
 
 mandos.8: mandos.xml common.ent mandos-options.xml overview.xml \

@@ -3,7 +3,7 @@
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY CONFNAME "mandos-clients.conf">
 <!ENTITY CONFPATH "<filename>/etc/mandos/clients.conf</filename>">
-<!ENTITY TIMESTAMP "2011-02-27">
+<!ENTITY TIMESTAMP "2011-08-08">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -460,6 +460,8 @@ approval_delay = 30s
   <refsect1 id="see_also">
     <title>SEE ALSO</title>
     <para>
+      <citerefentry><refentrytitle>intro</refentrytitle>
+      <manvolnum>8mandos</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>mandos-keygen</refentrytitle>
       <manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>mandos.conf</refentrytitle>
