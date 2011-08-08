@@ -1,0 +1,410 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+<!ENTITY TIMESTAMP "2011-08-08">
+<!ENTITY % common SYSTEM "common.ent">
+%common;
+]>
+
+<refentry xmlns:xi="http://www.w3.org/2001/XInclude">
+   <refentryinfo>
+    <title>Mandos Manual</title>
+    <!-- NWalsh’s docbook scripts use this to generate the footer: -->
+    <productname>Mandos</productname>
+    <productnumber>&version;</productnumber>
+    <date>&TIMESTAMP;</date>
+    <authorgroup>
+      <author>
+	<firstname>Björn</firstname>
+	<surname>Påhlsson</surname>
+	<address>
+	  <email>belorn@fukt.bsnet.se</email>
+	</address>
+      </author>
+      <author>
+	<firstname>Teddy</firstname>
+	<surname>Hogeborn</surname>
+	<address>
+	  <email>teddy@fukt.bsnet.se</email>
+	</address>
+      </author>
+    </authorgroup>
+    <copyright>
+      <year>2011</year>
+      <holder>Teddy Hogeborn</holder>
+      <holder>Björn Påhlsson</holder>
+    </copyright>
+    <xi:include href="legalnotice.xml"/>
+  </refentryinfo>
+  
+  <refmeta>
+    <refentrytitle>intro</refentrytitle>
+    <manvolnum>8mandos</manvolnum>
+  </refmeta>
+  
+  <refnamediv>
+    <refname>intro</refname>
+    <refpurpose>
+      Introduction to the Mandos system
+    </refpurpose>
+  </refnamediv>
+  
+  <refsect1 id="description">
+    <title>DESCRIPTION</title>
+    <para>
+      This is the the Mandos system, which allows computers to have
+      encrypted root file systems and at the same time be capable of
+      remote and/or unattended reboots.
+    </para>
+    <para>
+      The computers run a small client program in the initial RAM disk
+      environment which will communicate with a server over a network.
+      All network communication is encrypted using TLS.  The clients
+      are identified by the server using an OpenPGP key; each client
+      has one unique to it.  The server sends the clients an encrypted
+      password.  The encrypted password is decrypted by the clients
+      using the same OpenPGP key, and the password is then used to
+      unlock the root file system, whereupon the computers can
+      continue booting normally.
+    </para>
+  </refsect1>
+  
+  <refsect1 id="introduction">
+    <title>INTRODUCTION</title>
+    <para>
+      You know how it is.  You’ve heard of it happening.  The Man
+      comes and takes away your servers, your friends’ servers, the
+      servers of everybody in the same hosting facility. The servers
+      of their neighbors, and their neighbors’ friends.  The servers
+      of people who owe them money.  And like
+      <emphasis>that</emphasis>, they’re gone.  And you doubt you’ll
+      ever see them again.
+    </para>
+    <para>
+      That is why your servers have encrypted root file systems.
+      However, there’s a downside.  There’s no going around it:
+      rebooting is a pain.  Dragging out that rarely-used keyboard and
+      screen and unraveling cables behind your servers to plug them in
+      to type in that password is messy, especially if you have many
+      servers.  There are some people who do clever things like using
+      serial line consoles and daisy-chain it to the next server, and
+      keep all the servers connected in a ring with serial cables,
+      which will work, if your servers are physically close enough.
+      There are also other out-of-band management solutions, but with
+      <emphasis>all</emphasis> these, you still have to be on hand and
+      manually type in the password at boot time.  Otherwise the
+      server just sits there, waiting for a password.
+    </para>
+    <para>
+      Wouldn’t it be great if you could have the security of encrypted
+      root file systems and still have servers that could boot up
+      automatically if there was a short power outage while you were
+      asleep?  That you could reboot at will, without having someone
+      run over to the server to type in the password?
+    </para>
+    <para>
+      Well, with Mandos, you (almost) can!  The gain in convenience
+      will only be offset by a small loss in security.  The setup is
+      as follows:
+    </para>
+    <para>
+      The server will still have its encrypted root file system.  The
+      password to this file system will be stored on another computer
+      (henceforth known as the Mandos server) on the same local
+      network.  The password will <emphasis>not</emphasis> be stored
+      in plaintext, but encrypted with OpenPGP.  To decrypt this
+      password, a key is needed.  This key (the Mandos client key)
+      will not be stored there, but back on the original server
+      (henceforth known as the Mandos client) in the initial RAM disk
+      image.  Oh, and all network Mandos client/server communications
+      will be encrypted, using TLS (SSL).
+    </para>
+    <para>
+      So, at boot time, the Mandos client will ask for its encrypted
+      data over the network, decrypt it to get the password, use it to
+      decrypt the root file, and continue booting.
+    </para>
+    <para>
+      Now, of course the initial RAM disk image is not on the
+      encrypted root file system, so anyone who had physical access
+      could take the Mandos client computer offline and read the disk
+      with their own tools to get the authentication keys used by a
+      client.  <emphasis>But</emphasis>, by then the Mandos server
+      should notice that the original server has been offline for too
+      long, and will no longer give out the encrypted key.  The timing
+      here is the only real weak point, and the method, frequency and
+      timeout of the server’s checking can be adjusted to any desired
+      level of paranoia
+    </para>
+    <para>
+      (The encrypted keys on the Mandos server is on its normal file
+      system, so those are safe, provided the root file system of
+      <emphasis>that</emphasis> server is encrypted.)
+    </para>
+  </refsect1>
+  
+  <refsect1 id="faq">
+    <title>FREQUENTLY ASKED QUESTIONS</title>
+    <para>
+      Couldn’t the security be defeated by…
+    </para>
+    <refsect2 id="quick">
+      <title>Grabbing the Mandos client key from the
+      initrd <emphasis>really quickly</emphasis>?</title>
+    <para>
+      This, as mentioned above, is the only real weak point.  But if
+      you set the timing values tight enough, this will be really
+      difficult to do.  An attacker would have to physically
+      disassemble the client computer, extract the key from the
+      initial RAM disk image, and then connect to a <emphasis>still
+      online</emphasis> Mandos server to get the encrypted key, and do
+      all this <emphasis>before</emphasis> the Mandos server timeout
+      kicks in and the Mandos server refuses to give out the key to
+      anyone.
+    </para>
+    <para>
+      Now, as the typical procedure seems to be to barge in and turn
+      off and grab <emphasis>all</emphasis> computers, to maybe look
+      at them months later, this is not likely.  If someone does that,
+      the whole system <emphasis>will</emphasis> lock itself up
+      completely, since Mandos servers are no longer running.
+    </para>
+    <para>
+      For sophisticated attackers who <emphasis>could</emphasis> do
+      the clever thing, <emphasis>and</emphasis> had physical access
+      to the server for enough time, it would be simpler to get a key
+      for an encrypted file system by using hardware memory scanners
+      and reading it right off the memory bus.
+    </para>
+    </refsect2>
+    
+    <refsect2 id="replay">
+      <title>Replay attacks?</title>
+      <para>
+	Nope, the network stuff is all done over TLS, which provides
+	protection against that.
+      </para>
+    </refsect2>
+    
+    <refsect2 id="mitm">
+      <title>Man-in-the-middle?</title>
+      <para>
+	No.  The server only gives out the passwords to clients which
+	have <emphasis>in the TLS handshake</emphasis> proven that
+	they do indeed hold the OpenPGP private key corresponding to
+	that client.
+      </para>
+    </refsect2>
+    
+    <refsect2 id="physgrab">
+      <title>Physically grabbing the Mandos server computer?</title>
+      <para>
+	You could protect <emphasis>that</emphasis> computer the
+	old-fashioned way, with a must-type-in-the-password-at-boot
+	method.  Or you could have two computers be the Mandos server
+	for each other.
+      </para>
+      <para>
+	Multiple Mandos servers can coexist on a network without any
+	trouble.  They do not clash, and clients will try all
+	available servers.  This means that if just one reboots then
+	the other can bring it back up, but if both reboot at the same
+	time they will stay down until someone types in the password
+	on one of them.
+      </para>
+    </refsect2>
+    
+    <refsect2 id="fakeping">
+      <title>Faking ping replies?</title>
+      <para>
+	The default for the server is to use
+	<quote><literal>fping</literal></quote>, the replies to which
+	could be faked to eliminate the timeout.  But this could
+	easily be changed to any shell command, with any security
+	measures you like.  It could, for instance, be changed to an
+	SSH command with strict keychecking, which could not be faked.
+	Or IPsec could be used for the ping packets, making them
+	secure.
+      </para>
+    </refsect2>
+  </refsect1>
+  
+  <refsect1 id="security">
+    <title>SECURITY</title>
+    <para>
+      So, in summary:  The only weakness in the Mandos system is from
+      people who have:
+    </para>
+    <orderedlist>
+      <listitem>
+	<para>
+	  The power to come in and physically take your servers,
+	  <emphasis>and</emphasis>
+	</para>
+      </listitem>
+      <listitem>
+	<para>
+	  The cunning and patience to do it carefully, one at a time,
+	  and <emphasis>quickly</emphasis>, faking Mandos
+	  client/server responses for each one before the timeout.
+	</para>
+      </listitem>
+    </orderedlist>
+    <para>
+      While there are some who may be threatened by people who have
+      <emphasis>both</emphasis> these attributes, they do not,
+      probably, constitute the majority.
+    </para>
+    <para>
+      If you <emphasis>do</emphasis> face such opponents, you must
+      figure that they could just as well open your servers and read
+      the file system keys right off the memory by running wires to
+      the memory bus.
+    </para>
+    <para>
+      What Mandos is designed to protect against is
+      <emphasis>not</emphasis> such determined, focused, and competent
+      attacks, but against the early morning knock on your door and
+      the sudden absence of all the servers in your server room.
+      Which it does nicely.
+    </para>
+  </refsect1>
+  
+  <refsect1 id="plugins">
+    <title>PLUGINS</title>
+    <para>
+      In the early designs, the
+      <citerefentry><refentrytitle>mandos-client</refentrytitle
+      ><manvolnum>8mandos</manvolnum></citerefentry> program (which
+      retrieves a password from the Mandos server) also prompted for a
+      password on the terminal, in case a Mandos server could not be
+      found.  Other ways of retrieving a password could easily be
+      envisoned, but this multiplicity of purpose was seen to be too
+      complex to be a viable way to continue.  Instead, the original
+      program was separated into <citerefentry><refentrytitle
+      >mandos-client</refentrytitle><manvolnum>8mandos</manvolnum
+      ></citerefentry> and <citerefentry><refentrytitle
+      >password-prompt</refentrytitle><manvolnum>8mandos</manvolnum
+      ></citerefentry>, and a <citerefentry><refentrytitle
+      >plugin-runner</refentrytitle><manvolnum>8mandos</manvolnum
+      ></citerefentry> exist to run them both in parallel, allowing
+      the first successful plugin to provide the password.  This
+      opened up for any number of additional plugins to run, all
+      competing to be the first to find a password and provide it to
+      the plugin runner.
+    </para>
+    <para>
+      Four additional plugins are provided:
+    </para>
+    <variablelist>
+      <varlistentry>
+	<term>
+	  <citerefentry><refentrytitle>plymouth</refentrytitle>
+	  <manvolnum>8mandos</manvolnum></citerefentry>
+	</term>
+	<listitem>
+	  <para>
+	    This prompts for a password when using <citerefentry>
+	    <refentrytitle>plymouth</refentrytitle><manvolnum
+	    >8</manvolnum></citerefentry>.
+	  </para>
+	</listitem>
+      </varlistentry>
+      <varlistentry>
+	<term>
+	  <citerefentry><refentrytitle>usplash</refentrytitle>
+	  <manvolnum>8mandos</manvolnum></citerefentry>
+	</term>
+	<listitem>
+	  <para>
+	    This prompts for a password when using <citerefentry>
+	    <refentrytitle>usplash</refentrytitle><manvolnum
+	    >8</manvolnum></citerefentry>.
+	  </para>
+	</listitem>
+      </varlistentry>
+      <varlistentry>
+	<term>
+	  <citerefentry><refentrytitle>splashy</refentrytitle>
+	  <manvolnum>8mandos</manvolnum></citerefentry>
+	</term>
+	<listitem>
+	  <para>
+	    This prompts for a password when using <citerefentry>
+	    <refentrytitle>splashy</refentrytitle><manvolnum
+	    >8</manvolnum></citerefentry>.
+	  </para>
+	</listitem>
+      </varlistentry>
+      <varlistentry>
+	<term>
+	  <citerefentry><refentrytitle>askpass-fifo</refentrytitle>
+	  <manvolnum>8mandos</manvolnum></citerefentry>
+	</term>
+	<listitem>
+	  <para>
+	    To provide compatibility with the "askpass" program from
+	    cryptsetup, this plugin listens to the same FIFO as
+	    askpass would do.
+	  </para>
+	</listitem>
+      </varlistentry>
+    </variablelist>
+    <para>
+      More plugins can easily be written and added by the system
+      administrator; see the section called "WRITING PLUGINS" in
+      <citerefentry><refentrytitle>plugin-runner</refentrytitle>
+      <manvolnum>8mandos</manvolnum></citerefentry> to learn the
+      plugin requirements.
+    </para>
+  </refsect1>
+  
+  <refsect1 id="see_also">
+    <title>SEE ALSO</title>
+    <para>
+      <citerefentry><refentrytitle>mandos</refentrytitle>
+      <manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>mandos.conf</refentrytitle>
+      <manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>mandos-clients.conf</refentrytitle>
+      <manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>mandos-ctl</refentrytitle>
+      <manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>mandos-monitor</refentrytitle>
+      <manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>plugin-runner</refentrytitle>
+      <manvolnum>8mandos</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>mandos-client</refentrytitle>
+      <manvolnum>8mandos</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>password-prompt</refentrytitle>
+      <manvolnum>8mandos</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>plymouth</refentrytitle>
+      <manvolnum>8mandos</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>usplash</refentrytitle>
+      <manvolnum>8mandos</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>splashy</refentrytitle>
+      <manvolnum>8mandos</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>askpass-fifo</refentrytitle>
+      <manvolnum>8mandos</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>mandos-keygen</refentrytitle>
+      <manvolnum>8</manvolnum></citerefentry>
+    </para>
+    <variablelist>
+      <varlistentry>
+	<term>
+	  <ulink url="http://www.fukt.bsnet.se/mandos">Mandos</ulink>
+	</term>
+	<listitem>
+	  <para>
+	    The Mandos home page.
+	  </para>
+	</listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+</refentry>
+<!-- Local Variables: -->
+<!-- time-stamp-start: "<!ENTITY TIMESTAMP [\"']" -->
+<!-- time-stamp-end: "[\"']>" -->
+<!-- time-stamp-format: "%:y-%02m-%02d" -->
+<!-- End: -->
