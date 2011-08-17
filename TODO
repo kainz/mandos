@@ -103,8 +103,6 @@
    For testing decryption before rebooting.
 
 * Makefile
-** TODO Add "--Xlinker --as-needed"
-   http://udrepper.livejournal.com/19395.html
 ** TODO [#C] Implement DEB_BUILD_OPTIONS
    http://www.debian.org/doc/debian-policy/ch-source.html#s-debianrules-options
 
