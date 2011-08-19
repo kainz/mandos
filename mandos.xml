@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY COMMANDNAME "mandos">
-<!ENTITY TIMESTAMP "2011-02-27">
+<!ENTITY TIMESTAMP "2011-08-08">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -610,15 +610,16 @@
   <refsect1 id="see_also">
     <title>SEE ALSO</title>
     <para>
-      <citerefentry>
-	<refentrytitle>mandos-clients.conf</refentrytitle>
-	<manvolnum>5</manvolnum></citerefentry>, <citerefentry>
-	<refentrytitle>mandos.conf</refentrytitle>
-	<manvolnum>5</manvolnum></citerefentry>, <citerefentry>
-	<refentrytitle>mandos-client</refentrytitle>
-	<manvolnum>8mandos</manvolnum></citerefentry>, <citerefentry>
-	<refentrytitle>sh</refentrytitle><manvolnum>1</manvolnum>
-      </citerefentry>
+      <citerefentry><refentrytitle>intro</refentrytitle>
+      <manvolnum>8mandos</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>mandos-clients.conf</refentrytitle>
+      <manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>mandos.conf</refentrytitle>
+      <manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>mandos-client</refentrytitle>
+      <manvolnum>8mandos</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sh</refentrytitle>
+      <manvolnum>1</manvolnum></citerefentry>
     </para>
     <variablelist>
       <varlistentry>

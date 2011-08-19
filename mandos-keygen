@@ -192,7 +192,7 @@ test -n \"$SECFILE\" && shred --remove \"$SECFILE\"; \
 shred --remove \"$RINGDIR\"/sec*;
 test -n \"$BATCHFILE\" && rm --force \"$BATCHFILE\"; \
 rm --recursive --force \"$RINGDIR\";
-stty echo; \
+tty --quiet && stty echo; \
 " EXIT
 
 set -e
@@ -289,31 +289,37 @@ if [ "$mode" = password ]; then
     
     FILECOMMENT="Encrypted password for a Mandos client"
     
-    if [ -n "$PASSFILE" ]; then
-	cat "$PASSFILE"
-    else
-	stty -echo
-	echo -n "Enter passphrase: " >&2
-	first="$(head --lines=1 | tr --delete '\n')"
-	echo >&2
-	echo -n "Repeat passphrase: " >&2
-	second="$(head --lines=1 | tr --delete '\n')"
-	echo >&2
-	stty echo
-	if [ "$first" != "$second" ]; then
-	    echo "Passphrase mismatch" >&2
-	    touch "$RINGDIR"/mismatch
+    while [ ! -s "$SECFILE" ]; do
+	if [ -n "$PASSFILE" ]; then
+	    cat "$PASSFILE"
 	else
-	    echo -n "$first"
+	    tty --quiet && stty -echo
+	    read -p "Enter passphrase: " first
+	    tty --quiet && echo >&2
+	    read -p "Repeat passphrase: " second
+	    if tty --quiet; then
+		echo >&2
+		stty echo
+	    fi
+	    if [ "$first" != "$second" ]; then
+		echo "Passphrase mismatch" >&2
+		touch "$RINGDIR"/mismatch
+	    else
+		echo -n "$first"
+	    fi
+	fi | gpg --quiet --batch --no-tty --no-options --enable-dsa2 \
+	    --homedir "$RINGDIR" --trust-model always --armor \
+	    --encrypt --sign --recipient "$FINGERPRINT" --comment \
+	    "$FILECOMMENT" > "$SECFILE"
+	if [ -e "$RINGDIR"/mismatch ]; then
+	    rm --force "$RINGDIR"/mismatch
+	    if tty --quiet; then
+		> "$SECFILE"
+	    else
+		exit 1
+	    fi
 	fi
-    fi | gpg --quiet --batch --no-tty --no-options --enable-dsa2 \
-	--homedir "$RINGDIR" --trust-model always --armor --encrypt \
-	--sign --recipient "$FINGERPRINT" --comment "$FILECOMMENT" \
-	> "$SECFILE"
-    if [ -e "$RINGDIR"/mismatch ]; then
-	rm --force "$RINGDIR"/mismatch
-	exit 1
-    fi
+    done
     
     cat <<-EOF
 	[$KEYNAME]
