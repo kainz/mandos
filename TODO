@@ -4,13 +4,12 @@
 
 * mandos-applet
 
-* Convert README into intro(8mandos) man page
-
 * mandos-client
 ** TODO [#B] Use capabilities instead of seteuid().
 ** TODO [#B] Use struct sockaddr_storage instead of a union
 ** TODO [#B] Use getaddrinfo(hints=AI_NUMERICHOST) instead of inet_pton()
 ** TODO [#B] Use getnameinfo(serv=NULL, NI_NUMERICHOST) instead of inet_ntop()
+** TODO [#B] Prefer /run/tmp over /tmp, if it exists
 
 * splashy
 ** TODO [#B] use scandir(3) instead of readdir(3)
@@ -60,18 +59,8 @@
 ** TODO [#B] Fix problem with fsck taking a really long time
    Whenever a client successfully gets a secret it could get a
    one-time timeout boost to allow for an fsck-incurred delay
-** TODO [#A] Delay before client receives key
-   This would give an operator opportunity to cancel the request if
-   desired.
-** TODO [#A] Client manual approval mode
-   A client needs manual approval on the server before it gets the
-   secret
 ** TODO [#B] Support RFC 3339 time duration syntax
 ** More D-Bus methods
-*** NeedsApproval(50, True) -> timeout, default approve
-    Default approval is configurable, but True by default
-    + Approve(True) -> approve sending saved
-    + Approve(False) -> Close client connection immediately
 *** NeedsPassword(50) - Timeout, default disapprove
     + SetPass(u"gazonk", True) -> Approval, persistent
     + Approve(False) -> Close client connection immediately
@@ -108,15 +97,12 @@
 ** Show timeout countdown for approval
 
 * mandos-keygen
-** TODO Loop until passwords match when run interactively
 ** TODO "--secfile" option
    Using the "secfile" option instead of "secret"
 ** TODO [#B] "--test" option
    For testing decryption before rebooting.
 
 * Makefile
-** TODO Add "--Xlinker --as-needed"
-   http://udrepper.livejournal.com/19395.html
 ** TODO [#C] Implement DEB_BUILD_OPTIONS
    http://www.debian.org/doc/debian-policy/ch-source.html#s-debianrules-options
 
