@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY COMMANDNAME "mandos-ctl">
-<!ENTITY TIMESTAMP "2011-02-27">
+<!ENTITY TIMESTAMP "2011-08-08">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -554,6 +554,8 @@
   <refsect1 id="see_also">
     <title>SEE ALSO</title>
     <para>
+      <citerefentry><refentrytitle>intro</refentrytitle>
+      <manvolnum>8mandos</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>mandos</refentrytitle>
       <manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>mandos-clients.conf</refentrytitle>
