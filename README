@@ -3,7 +3,7 @@ Please see: http://www.fukt.bsnet.se/mandos/man/intro.8mandos
 This information previously in this file has been moved to the
 intro(8mandos) manual page.  Go to the above URL, or run this command:
 
-	make intro.8mandos && man -l intro.8mandos
+	man 8mandos intro
 
 In short, this is the Mandos system; it allows computers to have
 encrypted root file systems and at the same time be capable of remote
