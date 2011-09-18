@@ -87,6 +87,7 @@ This file documents the D-Bus interface to the Mandos server.
    | Created (d)             | s    | Read       | N/A                 |
    | Enabled (e)             | b    | Read/Write | N/A                 |
    | Expires (f)             | s    | Read       | N/A                 |
+   | ExtendedTimeout (a)     | t    | Read/Write | extended_timeout    |
    | Fingerprint             | s    | Read       | fingerprint         |
    | Host                    | s    | Read/Write | host                |
    | Interval (a)            | t    | Read/Write | interval            |
@@ -97,7 +98,6 @@ This file documents the D-Bus interface to the Mandos server.
    | ObjectPath              | o    | Read       | N/A                 |
    | Secret (j)              | ay   | Write      | secret (or secfile) |
    | Timeout (a)             | t    | Read/Write | timeout             |
-   | ExtendedTimeout (a)     | t    | Read/Write | extended_timeout    |
    
    a) Represented as milliseconds.
    
@@ -114,18 +114,18 @@ This file documents the D-Bus interface to the Mandos server.
    f) The date and time this client will be disabled, as an RFC 3339
       string, or an empty string if this has not happened.
    
-   g) The time of the last approval request, as an RFC 3339 string, or
-      an empty string if this has not happened.
+   g) The date and time of the last approval request, as an RFC 3339
+      string, or an empty string if this has not happened.
    
-   h) The last time a checker was successful, as an RFC 3339 string,
-      or an empty string if this has not happened.  Setting this
-      property is equivalent to calling CheckedOK(), i.e. the current
-      time is set, regardless of the string sent.  Please always use
-      an empty string when setting this property, to allow for
-      possible future expansion.
+   h) The date and time a checker was last successful, as an RFC 3339
+      string, or an empty string if this has not happened.  Setting
+      this property is equivalent to calling CheckedOK(), i.e. the
+      current time is set, regardless of the string sent.  Please
+      always use an empty string when setting this property, to allow
+      for possible future expansion.
    
-   i) The last time this client was enabled, as an RFC 3339 string, or
-      an empty string if this has not happened.
+   i) The date and time this client was last enabled, as an RFC 3339
+      string, or an empty string if this has not happened.
    
    j) A raw byte array, not hexadecimal digits.
 
