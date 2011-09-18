@@ -97,6 +97,7 @@ This file documents the D-Bus interface to the Mandos server.
    | ObjectPath              | o    | Read       | N/A                 |
    | Secret (j)              | ay   | Write      | secret (or secfile) |
    | Timeout (a)             | t    | Read/Write | timeout             |
+   | ExtendedTimeout (a)     | t    | Read/Write | extended_timeout    |
    
    a) Represented as milliseconds.
    
