@@ -117,14 +117,16 @@
     <para>
       <command>&COMMANDNAME;</command> is a server daemon which
       handles incoming request for passwords for a pre-defined list of
-      client host computers.  The Mandos server uses Zeroconf to
-      announce itself on the local network, and uses TLS to
-      communicate securely with and to authenticate the clients.  The
-      Mandos server uses IPv6 to allow Mandos clients to use IPv6
-      link-local addresses, since the clients will probably not have
-      any other addresses configured (see <xref linkend="overview"/>).
-      Any authenticated client is then given the stored pre-encrypted
-      password for that specific client.
+      client host computers. For an introduction, see
+      <citerefentry><refentrytitle>intro</refentrytitle>
+      <manvolnum>8mandos</manvolnum></citerefentry>. The Mandos server
+      uses Zeroconf to announce itself on the local network, and uses
+      TLS to communicate securely with and to authenticate the
+      clients.  The Mandos server uses IPv6 to allow Mandos clients to
+      use IPv6 link-local addresses, since the clients will probably
+      not have any other addresses configured (see <xref
+      linkend="overview"/>).  Any authenticated client is then given
+      the stored pre-encrypted password for that specific client.
     </para>
   </refsect1>
   
@@ -352,9 +354,9 @@
       for some time, the client is assumed to be compromised and is no
       longer eligible to receive the encrypted password.  (Manual
       intervention is required to re-enable a client.)  The timeout,
-      checker program, and interval between checks can be configured
-      both globally and per client; see <citerefentry>
-      <refentrytitle>mandos-clients.conf</refentrytitle>
+      extended timeout, checker program, and interval between checks
+      can be configured both globally and per client; see
+      <citerefentry><refentrytitle>mandos-clients.conf</refentrytitle>
       <manvolnum>5</manvolnum></citerefentry>.  A client successfully
       receiving its password will also be treated as a successful
       checker run.
