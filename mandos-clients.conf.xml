@@ -229,7 +229,7 @@
 	    will wait for a checker to complete until the below
 	    <quote><varname>timeout</varname></quote> occurs, at which
 	    time the client will be disabled, and any running checker
-	    killed.  The default interval is 5 minutes.
+	    killed.  The default interval is 2 minutes.
 	  </para>
 	  <para>
 	    The format of <replaceable>TIME</replaceable> is the same
@@ -302,7 +302,7 @@
 	    The timeout is how long the server will wait (for either a
 	    successful checker run or a client receiving its secret)
 	    until a client is disabled and not allowed to get the data
-	    this server holds.  By default Mandos will use 1 hour.
+	    this server holds.  By default Mandos will use 5 minutes.
 	  </para>
 	  <para>
 	    The <replaceable>TIME</replaceable> is specified as a
@@ -316,6 +316,29 @@
 	    <quote><literal>110s 110s 110s</literal></quote>, and
 	    <quote><literal>5m 30s</literal></quote> will give a value
 	    of five minutes and thirty seconds.
+	  </para>
+	</listitem>
+      </varlistentry>
+
+      <varlistentry>
+	<term><option>extended_timeout<literal> = </literal><replaceable
+	>TIME</replaceable></option></term>
+	<listitem>
+	  <para>
+	    This option is <emphasis>optional</emphasis>.
+	  </para>
+	  <para>
+	    Extended timeout is an added timeout that is given once
+	    after a password has been sent sucessfully to a client.
+	    The timeout is by default longer than the normal timeout,
+	    and is used for handling the extra long downtime while a
+	    matchine is booting up.  Time to take into consideration
+	    when changing this value is system file checks and quota
+	    checks.  The default value is 15 minutes.
+	  </para>
+	  <para>
+	    The format of <replaceable>TIME</replaceable> is the same
+	    as for <varname>timeout</varname> above.
 	  </para>
 	</listitem>
       </varlistentry>
@@ -420,8 +443,8 @@
     <informalexample>
       <programlisting>
 [DEFAULT]
-timeout = 1h
-interval = 5m
+timeout = 5m
+interval = 2m
 checker = fping -q -- %%(host)s
 
 # Client "foo"

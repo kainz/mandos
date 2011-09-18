@@ -86,15 +86,17 @@ This file documents the D-Bus interface to the Mandos server.
    | CheckerRunning (c)      | b    | Read/Write | N/A                 |
    | Created (d)             | s    | Read       | N/A                 |
    | Enabled (e)             | b    | Read/Write | N/A                 |
+   | Expires (f)             | s    | Read       | N/A                 |
+   | ExtendedTimeout (a)     | t    | Read/Write | extended_timeout    |
    | Fingerprint             | s    | Read       | fingerprint         |
    | Host                    | s    | Read/Write | host                |
    | Interval (a)            | t    | Read/Write | interval            |
-   | LastApprovalRequest (f) | s    | Read       | N/A                 |
-   | LastCheckedOK (g)       | s    | Read/Write | N/A                 |
-   | LastEnabled (h)         | s    | Read       | N/A                 |
+   | LastApprovalRequest (g) | s    | Read       | N/A                 |
+   | LastCheckedOK (h)       | s    | Read/Write | N/A                 |
+   | LastEnabled (i)         | s    | Read       | N/A                 |
    | Name                    | s    | Read       | (Section name)      |
    | ObjectPath              | o    | Read       | N/A                 |
-   | Secret (i)              | ay   | Write      | secret (or secfile) |
+   | Secret (j)              | ay   | Write      | secret (or secfile) |
    | Timeout (a)             | t    | Read/Write | timeout             |
    
    a) Represented as milliseconds.
@@ -109,20 +111,23 @@ This file documents the D-Bus interface to the Mandos server.
    e) Setting this property is equivalent to calling Enable() or
       Disable().
    
-   f) The time of the last approval request, as an RFC 3339 string, or
-      an empty string if this has not happened.
+   f) The date and time this client will be disabled, as an RFC 3339
+      string, or an empty string if this has not happened.
    
-   g) The last time a checker was successful, as an RFC 3339 string,
-      or an empty string if this has not happened.  Setting this
-      property is equivalent to calling CheckedOK(), i.e. the current
-      time is set, regardless of the string sent.  Please always use
-      an empty string when setting this property, to allow for
-      possible future expansion.
+   g) The date and time of the last approval request, as an RFC 3339
+      string, or an empty string if this has not happened.
    
-   h) The last time this client was enabled, as an RFC 3339 string, or
-      an empty string if this has not happened.
+   h) The date and time a checker was last successful, as an RFC 3339
+      string, or an empty string if this has not happened.  Setting
+      this property is equivalent to calling CheckedOK(), i.e. the
+      current time is set, regardless of the string sent.  Please
+      always use an empty string when setting this property, to allow
+      for possible future expansion.
    
-   i) A raw byte array, not hexadecimal digits.
+   i) The date and time this client was last enabled, as an RFC 3339
+      string, or an empty string if this has not happened.
+   
+   j) A raw byte array, not hexadecimal digits.
 
 ** Signals
 *** CheckerCompleted(n: Exitcode, x: Waitstatus, s: Command)
