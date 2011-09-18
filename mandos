@@ -299,7 +299,7 @@ class Client(object):
                                       until this client is disabled
     extended_timeout:   extra long timeout when password has been sent
     runtime_expansions: Allowed attributes for runtime expansion.
-    expire:     datetime.datetime(); time (UTC) when a client will be
+    expires:    datetime.datetime(); time (UTC) when a client will be
                 disabled, or None
     """
     
