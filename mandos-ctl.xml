@@ -95,6 +95,11 @@
       </group>
       <sbr/>
       <group>
+	<arg choice="plain"><option>--extended-timeout
+	<replaceable>TIME</replaceable></option></arg>
+      </group>
+      <sbr/>
+      <group>
 	<arg choice="plain"><option>--interval
 	<replaceable>TIME</replaceable></option></arg>
 	<arg choice="plain"><option>-i
@@ -315,6 +320,19 @@
 	    client(s); see <citerefentry><refentrytitle
 	    >mandos-clients.conf</refentrytitle><manvolnum
             >5</manvolnum></citerefentry>.
+	  </para>
+	</listitem>
+      </varlistentry>
+
+      <varlistentry>
+	<term><option>--extended-timeout
+	<replaceable>TIME</replaceable></option></term>
+	<listitem>
+	  <para>
+	    Set the <varname>extended_timeout</varname> option of the
+	    specified client(s); see <citerefentry><refentrytitle
+	    >mandos-clients.conf</refentrytitle><manvolnum
+	    >5</manvolnum></citerefentry>.
 	  </para>
 	</listitem>
       </varlistentry>
