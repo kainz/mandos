@@ -57,9 +57,6 @@
 ** TODO [#C] DBusServiceObjectUsingSuper
 ** TODO [#B] Global enable/disable flag
 ** TODO [#B] By-client countdown on secrets given
-** TODO [#B] Fix problem with fsck taking a really long time
-   Whenever a client successfully gets a secret it could get a
-   one-time timeout boost to allow for an fsck-incurred delay
 ** TODO [#B] Support RFC 3339 time duration syntax
 ** More D-Bus methods
 *** NeedsPassword(50) - Timeout, default disapprove
