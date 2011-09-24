@@ -3,7 +3,7 @@
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY CONFNAME "mandos-clients.conf">
 <!ENTITY CONFPATH "<filename>/etc/mandos/clients.conf</filename>">
-<!ENTITY TIMESTAMP "2011-08-08">
+<!ENTITY TIMESTAMP "2011-09-19">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -182,6 +182,29 @@
       </varlistentry>
       
       <varlistentry>
+	<term><option>extended_timeout<literal> = </literal><replaceable
+	>TIME</replaceable></option></term>
+	<listitem>
+	  <para>
+	    This option is <emphasis>optional</emphasis>.
+	  </para>
+	  <para>
+	    Extended timeout is an added timeout that is given once
+	    after a password has been sent sucessfully to a client.
+	    The timeout is by default longer than the normal timeout,
+	    and is used for handling the extra long downtime while a
+	    machine is booting up.  Time to take into consideration
+	    when changing this value is file system checks and quota
+	    checks.  The default value is 15 minutes.
+	  </para>
+	  <para>
+	    The format of <replaceable>TIME</replaceable> is the same
+	    as for <varname>timeout</varname> below.
+	  </para>
+	</listitem>
+      </varlistentry>
+      
+      <varlistentry>
 	<term><option>fingerprint<literal> = </literal
 	><replaceable>HEXSTRING</replaceable></option></term>
 	<listitem>
@@ -316,29 +339,6 @@
 	    <quote><literal>110s 110s 110s</literal></quote>, and
 	    <quote><literal>5m 30s</literal></quote> will give a value
 	    of five minutes and thirty seconds.
-	  </para>
-	</listitem>
-      </varlistentry>
-
-      <varlistentry>
-	<term><option>extended_timeout<literal> = </literal><replaceable
-	>TIME</replaceable></option></term>
-	<listitem>
-	  <para>
-	    This option is <emphasis>optional</emphasis>.
-	  </para>
-	  <para>
-	    Extended timeout is an added timeout that is given once
-	    after a password has been sent sucessfully to a client.
-	    The timeout is by default longer than the normal timeout,
-	    and is used for handling the extra long downtime while a
-	    matchine is booting up.  Time to take into consideration
-	    when changing this value is system file checks and quota
-	    checks.  The default value is 15 minutes.
-	  </para>
-	  <para>
-	    The format of <replaceable>TIME</replaceable> is the same
-	    as for <varname>timeout</varname> above.
 	  </para>
 	</listitem>
       </varlistentry>
