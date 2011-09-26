@@ -40,7 +40,6 @@
 ** TODO [#B] Use openat()
 
 * mandos (server)
-** TODO [#A] Make all attributes properties!
 ** TODO [#B] Log level							  :BUGS:
 ** TODO Persistent state						  :BUGS:
    /var/lib/mandos/*
