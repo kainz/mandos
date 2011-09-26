@@ -2,6 +2,8 @@
 
 * Use _attribute_((nonnull)) wherever possible.
 
+* [[http://www.undeadly.org/cgi?action=article&sid=20110530221728][OpenBSD]]
+
 * mandos-applet
 
 * mandos-client
