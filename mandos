@@ -313,11 +313,11 @@ class Client(object):
                           "created", "enabled", "fingerprint",
                           "host", "interval", "last_checked_ok",
                           "last_enabled", "name", "timeout")
-        
+    
     def timeout_milliseconds(self):
         "Return the 'timeout' attribute in milliseconds"
         return _timedelta_to_milliseconds(self.timeout)
-
+    
     def extended_timeout_milliseconds(self):
         "Return the 'extended_timeout' attribute in milliseconds"
         return _timedelta_to_milliseconds(self.extended_timeout)    
@@ -325,7 +325,7 @@ class Client(object):
     def interval_milliseconds(self):
         "Return the 'interval' attribute in milliseconds"
         return _timedelta_to_milliseconds(self.interval)
-
+    
     def approval_delay_milliseconds(self):
         return _timedelta_to_milliseconds(self.approval_delay)
     
@@ -509,7 +509,7 @@ class Client(object):
                                        'replace')))
                     for attr in
                     self.runtime_expansions)
-
+                
                 try:
                     command = self.checker_command % escaped_attrs
                 except TypeError as error:
@@ -560,6 +560,7 @@ class Client(object):
             if error.errno != errno.ESRCH: # No such process
                 raise
         self.checker = None
+
 
 def dbus_service_property(dbus_interface, signature="v",
                           access="readwrite", byte_arrays=False):
@@ -612,7 +613,7 @@ class DBusPropertyNotFound(DBusPropertyException):
 
 class DBusObjectWithProperties(dbus.service.Object):
     """A D-Bus object with properties.
-
+    
     Classes inheriting from this can use the dbus_service_property
     decorator to expose methods as D-Bus properties.  It exposes the
     standard Get(), Set(), and GetAll() methods on the D-Bus.
@@ -682,7 +683,7 @@ class DBusObjectWithProperties(dbus.service.Object):
     def GetAll(self, interface_name):
         """Standard D-Bus property GetAll() method, see D-Bus
         standard.
-
+        
         Note: Will not include properties with access="write".
         """
         all = {}
@@ -757,6 +758,7 @@ def datetime_to_dbus (dt, variant_level=0):
     return dbus.String(dt.isoformat(),
                        variant_level=variant_level)
 
+
 class ClientDBus(Client, DBusObjectWithProperties):
     """A Client class using D-Bus
     
@@ -806,10 +808,10 @@ class ClientDBus(Client, DBusObjectWithProperties):
                                                 variant_level)
                     self.PropertyChanged(dbus.String(dbus_name),
                                          dbus_value)
-
+        
         return property(lambda self: real_value[0], setter)
-
-
+    
+    
     expires = notifychangeproperty(datetime_to_dbus, "Expires")
     approvals_pending = notifychangeproperty(dbus.Boolean,
                                              "ApprovalPending",
@@ -867,7 +869,7 @@ class ClientDBus(Client, DBusObjectWithProperties):
         
         return Client.checker_callback(self, pid, condition, command,
                                        *args, **kwargs)
-
+    
     def start_checker(self, *args, **kwargs):
         old_checker = self.checker
         if self.checker is not None:
@@ -1090,7 +1092,7 @@ class ClientDBus(Client, DBusObjectWithProperties):
                             + datetime.timedelta(milliseconds = time_to_die))
             self.disable_initiator_tag = (gobject.timeout_add
                                           (time_to_die, self.disable))
-
+    
     # ExtendedTimeout - property
     @dbus_service_property(_interface, signature="t",
                            access="readwrite")
@@ -1098,7 +1100,7 @@ class ClientDBus(Client, DBusObjectWithProperties):
         if value is None:       # get
             return dbus.UInt64(self.extended_timeout_milliseconds())
         self.extended_timeout = datetime.timedelta(0, 0, 0, value)
-
+    
     # Interval - property
     @dbus_service_property(_interface, signature="t",
                            access="readwrite")
@@ -1113,7 +1115,7 @@ class ClientDBus(Client, DBusObjectWithProperties):
         self.checker_initiator_tag = (gobject.timeout_add
                                       (value, self.start_checker))
         self.start_checker()    # Start one now, too
-
+    
     # Checker - property
     @dbus_service_property(_interface, signature="s",
                            access="readwrite")
@@ -1153,7 +1155,7 @@ class ProxyClient(object):
         self._pipe.send(('init', fpr, address))
         if not self._pipe.recv():
             raise KeyError()
-
+    
     def __getattribute__(self, name):
         if(name == '_pipe'):
             return super(ProxyClient, self).__getattribute__(name)
@@ -1166,7 +1168,7 @@ class ProxyClient(object):
                 self._pipe.send(('funcall', name, args, kwargs))
                 return self._pipe.recv()[1]
             return func
-
+    
     def __setattr__(self, name, value):
         if(name == '_pipe'):
             return super(ProxyClient, self).__setattr__(name, value)
@@ -1185,17 +1187,17 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
                         unicode(self.client_address))
             logger.debug("Pipe FD: %d",
                          self.server.child_pipe.fileno())
-
+            
             session = (gnutls.connection
                        .ClientSession(self.request,
                                       gnutls.connection
                                       .X509Credentials()))
-
+            
             # Note: gnutls.connection.X509Credentials is really a
             # generic GnuTLS certificate credentials object so long as
             # no X.509 keys are added to it.  Therefore, we can use it
             # here despite using OpenPGP certificates.
-
+            
             #priority = ':'.join(("NONE", "+VERS-TLS1.1",
             #                      "+AES-256-CBC", "+SHA1",
             #                      "+COMP-NULL", "+CTYPE-OPENPGP",
@@ -1207,7 +1209,7 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
             (gnutls.library.functions
              .gnutls_priority_set_direct(session._c_object,
                                          priority, None))
-
+            
             # Start communication using the Mandos protocol
             # Get protocol number
             line = self.request.makefile().readline()
@@ -1218,7 +1220,7 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
             except (ValueError, IndexError, RuntimeError) as error:
                 logger.error("Unknown protocol version: %s", error)
                 return
-
+            
             # Start GnuTLS connection
             try:
                 session.handshake()
@@ -1228,7 +1230,7 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
                 # established.  Just abandon the request.
                 return
             logger.debug("Handshake succeeded")
-
+            
             approval_required = False
             try:
                 try:
@@ -1239,7 +1241,7 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
                     logger.warning("Bad certificate: %s", error)
                     return
                 logger.debug("Fingerprint: %s", fpr)
-
+                
                 try:
                     client = ProxyClient(child_pipe, fpr,
                                          self.client_address)
@@ -1311,7 +1313,7 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
                                  sent, len(client.secret)
                                  - (sent_size + sent))
                     sent_size += sent
-
+                
                 logger.info("Sending secret to %s", client.name)
                 # bump the timeout as if seen
                 client.checked_ok(client.extended_timeout)
@@ -1405,6 +1407,7 @@ class MultiprocessingMixIn(object):
         multiprocessing.Process(target = self.sub_process_main,
                                 args = (request, address)).start()
 
+
 class MultiprocessingMixInWithPipe(MultiprocessingMixIn, object):
     """ adds a pipe to the MixIn """
     def process_request(self, request, client_address):
@@ -1413,15 +1416,16 @@ class MultiprocessingMixInWithPipe(MultiprocessingMixIn, object):
         This function creates a new pipe in self.pipe
         """
         parent_pipe, self.child_pipe = multiprocessing.Pipe()
-
+        
         super(MultiprocessingMixInWithPipe,
               self).process_request(request, client_address)
         self.child_pipe.close()
         self.add_pipe(parent_pipe)
-
+    
     def add_pipe(self, parent_pipe):
         """Dummy function; override as necessary"""
         raise NotImplementedError
+
 
 class IPv6_TCPServer(MultiprocessingMixInWithPipe,
                      socketserver.TCPServer, object):
@@ -1576,7 +1580,7 @@ class MandosServer(IPv6_TCPServer):
             kwargs = request[3]
             
             parent_pipe.send(('data', getattr(client_object, funcname)(*args, **kwargs)))
-
+        
         if command == 'getattr':
             attrname = request[1]
             if callable(client_object.__getattribute__(attrname)):
@@ -1588,7 +1592,7 @@ class MandosServer(IPv6_TCPServer):
             attrname = request[1]
             value = request[2]
             setattr(client_object, attrname, value)
-
+        
         return True
 
 
@@ -1773,7 +1777,7 @@ def main():
     debuglevel = server_settings["debuglevel"]
     use_dbus = server_settings["use_dbus"]
     use_ipv6 = server_settings["use_ipv6"]
-
+    
     if server_settings["servicename"] != "Mandos":
         syslogger.setFormatter(logging.Formatter
                                ('Mandos (%s) [%%(process)d]:'
@@ -1840,7 +1844,7 @@ def main():
         level = getattr(logging, debuglevel.upper())
         syslogger.setLevel(level)
         console.setLevel(level)
-
+    
     if debug:
         # Enable all possible GnuTLS debugging
         
@@ -1933,7 +1937,7 @@ def main():
         del pidfilename
         
         signal.signal(signal.SIGINT, signal.SIG_IGN)
-
+    
     signal.signal(signal.SIGHUP, lambda signum, frame: sys.exit())
     signal.signal(signal.SIGTERM, lambda signum, frame: sys.exit())
     
@@ -2059,6 +2063,7 @@ def main():
     logger.debug("Server exiting")
     # Must run before the D-Bus bus name gets deregistered
     cleanup()
+
 
 if __name__ == '__main__':
     main()
