@@ -54,15 +54,17 @@
 #include <stdarg.h>		/* va_list, va_start(), ... */
 
 sig_atomic_t interrupted_by_signal = 0;
-const char plymouth_pid[] = "/dev/.initramfs/plymouth.pid";
+
+/* Used by Ubuntu 11.04 (Natty Narwahl) */
+const char plymouth_old_pid[] = "/dev/.initramfs/plymouth.pid";
+/* Used by Ubuntu 11.10 (Oneiric Ocelot) */
+const char plymouth_pid[] = "/run/initramfs/plymouth.pid";
+
 const char plymouth_path[] = "/bin/plymouth";
 const char plymouthd_path[] = "/sbin/plymouthd";
 const char *plymouthd_default_argv[] = {"/sbin/plymouthd",
 					"--mode=boot",
 					"--attach-to-session",
-					"--pid-file="
-					"/dev/.initramfs/"
-					"plymouth.pid",
 					NULL };
 
 static void termination_handler(__attribute__((unused))int signum){
@@ -260,8 +262,9 @@ int is_plymouth(const struct dirent *proc_entry){
 
 pid_t get_pid(void){
   int ret;
-  FILE *pidfile = fopen(plymouth_pid, "r");
   uintmax_t maxvalue = 0;
+  FILE *pidfile = fopen(plymouth_pid, "r");
+  /* Try the new pid file location */
   if(pidfile != NULL){
     ret = fscanf(pidfile, "%" SCNuMAX, &maxvalue);
     if(ret != 1){
@@ -269,6 +272,18 @@ pid_t get_pid(void){
     }
     fclose(pidfile);
   }
+  /* Try the old pid file location */
+  if(maxvalue == 0){
+    pidfile = fopen(plymouth_pid, "r");
+    if(pidfile != NULL){
+      ret = fscanf(pidfile, "%" SCNuMAX, &maxvalue);
+      if(ret != 1){
+	maxvalue = 0;
+      }
+      fclose(pidfile);
+    }
+  }
+  /* Look for a plymouth process */
   if(maxvalue == 0){
     struct dirent **direntries = NULL;
     ret = scandir("/proc", &direntries, is_plymouth, alphasort);
