@@ -49,7 +49,7 @@ import logging
 logging.getLogger('dbus.proxies').setLevel(logging.CRITICAL)
 
 # Some useful constants
-domain = 'se.bsnet.fukt'
+domain = 'se.recompile'
 server_interface = domain + '.Mandos'
 client_interface = domain + '.Mandos.Client'
 version = "1.3.1"
