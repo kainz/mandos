@@ -5,7 +5,7 @@
 This file documents the D-Bus interface to the Mandos server.
 
 * Bus: System bus
-  Bus name: "se.bsnet.fukt.Mandos"
+  Bus name: "se.recompile.Mandos"
 
 
 * Object Paths:
@@ -17,7 +17,7 @@ This file documents the D-Bus interface to the Mandos server.
 
   
 * Mandos Server Interface:
-  Interface name: "se.bsnet.fukt.Mandos"
+  Interface name: "se.recompile.Mandos"
   
 ** Methods:
 *** GetAllClients() → (ao: Clients)
@@ -44,7 +44,7 @@ This file documents the D-Bus interface to the Mandos server.
 
 
 * Mandos Client Interface:
-  Interface name: "se.bsnet.fukt.Mandos.Client"
+  Interface name: "se.recompile.Mandos.Client"
   
 ** Methods
 *** Approve(b: Approve) → nothing
