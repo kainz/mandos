@@ -627,38 +627,18 @@ class DBusObjectWithProperties(dbus.service.Object):
     def _get_all_dbus_properties(self):
         """Returns a generator of (name, attribute) pairs
         """
-        return ((prop._dbus_name, prop)
-                for name, prop in
-                inspect.getmembers(self, self._is_dbus_property))
+        return ((prop.__get__(self)._dbus_name, prop.__get__(self))
+                for cls in self.__class__.__mro__
+                for name, prop in inspect.getmembers(cls, self._is_dbus_property))
     
-#    def _get_dbus_property(self, interface_name, property_name):
-#        """Returns a bound method if one exists which is a D-Bus
-#        property with the specified name and interface.
-#        """
-#        print("get_property({0!r}, {1!r}".format(interface_name, property_name),file=sys.stderr)
-#        print(dir(self), sys.stderr)
-#        for name in (property_name,
-#                     property_name + "_dbus_property"):
-#            prop = getattr(self, name, None)
-#            if (prop is None
-#                or not self._is_dbus_property(prop)
-#                or prop._dbus_name != property_name
-#                or (interface_name and prop._dbus_interface
-#                    and interface_name != prop._dbus_interface)):
-#                continue
-#            return prop
-#        # No such property
-#        raise DBusPropertyNotFound(self.dbus_object_path + ":"
-#                                   + interface_name + "."
-#                                   + property_name)
-
     def _get_dbus_property(self, interface_name, property_name):
         """Returns a bound method if one exists which is a D-Bus
         property with the specified name and interface.
         """
-        for name, value in inspect.getmembers(self, self._is_dbus_property):
-            if value._dbus_name == property_name and value._dbus_interface == interface_name:
-                return value
+        for cls in  self.__class__.__mro__:
+            for name, value in inspect.getmembers(cls, self._is_dbus_property):
+                if value._dbus_name == property_name and value._dbus_interface == interface_name:
+                    return value.__get__(self)
         
         # No such property
         raise DBusPropertyNotFound(self.dbus_object_path + ":"
@@ -775,11 +755,12 @@ def datetime_to_dbus (dt, variant_level=0):
     return dbus.String(dt.isoformat(),
                        variant_level=variant_level)
 
-class transitional_clientdbus(DBusObjectWithProperties.__metaclass__):
+class transitional_dbus_metaclass(DBusObjectWithProperties.__metaclass__):
     def __new__(mcs, name, bases, attr):
-        for key, old_dbusobj in attr.items():
+        for attrname, old_dbusobj in inspect.getmembers(bases[0]):
             new_interface = getattr(old_dbusobj, "_dbus_interface", "").replace("se.bsnet.fukt.", "se.recompile.")
-            if getattr(old_dbusobj, "_dbus_is_signal", False):
+            if (getattr(old_dbusobj, "_dbus_is_signal", False)
+                and old_dbusobj._dbus_interface.startswith("se.bsnet.fukt.Mandos")):
                 unwrappedfunc = dict(zip(old_dbusobj.func_code.co_freevars,
                                     old_dbusobj.__closure__))["func"].cell_contents
                 newfunc = types.FunctionType(unwrappedfunc.func_code,
@@ -789,18 +770,18 @@ class transitional_clientdbus(DBusObjectWithProperties.__metaclass__):
                                              unwrappedfunc.func_closure)
                 new_dbusfunc = dbus.service.signal(
                     new_interface, old_dbusobj._dbus_signature)(newfunc)            
-                attr["_transitional_{0}_1".format(key)] = new_dbusfunc
-                attr["_transitional_{0}_0".format(key)] = old_dbusobj                
+                attr["_transitional_" + attrname] = new_dbusfunc
+
                 def fixscope(func1, func2):
                     def newcall(*args, **kwargs):
                         func1(*args, **kwargs)
                         func2(*args, **kwargs)
                     return newcall
 
-                attr[key] = fixscope(
-                    old_dbusobj, attr["_transitional_{0}_1".format(key)])
+                attr[attrname] = fixscope(old_dbusobj, new_dbusfunc)
             
-            if getattr(old_dbusobj, "_dbus_is_method", False):
+            elif (getattr(old_dbusobj, "_dbus_is_method", False)
+                and old_dbusobj._dbus_interface.startswith("se.bsnet.fukt.Mandos")):
                 new_dbusfunc = (dbus.service.method
                                 (new_interface,
                                  old_dbusobj._dbus_in_signature,
@@ -812,8 +793,9 @@ class transitional_clientdbus(DBusObjectWithProperties.__metaclass__):
                                   old_dbusobj.func_defaults,
                                   old_dbusobj.func_closure)))
 
-                attr["_transitional_{0}".format(key)] = new_dbusfunc
-            if getattr(old_dbusobj, "_dbus_is_property", False):
+                attr[attrname] = new_dbusfunc
+            elif (getattr(old_dbusobj, "_dbus_is_property", False)
+                  and old_dbusobj._dbus_interface.startswith("se.bsnet.fukt.Mandos")):
                 new_dbusfunc = (dbus_service_property
                                 (new_interface,
                                  old_dbusobj._dbus_signature,
@@ -826,7 +808,7 @@ class transitional_clientdbus(DBusObjectWithProperties.__metaclass__):
                                   old_dbusobj.func_defaults,
                                   old_dbusobj.func_closure)))
 
-                attr["_transitional_{0}".format(key)] = new_dbusfunc
+                attr[attrname] = new_dbusfunc
         return type.__new__(mcs, name, bases, attr)
 
 class ClientDBus(Client, DBusObjectWithProperties):
@@ -839,8 +821,6 @@ class ClientDBus(Client, DBusObjectWithProperties):
     
     runtime_expansions = (Client.runtime_expansions
                           + ("dbus_object_path",))
-
-    __metaclass__ = transitional_clientdbus
     
     # dbus.service.Object doesn't use super(), so we can't either.
     
@@ -1246,6 +1226,8 @@ class ProxyClient(object):
             return super(ProxyClient, self).__setattr__(name, value)
         self._pipe.send(('setattr', name, value))
 
+class ClientDBusTransitional(ClientDBus):
+    __metaclass__ = transitional_dbus_metaclass
 
 class ClientHandler(socketserver.BaseRequestHandler, object):
     """A class to handle client connections.
@@ -1975,7 +1957,7 @@ def main():
     
     client_class = Client
     if use_dbus:
-        client_class = functools.partial(ClientDBus, bus = bus)
+        client_class = functools.partial(ClientDBusTransitional, bus = bus)        
     def client_config_items(config, section):
         special_settings = {
             "approved_by_default":
@@ -2068,7 +2050,9 @@ def main():
             
             del _interface
         
-        mandos_dbus_service = MandosDBusService()
+        class MandosDBusServiceTransitional(MandosDBusService):
+            __metaclass__ = transitional_dbus_metaclass
+        mandos_dbus_service = MandosDBusServiceTransitional()
     
     def cleanup():
         "Cleanup function; run on exit"
