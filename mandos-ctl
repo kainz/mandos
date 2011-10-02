@@ -55,7 +55,7 @@ tablewords = {
     "ExtendedTimeout" : "Extended Timeout"
     }
 defaultkeywords = ("Name", "Enabled", "Timeout", "LastCheckedOK")
-domain = "se.bsnet.fukt"
+domain = "se.recompile"
 busname = domain + ".Mandos"
 server_path = "/"
 server_interface = domain + ".Mandos"
