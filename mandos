@@ -754,60 +754,100 @@ def datetime_to_dbus (dt, variant_level=0):
     return dbus.String(dt.isoformat(),
                        variant_level=variant_level)
 
-class transitional_dbus_metaclass(DBusObjectWithProperties.__metaclass__):
+class AlternateDBusNamesMetaclass(DBusObjectWithProperties.__metaclass__):
+    """Applied to an empty subclass of a D-Bus object, this metaclass
+    will add additional D-Bus attributes matching a certain pattern.
+    """
     def __new__(mcs, name, bases, attr):
-        for attrname, old_dbusobj in inspect.getmembers(bases[0]):
-            new_interface = getattr(old_dbusobj, "_dbus_interface", "").replace("se.bsnet.fukt.", "se.recompile.")
-            if (getattr(old_dbusobj, "_dbus_is_signal", False)
-                and old_dbusobj._dbus_interface.startswith("se.bsnet.fukt.Mandos")):
-                unwrappedfunc = dict(zip(old_dbusobj.func_code.co_freevars,
-                                    old_dbusobj.__closure__))["func"].cell_contents
-                newfunc = types.FunctionType(unwrappedfunc.func_code,
-                                             unwrappedfunc.func_globals,
-                                             unwrappedfunc.func_name,
-                                             unwrappedfunc.func_defaults,
-                                             unwrappedfunc.func_closure)
-                new_dbusfunc = dbus.service.signal(
-                    new_interface, old_dbusobj._dbus_signature)(newfunc)            
-                attr["_transitional_" + attrname] = new_dbusfunc
-
-                def fixscope(func1, func2):
-                    def newcall(*args, **kwargs):
-                        func1(*args, **kwargs)
-                        func2(*args, **kwargs)
-                    return newcall
-
-                attr[attrname] = fixscope(old_dbusobj, new_dbusfunc)
-            
-            elif (getattr(old_dbusobj, "_dbus_is_method", False)
-                and old_dbusobj._dbus_interface.startswith("se.bsnet.fukt.Mandos")):
-                new_dbusfunc = (dbus.service.method
-                                (new_interface,
-                                 old_dbusobj._dbus_in_signature,
-                                 old_dbusobj._dbus_out_signature)
-                                (types.FunctionType
-                                 (old_dbusobj.func_code,
-                                  old_dbusobj.func_globals,
-                                  old_dbusobj.func_name,
-                                  old_dbusobj.func_defaults,
-                                  old_dbusobj.func_closure)))
-
-                attr[attrname] = new_dbusfunc
-            elif (getattr(old_dbusobj, "_dbus_is_property", False)
-                  and old_dbusobj._dbus_interface.startswith("se.bsnet.fukt.Mandos")):
-                new_dbusfunc = (dbus_service_property
-                                (new_interface,
-                                 old_dbusobj._dbus_signature,
-                                 old_dbusobj._dbus_access,
-                                 old_dbusobj._dbus_get_args_options["byte_arrays"])
-                                (types.FunctionType
-                                 (old_dbusobj.func_code,
-                                  old_dbusobj.func_globals,
-                                  old_dbusobj.func_name,
-                                  old_dbusobj.func_defaults,
-                                  old_dbusobj.func_closure)))
-
-                attr[attrname] = new_dbusfunc
+        # Go through all the base classes which could have D-Bus
+        # methods, signals, or properties in them
+        for base in (b for b in bases
+                     if issubclass(b, dbus.service.Object)):
+            # Go though all attributes of the base class
+            for attrname, attribute in inspect.getmembers(base):
+                # Ignore non-D-Bus attributes, and D-Bus attributes
+                # with the wrong interface name
+                if (not hasattr(attribute, "_dbus_interface")
+                    or not attribute._dbus_interface
+                    .startswith("se.recompile.Mandos")):
+                    continue
+                # Create an alternate D-Bus interface name based on
+                # the current name
+                alt_interface = (attribute._dbus_interface
+                                 .replace("se.recompile.Mandos",
+                                          "se.bsnet.fukt.Mandos"))
+                # Is this a D-Bus signal?
+                if getattr(attribute, "_dbus_is_signal", False):
+                    # Extract the original non-method function by
+                    # black magic
+                    nonmethod_func = (dict(
+                            zip(attribute.func_code.co_freevars,
+                                attribute.__closure__))["func"]
+                                      .cell_contents)
+                    # Create a new, but exactly alike, function
+                    # object, and decorate it to be a new D-Bus signal
+                    # with the alternate D-Bus interface name
+                    new_function = (dbus.service.signal
+                                    (alt_interface,
+                                     attribute._dbus_signature)
+                                    (types.FunctionType(
+                                nonmethod_func.func_code,
+                                nonmethod_func.func_globals,
+                                nonmethod_func.func_name,
+                                nonmethod_func.func_defaults,
+                                nonmethod_func.func_closure)))
+                    # Define a creator of a function to call both the
+                    # old and new functions, so both the old and new
+                    # signals gets sent when the function is called
+                    def fixscope(func1, func2):
+                        """This function is a scope container to pass
+                        func1 and func2 to the "call_both" function
+                        outside of its arguments"""
+                        def call_both(*args, **kwargs):
+                            """This function will emit two D-Bus
+                            signals by calling func1 and func2"""
+                            func1(*args, **kwargs)
+                            func2(*args, **kwargs)
+                        return call_both
+                    # Create the "call_both" function and add it to
+                    # the class
+                    attr[attrname] = fixscope(attribute,
+                                              new_function)
+                # Is this a D-Bus method?
+                elif getattr(attribute, "_dbus_is_method", False):
+                    # Create a new, but exactly alike, function
+                    # object.  Decorate it to be a new D-Bus method
+                    # with the alternate D-Bus interface name.  Add it
+                    # to the class.
+                    attr[attrname] = (dbus.service.method
+                                      (alt_interface,
+                                       attribute._dbus_in_signature,
+                                       attribute._dbus_out_signature)
+                                      (types.FunctionType
+                                       (attribute.func_code,
+                                        attribute.func_globals,
+                                        attribute.func_name,
+                                        attribute.func_defaults,
+                                        attribute.func_closure)))
+                # Is this a D-Bus property?
+                elif getattr(attribute, "_dbus_is_property", False):
+                    # Create a new, but exactly alike, function
+                    # object, and decorate it to be a new D-Bus
+                    # property with the alternate D-Bus interface
+                    # name.  Add it to the class.
+                    attr[attrname] = (dbus_service_property
+                                      (alt_interface,
+                                       attribute._dbus_signature,
+                                       attribute._dbus_access,
+                                       attribute
+                                       ._dbus_get_args_options
+                                       ["byte_arrays"])
+                                      (types.FunctionType
+                                       (attribute.func_code,
+                                        attribute.func_globals,
+                                        attribute.func_name,
+                                        attribute.func_defaults,
+                                        attribute.func_closure)))
         return type.__new__(mcs, name, bases, attr)
 
 class ClientDBus(Client, DBusObjectWithProperties):
@@ -840,14 +880,15 @@ class ClientDBus(Client, DBusObjectWithProperties):
     def notifychangeproperty(transform_func,
                              dbus_name, type_func=lambda x: x,
                              variant_level=1):
-        """ Modify a variable so that its a property that announce its
-        changes to DBus.
-        transform_fun: Function that takes a value and transform it to
-                       DBus type.
-        dbus_name: DBus name of the variable
+        """ Modify a variable so that it's a property which announces
+        its changes to DBus.
+
+        transform_fun: Function that takes a value and transforms it
+                       to a D-Bus type.
+        dbus_name: D-Bus name of the variable
         type_func: Function that transform the value before sending it
-                   to DBus
-        variant_level: DBus variant level. default: 1
+                   to the D-Bus.  Default: no transform
+        variant_level: D-Bus variant level.  Default: 1
         """
         real_value = [None,]
         def setter(self, value):
@@ -948,7 +989,7 @@ class ClientDBus(Client, DBusObjectWithProperties):
     
     
     ## D-Bus methods, signals & properties
-    _interface = "se.bsnet.fukt.Mandos.Client"
+    _interface = "se.recompile.Mandos.Client"
     
     ## Signals
     
@@ -1226,7 +1267,7 @@ class ProxyClient(object):
         self._pipe.send(('setattr', name, value))
 
 class ClientDBusTransitional(ClientDBus):
-    __metaclass__ = transitional_dbus_metaclass
+    __metaclass__ = AlternateDBusNamesMetaclass
 
 class ClientHandler(socketserver.BaseRequestHandler, object):
     """A class to handle client connections.
@@ -1936,8 +1977,8 @@ def main():
         try:
             bus_name = dbus.service.BusName("se.recompile.Mandos",
                                             bus, do_not_queue=True)
-            bus_name_transitional = dbus.service.BusName("se.bsnet.fukt.Mandos",
-                                                         bus, do_not_queue=True)
+            old_bus_name = dbus.service.BusName("se.bsnet.fukt.Mandos",
+                                                bus, do_not_queue=True)
         except dbus.exceptions.NameExistsException as e:
             logger.error(unicode(e) + ", disabling D-Bus")
             use_dbus = False
@@ -2001,7 +2042,7 @@ def main():
             """A D-Bus proxy object"""
             def __init__(self):
                 dbus.service.Object.__init__(self, bus, "/")
-            _interface = "se.bsnet.fukt.Mandos"
+            _interface = "se.recompile.Mandos"
             
             @dbus.service.signal(_interface, signature="o")
             def ClientAdded(self, objpath):
@@ -2050,7 +2091,7 @@ def main():
             del _interface
         
         class MandosDBusServiceTransitional(MandosDBusService):
-            __metaclass__ = transitional_dbus_metaclass
+            __metaclass__ = AlternateDBusNamesMetaclass
         mandos_dbus_service = MandosDBusServiceTransitional()
     
     def cleanup():
