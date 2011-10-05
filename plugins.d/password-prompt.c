@@ -19,7 +19,7 @@
  * along with this program.  If not, see
  * <http://www.gnu.org/licenses/>.
  * 
- * Contact the authors at <mandos@fukt.bsnet.se>.
+ * Contact the authors at <mandos@recompile.se>.
  */
 
 #define _GNU_SOURCE		/* getline(), asprintf() */
@@ -67,7 +67,7 @@ volatile sig_atomic_t quit_now = 0;
 int signal_received;
 bool debug = false;
 const char *argp_program_version = "password-prompt " VERSION;
-const char *argp_program_bug_address = "<mandos@fukt.bsnet.se>";
+const char *argp_program_bug_address = "<mandos@recompile.se>";
 
 /* Needed for conflict resolution */
 const char plymouth_name[] = "plymouthd";

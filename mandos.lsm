@@ -7,13 +7,13 @@ root file systems and at the same time be capable of remote and/or
 unattended reboots.
 Keywords:	boot, encryption, luks, cryptsetup, network, openpgp,
 tls, dm-crypt
-Author:		teddy@fukt.bsnet.se (Teddy Hogeborn),
-		belorn@fukt.bsnet.se (Björn Påhlsson)
-Maintained-by:	teddy@fukt.bsnet.se (Teddy Hogeborn),
-		belorn@fukt.bsnet.se (Björn Påhlsson)
-Primary-site: http://www.fukt.bsnet.se/mandos
+Author:		teddy@recompile.se (Teddy Hogeborn),
+		belorn@recompile.se (Björn Påhlsson)
+Maintained-by:	teddy@recompile.se (Teddy Hogeborn),
+		belorn@recompile.se (Björn Påhlsson)
+Primary-site: http://www.recompile.se/mandos
 	      136K mandos_1.3.1.orig.tar.gz
-Alternate-site: ftp://ftp.fukt.bsnet.se/pub/mandos
+Alternate-site: ftp://ftp.recompile.se/pub/mandos
 		136K mandos_1.3.1.orig.tar.gz
 Platforms:	Requires GCC, GNU libC, Avahi, GnuPG, Python 2.6, and
 various other libraries.  While made for Debian GNU/Linux, it is
