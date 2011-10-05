@@ -160,7 +160,8 @@ class AvahiService(object):
                             " after %i retries, exiting.",
                             self.rename_count)
             raise AvahiServiceError("Too many renames")
-        self.name = unicode(self.server.GetAlternativeServiceName(self.name))
+        self.name = unicode(self.server
+                            .GetAlternativeServiceName(self.name))
         logger.info("Changing Zeroconf service name to %r ...",
                     self.name)
         syslogger.setFormatter(logging.Formatter
@@ -361,7 +362,8 @@ class Client(object):
         self.last_enabled = None
         self.last_checked_ok = None
         self.timeout = string_to_delta(config["timeout"])
-        self.extended_timeout = string_to_delta(config["extended_timeout"])
+        self.extended_timeout = string_to_delta(config
+                                                ["extended_timeout"])
         self.interval = string_to_delta(config["interval"])
         self.disable_hook = disable_hook
         self.checker = None
@@ -380,13 +382,15 @@ class Client(object):
             config["approval_delay"])
         self.approval_duration = string_to_delta(
             config["approval_duration"])
-        self.changedstate = multiprocessing_manager.Condition(multiprocessing_manager.Lock())
+        self.changedstate = (multiprocessing_manager
+                             .Condition(multiprocessing_manager
+                                        .Lock()))
     
     def send_changedstate(self):
         self.changedstate.acquire()
         self.changedstate.notify_all()
         self.changedstate.release()
-        
+    
     def enable(self):
         """Start this client's checker and timeout hooks"""
         if getattr(self, "enabled", False):
@@ -463,8 +467,8 @@ class Client(object):
         gobject.source_remove(self.disable_initiator_tag)
         self.expires = datetime.datetime.utcnow() + timeout
         self.disable_initiator_tag = (gobject.timeout_add
-                                      (_timedelta_to_milliseconds(timeout),
-                                       self.disable))
+                                      (_timedelta_to_milliseconds
+                                       (timeout), self.disable))
     
     def need_approval(self):
         self.last_approval_request = datetime.datetime.utcnow()
@@ -629,15 +633,18 @@ class DBusObjectWithProperties(dbus.service.Object):
         """
         return ((prop.__get__(self)._dbus_name, prop.__get__(self))
                 for cls in self.__class__.__mro__
-                for name, prop in inspect.getmembers(cls, self._is_dbus_property))
+                for name, prop in
+                inspect.getmembers(cls, self._is_dbus_property))
     
     def _get_dbus_property(self, interface_name, property_name):
         """Returns a bound method if one exists which is a D-Bus
         property with the specified name and interface.
         """
         for cls in  self.__class__.__mro__:
-            for name, value in inspect.getmembers(cls, self._is_dbus_property):
-                if value._dbus_name == property_name and value._dbus_interface == interface_name:
+            for name, value in (inspect.getmembers
+                                (cls, self._is_dbus_property)):
+                if (value._dbus_name == property_name
+                    and value._dbus_interface == interface_name):
                     return value.__get__(self)
         
         # No such property
@@ -754,7 +761,8 @@ def datetime_to_dbus (dt, variant_level=0):
     return dbus.String(dt.isoformat(),
                        variant_level=variant_level)
 
-class AlternateDBusNamesMetaclass(DBusObjectWithProperties.__metaclass__):
+class AlternateDBusNamesMetaclass(DBusObjectWithProperties
+                                  .__metaclass__):
     """Applied to an empty subclass of a D-Bus object, this metaclass
     will add additional D-Bus attributes matching a certain pattern.
     """
@@ -896,7 +904,8 @@ class ClientDBus(Client, DBusObjectWithProperties):
             real_value[0] = value
             if hasattr(self, "dbus_object_path"):
                 if type_func(old_value) != type_func(real_value[0]):
-                    dbus_value = transform_func(type_func(real_value[0]),
+                    dbus_value = transform_func(type_func
+                                                (real_value[0]),
                                                 variant_level)
                     self.PropertyChanged(dbus.String(dbus_name),
                                          dbus_value)
@@ -912,24 +921,32 @@ class ClientDBus(Client, DBusObjectWithProperties):
     last_enabled = notifychangeproperty(datetime_to_dbus,
                                         "LastEnabled")
     checker = notifychangeproperty(dbus.Boolean, "CheckerRunning",
-                                   type_func = lambda checker: checker is not None)
+                                   type_func = lambda checker:
+                                       checker is not None)
     last_checked_ok = notifychangeproperty(datetime_to_dbus,
                                            "LastCheckedOK")
-    last_approval_request = notifychangeproperty(datetime_to_dbus,
-                                                 "LastApprovalRequest")
+    last_approval_request = notifychangeproperty(
+        datetime_to_dbus, "LastApprovalRequest")
     approved_by_default = notifychangeproperty(dbus.Boolean,
                                                "ApprovedByDefault")
-    approval_delay = notifychangeproperty(dbus.UInt16, "ApprovalDelay",
-                                          type_func = _timedelta_to_milliseconds)
-    approval_duration = notifychangeproperty(dbus.UInt16, "ApprovalDuration",
-                                             type_func = _timedelta_to_milliseconds)
+    approval_delay = notifychangeproperty(dbus.UInt16,
+                                          "ApprovalDelay",
+                                          type_func =
+                                          _timedelta_to_milliseconds)
+    approval_duration = notifychangeproperty(
+        dbus.UInt16, "ApprovalDuration",
+        type_func = _timedelta_to_milliseconds)
     host = notifychangeproperty(dbus.String, "Host")
     timeout = notifychangeproperty(dbus.UInt16, "Timeout",
-                                   type_func = _timedelta_to_milliseconds)
-    extended_timeout = notifychangeproperty(dbus.UInt16, "ExtendedTimeout",
-                                            type_func = _timedelta_to_milliseconds)
-    interval = notifychangeproperty(dbus.UInt16, "Interval",
-                                    type_func = _timedelta_to_milliseconds)
+                                   type_func =
+                                   _timedelta_to_milliseconds)
+    extended_timeout = notifychangeproperty(
+        dbus.UInt16, "ExtendedTimeout",
+        type_func = _timedelta_to_milliseconds)
+    interval = notifychangeproperty(dbus.UInt16,
+                                    "Interval",
+                                    type_func =
+                                    _timedelta_to_milliseconds)
     checker_command = notifychangeproperty(dbus.String, "Checker")
     
     del notifychangeproperty
@@ -1181,7 +1198,8 @@ class ClientDBus(Client, DBusObjectWithProperties):
             self.disable()
         else:
             self.expires = (datetime.datetime.utcnow()
-                            + datetime.timedelta(milliseconds = time_to_die))
+                            + datetime.timedelta(milliseconds =
+                                                 time_to_die))
             self.disable_initiator_tag = (gobject.timeout_add
                                           (time_to_die, self.disable))
     
@@ -1353,7 +1371,7 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
                                        client.name)
                         if self.server.use_dbus:
                             # Emit D-Bus signal
-                            client.Rejected("Disabled")                    
+                            client.Rejected("Disabled")
                         return
                     
                     if client._approved or not client.approval_delay:
@@ -1376,10 +1394,13 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
                         return
                     
                     #wait until timeout or approved
-                    #x = float(client._timedelta_to_milliseconds(delay))
+                    #x = float(client
+                    #          ._timedelta_to_milliseconds(delay))
                     time = datetime.datetime.now()
                     client.changedstate.acquire()
-                    client.changedstate.wait(float(client._timedelta_to_milliseconds(delay) / 1000))
+                    (client.changedstate.wait
+                     (float(client._timedelta_to_milliseconds(delay)
+                            / 1000)))
                     client.changedstate.release()
                     time2 = datetime.datetime.now()
                     if (time2 - time) >= delay:
@@ -1617,7 +1638,8 @@ class MandosServer(IPv6_TCPServer):
         gobject.io_add_watch(parent_pipe.fileno(),
                              gobject.IO_IN | gobject.IO_HUP,
                              functools.partial(self.handle_ipc,
-                                               parent_pipe = parent_pipe))
+                                               parent_pipe =
+                                               parent_pipe))
         
     def handle_ipc(self, source, condition, parent_pipe=None,
                    client_object=None):
@@ -1656,31 +1678,38 @@ class MandosServer(IPv6_TCPServer):
                             "dress: %s", fpr, address)
                 if self.use_dbus:
                     # Emit D-Bus signal
-                    mandos_dbus_service.ClientNotFound(fpr, address[0])
+                    mandos_dbus_service.ClientNotFound(fpr,
+                                                       address[0])
                 parent_pipe.send(False)
                 return False
             
             gobject.io_add_watch(parent_pipe.fileno(),
                                  gobject.IO_IN | gobject.IO_HUP,
                                  functools.partial(self.handle_ipc,
-                                                   parent_pipe = parent_pipe,
-                                                   client_object = client))
+                                                   parent_pipe =
+                                                   parent_pipe,
+                                                   client_object =
+                                                   client))
             parent_pipe.send(True)
-            # remove the old hook in favor of the new above hook on same fileno
+            # remove the old hook in favor of the new above hook on
+            # same fileno
             return False
         if command == 'funcall':
             funcname = request[1]
             args = request[2]
             kwargs = request[3]
             
-            parent_pipe.send(('data', getattr(client_object, funcname)(*args, **kwargs)))
+            parent_pipe.send(('data', getattr(client_object,
+                                              funcname)(*args,
+                                                         **kwargs)))
         
         if command == 'getattr':
             attrname = request[1]
             if callable(client_object.__getattribute__(attrname)):
                 parent_pipe.send(('function',))
             else:
-                parent_pipe.send(('data', client_object.__getattribute__(attrname)))
+                parent_pipe.send(('data', client_object
+                                  .__getattribute__(attrname)))
         
         if command == 'setattr':
             attrname = request[1]
@@ -1977,8 +2006,9 @@ def main():
         try:
             bus_name = dbus.service.BusName("se.recompile.Mandos",
                                             bus, do_not_queue=True)
-            old_bus_name = dbus.service.BusName("se.bsnet.fukt.Mandos",
-                                                bus, do_not_queue=True)
+            old_bus_name = (dbus.service.BusName
+                            ("se.bsnet.fukt.Mandos", bus,
+                             do_not_queue=True))
         except dbus.exceptions.NameExistsException as e:
             logger.error(unicode(e) + ", disabling D-Bus")
             use_dbus = False
@@ -1997,7 +2027,8 @@ def main():
     
     client_class = Client
     if use_dbus:
-        client_class = functools.partial(ClientDBusTransitional, bus = bus)        
+        client_class = functools.partial(ClientDBusTransitional,
+                                         bus = bus)        
     def client_config_items(config, section):
         special_settings = {
             "approved_by_default":
@@ -2107,7 +2138,8 @@ def main():
             client.disable(quiet=True)
             if use_dbus:
                 # Emit D-Bus signal
-                mandos_dbus_service.ClientRemoved(client.dbus_object_path,
+                mandos_dbus_service.ClientRemoved(client
+                                                  .dbus_object_path,
                                                   client.name)
     
     atexit.register(cleanup)
