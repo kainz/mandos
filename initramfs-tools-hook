@@ -131,7 +131,7 @@ if [ ${mandos_group} != 65534 ]; then
 	"${DESTDIR}${CONFDIR}/plugin-runner.conf"
 fi
 
-# Key files 
+# Key files
 for file in "$keydir"/*; do
     if [ -d "$file" ]; then
 	continue
