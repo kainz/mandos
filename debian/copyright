@@ -1,8 +1,8 @@
 Format-Specification:
  http://wiki.debian.org/Proposals/CopyrightFormat?action=recall&rev=233
 Upstream-Name: Mandos
-Upstream-Maintainer: Mandos Maintainers <mandos@fukt.bsnet.se>
-Upstream-Source: <http://www.fukt.bsnet.se/mandos>
+Upstream-Maintainer: Mandos Maintainers <mandos@recompile.se>
+Upstream-Source: <http://www.recompile.se/mandos>
 
 Files: *
 Copyright: Copyright © 2008-2011 Teddy Hogeborn

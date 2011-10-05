@@ -1,16 +1,16 @@
 Source: mandos
 Section: admin
 Priority: extra
-Maintainer: Mandos Maintainers <mandos@fukt.bsnet.se>
-Uploaders: Teddy Hogeborn <teddy@fukt.bsnet.se>,
-	   Björn Påhlsson <belorn@fukt.bsnet.se>
+Maintainer: Mandos Maintainers <mandos@recompile.se>
+Uploaders: Teddy Hogeborn <teddy@recompile.se>,
+	   Björn Påhlsson <belorn@recompile.se>
 Build-Depends: debhelper (>= 7), docbook-xml, docbook-xsl,
 	libavahi-core-dev, libgpgme11-dev, libgnutls-dev, xsltproc,
 	pkg-config
 Standards-Version: 3.9.1
-Vcs-Bzr: http://ftp.fukt.bsnet.se/pub/mandos/trunk
-Vcs-Browser: http://bzr.fukt.bsnet.se/loggerhead/mandos/trunk/files
-Homepage: http://www.fukt.bsnet.se/mandos
+Vcs-Bzr: http://ftp.recompile.se/pub/mandos/trunk
+Vcs-Browser: http://bzr.recompile.se/loggerhead/mandos/trunk/files
+Homepage: http://www.recompile.se/mandos
 
 Package: mandos
 Architecture: all
