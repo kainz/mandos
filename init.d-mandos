@@ -9,8 +9,8 @@
 # Description:       Gives encrypted passwords to Mandos clients
 ### END INIT INFO
 
-# Author: Teddy Hogeborn <teddy@fukt.bsnet.se>
-# Author: Björn Påhlsson <belorn@fukt.bsnet.se>
+# Author: Teddy Hogeborn <teddy@recompile.se>
+# Author: Björn Påhlsson <belorn@recompile.se>
 #
 # Please remove the "Author" lines above and replace them
 # with your own name if you copy and modify this script.

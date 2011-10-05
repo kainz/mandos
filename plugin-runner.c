@@ -19,7 +19,7 @@
  * along with this program.  If not, see
  * <http://www.gnu.org/licenses/>.
  * 
- * Contact the authors at <mandos@fukt.bsnet.se>.
+ * Contact the authors at <mandos@recompile.se>.
  */
 
 #define _GNU_SOURCE		/* TEMP_FAILURE_RETRY(), getline(),
@@ -79,7 +79,7 @@
 #define AFILE "/conf/conf.d/mandos/plugin-runner.conf"
 
 const char *argp_program_version = "plugin-runner " VERSION;
-const char *argp_program_bug_address = "<mandos@fukt.bsnet.se>";
+const char *argp_program_bug_address = "<mandos@recompile.se>";
 
 typedef struct plugin{
   char *name;			/* can be NULL or any plugin name */

@@ -28,7 +28,7 @@
 # along with this program.  If not, see
 # <http://www.gnu.org/licenses/>.
 # 
-# Contact the authors at <mandos@fukt.bsnet.se>.
+# Contact the authors at <mandos@recompile.se>.
 # 
 
 from __future__ import (division, absolute_import, print_function,
