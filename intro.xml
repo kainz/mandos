@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
-<!ENTITY TIMESTAMP "2011-08-08">
+<!ENTITY TIMESTAMP "2011-10-03">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -18,14 +18,14 @@
 	<firstname>Björn</firstname>
 	<surname>Påhlsson</surname>
 	<address>
-	  <email>belorn@fukt.bsnet.se</email>
+	  <email>belorn@recompile.se</email>
 	</address>
       </author>
       <author>
 	<firstname>Teddy</firstname>
 	<surname>Hogeborn</surname>
 	<address>
-	  <email>teddy@fukt.bsnet.se</email>
+	  <email>teddy@recompile.se</email>
 	</address>
       </author>
     </authorgroup>
@@ -392,7 +392,7 @@
     <variablelist>
       <varlistentry>
 	<term>
-	  <ulink url="http://www.fukt.bsnet.se/mandos">Mandos</ulink>
+	  <ulink url="http://www.recompile.se/mandos">Mandos</ulink>
 	</term>
 	<listitem>
 	  <para>
