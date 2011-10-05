@@ -1,2 +1,2 @@
 version=3
-ftp://ftp.fukt.bsnet.se/pub/mandos/mandos[-_]([^\s]+?)(?:\.orig)?\.tar\.(?:gz|bz2|7z|xz)
+ftp://ftp.recompile.se/pub/mandos/mandos[-_]([^\s]+?)(?:\.orig)?\.tar\.(?:gz|bz2|7z|xz)

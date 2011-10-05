@@ -1,10 +1,10 @@
 The Mandos server is useless without at least one configured client in
 /etc/mandos/clients.conf.  To create one, install the "mandos-client"
-package on a client computer, and run the command
+package on a client computer, and, on the client, run the command
 
 	# mandos-keygen --password
 
-there to get a config file stanza.  Append the output of that command
-to the file "/etc/mandos/clients.conf" on the Mandos server.
+to get a config file stanza.  Append the output of that command to the
+file "/etc/mandos/clients.conf" on the Mandos server computer.
 
- -- Teddy Hogeborn <teddy@fukt.bsnet.se>, Tue,  8 Sep 2009 06:57:45 +0200
+ -- Teddy Hogeborn <teddy@recompile.se>, Wed,  5 Oct 2011 17:51:22 +0200

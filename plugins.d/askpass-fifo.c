@@ -19,7 +19,7 @@
  * along with this program.  If not, see
  * <http://www.gnu.org/licenses/>.
  * 
- * Contact the authors at <mandos@fukt.bsnet.se>.
+ * Contact the authors at <mandos@recompile.se>.
  */
 
 #define _GNU_SOURCE		/* TEMP_FAILURE_RETRY() */

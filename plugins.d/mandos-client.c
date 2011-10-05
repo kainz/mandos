@@ -26,7 +26,7 @@
  * along with this program.  If not, see
  * <http://www.gnu.org/licenses/>.
  * 
- * Contact the authors at <mandos@fukt.bsnet.se>.
+ * Contact the authors at <mandos@recompile.se>.
  */
 
 /* Needed by GPGME, specifically gpgme_data_seek() */
@@ -127,7 +127,7 @@
 bool debug = false;
 static const char mandos_protocol_version[] = "1";
 const char *argp_program_version = "mandos-client " VERSION;
-const char *argp_program_bug_address = "<mandos@fukt.bsnet.se>";
+const char *argp_program_bug_address = "<mandos@recompile.se>";
 static const char sys_class_net[] = "/sys/class/net";
 char *connect_to = NULL;
 

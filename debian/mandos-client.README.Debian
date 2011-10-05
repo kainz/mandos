@@ -1,25 +1,3 @@
-* Choose the Client Network Interface
-  
-  Please make sure that the correct network interface is specified in
-  the DEVICE setting in the "/etc/initramfs-tools/initramfs.conf"
-  file.  If the setting is empty, the interface will be autodetected
-  at boot time, which may not be correct.  *If* the DEVICE setting is
-  changed, it will be necessary to update the initrd image by running
-  the command
-  
-	update-initramfs -k all -u
-  
-  The device can be overridden at boot time on the Linux kernel
-  command line using the sixth colon-separated field of the "ip="
-  option; for exact syntax, read the documentation in the file
-  "/usr/share/doc/linux-doc-*/Documentation/filesystems/nfsroot.txt",
-  available in the "linux-doc-*" package.
-  
-  Note that since this network interface is used in the initial RAM
-  disk environment, the network interface *must* exist at that stage.
-  Thus, the interface can *not* be a pseudo-interface such as "br0" or
-  "tun0"; instead, a real interface (such as "eth0") must be used.
-
 * Adding a Client Password to the Server
   
   The server must be given a password to give back to the client on
@@ -46,6 +24,34 @@
   it, and output it to standard output.  There it can be verified to
   be the correct password, before rebooting.
 
+* Emergency Escape
+  
+  If it ever should be necessary, the Mandos client can be temporarily
+  prevented from running at startup by passing the parameter
+  "mandos=off" to the kernel.
+
+* Specifying a Client Network Interface
+  
+  At boot time the network interface to use will by default be
+  automatically detected.  If should result in an incorrect interface,
+  edit the DEVICE setting in the "/etc/initramfs-tools/initramfs.conf"
+  file.  (The default setting is empty, meaning to autodetect the
+  interface.)  *If* the DEVICE setting is changed, it will be
+  necessary to update the initrd image by running the command
+  
+	update-initramfs -k all -u
+  
+  The device can be overridden at boot time on the Linux kernel
+  command line using the sixth colon-separated field of the "ip="
+  option; for exact syntax, read the documentation in the file
+  "/usr/share/doc/linux-doc-*/Documentation/filesystems/nfsroot.txt",
+  available in the "linux-doc-*" package.
+  
+  Note that since this network interface is used in the initial RAM
+  disk environment, the network interface *must* exist at that stage.
+  Thus, the interface can *not* be a pseudo-interface such as "br0" or
+  "tun0"; instead, only real interface (such as "eth0") can be used.
+
 * User-Supplied Plugins
   
   Any plugins found in "/etc/mandos/plugins.d" will override and add
@@ -62,19 +68,14 @@
   Mandos client will be the new default way for getting a password for
   the root file system when booting.
 
-* Emergency Escape
-  
-  If it ever should be necessary, the Mandos client can be temporarily
-  prevented from running at startup by passing the parameter
-  "mandos=off" to the kernel.
-
 * Non-local Connection (Not Using ZeroConf)
   
   If the "ip=" kernel command line option is used to specify a
   complete IP address and device name, as noted above, it then becomes
   possible to specify a specific IP address and port to connect to,
   instead of using ZeroConf.  The syntax for doing this is
-  "mandos=connect:<IP_ADDRESS>:<PORT_NUMBER>".
+  "mandos=connect:<IP_ADDRESS>:<PORT_NUMBER>" on the kernel command
+  line.
   
   For very advanced users, it it possible to specify simply
   "mandos=connect" on the kernel command line to make the system only
@@ -83,4 +84,4 @@
   work, "--options-for=mandos-client:--connect=<ADDRESS>:<PORT>" needs
   to be manually added to the file "/etc/mandos/plugin-runner.conf".
 
- -- Teddy Hogeborn <teddy@fukt.bsnet.se>, Mon, 27 Sep 2010 19:53:21 +0200
+ -- Teddy Hogeborn <teddy@recompile.se>, Wed,  5 Oct 2011 17:50:22 +0200
