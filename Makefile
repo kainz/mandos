@@ -5,7 +5,7 @@ WARN=-O -Wall -Wformat=2 -Winit-self -Wmissing-include-dirs \
 	-Wbad-function-cast -Wcast-qual -Wcast-align -Wwrite-strings \
 	-Wconversion -Wstrict-prototypes -Wold-style-definition \
 	-Wpacked -Wnested-externs -Winline -Wvolatile-register-var
-#	-Wunreachable-code 
+#	-Wunreachable-code
 #DEBUG=-ggdb3
 # For info about _FORTIFY_SOURCE, see
 # <http://www.kernel.org/doc/man-pages/online/pages/man7/feature_test_macros.7.html>

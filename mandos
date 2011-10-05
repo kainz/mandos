@@ -322,7 +322,7 @@ class Client(object):
     
     def extended_timeout_milliseconds(self):
         "Return the 'extended_timeout' attribute in milliseconds"
-        return _timedelta_to_milliseconds(self.extended_timeout)    
+        return _timedelta_to_milliseconds(self.extended_timeout)
     
     def interval_milliseconds(self):
         "Return the 'interval' attribute in milliseconds"
@@ -2028,7 +2028,7 @@ def main():
     client_class = Client
     if use_dbus:
         client_class = functools.partial(ClientDBusTransitional,
-                                         bus = bus)        
+                                         bus = bus)
     def client_config_items(config, section):
         special_settings = {
             "approved_by_default":
