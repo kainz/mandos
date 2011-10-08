@@ -898,19 +898,19 @@ class ClientDBus(Client, DBusObjectWithProperties):
                    to the D-Bus.  Default: no transform
         variant_level: D-Bus variant level.  Default: 1
         """
-        real_value = [None,]
+        attrname = "_{0}".format(dbus_name)
         def setter(self, value):
-            old_value = real_value[0]
-            real_value[0] = value
             if hasattr(self, "dbus_object_path"):
-                if type_func(old_value) != type_func(real_value[0]):
-                    dbus_value = transform_func(type_func
-                                                (real_value[0]),
+                if (not hasattr(self, attrname) or
+                    type_func(getattr(self, attrname, None))
+                    != type_func(value)):
+                    dbus_value = transform_func(type_func(value),
                                                 variant_level)
                     self.PropertyChanged(dbus.String(dbus_name),
                                          dbus_value)
+            setattr(self, attrname, value)
         
-        return property(lambda self: real_value[0], setter)
+        return property(lambda self: getattr(self, attrname), setter)
     
     
     expires = notifychangeproperty(datetime_to_dbus, "Expires")
