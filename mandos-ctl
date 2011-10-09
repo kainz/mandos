@@ -60,7 +60,7 @@ busname = domain + ".Mandos"
 server_path = "/"
 server_interface = domain + ".Mandos"
 client_interface = domain + ".Mandos.Client"
-version = "1.3.1"
+version = "1.4.0"
 
 def timedelta_to_milliseconds(td):
     """Convert a datetime.timedelta object to milliseconds"""
