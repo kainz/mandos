@@ -16,7 +16,7 @@
 * splashy
 ** TODO [#B] use scandir(3) instead of readdir(3)
 
-* usplash
+* usplash (Deprecated)
 ** TODO [#A] Make it work again
 ** TODO [#B] use scandir(3) instead of readdir(3)
 ** TODO Use [[info:libc:Argz%20Functions][argz_extract]]
