@@ -3,8 +3,8 @@
 # 
 # Mandos Monitor - Control and monitor the Mandos server
 # 
-# Copyright © 2008-2010 Teddy Hogeborn
-# Copyright © 2008-2010 Björn Påhlsson
+# Copyright © 2008-2011 Teddy Hogeborn
+# Copyright © 2008-2011 Björn Påhlsson
 # 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -19,7 +19,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 # 
-# Contact the authors at <mandos@fukt.bsnet.se>.
+# Contact the authors at <mandos@recompile.se>.
 # 
 
 from __future__ import (division, absolute_import, print_function,
@@ -52,9 +52,10 @@ tablewords = {
     "ApprovalDelay": "Approval Delay",
     "ApprovalDuration": "Approval Duration",
     "Checker": "Checker",
+    "ExtendedTimeout" : "Extended Timeout"
     }
 defaultkeywords = ("Name", "Enabled", "Timeout", "LastCheckedOK")
-domain = "se.bsnet.fukt"
+domain = "se.recompile"
 busname = domain + ".Mandos"
 server_path = "/"
 server_interface = domain + ".Mandos"
@@ -149,6 +150,7 @@ def has_actions(options):
                 options.remove,
                 options.checker is not None,
                 options.timeout is not None,
+                options.extended_timeout is not None,
                 options.interval is not None,
                 options.approved_by_default is not None,
                 options.approval_delay is not None,
@@ -185,6 +187,8 @@ def main():
                         help="Set checker command for client")
     parser.add_argument("-t", "--timeout",
                         help="Set timeout for client")
+    parser.add_argument("--extended-timeout",
+                        help="Set extended timeout for client")
     parser.add_argument("-i", "--interval",
                         help="Set checker interval for client")
     parser.add_argument("--approve-by-default", action="store_true",
@@ -270,7 +274,8 @@ def main():
                         "LastEnabled", "ApprovalPending",
                         "ApprovedByDefault",
                         "LastApprovalRequest", "ApprovalDelay",
-                        "ApprovalDuration", "Checker")
+                        "ApprovalDuration", "Checker",
+                        "ExtendedTimeout")
         else:
             keywords = defaultkeywords
         
@@ -324,6 +329,11 @@ def main():
                 client.Set(client_interface, "Timeout",
                            timedelta_to_milliseconds
                            (string_to_delta(options.timeout)),
+                           dbus_interface=dbus.PROPERTIES_IFACE)
+            if options.extended_timeout:
+                client.Set(client_interface, "ExtendedTimeout",
+                           timedelta_to_milliseconds
+                           (string_to_delta(options.extended_timeout)),
                            dbus_interface=dbus.PROPERTIES_IFACE)
             if options.secret:
                 client.Set(client_interface, "Secret",

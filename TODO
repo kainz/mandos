@@ -2,21 +2,21 @@
 
 * Use _attribute_((nonnull)) wherever possible.
 
-* mandos-applet
+* [[http://www.undeadly.org/cgi?action=article&sid=20110530221728][OpenBSD]]
 
-* Convert README into intro(8mandos) man page
+* mandos-applet
 
 * mandos-client
 ** TODO [#B] Use capabilities instead of seteuid().
 ** TODO [#B] Use struct sockaddr_storage instead of a union
 ** TODO [#B] Use getaddrinfo(hints=AI_NUMERICHOST) instead of inet_pton()
 ** TODO [#B] Use getnameinfo(serv=NULL, NI_NUMERICHOST) instead of inet_ntop()
-** TODO [#B] Accept [] around IPv6 address in --connect option; see [[http://tools.ietf.org/html/rfc5952][RFC 5952 - A Recommendation for IPv6 Address Text Representation]]
+** TODO [#B] Prefer /run/tmp over /tmp, if it exists
 
 * splashy
 ** TODO [#B] use scandir(3) instead of readdir(3)
 
-* usplash
+* usplash (Deprecated)
 ** TODO [#A] Make it work again
 ** TODO [#B] use scandir(3) instead of readdir(3)
 ** TODO Use [[info:libc:Argz%20Functions][argz_extract]]
@@ -58,21 +58,8 @@
 ** TODO [#C] DBusServiceObjectUsingSuper
 ** TODO [#B] Global enable/disable flag
 ** TODO [#B] By-client countdown on secrets given
-** TODO [#B] Fix problem with fsck taking a really long time
-   Whenever a client successfully gets a secret it could get a
-   one-time timeout boost to allow for an fsck-incurred delay
-** TODO [#A] Delay before client receives key
-   This would give an operator opportunity to cancel the request if
-   desired.
-** TODO [#A] Client manual approval mode
-   A client needs manual approval on the server before it gets the
-   secret
 ** TODO [#B] Support RFC 3339 time duration syntax
 ** More D-Bus methods
-*** NeedsApproval(50, True) -> timeout, default approve
-    Default approval is configurable, but True by default
-    + Approve(True) -> approve sending saved
-    + Approve(False) -> Close client connection immediately
 *** NeedsPassword(50) - Timeout, default disapprove
     + SetPass(u"gazonk", True) -> Approval, persistent
     + Approve(False) -> Close client connection immediately
@@ -109,15 +96,12 @@
 ** Show timeout countdown for approval
 
 * mandos-keygen
-** TODO Loop until passwords match when run interactively
 ** TODO "--secfile" option
    Using the "secfile" option instead of "secret"
 ** TODO [#B] "--test" option
    For testing decryption before rebooting.
 
 * Makefile
-** TODO Add "--Xlinker --as-needed"
-   http://udrepper.livejournal.com/19395.html
 ** TODO [#C] Implement DEB_BUILD_OPTIONS
    http://www.debian.org/doc/debian-policy/ch-source.html#s-debianrules-options
 
@@ -130,8 +114,8 @@
    From XML sources directly?
 
 * Side Stuff
-** TODO Locate which packet move the other bin/sh when busy box is deactivated
-** TODO contact owner of packet, and ask them to have that shell static in position regardless of busybox
+** TODO Locate which package moves the other bin/sh when busybox is deactivated
+** TODO contact owner of package, and ask them to have that shell static in position regardless of busybox
 
 
 #+STARTUP: showall

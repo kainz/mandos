@@ -19,7 +19,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 # 
-# Contact the authors at <mandos@fukt.bsnet.se>.
+# Contact the authors at <mandos@recompile.se>.
 # 
 
 from __future__ import (division, absolute_import, print_function,
@@ -49,7 +49,7 @@ import logging
 logging.getLogger('dbus.proxies').setLevel(logging.CRITICAL)
 
 # Some useful constants
-domain = 'se.bsnet.fukt'
+domain = 'se.recompile'
 server_interface = domain + '.Mandos'
 client_interface = domain + '.Mandos.Client'
 version = "1.3.1"
@@ -200,6 +200,7 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
         else:
             self._update_timer_callback_lock -= 1
         if old == 0 and self._update_timer_callback_lock:
+            # Will update the shown timer value every second
             self._update_timer_callback_tag = (gobject.timeout_add
                                                (1000,
                                                 self.update_timer))
@@ -314,14 +315,14 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
                 message = "Denial in %s. (a)pprove?"
             message = message % unicode(timer).rsplit(".", 1)[0]
         elif self.last_checker_failed:
-            timeout = datetime.timedelta(milliseconds
-                                         = self.properties
-                                         ["Timeout"])
-            last_ok = isoformat_to_datetime(
-                max((self.properties["LastCheckedOK"]
-                     or self.properties["Created"]),
-                    self.properties["LastEnabled"]))
-            timer = timeout - (datetime.datetime.utcnow() - last_ok)
+            # When checker has failed, print a timer until client expires
+            expires = self.properties["Expires"]
+            if expires == "":
+                timer = datetime.timedelta(0)
+            else:
+                expires = datetime.datetime.strptime(expires,
+                                                     '%Y-%m-%dT%H:%M:%S.%f')
+                timer = expires - datetime.datetime.utcnow()
             message = ('A checker has failed! Time until client'
                        ' gets disabled: %s'
                            % unicode(timer).rsplit(".", 1)[0])
@@ -346,7 +347,8 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
             self.update_hook()
     
     def update_timer(self):
-        "called by gobject"
+        """called by gobject. Will indefinitely loop until
+        gobject.source_remove() on tag is called"""
         self.update()
         return True             # Keep calling this
     

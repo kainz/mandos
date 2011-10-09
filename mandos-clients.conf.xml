@@ -3,7 +3,7 @@
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY CONFNAME "mandos-clients.conf">
 <!ENTITY CONFPATH "<filename>/etc/mandos/clients.conf</filename>">
-<!ENTITY TIMESTAMP "2011-02-27">
+<!ENTITY TIMESTAMP "2011-10-03">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -20,14 +20,14 @@
 	<firstname>Björn</firstname>
 	<surname>Påhlsson</surname>
 	<address>
-	  <email>belorn@fukt.bsnet.se</email>
+	  <email>belorn@recompile.se</email>
 	</address>
       </author>
       <author>
 	<firstname>Teddy</firstname>
 	<surname>Hogeborn</surname>
 	<address>
-	  <email>teddy@fukt.bsnet.se</email>
+	  <email>teddy@recompile.se</email>
 	</address>
       </author>
     </authorgroup>
@@ -182,6 +182,29 @@
       </varlistentry>
       
       <varlistentry>
+	<term><option>extended_timeout<literal> = </literal><replaceable
+	>TIME</replaceable></option></term>
+	<listitem>
+	  <para>
+	    This option is <emphasis>optional</emphasis>.
+	  </para>
+	  <para>
+	    Extended timeout is an added timeout that is given once
+	    after a password has been sent sucessfully to a client.
+	    The timeout is by default longer than the normal timeout,
+	    and is used for handling the extra long downtime while a
+	    machine is booting up.  Time to take into consideration
+	    when changing this value is file system checks and quota
+	    checks.  The default value is 15 minutes.
+	  </para>
+	  <para>
+	    The format of <replaceable>TIME</replaceable> is the same
+	    as for <varname>timeout</varname> below.
+	  </para>
+	</listitem>
+      </varlistentry>
+      
+      <varlistentry>
 	<term><option>fingerprint<literal> = </literal
 	><replaceable>HEXSTRING</replaceable></option></term>
 	<listitem>
@@ -229,7 +252,7 @@
 	    will wait for a checker to complete until the below
 	    <quote><varname>timeout</varname></quote> occurs, at which
 	    time the client will be disabled, and any running checker
-	    killed.  The default interval is 5 minutes.
+	    killed.  The default interval is 2 minutes.
 	  </para>
 	  <para>
 	    The format of <replaceable>TIME</replaceable> is the same
@@ -299,10 +322,11 @@
 	    This option is <emphasis>optional</emphasis>.
 	  </para>
 	  <para>
-	    The timeout is how long the server will wait (for either a
-	    successful checker run or a client receiving its secret)
-	    until a client is disabled and not allowed to get the data
-	    this server holds.  By default Mandos will use 1 hour.
+	    The timeout is how long the server will wait, after a
+	    successful checker run, until a client is disabled and not
+	    allowed to get the data this server holds.  By default
+	    Mandos will use 5 minutes.  See also the
+	    <option>extended_timeout</option> option.
 	  </para>
 	  <para>
 	    The <replaceable>TIME</replaceable> is specified as a
@@ -420,8 +444,8 @@
     <informalexample>
       <programlisting>
 [DEFAULT]
-timeout = 1h
-interval = 5m
+timeout = 5m
+interval = 2m
 checker = fping -q -- %%(host)s
 
 # Client "foo"
@@ -460,6 +484,8 @@ approval_delay = 30s
   <refsect1 id="see_also">
     <title>SEE ALSO</title>
     <para>
+      <citerefentry><refentrytitle>intro</refentrytitle>
+      <manvolnum>8mandos</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>mandos-keygen</refentrytitle>
       <manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>mandos.conf</refentrytitle>
