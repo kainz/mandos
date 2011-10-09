@@ -2,8 +2,8 @@
 /*
  * Mandos plugin runner - Run Mandos plugins
  *
- * Copyright © 2008-2010 Teddy Hogeborn
- * Copyright © 2008-2010 Björn Påhlsson
+ * Copyright © 2008-2011 Teddy Hogeborn
+ * Copyright © 2008-2011 Björn Påhlsson
  * 
  * This program is free software: you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -19,7 +19,7 @@
  * along with this program.  If not, see
  * <http://www.gnu.org/licenses/>.
  * 
- * Contact the authors at <mandos@fukt.bsnet.se>.
+ * Contact the authors at <mandos@recompile.se>.
  */
 
 #define _GNU_SOURCE		/* TEMP_FAILURE_RETRY(), getline(),
@@ -79,7 +79,7 @@
 #define AFILE "/conf/conf.d/mandos/plugin-runner.conf"
 
 const char *argp_program_version = "plugin-runner " VERSION;
-const char *argp_program_bug_address = "<mandos@fukt.bsnet.se>";
+const char *argp_program_bug_address = "<mandos@recompile.se>";
 
 typedef struct plugin{
   char *name;			/* can be NULL or any plugin name */

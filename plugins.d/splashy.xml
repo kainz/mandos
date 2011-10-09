@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY COMMANDNAME "splashy">
-<!ENTITY TIMESTAMP "2009-01-04">
+<!ENTITY TIMESTAMP "2011-10-03">
 <!ENTITY % common SYSTEM "../common.ent">
 %common;
 ]>
@@ -19,20 +19,21 @@
 	<firstname>Björn</firstname>
 	<surname>Påhlsson</surname>
 	<address>
-	  <email>belorn@fukt.bsnet.se</email>
+	  <email>belorn@recompile.se</email>
 	</address>
       </author>
       <author>
 	<firstname>Teddy</firstname>
 	<surname>Hogeborn</surname>
 	<address>
-	  <email>teddy@fukt.bsnet.se</email>
+	  <email>teddy@recompile.se</email>
 	</address>
       </author>
     </authorgroup>
     <copyright>
       <year>2008</year>
       <year>2009</year>
+      <year>2011</year>
       <holder>Teddy Hogeborn</holder>
       <holder>Björn Påhlsson</holder>
     </copyright>
@@ -263,6 +264,8 @@
   <refsect1 id="see_also">
     <title>SEE ALSO</title>
     <para>
+      <citerefentry><refentrytitle>intro</refentrytitle>
+      <manvolnum>8mandos</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>crypttab</refentrytitle>
       <manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>plugin-runner</refentrytitle>
