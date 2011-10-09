@@ -465,10 +465,10 @@ class Client(object):
             timeout = self.timeout
         self.last_checked_ok = datetime.datetime.utcnow()
         gobject.source_remove(self.disable_initiator_tag)
-        self.expires = datetime.datetime.utcnow() + timeout
         self.disable_initiator_tag = (gobject.timeout_add
                                       (_timedelta_to_milliseconds
                                        (timeout), self.disable))
+        self.expires = datetime.datetime.utcnow() + timeout
     
     def need_approval(self):
         self.last_approval_request = datetime.datetime.utcnow()
@@ -1394,8 +1394,6 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
                         return
                     
                     #wait until timeout or approved
-                    #x = float(client
-                    #          ._timedelta_to_milliseconds(delay))
                     time = datetime.datetime.now()
                     client.changedstate.acquire()
                     (client.changedstate.wait
@@ -1516,11 +1514,14 @@ class MultiprocessingMixIn(object):
         except:
             self.handle_error(request, address)
         self.close_request(request)
-            
+    
     def process_request(self, request, address):
         """Start a new process to process the request."""
-        multiprocessing.Process(target = self.sub_process_main,
-                                args = (request, address)).start()
+        proc = multiprocessing.Process(target = self.sub_process_main,
+                                       args = (request,
+                                               address))
+        proc.start()
+        return proc
 
 
 class MultiprocessingMixInWithPipe(MultiprocessingMixIn, object):
@@ -1532,12 +1533,12 @@ class MultiprocessingMixInWithPipe(MultiprocessingMixIn, object):
         """
         parent_pipe, self.child_pipe = multiprocessing.Pipe()
         
-        super(MultiprocessingMixInWithPipe,
-              self).process_request(request, client_address)
+        proc = MultiprocessingMixIn.process_request(self, request,
+                                                    client_address)
         self.child_pipe.close()
-        self.add_pipe(parent_pipe)
+        self.add_pipe(parent_pipe, proc)
     
-    def add_pipe(self, parent_pipe):
+    def add_pipe(self, parent_pipe, proc):
         """Dummy function; override as necessary"""
         raise NotImplementedError
 
@@ -1631,18 +1632,21 @@ class MandosServer(IPv6_TCPServer):
     def server_activate(self):
         if self.enabled:
             return socketserver.TCPServer.server_activate(self)
+    
     def enable(self):
         self.enabled = True
-    def add_pipe(self, parent_pipe):
+    
+    def add_pipe(self, parent_pipe, proc):
         # Call "handle_ipc" for both data and EOF events
         gobject.io_add_watch(parent_pipe.fileno(),
                              gobject.IO_IN | gobject.IO_HUP,
                              functools.partial(self.handle_ipc,
                                                parent_pipe =
-                                               parent_pipe))
+                                               parent_pipe,
+                                               proc = proc))
     
     def handle_ipc(self, source, condition, parent_pipe=None,
-                   client_object=None):
+                   proc = None, client_object=None):
         condition_names = {
             gobject.IO_IN: "IN",   # There is data to read.
             gobject.IO_OUT: "OUT", # Data can be written (without
@@ -1659,6 +1663,7 @@ class MandosServer(IPv6_TCPServer):
                                        if cond & condition)
         # error or the other end of multiprocessing.Pipe has closed
         if condition & (gobject.IO_ERR | condition & gobject.IO_HUP):
+            proc.join()
             return False
         
         # Read a request from the child
@@ -1688,6 +1693,7 @@ class MandosServer(IPv6_TCPServer):
                                  functools.partial(self.handle_ipc,
                                                    parent_pipe =
                                                    parent_pipe,
+                                                   proc = proc,
                                                    client_object =
                                                    client))
             parent_pipe.send(True)
@@ -2129,6 +2135,7 @@ def main():
         "Cleanup function; run on exit"
         service.cleanup()
         
+        multiprocessing.active_children()
         while tcp_server.clients:
             client = tcp_server.clients.pop()
             if use_dbus:
