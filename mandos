@@ -1640,7 +1640,7 @@ class MandosServer(IPv6_TCPServer):
                              functools.partial(self.handle_ipc,
                                                parent_pipe =
                                                parent_pipe))
-        
+    
     def handle_ipc(self, source, condition, parent_pipe=None,
                    client_object=None):
         condition_names = {
