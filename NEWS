@@ -1,6 +1,20 @@
 This NEWS file records noteworthy changes, very tersely.
 See the manual for detailed information.
 
+Version 1.4.0 (2011-10-09)
+* README file migrated to manual page intro(8mandos).
+* Client:
+** Fixed warning about "rmdir: Directory not empty".
+* Server:
+** Default values changed: timeout 5 minutes, interval 2 minutes.
+** Clients gets an expiration extension when receiving a password,
+   controlled by new "extended_timeout" setting.
+** New domain name: "fukt.bsnet.se" changes to "recompile.se".  This
+   also affects the D-Bus bus and interface names (old names still
+   work).  Users should start using the new names immediately.
+** New D-Bus Client object properties "Expires" and "ExtendedTimeout";
+   see DBUS-API for details.
+
 Version 1.3.1 (2011-07-27)
 * Client:
 ** Client now retries all Mandos servers periodically.
