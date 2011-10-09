@@ -114,8 +114,8 @@
    From XML sources directly?
 
 * Side Stuff
-** TODO Locate which packet move the other bin/sh when busy box is deactivated
-** TODO contact owner of packet, and ask them to have that shell static in position regardless of busybox
+** TODO Locate which package moves the other bin/sh when busybox is deactivated
+** TODO contact owner of package, and ask them to have that shell static in position regardless of busybox
 
 
 #+STARTUP: showall
