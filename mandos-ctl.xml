@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY COMMANDNAME "mandos-ctl">
-<!ENTITY TIMESTAMP "2011-02-27">
+<!ENTITY TIMESTAMP "2011-10-03">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -19,14 +19,14 @@
 	<firstname>Björn</firstname>
 	<surname>Påhlsson</surname>
 	<address>
-	  <email>belorn@fukt.bsnet.se</email>
+	  <email>belorn@recompile.se</email>
 	</address>
       </author>
       <author>
 	<firstname>Teddy</firstname>
 	<surname>Hogeborn</surname>
 	<address>
-	  <email>teddy@fukt.bsnet.se</email>
+	  <email>teddy@recompile.se</email>
 	</address>
       </author>
     </authorgroup>
@@ -91,6 +91,11 @@
 	<arg choice="plain"><option>--timeout
 	<replaceable>TIME</replaceable></option></arg>
 	<arg choice="plain"><option>-t
+	<replaceable>TIME</replaceable></option></arg>
+      </group>
+      <sbr/>
+      <group>
+	<arg choice="plain"><option>--extended-timeout
 	<replaceable>TIME</replaceable></option></arg>
       </group>
       <sbr/>
@@ -315,6 +320,19 @@
 	    client(s); see <citerefentry><refentrytitle
 	    >mandos-clients.conf</refentrytitle><manvolnum
             >5</manvolnum></citerefentry>.
+	  </para>
+	</listitem>
+      </varlistentry>
+
+      <varlistentry>
+	<term><option>--extended-timeout
+	<replaceable>TIME</replaceable></option></term>
+	<listitem>
+	  <para>
+	    Set the <varname>extended_timeout</varname> option of the
+	    specified client(s); see <citerefentry><refentrytitle
+	    >mandos-clients.conf</refentrytitle><manvolnum
+	    >5</manvolnum></citerefentry>.
 	  </para>
 	</listitem>
       </varlistentry>
@@ -554,6 +572,8 @@
   <refsect1 id="see_also">
     <title>SEE ALSO</title>
     <para>
+      <citerefentry><refentrytitle>intro</refentrytitle>
+      <manvolnum>8mandos</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>mandos</refentrytitle>
       <manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>mandos-clients.conf</refentrytitle>

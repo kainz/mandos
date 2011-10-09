@@ -26,7 +26,7 @@
  * along with this program.  If not, see
  * <http://www.gnu.org/licenses/>.
  * 
- * Contact the authors at <mandos@fukt.bsnet.se>.
+ * Contact the authors at <mandos@recompile.se>.
  */
 
 /* Needed by GPGME, specifically gpgme_data_seek() */
@@ -127,7 +127,7 @@
 bool debug = false;
 static const char mandos_protocol_version[] = "1";
 const char *argp_program_version = "mandos-client " VERSION;
-const char *argp_program_bug_address = "<mandos@fukt.bsnet.se>";
+const char *argp_program_bug_address = "<mandos@recompile.se>";
 static const char sys_class_net[] = "/sys/class/net";
 char *connect_to = NULL;
 
@@ -187,6 +187,7 @@ size_t incbuffer(char **buffer, size_t buffer_length,
   return buffer_capacity;
 }
 
+/* Add server to set of servers to retry periodically */
 int add_server(const char *ip, uint16_t port,
 		 AvahiIfIndex if_index,
 		 int af){
@@ -204,12 +205,12 @@ int add_server(const char *ip, uint16_t port,
     perror_plus("strdup");
     return -1;
   }
-  /* unique case of first server */
+  /* Special case of first server */
   if (mc.current_server == NULL){
     new_server->next = new_server;
     new_server->prev = new_server;
     mc.current_server = new_server;
-  /* Placing the new server last in the list */
+  /* Place the new server last in the list */
   } else {
     new_server->next = mc.current_server;
     new_server->prev = mc.current_server->prev;
@@ -282,7 +283,7 @@ static bool init_gpgme(const char *seckey,
     return false;
   }
   
-    /* Set GPGME home directory for the OpenPGP engine only */
+  /* Set GPGME home directory for the OpenPGP engine only */
   rc = gpgme_get_engine_info(&engine_info);
   if(rc != GPG_ERR_NO_ERROR){
     fprintf(stderr, "bad gpgme_get_engine_info: %s: %s\n",
@@ -1205,7 +1206,7 @@ int avahi_loop_with_timeout(AvahiSimplePoll *s, int retry_interval){
   struct timespec now;
   struct timespec waited_time;
   intmax_t block_time;
-
+  
   while(true){
     if(mc.current_server == NULL){
       if (debug){
@@ -1236,11 +1237,11 @@ int avahi_loop_with_timeout(AvahiSimplePoll *s, int retry_interval){
       block_time = ((retry_interval
 		     - ((intmax_t)waited_time.tv_sec * 1000))
 		    - ((intmax_t)waited_time.tv_nsec / 1000000));
-
+      
       if (debug){
-	fprintf(stderr, "Blocking for %ld ms\n", block_time);
+	fprintf(stderr, "Blocking for %" PRIdMAX " ms\n", block_time);
       }
-
+      
       if(block_time <= 0){
 	ret = start_mandos_communication(mc.current_server->ip,
 					 mc.current_server->port,
@@ -1411,7 +1412,8 @@ int main(int argc, char *argv[]){
 	errno = 0;
 	retry_interval = strtod(arg, &tmp);
 	if(errno != 0 or tmp == arg or *tmp != '\0'
-	   or (retry_interval * 1000) > INT_MAX){
+	   or (retry_interval * 1000) > INT_MAX
+	   or retry_interval < 0){
 	  argp_error(state, "Bad retry interval");
 	}
 	break;
@@ -1468,40 +1470,44 @@ int main(int argc, char *argv[]){
       perror_plus("seteuid");
     }
     
-    int seckey_fd = open(PATHDIR "/" SECKEY, O_RDONLY);
-    if(seckey_fd == -1){
-      perror_plus("open");
-    } else {
-      ret = (int)TEMP_FAILURE_RETRY(fstat(seckey_fd, &st));
-      if(ret == -1){
-	perror_plus("fstat");
+    if(strcmp(seckey, PATHDIR "/" SECKEY) == 0){
+      int seckey_fd = open(seckey, O_RDONLY);
+      if(seckey_fd == -1){
+	perror_plus("open");
       } else {
-	if(S_ISREG(st.st_mode) and st.st_uid == 0 and st.st_gid == 0){
-	  ret = fchown(seckey_fd, uid, gid);
-	  if(ret == -1){
-	    perror_plus("fchown");
+	ret = (int)TEMP_FAILURE_RETRY(fstat(seckey_fd, &st));
+	if(ret == -1){
+	  perror_plus("fstat");
+	} else {
+	  if(S_ISREG(st.st_mode) and st.st_uid == 0 and st.st_gid == 0){
+	    ret = fchown(seckey_fd, uid, gid);
+	    if(ret == -1){
+	      perror_plus("fchown");
+	    }
 	  }
 	}
+	TEMP_FAILURE_RETRY(close(seckey_fd));
       }
-      TEMP_FAILURE_RETRY(close(seckey_fd));
     }
     
-    int pubkey_fd = open(PATHDIR "/" PUBKEY, O_RDONLY);
-    if(pubkey_fd == -1){
-      perror_plus("open");
-    } else {
-      ret = (int)TEMP_FAILURE_RETRY(fstat(pubkey_fd, &st));
-      if(ret == -1){
-	perror_plus("fstat");
+    if(strcmp(pubkey, PATHDIR "/" PUBKEY) == 0){
+      int pubkey_fd = open(pubkey, O_RDONLY);
+      if(pubkey_fd == -1){
+	perror_plus("open");
       } else {
-	if(S_ISREG(st.st_mode) and st.st_uid == 0 and st.st_gid == 0){
-	  ret = fchown(pubkey_fd, uid, gid);
-	  if(ret == -1){
-	    perror_plus("fchown");
+	ret = (int)TEMP_FAILURE_RETRY(fstat(pubkey_fd, &st));
+	if(ret == -1){
+	  perror_plus("fstat");
+	} else {
+	  if(S_ISREG(st.st_mode) and st.st_uid == 0 and st.st_gid == 0){
+	    ret = fchown(pubkey_fd, uid, gid);
+	    if(ret == -1){
+	      perror_plus("fchown");
+	    }
 	  }
 	}
+	TEMP_FAILURE_RETRY(close(pubkey_fd));
       }
-      TEMP_FAILURE_RETRY(close(pubkey_fd));
     }
     
     /* Lower privileges */
@@ -1829,27 +1835,37 @@ int main(int argc, char *argv[]){
     
     port = (uint16_t)tmpmax;
     *address = '\0';
-    address = connect_to;
     /* Colon in address indicates IPv6 */
     int af;
-    if(strchr(address, ':') != NULL){
+    if(strchr(connect_to, ':') != NULL){
       af = AF_INET6;
+      /* Accept [] around IPv6 address - see RFC 5952 */
+      if(connect_to[0] == '[' and address[-1] == ']')
+	{
+	  connect_to++;
+	  address[-1] = '\0';
+	}
     } else {
       af = AF_INET;
     }
+    address = connect_to;
     
     if(quit_now){
       goto end;
     }
-
+    
     while(not quit_now){
       ret = start_mandos_communication(address, port, if_index, af);
       if(quit_now or ret == 0){
 	break;
       }
-      sleep((int)retry_interval or 1);
-    };
-
+      if(debug){
+	fprintf(stderr, "Retrying in %d seconds\n",
+		(int)retry_interval);
+      }
+      sleep((int)retry_interval);
+    }
+    
     if (not quit_now){
       exitcode = EXIT_SUCCESS;
     }
@@ -1992,9 +2008,10 @@ int main(int argc, char *argv[]){
   if(tempdir_created){
     struct dirent **direntries = NULL;
     struct dirent *direntry = NULL;
-    ret = scandir(tempdir, &direntries, notdotentries, alphasort);
-    if (ret > 0){
-      for(int i = 0; i < ret; i++){
+    int numentries = scandir(tempdir, &direntries, notdotentries,
+			     alphasort);
+    if (numentries > 0){
+      for(int i = 0; i < numentries; i++){
 	direntry = direntries[i];
 	char *fullname = NULL;
 	ret = asprintf(&fullname, "%s/%s", tempdir,
@@ -2012,10 +2029,9 @@ int main(int argc, char *argv[]){
       }
     }
 
-    /* need to be cleaned even if ret == 0 because man page doesn't
-       specify */
+    /* need to clean even if 0 because man page doesn't specify */
     free(direntries);
-    if (ret == -1){
+    if (numentries == -1){
       perror_plus("scandir");
     }
     ret = rmdir(tempdir);
