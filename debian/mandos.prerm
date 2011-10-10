@@ -1,4 +1,4 @@
-#! /bin/sh
+#!/bin/sh
 # prerm script for mandos
 #
 # see: dh_installdeb(1)

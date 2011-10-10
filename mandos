@@ -1428,7 +1428,7 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
                     sent_size += sent
                 
                 logger.info("Sending secret to %s", client.name)
-                # bump the timeout as if seen
+                # bump the timeout using extended_timeout
                 client.checked_ok(client.extended_timeout)
                 if self.server.use_dbus:
                     # Emit D-Bus signal
@@ -1661,8 +1661,9 @@ class MandosServer(IPv6_TCPServer):
                                        for cond, name in
                                        condition_names.iteritems()
                                        if cond & condition)
-        # error or the other end of multiprocessing.Pipe has closed
+        # error, or the other end of multiprocessing.Pipe has closed
         if condition & (gobject.IO_ERR | condition & gobject.IO_HUP):
+            # Wait for other process to exit
             proc.join()
             return False
         
