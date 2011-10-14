@@ -891,8 +891,8 @@ class ClientDBus(Client, DBusObjectWithProperties):
         """ Modify a variable so that it's a property which announces
         its changes to DBus.
 
-        transform_fun: Function that takes a value and transforms it
-                       to a D-Bus type.
+        transform_fun: Function that takes a value and a variant_level
+                       and transforms it to a D-Bus type.
         dbus_name: D-Bus name of the variable
         type_func: Function that transform the value before sending it
                    to the D-Bus.  Default: no transform
@@ -905,7 +905,8 @@ class ClientDBus(Client, DBusObjectWithProperties):
                     type_func(getattr(self, attrname, None))
                     != type_func(value)):
                     dbus_value = transform_func(type_func(value),
-                                                variant_level)
+                                                variant_level
+                                                =variant_level)
                     self.PropertyChanged(dbus.String(dbus_name),
                                          dbus_value)
             setattr(self, attrname, value)
@@ -1187,12 +1188,11 @@ class ClientDBus(Client, DBusObjectWithProperties):
         gobject.source_remove(self.disable_initiator_tag)
         self.disable_initiator_tag = None
         self.expires = None
-        time_to_die = (self.
-                       _timedelta_to_milliseconds((self
-                                                   .last_checked_ok
-                                                   + self.timeout)
-                                                  - datetime.datetime
-                                                  .utcnow()))
+        time_to_die = _timedelta_to_milliseconds((self
+                                                  .last_checked_ok
+                                                  + self.timeout)
+                                                 - datetime.datetime
+                                                 .utcnow())
         if time_to_die <= 0:
             # The timeout has passed
             self.disable()
