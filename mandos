@@ -464,11 +464,13 @@ class Client(object):
         if timeout is None:
             timeout = self.timeout
         self.last_checked_ok = datetime.datetime.utcnow()
-        gobject.source_remove(self.disable_initiator_tag)
-        self.disable_initiator_tag = (gobject.timeout_add
-                                      (_timedelta_to_milliseconds
-                                       (timeout), self.disable))
-        self.expires = datetime.datetime.utcnow() + timeout
+        if self.disable_initiator_tag is not None:
+            gobject.source_remove(self.disable_initiator_tag)
+        if getattr(self, "enabled", False):
+            self.disable_initiator_tag = (gobject.timeout_add
+                                          (_timedelta_to_milliseconds
+                                           (timeout), self.disable))
+            self.expires = datetime.datetime.utcnow() + timeout
     
     def need_approval(self):
         self.last_approval_request = datetime.datetime.utcnow()
