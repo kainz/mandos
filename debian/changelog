@@ -1,3 +1,16 @@
+mandos (1.4.1-1) unstable; urgency=low
+
+  * New upstream release.
+  * debian/control (Build-Depends): Added "man".
+  * debian/control (Conflicts): Changed to "Breaks:".
+  * debian/copyright: Updated format.
+  * debian/mandos-client.postinst: Use "set -e" instead of "#!/bin/sh -e".
+  * debian/mandos-client.postrm: - '' -
+  * debian/mandos.postinst: - '' -
+  * debian/mandos.prerm: Consistent magic.
+
+ -- Björn Påhlsson <belorn@fukt.bsnet.se>  Sat, 15 Oct 2011 18:18:52 +0200
+
 mandos (1.4.0-1) unstable; urgency=low
 
   * New upstream release.
