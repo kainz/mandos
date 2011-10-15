@@ -301,41 +301,41 @@ def main():
                                          dbus_interface=
                                          dbus.PROPERTIES_IFACE)
                          else 1)
-            if options.checker:
+            if options.checker is not None:
                 client.Set(client_interface, "Checker",
                            options.checker,
                            dbus_interface=dbus.PROPERTIES_IFACE)
-            if options.host:
+            if options.host is not None:
                 client.Set(client_interface, "Host", options.host,
                            dbus_interface=dbus.PROPERTIES_IFACE)
-            if options.interval:
+            if options.interval is not None:
                 client.Set(client_interface, "Interval",
                            timedelta_to_milliseconds
                            (string_to_delta(options.interval)),
                            dbus_interface=dbus.PROPERTIES_IFACE)
-            if options.approval_delay:
+            if options.approval_delay is not None:
                 client.Set(client_interface, "ApprovalDelay",
                            timedelta_to_milliseconds
                            (string_to_delta(options.
                                             approval_delay)),
                            dbus_interface=dbus.PROPERTIES_IFACE)
-            if options.approval_duration:
+            if options.approval_duration is not None:
                 client.Set(client_interface, "ApprovalDuration",
                            timedelta_to_milliseconds
                            (string_to_delta(options.
                                             approval_duration)),
                            dbus_interface=dbus.PROPERTIES_IFACE)
-            if options.timeout:
+            if options.timeout is not None:
                 client.Set(client_interface, "Timeout",
                            timedelta_to_milliseconds
                            (string_to_delta(options.timeout)),
                            dbus_interface=dbus.PROPERTIES_IFACE)
-            if options.extended_timeout:
+            if options.extended_timeout is not None:
                 client.Set(client_interface, "ExtendedTimeout",
                            timedelta_to_milliseconds
                            (string_to_delta(options.extended_timeout)),
                            dbus_interface=dbus.PROPERTIES_IFACE)
-            if options.secret:
+            if options.secret is not None:
                 client.Set(client_interface, "Secret",
                            dbus.ByteArray(open(options.secret,
                                                "rb").read()),

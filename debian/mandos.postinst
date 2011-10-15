@@ -1,4 +1,4 @@
-#!/bin/sh -e
+#!/bin/sh
 # This script can be called in the following ways:
 #
 # After the package was installed:
@@ -14,6 +14,8 @@
 #
 # If prerm fails during replacement due to conflict:
 #       <postinst> abort-remove in-favour <new-package> <version>
+
+set -e
 
 case "$1" in
     configure)
