@@ -83,7 +83,7 @@ except AttributeError:
         SO_BINDTODEVICE = None
 
 
-version = "1.4.0"
+version = "1.4.1"
 
 #logger = logging.getLogger('mandos')
 logger = logging.Logger('mandos')

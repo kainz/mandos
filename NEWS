@@ -1,6 +1,12 @@
 This NEWS file records noteworthy changes, very tersely.
 See the manual for detailed information.
 
+Version 1.4.1 (2011-10-15)
+* Server
+** Make D-Bus properties settable again, and handle checkers
+   for disabled clients correctly.
+* Miscellaneous fixes to "pedantic" Lintian warnings
+
 Version 1.4.0 (2011-10-09)
 * README file migrated to manual page intro(8mandos).
 * Client:

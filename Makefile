@@ -23,7 +23,7 @@ endif
 OPTIMIZE=-Os
 LANGUAGE=-std=gnu99
 htmldir=man
-version=1.4.0
+version=1.4.1
 SED=sed
 
 ## Use these settings for a traditional /usr/local install
