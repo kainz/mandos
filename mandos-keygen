@@ -21,7 +21,7 @@
 # Contact the authors at <mandos@recompile.se>.
 # 
 
-VERSION="1.4.0"
+VERSION="1.4.1"
 
 KEYDIR="/etc/keys/mandos"
 KEYTYPE=DSA
