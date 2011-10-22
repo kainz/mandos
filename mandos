@@ -85,8 +85,7 @@ except AttributeError:
 
 version = "1.4.1"
 
-#logger = logging.getLogger('mandos')
-logger = logging.Logger('mandos')
+logger = logging.getLogger()
 syslogger = (logging.handlers.SysLogHandler
              (facility = logging.handlers.SysLogHandler.LOG_DAEMON,
               address = str("/dev/log")))
@@ -96,10 +95,12 @@ syslogger.setFormatter(logging.Formatter
 logger.addHandler(syslogger)
 
 console = logging.StreamHandler()
-console.setFormatter(logging.Formatter('%(name)s [%(process)d]:'
+console.setFormatter(logging.Formatter('%(asctime)s %(name)s'
+                                       ' [%(process)d]:'
                                        ' %(levelname)s:'
                                        ' %(message)s'))
 logger.addHandler(console)
+
 
 class AvahiError(Exception):
     def __init__(self, value, *args, **kwargs):
@@ -164,10 +165,6 @@ class AvahiService(object):
                             .GetAlternativeServiceName(self.name))
         logger.info("Changing Zeroconf service name to %r ...",
                     self.name)
-        syslogger.setFormatter(logging.Formatter
-                               ('Mandos (%s) [%%(process)d]:'
-                                ' %%(levelname)s: %%(message)s'
-                                % self.name))
         self.remove()
         try:
             self.add()
@@ -193,7 +190,7 @@ class AvahiService(object):
                 avahi.DBUS_INTERFACE_ENTRY_GROUP)
         self.entry_group_state_changed_match = (
             self.group.connect_to_signal(
-                'StateChanged', self .entry_group_state_changed))
+                'StateChanged', self.entry_group_state_changed))
         logger.debug("Adding Zeroconf service '%s' of type '%s' ...",
                      self.name, self.type)
         self.group.AddService(
@@ -265,6 +262,15 @@ class AvahiService(object):
                                  self.server_state_changed)
         self.server_state_changed(self.server.GetState())
 
+class AvahiServiceToSyslog(AvahiService):
+    def rename(self):
+        """Add the new name to the syslog messages"""
+        ret = AvahiService.rename(self)
+        syslogger.setFormatter(logging.Formatter
+                               ('Mandos (%s) [%%(process)d]:'
+                                ' %%(levelname)s: %%(message)s'
+                                % self.name))
+        return ret
 
 def _timedelta_to_milliseconds(td):
     "Convert a datetime.timedelta() to milliseconds"
@@ -1970,14 +1976,13 @@ def main():
             raise error
     
     if not debug and not debuglevel:
-        syslogger.setLevel(logging.WARNING)
-        console.setLevel(logging.WARNING)
+        logger.setLevel(logging.WARNING)
     if debuglevel:
         level = getattr(logging, debuglevel.upper())
-        syslogger.setLevel(level)
-        console.setLevel(level)
+        logger.setLevel(level)
     
     if debug:
+        logger.setLevel(logging.DEBUG)
         # Enable all possible GnuTLS debugging
         
         # "Use a log level over 10 to enable all debugging options."
@@ -2024,9 +2029,10 @@ def main():
             server_settings["use_dbus"] = False
             tcp_server.use_dbus = False
     protocol = avahi.PROTO_INET6 if use_ipv6 else avahi.PROTO_INET
-    service = AvahiService(name = server_settings["servicename"],
-                           servicetype = "_mandos._tcp",
-                           protocol = protocol, bus = bus)
+    service = AvahiServiceToSyslog(name =
+                                   server_settings["servicename"],
+                                   servicetype = "_mandos._tcp",
+                                   protocol = protocol, bus = bus)
     if server_settings["interface"]:
         service.interface = (if_nametoindex
                              (str(server_settings["interface"])))
