@@ -53,8 +53,6 @@
    [[info:standards:Option%20Table][Table of Long Options]]
 ** TODO Implement --socket
    [[info:standards:Option%20Table][Table of Long Options]]
-** TODO Date+time on console log messages				  :BUGS:
-   Is this the default?
 ** TODO [#C] DBusServiceObjectUsingSuper
 ** TODO [#B] Global enable/disable flag
 ** TODO [#B] By-client countdown on secrets given
