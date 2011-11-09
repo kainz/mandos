@@ -94,6 +94,8 @@
       <arg><option>--no-dbus</option></arg>
       <sbr/>
       <arg><option>--no-ipv6</option></arg>
+      <sbr/>
+      <arg><option>--no-restore</option></arg>
     </cmdsynopsis>
     <cmdsynopsis>
       <command>&COMMANDNAME;</command>
@@ -273,6 +275,13 @@
 	<term><option>--no-ipv6</option></term>
 	<listitem>
 	  <xi:include href="mandos-options.xml" xpointer="ipv6"/>
+	</listitem>
+      </varlistentry>
+      
+      <varlistentry>
+	<term><option>--no-restore</option></term>
+	<listitem>
+	  <xi:include href="mandos-options.xml" xpointer="restore"/>
 	</listitem>
       </varlistentry>
     </variablelist>
