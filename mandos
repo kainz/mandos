@@ -63,6 +63,7 @@ import functools
 import cPickle as pickle
 import multiprocessing
 import types
+import hashlib
 
 import dbus
 import dbus.service
@@ -73,6 +74,7 @@ import ctypes
 import ctypes.util
 import xml.dom.minidom
 import inspect
+import Crypto.Cipher.AES
 
 try:
     SO_BINDTODEVICE = socket.SO_BINDTODEVICE
@@ -84,6 +86,8 @@ except AttributeError:
 
 
 version = "1.4.1"
+
+stored_state_path = "/var/lib/mandos/clients.pickle"
 
 #logger = logging.getLogger('mandos')
 logger = logging.Logger('mandos')
@@ -289,8 +293,9 @@ class Client(object):
                      instance %(name)s can be used in the command.
     checker_initiator_tag: a gobject event source tag, or None
     created:    datetime.datetime(); (UTC) object creation
+    client_structure: Object describing what attributes a client has
+                      and is used for storing the client at exit
     current_checker_command: string; current running checker_command
-    disable_hook:  If set, called by disable() as disable_hook(self)
     disable_initiator_tag: a gobject event source tag, or None
     enabled:    bool()
     fingerprint: string (40 or 32 hexadecimal digits); used to
@@ -299,6 +304,8 @@ class Client(object):
     interval:   datetime.timedelta(); How often to start a new checker
     last_approval_request: datetime.datetime(); (UTC) or None
     last_checked_ok: datetime.datetime(); (UTC) or None
+    Last_checker_status: integer between 0 and 255 reflecting exit status
+                         of last checker. -1 reflect crashed checker.
     last_enabled: datetime.datetime(); (UTC)
     name:       string; from the config file, used in log messages and
                         D-Bus identifiers
@@ -331,7 +338,7 @@ class Client(object):
     def approval_delay_milliseconds(self):
         return _timedelta_to_milliseconds(self.approval_delay)
     
-    def __init__(self, name = None, disable_hook=None, config=None):
+    def __init__(self, name = None, config=None):
         """Note: the 'checker' key in 'config' sets the
         'checker_command' attribute and *not* the 'checker'
         attribute."""
@@ -357,23 +364,22 @@ class Client(object):
                             % self.name)
         self.host = config.get("host", "")
         self.created = datetime.datetime.utcnow()
-        self.enabled = False
+        self.enabled = True
         self.last_approval_request = None
-        self.last_enabled = None
+        self.last_enabled = datetime.datetime.utcnow()
         self.last_checked_ok = None
+        self.last_checker_status = 0
         self.timeout = string_to_delta(config["timeout"])
         self.extended_timeout = string_to_delta(config
                                                 ["extended_timeout"])
         self.interval = string_to_delta(config["interval"])
-        self.disable_hook = disable_hook
         self.checker = None
         self.checker_initiator_tag = None
         self.disable_initiator_tag = None
-        self.expires = None
+        self.expires = datetime.datetime.utcnow() + self.timeout
         self.checker_callback_tag = None
         self.checker_command = config["checker"]
         self.current_checker_command = None
-        self.last_connect = None
         self._approved = None
         self.approved_by_default = config.get("approved_by_default",
                                               True)
@@ -385,6 +391,15 @@ class Client(object):
         self.changedstate = (multiprocessing_manager
                              .Condition(multiprocessing_manager
                                         .Lock()))
+        self.client_structure = [attr for attr in self.__dict__.iterkeys() if not attr.startswith("_")]
+        self.client_structure.append("client_structure")
+
+
+        for name, t in inspect.getmembers(type(self),
+                                          lambda obj: isinstance(obj, property)):
+            if not name.startswith("_"):
+                self.client_structure.append(name)
+    
     
     def send_changedstate(self):
         self.changedstate.acquire()
@@ -397,20 +412,10 @@ class Client(object):
             # Already enabled
             return
         self.send_changedstate()
-        # Schedule a new checker to be started an 'interval' from now,
-        # and every interval from then on.
-        self.checker_initiator_tag = (gobject.timeout_add
-                                      (self.interval_milliseconds(),
-                                       self.start_checker))
-        # Schedule a disable() when 'timeout' has passed
         self.expires = datetime.datetime.utcnow() + self.timeout
-        self.disable_initiator_tag = (gobject.timeout_add
-                                   (self.timeout_milliseconds(),
-                                    self.disable))
         self.enabled = True
         self.last_enabled = datetime.datetime.utcnow()
-        # Also start a new checker *right now*.
-        self.start_checker()
+        self.init_checker()
     
     def disable(self, quiet=True):
         """Disable this client."""
@@ -428,23 +433,34 @@ class Client(object):
             gobject.source_remove(self.checker_initiator_tag)
             self.checker_initiator_tag = None
         self.stop_checker()
-        if self.disable_hook:
-            self.disable_hook(self)
         self.enabled = False
         # Do not run this again if called by a gobject.timeout_add
         return False
     
     def __del__(self):
-        self.disable_hook = None
         self.disable()
-    
+
+    def init_checker(self):
+        # Schedule a new checker to be started an 'interval' from now,
+        # and every interval from then on.
+        self.checker_initiator_tag = (gobject.timeout_add
+                                      (self.interval_milliseconds(),
+                                       self.start_checker))
+        # Schedule a disable() when 'timeout' has passed
+        self.disable_initiator_tag = (gobject.timeout_add
+                                   (self.timeout_milliseconds(),
+                                    self.disable))
+        # Also start a new checker *right now*.
+        self.start_checker()
+
+        
     def checker_callback(self, pid, condition, command):
         """The checker has completed, so take appropriate actions."""
         self.checker_callback_tag = None
         self.checker = None
         if os.WIFEXITED(condition):
-            exitstatus = os.WEXITSTATUS(condition)
-            if exitstatus == 0:
+            self.last_checker_status =  os.WEXITSTATUS(condition)
+            if self.last_checker_status == 0:
                 logger.info("Checker for %(name)s succeeded",
                             vars(self))
                 self.checked_ok()
@@ -452,6 +468,7 @@ class Client(object):
                 logger.info("Checker for %(name)s failed",
                             vars(self))
         else:
+            self.last_checker_status = -1
             logger.warning("Checker for %(name)s crashed?",
                            vars(self))
     
@@ -567,6 +584,52 @@ class Client(object):
             if error.errno != errno.ESRCH: # No such process
                 raise
         self.checker = None
+
+    # Encrypts a client secret and stores it in a varible encrypted_secret
+    def encrypt_secret(self, key):
+        # Encryption-key need to be specific size, so we hash inputed key
+        hasheng = hashlib.sha256()
+        hasheng.update(key)
+        encryptionkey = hasheng.digest()
+
+        # Create validation hash so we know at decryption if it was sucessful
+        hasheng = hashlib.sha256()
+        hasheng.update(self.secret)
+        validationhash = hasheng.digest()
+
+        # Encrypt secret
+        iv = os.urandom(Crypto.Cipher.AES.block_size)
+        ciphereng = Crypto.Cipher.AES.new(encryptionkey,
+                                        Crypto.Cipher.AES.MODE_CFB, iv)
+        ciphertext = ciphereng.encrypt(validationhash+self.secret)
+        self.encrypted_secret = (ciphertext, iv)
+
+    # Decrypt a encrypted client secret
+    def decrypt_secret(self, key):
+        # Decryption-key need to be specific size, so we hash inputed key
+        hasheng = hashlib.sha256()
+        hasheng.update(key)
+        encryptionkey = hasheng.digest()
+
+        # Decrypt encrypted secret
+        ciphertext, iv = self.encrypted_secret
+        ciphereng = Crypto.Cipher.AES.new(encryptionkey,
+                                        Crypto.Cipher.AES.MODE_CFB, iv)
+        plain = ciphereng.decrypt(ciphertext)
+
+        # Validate decrypted secret to know if it was succesful
+        hasheng = hashlib.sha256()
+        validationhash = plain[:hasheng.digest_size]
+        secret = plain[hasheng.digest_size:]
+        hasheng.update(secret)
+
+        # if validation fails, we use key as new secret. Otherwhise, we use
+        # the decrypted secret
+        if hasheng.digest() == validationhash:
+            self.secret = secret
+        else:
+            self.secret = key
+        del self.encrypted_secret
 
 
 def dbus_service_property(dbus_interface, signature="v",
@@ -874,9 +937,10 @@ class ClientDBus(Client, DBusObjectWithProperties):
     # dbus.service.Object doesn't use super(), so we can't either.
     
     def __init__(self, bus = None, *args, **kwargs):
-        self._approvals_pending = 0
         self.bus = bus
         Client.__init__(self, *args, **kwargs)
+
+        self._approvals_pending = 0
         # Only now, when this client is initialized, can it show up on
         # the D-Bus
         client_object_name = unicode(self.name).translate(
@@ -1624,7 +1688,7 @@ class MandosServer(IPv6_TCPServer):
         self.enabled = False
         self.clients = clients
         if self.clients is None:
-            self.clients = set()
+            self.clients = {}
         self.use_dbus = use_dbus
         self.gnutls_priority = gnutls_priority
         IPv6_TCPServer.__init__(self, server_address,
@@ -1677,7 +1741,7 @@ class MandosServer(IPv6_TCPServer):
             fpr = request[1]
             address = request[2]
             
-            for c in self.clients:
+            for c in self.clients.itervalues():
                 if c.fingerprint == fpr:
                     client = c
                     break
@@ -1851,6 +1915,10 @@ def main():
                         " system bus interface")
     parser.add_argument("--no-ipv6", action="store_false",
                         dest="use_ipv6", help="Do not use IPv6")
+    parser.add_argument("--no-restore", action="store_false",
+                        dest="restore", help="Do not restore old state",
+                        default=True)
+
     options = parser.parse_args()
     
     if options.check:
@@ -1891,7 +1959,7 @@ def main():
     # options, if set.
     for option in ("interface", "address", "port", "debug",
                    "priority", "servicename", "configdir",
-                   "use_dbus", "use_ipv6", "debuglevel"):
+                   "use_dbus", "use_ipv6", "debuglevel", "restore"):
         value = getattr(options, option)
         if value is not None:
             server_settings[option] = value
@@ -2038,23 +2106,101 @@ def main():
     if use_dbus:
         client_class = functools.partial(ClientDBusTransitional,
                                          bus = bus)
-    def client_config_items(config, section):
-        special_settings = {
-            "approved_by_default":
-                lambda: config.getboolean(section,
-                                          "approved_by_default"),
-            }
-        for name, value in config.items(section):
-            try:
-                yield (name, special_settings[name]())
-            except KeyError:
-                yield (name, value)
     
-    tcp_server.clients.update(set(
-            client_class(name = section,
-                         config= dict(client_config_items(
-                        client_config, section)))
-            for section in client_config.sections()))
+    special_settings = {
+        # Some settings need to be accessd by special methods;
+        # booleans need .getboolean(), etc.  Here is a list of them:
+        "approved_by_default":
+            lambda section:
+            client_config.getboolean(section, "approved_by_default"),
+        }
+    # Construct a new dict of client settings of this form:
+    # { client_name: {setting_name: value, ...}, ...}
+    # with exceptions for any special settings as defined above
+    client_settings = dict((clientname,
+                           dict((setting,
+                                 (value if setting not in special_settings
+                                  else special_settings[setting](clientname)))
+                                for setting, value in client_config.items(clientname)))
+                          for clientname in client_config.sections())
+    
+    old_client_settings = {}
+    clients_data = []
+
+    if server_settings["restore"]:
+        try:
+            with open(stored_state_path, "rb") as stored_state:
+                clients_data, old_client_settings = pickle.load(stored_state)
+            os.remove(stored_state_path)
+        except IOError as e:
+            logger.warning("Could not load persistant state: {0}".format(e))
+            if e.errno != errno.ENOENT:
+                raise
+
+    for client in clients_data:
+        client_name = client["name"]
+        
+        # Decide which value to use after restoring saved state.
+        # We have three different values: Old config file,
+        # new config file, and saved state.
+        # New config value takes precedence if it differs from old
+        # config value, otherwise use saved state.
+        for name, value in client_settings[client_name].items():
+            try:
+                # For each value in new config, check if it differs
+                # from the old config value (Except for the "secret"
+                # attribute)
+                if name != "secret" and value != old_client_settings[client_name][name]:
+                    setattr(client, name, value)
+            except KeyError:
+                pass
+
+        # Clients who has passed its expire date, can still be enabled if its
+        # last checker was sucessful. Clients who checkers failed before we
+        # stored it state is asumed to had failed checker during downtime.
+        if client["enabled"] and client["last_checked_ok"]:
+            if ((datetime.datetime.utcnow() - client["last_checked_ok"])
+                > client["interval"]):
+                if client["last_checker_status"] != 0:
+                    client["enabled"] = False
+                else:
+                    client["expires"] = datetime.datetime.utcnow() + client["timeout"]
+
+        client["changedstate"] = (multiprocessing_manager
+                                  .Condition(multiprocessing_manager
+                                             .Lock()))
+        if use_dbus:
+            new_client = ClientDBusTransitional.__new__(ClientDBusTransitional)
+            tcp_server.clients[client_name] = new_client
+            new_client.bus = bus
+            for name, value in client.iteritems():
+                setattr(new_client, name, value)
+            client_object_name = unicode(client_name).translate(
+                {ord("."): ord("_"),
+                 ord("-"): ord("_")})
+            new_client.dbus_object_path = (dbus.ObjectPath
+                                     ("/clients/" + client_object_name))
+            DBusObjectWithProperties.__init__(new_client,
+                                              new_client.bus,
+                                              new_client.dbus_object_path)
+        else:
+            tcp_server.clients[client_name] = Client.__new__(Client)
+            for name, value in client.iteritems():
+                setattr(tcp_server.clients[client_name], name, value)
+                
+        tcp_server.clients[client_name].decrypt_secret(
+            client_settings[client_name]["secret"])            
+        
+    # Create/remove clients based on new changes made to config
+    for clientname in set(old_client_settings) - set(client_settings):
+        del tcp_server.clients[clientname]
+    for clientname in set(client_settings) - set(old_client_settings):
+        tcp_server.clients[clientname] = (client_class(name = clientname,
+                                                       config =
+                                                       client_settings
+                                                       [clientname]))
+    
+
     if not tcp_server.clients:
         logger.warning("No clients defined")
         
@@ -2103,7 +2249,8 @@ def main():
             def GetAllClients(self):
                 "D-Bus method"
                 return dbus.Array(c.dbus_object_path
-                                  for c in tcp_server.clients)
+                                  for c in
+                                  tcp_server.clients.itervalues())
             
             @dbus.service.method(_interface,
                                  out_signature="a{oa{sv}}")
@@ -2111,15 +2258,15 @@ def main():
                 "D-Bus method"
                 return dbus.Dictionary(
                     ((c.dbus_object_path, c.GetAll(""))
-                     for c in tcp_server.clients),
+                     for c in tcp_server.clients.itervalues()),
                     signature="oa{sv}")
             
             @dbus.service.method(_interface, in_signature="o")
             def RemoveClient(self, object_path):
                 "D-Bus method"
-                for c in tcp_server.clients:
+                for c in tcp_server.clients.itervalues():
                     if c.dbus_object_path == object_path:
-                        tcp_server.clients.remove(c)
+                        del tcp_server.clients[c.name]
                         c.remove_from_connection()
                         # Don't signal anything except ClientRemoved
                         c.disable(quiet=True)
@@ -2139,26 +2286,63 @@ def main():
         service.cleanup()
         
         multiprocessing.active_children()
+        if not (tcp_server.clients or client_settings):
+            return
+
+        # Store client before exiting. Secrets are encrypted with key based
+        # on what config file has. If config file is removed/edited, old
+        # secret will thus be unrecovable.
+        clients = []
+        for client in tcp_server.clients.itervalues():
+            client.encrypt_secret(client_settings[client.name]["secret"])
+
+            client_dict = {}
+
+            # A list of attributes that will not be stored when shuting down.
+            exclude = set(("bus", "changedstate", "secret"))            
+            for name, typ in inspect.getmembers(dbus.service.Object):
+                exclude.add(name)
+                
+            client_dict["encrypted_secret"] = client.encrypted_secret
+            for attr in client.client_structure:
+                if attr not in exclude:
+                    client_dict[attr] = getattr(client, attr)
+
+            clients.append(client_dict) 
+            del client_settings[client.name]["secret"]
+            
+        try:
+            with os.fdopen(os.open(stored_state_path, os.O_CREAT|os.O_WRONLY|os.O_TRUNC, 0600), "wb") as stored_state:
+                pickle.dump((clients, client_settings), stored_state)
+        except IOError as e:
+            logger.warning("Could not save persistant state: {0}".format(e))
+            if e.errno != errno.ENOENT:
+                raise
+
+        # Delete all clients, and settings from config
         while tcp_server.clients:
-            client = tcp_server.clients.pop()
+            name, client = tcp_server.clients.popitem()
             if use_dbus:
                 client.remove_from_connection()
-            client.disable_hook = None
             # Don't signal anything except ClientRemoved
             client.disable(quiet=True)
             if use_dbus:
                 # Emit D-Bus signal
                 mandos_dbus_service.ClientRemoved(client
-                                                  .dbus_object_path,
-                                                  client.name)
+                                              .dbus_object_path,
+                                              client.name)
+        client_settings.clear()
     
     atexit.register(cleanup)
     
-    for client in tcp_server.clients:
+    for client in tcp_server.clients.itervalues():
         if use_dbus:
             # Emit D-Bus signal
             mandos_dbus_service.ClientAdded(client.dbus_object_path)
-        client.enable()
+        # Need to initiate checking of clients
+        if client.enabled:
+            client.init_checker()
+
     
     tcp_server.enable()
     tcp_server.server_activate()

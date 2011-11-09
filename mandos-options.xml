@@ -85,5 +85,10 @@ It is also used for some texts by mandos-client(8mandos).
     to the server if this option is turned off.  <emphasis>Only
     advanced users should consider changing this option</emphasis>.
   </para>
+
+  <para id="restore">
+    This option controls whether the server will restore any state from
+    last time it ran. The Default is to try restore last state.
+  </para>
   
 </section>
