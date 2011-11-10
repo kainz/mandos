@@ -41,6 +41,7 @@
 
 * mandos (server)
 ** TODO [#B] Log level							  :BUGS:
+** TODO [#A] Move approval to Client from ClientDBus
   
 *** TODO /etc/mandos/clients.d/*.conf
     Watch this directory and add/remove/update clients?
