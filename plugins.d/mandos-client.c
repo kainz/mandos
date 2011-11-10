@@ -1092,66 +1092,26 @@ static void handle_sigterm(int sig){
  */
 int good_interface(const struct dirent *if_entry){
   ssize_t ssret;
-  char *flagname = NULL;
+  int ret;
   if(if_entry->d_name[0] == '.'){
     return 0;
   }
-  int ret = asprintf(&flagname, "%s/%s/flags", sys_class_net,
-		     if_entry->d_name);
-  if(ret < 0){
-    perror_plus("asprintf");
+  int s = socket(PF_INET6, SOCK_DGRAM, IPPROTO_IP);
+  if(s < 0){
+    perror_plus("socket");
     return 0;
   }
-  int flags_fd = (int)TEMP_FAILURE_RETRY(open(flagname, O_RDONLY));
-  if(flags_fd == -1){
-    perror_plus("open");
-    free(flagname);
-    return 0;
-  }
-  free(flagname);
-  typedef short ifreq_flags;	/* ifreq.ifr_flags in netdevice(7) */
-  /* read line from flags_fd */
-  ssize_t to_read = 2+(sizeof(ifreq_flags)*2)+1; /* "0x1003\n" */
-  char *flagstring = malloc((size_t)to_read+1); /* +1 for final \0 */
-  flagstring[(size_t)to_read] = '\0';
-  if(flagstring == NULL){
-    perror_plus("malloc");
-    close(flags_fd);
-    return 0;
-  }
-  while(to_read > 0){
-    ssret = (ssize_t)TEMP_FAILURE_RETRY(read(flags_fd, flagstring,
-					     (size_t)to_read));
-    if(ssret == -1){
-      perror_plus("read");
-      free(flagstring);
-      close(flags_fd);
-      return 0;
-    }
-    to_read -= ssret;
-    if(ssret == 0){
-      break;
-    }
-  }
-  close(flags_fd);
-  intmax_t tmpmax;
-  char *tmp;
-  errno = 0;
-  tmpmax = strtoimax(flagstring, &tmp, 0);
-  if(errno != 0 or tmp == flagstring or (*tmp != '\0'
-					 and not (isspace(*tmp)))
-     or tmpmax != (ifreq_flags)tmpmax){
+  struct ifreq ifr;
+  strcpy(ifr.ifr_name, if_entry->d_name);
+  ret = ioctl(s, SIOCGIFFLAGS, &ifr);
+  if(ret == -1){
     if(debug){
-      fprintf(stderr, "Invalid flags \"%s\" for interface \"%s\"\n",
-	      flagstring, if_entry->d_name);
+      perror_plus("ioctl SIOCGIFFLAGS");
     }
-    free(flagstring);
     return 0;
   }
-  free(flagstring);
-  ifreq_flags flags = (ifreq_flags)tmpmax;
   /* Reject the loopback device */
-  if(flags & IFF_LOOPBACK){
+  if(ifr.ifr_flags & IFF_LOOPBACK){
     if(debug){
       fprintf(stderr, "Rejecting loopback interface \"%s\"\n",
 	      if_entry->d_name);
@@ -1159,7 +1119,7 @@ int good_interface(const struct dirent *if_entry){
     return 0;
   }
   /* Accept point-to-point devices only if connect_to is specified */
-  if(connect_to != NULL and (flags & IFF_POINTOPOINT)){
+  if(connect_to != NULL and (ifr.ifr_flags & IFF_POINTOPOINT)){
     if(debug){
       fprintf(stderr, "Accepting point-to-point interface \"%s\"\n",
 	      if_entry->d_name);
@@ -1167,7 +1127,7 @@ int good_interface(const struct dirent *if_entry){
     return 1;
   }
   /* Otherwise, reject non-broadcast-capable devices */
-  if(not (flags & IFF_BROADCAST)){
+  if(not (ifr.ifr_flags & IFF_BROADCAST)){
     if(debug){
       fprintf(stderr, "Rejecting non-broadcast interface \"%s\"\n",
 	      if_entry->d_name);
@@ -1175,7 +1135,7 @@ int good_interface(const struct dirent *if_entry){
     return 0;
   }
   /* Reject non-ARP interfaces (including dummy interfaces) */
-  if(flags & IFF_NOARP){
+  if(ifr.ifr_flags & IFF_NOARP){
     if(debug){
       fprintf(stderr, "Rejecting non-ARP interface \"%s\"\n",
 	      if_entry->d_name);
