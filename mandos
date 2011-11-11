@@ -1122,6 +1122,14 @@ class ClientDBus(Client, DBusObjectWithProperties):
         "D-Bus signal"
         return self.need_approval()
     
+    # NeRwequest - signal
+    @dbus.service.signal(_interface, signature="s")
+    def NewRequest(self, ip):
+        """D-Bus signal
+        Is sent after a client request a password.
+        """
+        pass
+
     ## Methods
     
     # Approve - method
@@ -1425,6 +1433,9 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
                     logger.warning("Bad certificate: %s", error)
                     return
                 logger.debug("Fingerprint: %s", fpr)
+                if self.server.use_dbus:
+                    # Emit D-Bus signal
+                    client.NewRequest(str(self.client_address))
                 
                 try:
                     client = ProxyClient(child_pipe, fpr,
