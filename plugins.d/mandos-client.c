@@ -1085,67 +1085,84 @@ static void handle_sigterm(int sig){
   errno = old_errno;
 }
 
+bool get_flags(const char *ifname, struct ifreq *ifr){
+  int ret;
+  
+  int s = socket(PF_INET6, SOCK_DGRAM, IPPROTO_IP);
+  if(s < 0){
+    perror_plus("socket");
+    return false;
+  }
+  strcpy(ifr->ifr_name, ifname);
+  ret = ioctl(s, SIOCGIFFLAGS, ifr);
+  if(ret == -1){
+    if(debug){
+      perror_plus("ioctl SIOCGIFFLAGS");
+    }
+    return false;
+  }
+  return true;
+}
+
+bool good_flags(const char *ifname, const struct ifreq *ifr){
+  
+  /* Reject the loopback device */
+  if(ifr->ifr_flags & IFF_LOOPBACK){
+    if(debug){
+      fprintf(stderr, "Rejecting loopback interface \"%s\"\n",
+	      ifname);
+    }
+    return false;
+  }
+  /* Accept point-to-point devices only if connect_to is specified */
+  if(connect_to != NULL and (ifr->ifr_flags & IFF_POINTOPOINT)){
+    if(debug){
+      fprintf(stderr, "Accepting point-to-point interface \"%s\"\n",
+	      ifname);
+    }
+    return true;
+  }
+  /* Otherwise, reject non-broadcast-capable devices */
+  if(not (ifr->ifr_flags & IFF_BROADCAST)){
+    if(debug){
+      fprintf(stderr, "Rejecting non-broadcast interface \"%s\"\n",
+	      ifname);
+    }
+    return false;
+  }
+  /* Reject non-ARP interfaces (including dummy interfaces) */
+  if(ifr->ifr_flags & IFF_NOARP){
+    if(debug){
+      fprintf(stderr, "Rejecting non-ARP interface \"%s\"\n", ifname);
+    }
+    return false;
+  }
+  
+  /* Accept this device */
+  if(debug){
+    fprintf(stderr, "Interface \"%s\" is good\n", ifname);
+  }
+  return true;
+}
+
 /* 
  * This function determines if a directory entry in /sys/class/net
  * corresponds to an acceptable network device.
  * (This function is passed to scandir(3) as a filter function.)
  */
 int good_interface(const struct dirent *if_entry){
-  ssize_t ssret;
   int ret;
   if(if_entry->d_name[0] == '.'){
     return 0;
   }
-  int s = socket(PF_INET6, SOCK_DGRAM, IPPROTO_IP);
-  if(s < 0){
-    perror_plus("socket");
-    return 0;
-  }
   struct ifreq ifr;
-  strcpy(ifr.ifr_name, if_entry->d_name);
-  ret = ioctl(s, SIOCGIFFLAGS, &ifr);
-  if(ret == -1){
-    if(debug){
-      perror_plus("ioctl SIOCGIFFLAGS");
-    }
+
+  if(not get_flags(if_entry->d_name, &ifr)){
     return 0;
   }
-  /* Reject the loopback device */
-  if(ifr.ifr_flags & IFF_LOOPBACK){
-    if(debug){
-      fprintf(stderr, "Rejecting loopback interface \"%s\"\n",
-	      if_entry->d_name);
-    }
+  
+  if(not good_flags(if_entry->d_name, &ifr)){
     return 0;
-  }
-  /* Accept point-to-point devices only if connect_to is specified */
-  if(connect_to != NULL and (ifr.ifr_flags & IFF_POINTOPOINT)){
-    if(debug){
-      fprintf(stderr, "Accepting point-to-point interface \"%s\"\n",
-	      if_entry->d_name);
-    }
-    return 1;
-  }
-  /* Otherwise, reject non-broadcast-capable devices */
-  if(not (ifr.ifr_flags & IFF_BROADCAST)){
-    if(debug){
-      fprintf(stderr, "Rejecting non-broadcast interface \"%s\"\n",
-	      if_entry->d_name);
-    }
-    return 0;
-  }
-  /* Reject non-ARP interfaces (including dummy interfaces) */
-  if(ifr.ifr_flags & IFF_NOARP){
-    if(debug){
-      fprintf(stderr, "Rejecting non-ARP interface \"%s\"\n",
-	      if_entry->d_name);
-    }
-    return 0;
-  }
-  /* Accept this device */
-  if(debug){
-    fprintf(stderr, "Interface \"%s\" is acceptable\n",
-	    if_entry->d_name);
   }
   return 1;
 }
