@@ -1608,10 +1608,34 @@ int main(int argc, char *argv[]){
 	dup2(devnull, STDIN_FILENO);
 	close(devnull);
 	dup2(STDERR_FILENO, STDOUT_FILENO);
-	setenv("DEVICE", interface, 1);
-	setenv("VERBOSE", debug ? "1" : "0", 1);
-	setenv("MODE", "start", 1);
-	/* setenv( XXX more here */
+	ret = setenv("DEVICE", interface, 1);
+	if(ret == -1){
+	  perror_plus("setenv");
+	  exit(1);
+	}
+	ret = setenv("VERBOSE", debug ? "1" : "0", 1);
+	if(ret == -1){
+	  perror_plus("setenv");
+	  exit(1);
+	}
+	ret = setenv("MODE", "start", 1);
+	if(ret == -1){
+	  perror_plus("setenv");
+	  exit(1);
+	}
+	char *delaystring;
+	ret = asprintf(&delaystring, "%f", delay);
+	if(ret == -1){
+	  perror_plus("asprintf");
+	  exit(1);
+	}
+	ret = setenv("DELAY", delaystring, 1);
+	if(ret == -1){
+	  free(delaystring);
+	  perror_plus("setenv");
+	  exit(1);
+	}
+	free(delaystring);
 	ret = execl(fullname, direntry->d_name, "start", NULL);
 	perror_plus("execl");
       }
