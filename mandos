@@ -87,10 +87,9 @@ except AttributeError:
 
 version = "1.4.1"
 
+logger = logging.getLogger()
 stored_state_path = "/var/lib/mandos/clients.pickle"
 
-#logger = logging.getLogger('mandos')
-logger = logging.Logger('mandos')
 syslogger = (logging.handlers.SysLogHandler
              (facility = logging.handlers.SysLogHandler.LOG_DAEMON,
               address = str("/dev/log")))
@@ -100,10 +99,12 @@ syslogger.setFormatter(logging.Formatter
 logger.addHandler(syslogger)
 
 console = logging.StreamHandler()
-console.setFormatter(logging.Formatter('%(name)s [%(process)d]:'
+console.setFormatter(logging.Formatter('%(asctime)s %(name)s'
+                                       ' [%(process)d]:'
                                        ' %(levelname)s:'
                                        ' %(message)s'))
 logger.addHandler(console)
+
 
 class AvahiError(Exception):
     def __init__(self, value, *args, **kwargs):
@@ -168,10 +169,6 @@ class AvahiService(object):
                             .GetAlternativeServiceName(self.name))
         logger.info("Changing Zeroconf service name to %r ...",
                     self.name)
-        syslogger.setFormatter(logging.Formatter
-                               ('Mandos (%s) [%%(process)d]:'
-                                ' %%(levelname)s: %%(message)s'
-                                % self.name))
         self.remove()
         try:
             self.add()
@@ -197,7 +194,7 @@ class AvahiService(object):
                 avahi.DBUS_INTERFACE_ENTRY_GROUP)
         self.entry_group_state_changed_match = (
             self.group.connect_to_signal(
-                'StateChanged', self .entry_group_state_changed))
+                'StateChanged', self.entry_group_state_changed))
         logger.debug("Adding Zeroconf service '%s' of type '%s' ...",
                      self.name, self.type)
         self.group.AddService(
@@ -269,6 +266,15 @@ class AvahiService(object):
                                  self.server_state_changed)
         self.server_state_changed(self.server.GetState())
 
+class AvahiServiceToSyslog(AvahiService):
+    def rename(self):
+        """Add the new name to the syslog messages"""
+        ret = AvahiService.rename(self)
+        syslogger.setFormatter(logging.Formatter
+                               ('Mandos (%s) [%%(process)d]:'
+                                ' %%(levelname)s: %%(message)s'
+                                % self.name))
+        return ret
 
 def _timedelta_to_milliseconds(td):
     "Convert a datetime.timedelta() to milliseconds"
@@ -304,8 +310,9 @@ class Client(object):
     interval:   datetime.timedelta(); How often to start a new checker
     last_approval_request: datetime.datetime(); (UTC) or None
     last_checked_ok: datetime.datetime(); (UTC) or None
-    Last_checker_status: integer between 0 and 255 reflecting exit status
-                         of last checker. -1 reflect crashed checker.
+    last_checker_status: integer between 0 and 255 reflecting exit status
+                         of last checker. -1 reflect crashed checker,
+                         or None.
     last_enabled: datetime.datetime(); (UTC)
     name:       string; from the config file, used in log messages and
                         D-Bus identifiers
@@ -368,7 +375,7 @@ class Client(object):
         self.last_approval_request = None
         self.last_enabled = datetime.datetime.utcnow()
         self.last_checked_ok = None
-        self.last_checker_status = 0
+        self.last_checker_status = None
         self.timeout = string_to_delta(config["timeout"])
         self.extended_timeout = string_to_delta(config
                                                 ["extended_timeout"])
@@ -400,11 +407,10 @@ class Client(object):
             if not name.startswith("_"):
                 self.client_structure.append(name)
     
-    
+    # Send notice to process children that client state has changed
     def send_changedstate(self):
-        self.changedstate.acquire()
-        self.changedstate.notify_all()
-        self.changedstate.release()
+        with self.changedstate:
+            self.changedstate.notify_all()
     
     def enable(self):
         """Start this client's checker and timeout hooks"""
@@ -587,7 +593,7 @@ class Client(object):
 
     # Encrypts a client secret and stores it in a varible encrypted_secret
     def encrypt_secret(self, key):
-        # Encryption-key need to be specific size, so we hash inputed key
+        # Encryption-key need to be of a specific size, so we hash inputed key
         hasheng = hashlib.sha256()
         hasheng.update(key)
         encryptionkey = hasheng.digest()
@@ -606,7 +612,7 @@ class Client(object):
 
     # Decrypt a encrypted client secret
     def decrypt_secret(self, key):
-        # Decryption-key need to be specific size, so we hash inputed key
+        # Decryption-key need to be of a specific size, so we hash inputed key
         hasheng = hashlib.sha256()
         hasheng.update(key)
         encryptionkey = hasheng.digest()
@@ -1916,7 +1922,7 @@ def main():
     parser.add_argument("--no-ipv6", action="store_false",
                         dest="use_ipv6", help="Do not use IPv6")
     parser.add_argument("--no-restore", action="store_false",
-                        dest="restore", help="Do not restore old state",
+                        dest="restore", help="Do not restore stored state",
                         default=True)
 
     options = parser.parse_args()
@@ -2038,14 +2044,13 @@ def main():
             raise error
     
     if not debug and not debuglevel:
-        syslogger.setLevel(logging.WARNING)
-        console.setLevel(logging.WARNING)
+        logger.setLevel(logging.WARNING)
     if debuglevel:
         level = getattr(logging, debuglevel.upper())
-        syslogger.setLevel(level)
-        console.setLevel(level)
+        logger.setLevel(level)
     
     if debug:
+        logger.setLevel(logging.DEBUG)
         # Enable all possible GnuTLS debugging
         
         # "Use a log level over 10 to enable all debugging options."
@@ -2092,9 +2097,10 @@ def main():
             server_settings["use_dbus"] = False
             tcp_server.use_dbus = False
     protocol = avahi.PROTO_INET6 if use_ipv6 else avahi.PROTO_INET
-    service = AvahiService(name = server_settings["servicename"],
-                           servicetype = "_mandos._tcp",
-                           protocol = protocol, bus = bus)
+    service = AvahiServiceToSyslog(name =
+                                   server_settings["servicename"],
+                                   servicetype = "_mandos._tcp",
+                                   protocol = protocol, bus = bus)
     if server_settings["interface"]:
         service.interface = (if_nametoindex
                              (str(server_settings["interface"])))
@@ -2127,6 +2133,7 @@ def main():
     old_client_settings = {}
     clients_data = []
 
+    # Get client data and settings from last running state. 
     if server_settings["restore"]:
         try:
             with open(stored_state_path, "rb") as stored_state:
@@ -2329,8 +2336,8 @@ def main():
             if use_dbus:
                 # Emit D-Bus signal
                 mandos_dbus_service.ClientRemoved(client
-                                              .dbus_object_path,
-                                              client.name)
+                                                  .dbus_object_path,
+                                                  client.name)
         client_settings.clear()
     
     atexit.register(cleanup)
