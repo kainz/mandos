@@ -123,6 +123,7 @@
 #define PATHDIR "/conf/conf.d/mandos"
 #define SECKEY "seckey.txt"
 #define PUBKEY "pubkey.txt"
+#define HOOKDIR "/lib/mandos/network-hooks.d"
 
 bool debug = false;
 static const char mandos_protocol_version[] = "1";
@@ -1167,12 +1168,167 @@ int good_interface(const struct dirent *if_entry){
   return 1;
 }
 
+/* 
+ * This function determines if a directory entry in /sys/class/net
+ * corresponds to an acceptable network device which is up.
+ * (This function is passed to scandir(3) as a filter function.)
+ */
+int up_interface(const struct dirent *if_entry){
+  ssize_t ssret;
+  char *flagname = NULL;
+  if(if_entry->d_name[0] == '.'){
+    return 0;
+  }
+  int ret = asprintf(&flagname, "%s/%s/flags", sys_class_net,
+		     if_entry->d_name);
+  if(ret < 0){
+    perror_plus("asprintf");
+    return 0;
+  }
+  int flags_fd = (int)TEMP_FAILURE_RETRY(open(flagname, O_RDONLY));
+  if(flags_fd == -1){
+    perror_plus("open");
+    free(flagname);
+    return 0;
+  }
+  free(flagname);
+  typedef short ifreq_flags;	/* ifreq.ifr_flags in netdevice(7) */
+  /* read line from flags_fd */
+  ssize_t to_read = 2+(sizeof(ifreq_flags)*2)+1; /* "0x1003\n" */
+  char *flagstring = malloc((size_t)to_read+1); /* +1 for final \0 */
+  flagstring[(size_t)to_read] = '\0';
+  if(flagstring == NULL){
+    perror_plus("malloc");
+    close(flags_fd);
+    return 0;
+  }
+  while(to_read > 0){
+    ssret = (ssize_t)TEMP_FAILURE_RETRY(read(flags_fd, flagstring,
+					     (size_t)to_read));
+    if(ssret == -1){
+      perror_plus("read");
+      free(flagstring);
+      close(flags_fd);
+      return 0;
+    }
+    to_read -= ssret;
+    if(ssret == 0){
+      break;
+    }
+  }
+  close(flags_fd);
+  intmax_t tmpmax;
+  char *tmp;
+  errno = 0;
+  tmpmax = strtoimax(flagstring, &tmp, 0);
+  if(errno != 0 or tmp == flagstring or (*tmp != '\0'
+					 and not (isspace(*tmp)))
+     or tmpmax != (ifreq_flags)tmpmax){
+    if(debug){
+      fprintf(stderr, "Invalid flags \"%s\" for interface \"%s\"\n",
+	      flagstring, if_entry->d_name);
+    }
+    free(flagstring);
+    return 0;
+  }
+  free(flagstring);
+  ifreq_flags flags = (ifreq_flags)tmpmax;
+  /* Reject the loopback device */
+  if(flags & IFF_LOOPBACK){
+    if(debug){
+      fprintf(stderr, "Rejecting loopback interface \"%s\"\n",
+	      if_entry->d_name);
+    }
+    return 0;
+  }
+
+  /* Reject down interfaces */
+  if(not (flags & IFF_UP)){
+    return 0;
+  }
+  
+  /* Accept point-to-point devices only if connect_to is specified */
+  if(connect_to != NULL and (flags & IFF_POINTOPOINT)){
+    if(debug){
+      fprintf(stderr, "Accepting point-to-point interface \"%s\"\n",
+	      if_entry->d_name);
+    }
+    return 1;
+  }
+  /* Otherwise, reject non-broadcast-capable devices */
+  if(not (flags & IFF_BROADCAST)){
+    if(debug){
+      fprintf(stderr, "Rejecting non-broadcast interface \"%s\"\n",
+	      if_entry->d_name);
+    }
+    return 0;
+  }
+  /* Reject non-ARP interfaces (including dummy interfaces) */
+  if(flags & IFF_NOARP){
+    if(debug){
+      fprintf(stderr, "Rejecting non-ARP interface \"%s\"\n",
+	      if_entry->d_name);
+    }
+    return 0;
+  }
+  /* Accept this device */
+  if(debug){
+    fprintf(stderr, "Interface \"%s\" is acceptable\n",
+	    if_entry->d_name);
+  }
+  return 1;
+}
+
 int notdotentries(const struct dirent *direntry){
   /* Skip "." and ".." */
   if(direntry->d_name[0] == '.'
      and (direntry->d_name[1] == '\0'
 	  or (direntry->d_name[1] == '.'
 	      and direntry->d_name[2] == '\0'))){
+    return 0;
+  }
+  return 1;
+}
+
+/* Is this directory entry a runnable program? */
+int runnable_hook(const struct dirent *direntry){
+  int ret;
+  struct stat st;
+  
+  if((direntry->d_name)[0] == '\0'){
+    /* Empty name? */
+    return 0;
+  }
+  
+  /* Save pointer to last character */
+  char *end = strchr(direntry->d_name, '\0')-1;
+  
+  if(*end == '~'){
+    /* Backup name~ */
+    return 0;
+  }
+  
+  if(((direntry->d_name)[0] == '#')
+     and (*end == '#')){
+    /* Temporary #name# */
+    return 0;
+  }
+  
+  /* XXX more rules here */
+  
+  ret = stat(direntry->d_name, &st);
+  if(ret == -1){
+    if(debug){
+      perror_plus("Could not stat plugin");
+    }
+    return 0;
+  }
+  if(not (st.st_mode & S_ISREG)){
+    /* Not a regular file */
+    return 0;
+  }
+  if(not (st.st_mode & (S_IXUSR | S_IXGRP | S_IXOTH))){
+    /* Not executable */
     return 0;
   }
   return 1;
@@ -1495,10 +1651,47 @@ int main(int argc, char *argv[]){
     }
   }
   
+  /* Find network hooks and run them */
+  {
+    struct dirent **direntries;
+    struct dirent *direntry;
+    int numhooks = scandir(HOOKDIR, &direntries, runnable_hook,
+			   alphasort);
+    int devnull = open("/dev/null", O_RDONLY);
+    for(int i = 0; i < numhooks; i++){
+      direntry = direntries[0];
+      char *fullname = NULL;
+      ret = asprintf(&fullname, "%s/%s", tempdir,
+		     direntry->d_name);
+      if(ret < 0){
+	perror_plus("asprintf");
+	continue;
+      }
+      pid_t hook_pid = fork();
+      if(hook_pid == 0){
+	/* Child */
+	dup2(devnull, STDIN_FILENO);
+	close(devnull);
+	dup2(STDERR_FILENO, STDOUT_FILENO);
+	setenv("DEVICE", interface, 1);
+	setenv("VERBOSE", debug ? "1" : "0", 1);
+	setenv("MODE", "start", 1);
+	/* setenv( XXX more here */
+	ret = execl(fullname, direntry->d_name, "start");
+	perror_plus("execl");
+      }
+      free(fullname);
+      if(quit_now){
+	goto end;
+      }
+    }
+    close(devnull);
+  }
+  
   if(not debug){
     avahi_set_log_function(empty_log);
   }
-
+  
   if(interface[0] == '\0'){
     struct dirent **direntries;
     ret = scandir(sys_class_net, &direntries, good_interface,
@@ -1846,7 +2039,7 @@ int main(int argc, char *argv[]){
     if (not quit_now){
       exitcode = EXIT_SUCCESS;
     }
-
+    
     goto end;
   }
   
@@ -1948,6 +2141,8 @@ int main(int argc, char *argv[]){
       mc.current_server = next;
     }
   }
+  
+  /* XXX run network hooks "stop" here  */
   
   /* Take down the network interface */
   if(take_down_interface){
