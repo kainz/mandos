@@ -214,7 +214,7 @@
 	<listitem>
 	  <para>
 	    Target directory for key files.  Default is
-	    <filename>/etc/mandos</filename>.
+	    <filename class="directory">/etc/mandos</filename>.
 	  </para>
 	</listitem>
       </varlistentry>
@@ -411,7 +411,7 @@
 	</listitem>
       </varlistentry>
       <varlistentry>
-	<term><filename>/tmp</filename></term>
+	<term><filename class="directory">/tmp</filename></term>
 	<listitem>
 	  <para>
 	    Temporary files will be written here if
@@ -452,9 +452,9 @@
     </informalexample>
     <informalexample>
       <para>
-	Prompt for a password, encrypt it with the key in
-	<filename>/etc/mandos</filename> and output a section suitable
-	for <filename>clients.conf</filename>.
+	Prompt for a password, encrypt it with the key in <filename
+	class="directory">/etc/mandos</filename> and output a section
+	suitable for <filename>clients.conf</filename>.
       </para>
       <para>
 	<userinput>&COMMANDNAME; --password</userinput>
