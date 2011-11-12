@@ -102,6 +102,10 @@
       </arg>
       <sbr/>
       <arg>
+	<option>--network-hook-dir<replaceable>DIR</replaceable></option>
+      </arg>
+      <sbr/>
+      <arg>
 	<option>--debug</option>
       </arg>
     </cmdsynopsis>
@@ -308,6 +312,18 @@
 	    is received.  This value specifies, in seconds, how long
 	    between each successive try <emphasis>for the same
 	    server</emphasis>.  The default is 10 seconds.
+	  </para>
+	</listitem>
+      </varlistentry>
+
+      <varlistentry>
+	<term><option>--network-hook-dir=<replaceable
+	>DIR</replaceable></option></term>
+	<listitem>
+	  <para>
+	    Network hook directory.  The default directory is
+	    <quote><directory class="directory"
+	    >/lib/mandos/network-hooks.d</directory></quote>.
 	  </para>
 	</listitem>
       </varlistentry>
