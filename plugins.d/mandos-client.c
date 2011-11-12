@@ -133,6 +133,7 @@ const char *argp_program_version = "mandos-client " VERSION;
 const char *argp_program_bug_address = "<mandos@recompile.se>";
 static const char sys_class_net[] = "/sys/class/net";
 char *connect_to = NULL;
+const char *hookdir = HOOKDIR;
 
 /* Doubly linked list that need to be circularly linked when used */
 typedef struct server{
@@ -1304,7 +1305,15 @@ int runnable_hook(const struct dirent *direntry){
   
   /* XXX more rules here */
   
-  ret = stat(direntry->d_name, &st);
+  char *fullname = NULL;
+  ret = asprintf(&fullname, "%s/%s", hookdir,
+		 direntry->d_name);
+  if(ret < 0){
+    perror_plus("asprintf");
+    return 0;
+  }
+  
+  ret = stat(fullname, &st);
   if(ret == -1){
     if(debug){
       perror_plus("Could not stat plugin");
@@ -1482,6 +1491,10 @@ int main(int argc, char *argv[]){
 	.arg = "SECONDS",
 	.doc = "Retry interval used when denied by the mandos server",
 	.group = 2 },
+      { .name = "network-hook-dir", .key = 133,
+	.arg = "DIR",
+	.doc = "Directory where network hooks are located",
+	.group = 2 },
       /*
        * These reproduce what we would get without ARGP_NO_HELP
        */
@@ -1539,6 +1552,9 @@ int main(int argc, char *argv[]){
 	   or retry_interval < 0){
 	  argp_error(state, "Bad retry interval");
 	}
+	break;
+      case 133:			/* --network-hook-dir */
+	hookdir = arg;
 	break;
 	/*
 	 * These reproduce what we would get without ARGP_NO_HELP
@@ -1646,7 +1662,7 @@ int main(int argc, char *argv[]){
   {
     struct dirent **direntries;
     struct dirent *direntry;
-    int numhooks = scandir(HOOKDIR, &direntries, runnable_hook,
+    int numhooks = scandir(hookdir, &direntries, runnable_hook,
 			   alphasort);
     if(numhooks == -1){
       perror_plus("scandir");
@@ -1655,8 +1671,7 @@ int main(int argc, char *argv[]){
       for(int i = 0; i < numhooks; i++){
 	direntry = direntries[0];
 	char *fullname = NULL;
-	ret = asprintf(&fullname, "%s/%s", tempdir,
-		       direntry->d_name);
+	ret = asprintf(&fullname, "%s/%s", hookdir, direntry->d_name);
 	if(ret < 0){
 	  perror_plus("asprintf");
 	  continue;
