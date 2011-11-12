@@ -396,7 +396,7 @@
     <title>LOGGING</title>
     <para>
       The server will send log message with various severity levels to
-      <filename>/dev/log</filename>.  With the
+      <filename class="devicefile">/dev/log</filename>.  With the
       <option>--debug</option> option, it will log even more messages,
       and also show them on the console.
     </para>
@@ -478,7 +478,7 @@
 	</listitem>
       </varlistentry>
       <varlistentry>
-	<term><filename>/dev/log</filename></term>
+	<term><filename class="devicefile">/dev/log</filename></term>
 	<listitem>
 	  <para>
 	    The Unix domain socket to where local syslog messages are

@@ -161,7 +161,7 @@
 	</listitem>
       </varlistentry>
       <varlistentry>
-	<term><filename>/proc</filename></term>
+	<term><filename class="directory">/proc</filename></term>
 	<listitem>
 	  <para>
 	    To find the running <citerefentry><refentrytitle
