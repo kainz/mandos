@@ -322,8 +322,8 @@
 	<listitem>
 	  <para>
 	    Network hook directory.  The default directory is
-	    <quote><directory class="directory"
-	    >/lib/mandos/network-hooks.d</directory></quote>.
+	    <quote><filename class="directory"
+	    >/lib/mandos/network-hooks.d</filename></quote>.
 	  </para>
 	</listitem>
       </varlistentry>
