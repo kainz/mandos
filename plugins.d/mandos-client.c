@@ -110,8 +110,8 @@
 				   init_gnutls_session(),
 				   GNUTLS_* */
 #include <gnutls/openpgp.h>
-			  /* gnutls_certificate_set_openpgp_key_file(),
-				   GNUTLS_OPENPGP_FMT_BASE64 */
+			 /* gnutls_certificate_set_openpgp_key_file(),
+			    GNUTLS_OPENPGP_FMT_BASE64 */
 
 /* GPGME */
 #include <gpgme.h> 		/* All GPGME types, constants and
@@ -180,7 +180,7 @@ void perror_plus(const char *print_text){
  * "buffer_length" is how much is already used.
  */
 size_t incbuffer(char **buffer, size_t buffer_length,
-		  size_t buffer_capacity){
+		 size_t buffer_capacity){
   if(buffer_length + BUFFER_SIZE > buffer_capacity){
     *buffer = realloc(*buffer, buffer_capacity + BUFFER_SIZE);
     if(buffer == NULL){
@@ -192,9 +192,8 @@ size_t incbuffer(char **buffer, size_t buffer_length,
 }
 
 /* Add server to set of servers to retry periodically */
-int add_server(const char *ip, uint16_t port,
-		 AvahiIfIndex if_index,
-		 int af){
+int add_server(const char *ip, uint16_t port, AvahiIfIndex if_index,
+	       int af){
   int ret;
   server *new_server = malloc(sizeof(server));
   if(new_server == NULL){
@@ -202,9 +201,9 @@ int add_server(const char *ip, uint16_t port,
     return -1;
   }
   *new_server = (server){ .ip = strdup(ip),
-			 .port = port,
-			 .if_index = if_index,
-			 .af = af };
+			  .port = port,
+			  .if_index = if_index,
+			  .af = af };
   if(new_server->ip == NULL){
     perror_plus("strdup");
     return -1;
@@ -232,8 +231,8 @@ int add_server(const char *ip, uint16_t port,
 /* 
  * Initialize GPGME.
  */
-static bool init_gpgme(const char *seckey,
-		       const char *pubkey, const char *tempdir){
+static bool init_gpgme(const char *seckey, const char *pubkey,
+		       const char *tempdir){
   gpgme_error_t rc;
   gpgme_engine_info_t engine_info;
   
@@ -426,12 +425,12 @@ static ssize_t pgp_packet_decrypt(const char *cryptotext,
   *plaintext = NULL;
   while(true){
     plaintext_capacity = incbuffer(plaintext,
-				      (size_t)plaintext_length,
-				      plaintext_capacity);
+				   (size_t)plaintext_length,
+				   plaintext_capacity);
     if(plaintext_capacity == 0){
-	perror_plus("incbuffer");
-	plaintext_length = -1;
-	goto decrypt_end;
+      perror_plus("incbuffer");
+      plaintext_length = -1;
+      goto decrypt_end;
     }
     
     ret = gpgme_data_read(dh_plain, *plaintext + plaintext_length,
@@ -717,7 +716,7 @@ static int start_mandos_communication(const char *ip, uint16_t port,
     
     if(IN6_IS_ADDR_LINKLOCAL /* Spurious warnings from */
        (&to.in6.sin6_addr)){ /* -Wstrict-aliasing=2 or lower and
-			      -Wunreachable-code*/
+				-Wunreachable-code*/
       if(if_index == AVAHI_IF_UNSPEC){
 	fprintf(stderr, "Mandos plugin mandos-client: "
 		"An IPv6 link-local address is incomplete"
@@ -802,7 +801,7 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   while(true){
     size_t out_size = strlen(out);
     ret = (int)TEMP_FAILURE_RETRY(write(tcp_sd, out + written,
-				   out_size - written));
+					out_size - written));
     if(ret == -1){
       int e = errno;
       perror_plus("write");
@@ -878,7 +877,7 @@ static int start_mandos_communication(const char *ip, uint16_t port,
     }
     
     buffer_capacity = incbuffer(&buffer, buffer_length,
-				   buffer_capacity);
+				buffer_capacity);
     if(buffer_capacity == 0){
       int e = errno;
       perror_plus("incbuffer");
@@ -951,8 +950,7 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   
   if(buffer_length > 0){
     ssize_t decrypted_buffer_size;
-    decrypted_buffer_size = pgp_packet_decrypt(buffer,
-					       buffer_length,
+    decrypted_buffer_size = pgp_packet_decrypt(buffer, buffer_length,
 					       &decrypted_buffer);
     if(decrypted_buffer_size >= 0){
       
@@ -1282,6 +1280,7 @@ int notdotentries(const struct dirent *direntry){
 /* Is this directory entry a runnable program? */
 int runnable_hook(const struct dirent *direntry){
   int ret;
+  size_t sret;
   struct stat st;
   
   if((direntry->d_name)[0] == '\0'){
@@ -1289,25 +1288,22 @@ int runnable_hook(const struct dirent *direntry){
     return 0;
   }
   
-  /* Save pointer to last character */
-  char *end = strchr(direntry->d_name, '\0')-1;
-  
-  if(*end == '~'){
-    /* Backup name~ */
+  sret = strspn(direntry->d_name, "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+		"abcdefghijklmnopqrstuvwxyz"
+		"0123456789"
+		"_-");
+  if((direntry->d_name)[sret] != '\0'){
+    /* Contains non-allowed characters */
+    if(debug){
+      fprintf(stderr, "Mandos plugin mandos-client: "
+	      "Ignoring hook \"%s\" with bad name\n",
+	      direntry->d_name);
+    }
     return 0;
   }
-  
-  if(((direntry->d_name)[0] == '#')
-     and (*end == '#')){
-    /* Temporary #name# */
-    return 0;
-  }
-  
-  /* XXX more rules here */
   
   char *fullname = NULL;
-  ret = asprintf(&fullname, "%s/%s", hookdir,
-		 direntry->d_name);
+  ret = asprintf(&fullname, "%s/%s", hookdir, direntry->d_name);
   if(ret < 0){
     perror_plus("asprintf");
     return 0;
@@ -1316,16 +1312,26 @@ int runnable_hook(const struct dirent *direntry){
   ret = stat(fullname, &st);
   if(ret == -1){
     if(debug){
-      perror_plus("Could not stat plugin");
+      perror_plus("Could not stat hook");
     }
     return 0;
   }
   if(not (S_ISREG(st.st_mode))){
     /* Not a regular file */
+    if(debug){
+      fprintf(stderr, "Mandos plugin mandos-client: "
+	      "Ignoring hook \"%s\" - not a file\n",
+	      direntry->d_name);
+    }
     return 0;
   }
   if(not (st.st_mode & (S_IXUSR | S_IXGRP | S_IXOTH))){
     /* Not executable */
+    if(debug){
+      fprintf(stderr, "Mandos plugin mandos-client: "
+	      "Ignoring hook \"%s\" - not executable\n",
+	      direntry->d_name);
+    }
     return 0;
   }
   return 1;
