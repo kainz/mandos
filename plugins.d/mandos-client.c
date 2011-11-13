@@ -1688,6 +1688,11 @@ int main(int argc, char *argv[]){
 	  dup2(devnull, STDIN_FILENO);
 	  close(devnull);
 	  dup2(STDERR_FILENO, STDOUT_FILENO);
+	  ret = setenv("MANDOSNETHOOKDIR", hookdir, 1);
+	  if(ret == -1){
+	    perror_plus("setenv");
+	    exit(1);
+	  }
 	  ret = setenv("DEVICE", interface, 1);
 	  if(ret == -1){
 	    perror_plus("setenv");
