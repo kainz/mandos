@@ -1410,6 +1410,107 @@ int avahi_loop_with_timeout(AvahiSimplePoll *s, int retry_interval){
   }
 }
 
+bool run_network_hooks(const char *mode, const char *interface,
+		       const float delay){
+  struct dirent **direntries;
+  struct dirent *direntry;
+  int ret;
+  int numhooks = scandir(hookdir, &direntries, runnable_hook,
+			 alphasort);
+  if(numhooks == -1){
+    perror_plus("scandir");
+  } else {
+    int devnull = open("/dev/null", O_RDONLY);
+    for(int i = 0; i < numhooks; i++){
+      direntry = direntries[0];
+      char *fullname = NULL;
+      ret = asprintf(&fullname, "%s/%s", hookdir, direntry->d_name);
+      if(ret < 0){
+	perror_plus("asprintf");
+	continue;
+      }
+      pid_t hook_pid = fork();
+      if(hook_pid == 0){
+	/* Child */
+	dup2(devnull, STDIN_FILENO);
+	close(devnull);
+	dup2(STDERR_FILENO, STDOUT_FILENO);
+	ret = setenv("MANDOSNETHOOKDIR", hookdir, 1);
+	if(ret == -1){
+	  perror_plus("setenv");
+	  return false;
+	}
+	ret = setenv("DEVICE", interface, 1);
+	if(ret == -1){
+	  perror_plus("setenv");
+	  return false;
+	}
+	ret = setenv("VERBOSE", debug ? "1" : "0", 1);
+	if(ret == -1){
+	  perror_plus("setenv");
+	  return false;
+	}
+	ret = setenv("MODE", mode, 1);
+	if(ret == -1){
+	  perror_plus("setenv");
+	  return false;
+	}
+	char *delaystring;
+	ret = asprintf(&delaystring, "%f", delay);
+	if(ret == -1){
+	  perror_plus("asprintf");
+	  return false;
+	}
+	ret = setenv("DELAY", delaystring, 1);
+	if(ret == -1){
+	  free(delaystring);
+	  perror_plus("setenv");
+	  return false;
+	}
+	free(delaystring);
+	ret = execl(fullname, direntry->d_name, mode, NULL);
+	perror_plus("execl");
+      } else {
+	int status;
+	if(TEMP_FAILURE_RETRY(waitpid(hook_pid, &status, 0)) == -1){
+	  perror_plus("waitpid");
+	  free(fullname);
+	  continue;
+	}
+	if(WIFEXITED(status)){
+	  if(WEXITSTATUS(status) != 0){
+	    fprintf(stderr, "Mandos plugin mandos-client: "
+		    "Warning: network hook \"%s\" exited"
+		    " with status %d\n", direntry->d_name,
+		    WEXITSTATUS(status));
+	    free(fullname);
+	    continue;
+	  }
+	} else if(WIFSIGNALED(status)){
+	  fprintf(stderr, "Mandos plugin mandos-client: "
+		  "Warning: network hook \"%s\" died by"
+		  " signal %d\n", direntry->d_name,
+		  WTERMSIG(status));
+	  free(fullname);
+	  continue;
+	} else {
+	  fprintf(stderr, "Mandos plugin mandos-client: "
+		  "Warning: network hook \"%s\" crashed\n",
+		  direntry->d_name);
+	  free(fullname);
+	  continue;
+	}
+      }
+      free(fullname);
+      if(quit_now){
+	break;
+      }
+    }
+    close(devnull);
+  }
+  return true;
+}
+
 int main(int argc, char *argv[]){
   AvahiSServiceBrowser *sb = NULL;
   int error;
@@ -1664,102 +1765,22 @@ int main(int argc, char *argv[]){
     }
   }
   
-  /* Find network hooks and run them */
+  /* Run network hooks */
   {
-    struct dirent **direntries;
-    struct dirent *direntry;
-    int numhooks = scandir(hookdir, &direntries, runnable_hook,
-			   alphasort);
-    if(numhooks == -1){
-      perror_plus("scandir");
-    } else {
-      int devnull = open("/dev/null", O_RDONLY);
-      for(int i = 0; i < numhooks; i++){
-	direntry = direntries[0];
-	char *fullname = NULL;
-	ret = asprintf(&fullname, "%s/%s", hookdir, direntry->d_name);
-	if(ret < 0){
-	  perror_plus("asprintf");
-	  continue;
-	}
-	pid_t hook_pid = fork();
-	if(hook_pid == 0){
-	  /* Child */
-	  dup2(devnull, STDIN_FILENO);
-	  close(devnull);
-	  dup2(STDERR_FILENO, STDOUT_FILENO);
-	  ret = setenv("MANDOSNETHOOKDIR", hookdir, 1);
-	  if(ret == -1){
-	    perror_plus("setenv");
-	    exit(1);
-	  }
-	  ret = setenv("DEVICE", interface, 1);
-	  if(ret == -1){
-	    perror_plus("setenv");
-	    exit(1);
-	  }
-	  ret = setenv("VERBOSE", debug ? "1" : "0", 1);
-	  if(ret == -1){
-	    perror_plus("setenv");
-	    exit(1);
-	  }
-	  ret = setenv("MODE", "start", 1);
-	  if(ret == -1){
-	    perror_plus("setenv");
-	    exit(1);
-	  }
-	  char *delaystring;
-	  ret = asprintf(&delaystring, "%f", delay);
-	  if(ret == -1){
-	    perror_plus("asprintf");
-	    exit(1);
-	  }
-	  ret = setenv("DELAY", delaystring, 1);
-	  if(ret == -1){
-	    free(delaystring);
-	    perror_plus("setenv");
-	    exit(1);
-	  }
-	  free(delaystring);
-	  ret = execl(fullname, direntry->d_name, "start", NULL);
-	  perror_plus("execl");
-	} else {
-	  int status;
-	  if(TEMP_FAILURE_RETRY(waitpid(hook_pid, &status, 0)) == -1){
-	    perror_plus("waitpid");
-	    free(fullname);
-	    continue;
-	  }
-	  if(WIFEXITED(status)){
-	    if(WEXITSTATUS(status) != 0){
-	      fprintf(stderr, "Mandos plugin mandos-client: "
-		      "Warning: network hook \"%s\" exited"
-		      " with status %d\n", direntry->d_name,
-		      WEXITSTATUS(status));
-	      free(fullname);
-	      continue;
-	    }
-	  } else if(WIFSIGNALED(status)){
-	    fprintf(stderr, "Mandos plugin mandos-client: "
-		    "Warning: network hook \"%s\" died by"
-		    " signal %d\n", direntry->d_name,
-		    WTERMSIG(status));
-	    free(fullname);
-	    continue;
-	  } else {
-	    fprintf(stderr, "Mandos plugin mandos-client: "
-		    "Warning: network hook \"%s\" crashed\n",
-		    direntry->d_name);
-	    free(fullname);
-	    continue;
-	  }
-	}
-	free(fullname);
-	if(quit_now){
-	  goto end;
-	}
-      }
-      close(devnull);
+    /* Re-raise priviliges */
+    errno = 0;
+    ret = seteuid(0);
+    if(ret == -1){
+      perror_plus("seteuid");
+    }
+    if(not run_network_hooks("start", interface, delay)){
+      goto end;
+    }
+    /* Lower privileges */
+    errno = 0;
+    ret = seteuid(uid);
+    if(ret == -1){
+      perror_plus("seteuid");
     }
   }
   
@@ -2007,18 +2028,10 @@ int main(int argc, char *argv[]){
 #endif	/* __linux__ */
     /* Lower privileges */
     errno = 0;
-    if(take_down_interface){
-      /* Lower privileges */
-      ret = seteuid(uid);
-      if(ret == -1){
-	perror_plus("seteuid");
-      }
-    } else {
-      /* Lower privileges permanently */
-      ret = setuid(uid);
-      if(ret == -1){
-	perror_plus("setuid");
-      }
+    /* Lower privileges */
+    ret = seteuid(uid);
+    if(ret == -1){
+      perror_plus("seteuid");
     }
   }
   
@@ -2237,17 +2250,20 @@ int main(int argc, char *argv[]){
     }
   }
   
-  /* XXX run network hooks "stop" here  */
-  
-  /* Take down the network interface */
-  if(take_down_interface){
-    /* Re-raise priviliges */
+  /* Re-raise priviliges */
+  {
     errno = 0;
     ret = seteuid(0);
     if(ret == -1){
       perror_plus("seteuid");
     }
-    if(geteuid() == 0){
+    /* Run network hooks */
+    if(not run_network_hooks("stop", interface, delay)){
+      goto end;
+    }
+    
+    /* Take down the network interface */
+    if(take_down_interface and geteuid() == 0){
       ret = ioctl(sd, SIOCGIFFLAGS, &network);
       if(ret == -1){
 	perror_plus("ioctl SIOCGIFFLAGS");
@@ -2262,13 +2278,13 @@ int main(int argc, char *argv[]){
       if(ret == -1){
 	perror_plus("close");
       }
-      /* Lower privileges permanently */
-      errno = 0;
-      ret = setuid(uid);
-      if(ret == -1){
-	perror_plus("setuid");
-      }
     }
+  }
+  /* Lower privileges permanently */
+  errno = 0;
+  ret = setuid(uid);
+  if(ret == -1){
+    perror_plus("setuid");
   }
   
   /* Removes the GPGME temp directory and all files inside */
