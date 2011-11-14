@@ -68,6 +68,7 @@ force_load ipv6
 CONFDIR="/conf/conf.d/mandos"
 MANDOSDIR="/lib/mandos"
 PLUGINDIR="${MANDOSDIR}/plugins.d"
+HOOKDIR="${MANDOSDIR}/network-hooks.d"
 
 # Make directories
 install --directory --mode=u=rwx,go=rx "${DESTDIR}${CONFDIR}" \
@@ -104,6 +105,24 @@ for file in /etc/mandos/plugins.d/*; do
 	"*") : ;;
 	*) copy_exec "$file" "${PLUGINDIR}" ;;
     esac
+done
+
+# Copy network hooks
+for hook in /etc/mandos/network-hooks.d/*; do
+    case "`basename \"$hook\"`" in
+	"*") continue ;;
+	*[!A-Za-z0-9_-]*) continue ;;
+	*) test -d "$hook" || copy_exec "$hook" "${HOOKDIR}" ;;
+    esac
+    # Copy any files needed by the network hook
+    MANDOSNETHOOKDIR=/etc/mandos/network-hooks.d MODE=files \
+	"$hook" files | while read file target; do
+	if [ -z "${target}" ]; then
+	    copy_exec "$file"
+	else
+	    copy_exec "$file" "$target"
+	fi
+    done
 done
 
 # GPGME needs /usr/bin/gpg
