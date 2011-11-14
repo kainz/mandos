@@ -171,6 +171,14 @@ void perror_plus(const char *print_text){
   perror(print_text);
 }
 
+int fprintf_plus(FILE *stream, const char *format, ...){
+  va_list ap;
+  va_start (ap, format);
+  
+  TEMP_FAILURE_RETRY(fprintf(stream, "Mandos plugin %s: ", program_invocation_short_name));
+  return TEMP_FAILURE_RETRY(vfprintf(stream, format, ap));
+}
+
 /*
  * Make additional room in "buffer" for at least BUFFER_SIZE more
  * bytes. "buffer_capacity" is how much is currently allocated,
