@@ -53,7 +53,7 @@
 				   sockaddr_in6, PF_INET6,
 				   SOCK_STREAM, uid_t, gid_t, open(),
 				   opendir(), DIR */
-#include <sys/stat.h>		/* open() */
+#include <sys/stat.h>		/* open(), S_ISREG */
 #include <sys/socket.h>		/* socket(), struct sockaddr_in6,
 				   inet_pton(), connect() */
 #include <fcntl.h>		/* open() */
@@ -85,6 +85,8 @@
 				   raise() */
 #include <sysexits.h>		/* EX_OSERR, EX_USAGE, EX_UNAVAILABLE,
 				   EX_NOHOST, EX_IOERR, EX_PROTOCOL */
+#include <sys/wait.h>		/* waitpid(), WIFEXITED(),
+				   WEXITSTATUS(), WTERMSIG() */
 
 #ifdef __linux__
 #include <sys/klog.h> 		/* klogctl() */
@@ -108,8 +110,8 @@
 				   init_gnutls_session(),
 				   GNUTLS_* */
 #include <gnutls/openpgp.h>
-			  /* gnutls_certificate_set_openpgp_key_file(),
-				   GNUTLS_OPENPGP_FMT_BASE64 */
+			 /* gnutls_certificate_set_openpgp_key_file(),
+			    GNUTLS_OPENPGP_FMT_BASE64 */
 
 /* GPGME */
 #include <gpgme.h> 		/* All GPGME types, constants and
@@ -131,6 +133,7 @@ const char *argp_program_version = "mandos-client " VERSION;
 const char *argp_program_bug_address = "<mandos@recompile.se>";
 static const char sys_class_net[] = "/sys/class/net";
 char *connect_to = NULL;
+const char *hookdir = HOOKDIR;
 
 /* Doubly linked list that need to be circularly linked when used */
 typedef struct server{
@@ -185,7 +188,7 @@ int fprintf_plus(FILE *stream, const char *format, ...){
  * "buffer_length" is how much is already used.
  */
 size_t incbuffer(char **buffer, size_t buffer_length,
-		  size_t buffer_capacity){
+		 size_t buffer_capacity){
   if(buffer_length + BUFFER_SIZE > buffer_capacity){
     *buffer = realloc(*buffer, buffer_capacity + BUFFER_SIZE);
     if(buffer == NULL){
@@ -197,9 +200,8 @@ size_t incbuffer(char **buffer, size_t buffer_length,
 }
 
 /* Add server to set of servers to retry periodically */
-int add_server(const char *ip, uint16_t port,
-		 AvahiIfIndex if_index,
-		 int af){
+int add_server(const char *ip, uint16_t port, AvahiIfIndex if_index,
+	       int af){
   int ret;
   server *new_server = malloc(sizeof(server));
   if(new_server == NULL){
@@ -207,9 +209,9 @@ int add_server(const char *ip, uint16_t port,
     return -1;
   }
   *new_server = (server){ .ip = strdup(ip),
-			 .port = port,
-			 .if_index = if_index,
-			 .af = af };
+			  .port = port,
+			  .if_index = if_index,
+			  .af = af };
   if(new_server->ip == NULL){
     perror_plus("strdup");
     return -1;
@@ -237,8 +239,8 @@ int add_server(const char *ip, uint16_t port,
 /* 
  * Initialize GPGME.
  */
-static bool init_gpgme(const char *seckey,
-		       const char *pubkey, const char *tempdir){
+static bool init_gpgme(const char *seckey, const char *pubkey,
+		       const char *tempdir){
   gpgme_error_t rc;
   gpgme_engine_info_t engine_info;
   
@@ -259,14 +261,16 @@ static bool init_gpgme(const char *seckey,
     
     rc = gpgme_data_new_from_fd(&pgp_data, fd);
     if(rc != GPG_ERR_NO_ERROR){
-      fprintf(stderr, "bad gpgme_data_new_from_fd: %s: %s\n",
+      fprintf(stderr, "Mandos plugin mandos-client: "
+	      "bad gpgme_data_new_from_fd: %s: %s\n",
 	      gpgme_strsource(rc), gpgme_strerror(rc));
       return false;
     }
     
     rc = gpgme_op_import(mc.ctx, pgp_data);
     if(rc != GPG_ERR_NO_ERROR){
-      fprintf(stderr, "bad gpgme_op_import: %s: %s\n",
+      fprintf(stderr, "Mandos plugin mandos-client: "
+	      "bad gpgme_op_import: %s: %s\n",
 	      gpgme_strsource(rc), gpgme_strerror(rc));
       return false;
     }
@@ -280,14 +284,16 @@ static bool init_gpgme(const char *seckey,
   }
   
   if(debug){
-    fprintf(stderr, "Initializing GPGME\n");
+    fprintf(stderr, "Mandos plugin mandos-client: "
+	    "Initializing GPGME\n");
   }
   
   /* Init GPGME */
   gpgme_check_version(NULL);
   rc = gpgme_engine_check_version(GPGME_PROTOCOL_OpenPGP);
   if(rc != GPG_ERR_NO_ERROR){
-    fprintf(stderr, "bad gpgme_engine_check_version: %s: %s\n",
+    fprintf(stderr, "Mandos plugin mandos-client: "
+	    "bad gpgme_engine_check_version: %s: %s\n",
 	    gpgme_strsource(rc), gpgme_strerror(rc));
     return false;
   }
@@ -295,7 +301,8 @@ static bool init_gpgme(const char *seckey,
   /* Set GPGME home directory for the OpenPGP engine only */
   rc = gpgme_get_engine_info(&engine_info);
   if(rc != GPG_ERR_NO_ERROR){
-    fprintf(stderr, "bad gpgme_get_engine_info: %s: %s\n",
+    fprintf(stderr, "Mandos plugin mandos-client: "
+	    "bad gpgme_get_engine_info: %s: %s\n",
 	    gpgme_strsource(rc), gpgme_strerror(rc));
     return false;
   }
@@ -308,15 +315,17 @@ static bool init_gpgme(const char *seckey,
     engine_info = engine_info->next;
   }
   if(engine_info == NULL){
-    fprintf(stderr, "Could not set GPGME home dir to %s\n", tempdir);
+    fprintf(stderr, "Mandos plugin mandos-client: "
+	    "Could not set GPGME home dir to %s\n", tempdir);
     return false;
   }
   
   /* Create new GPGME "context" */
   rc = gpgme_new(&(mc.ctx));
   if(rc != GPG_ERR_NO_ERROR){
-    fprintf(stderr, "bad gpgme_new: %s: %s\n",
-	    gpgme_strsource(rc), gpgme_strerror(rc));
+    fprintf(stderr, "Mandos plugin mandos-client: "
+	    "bad gpgme_new: %s: %s\n", gpgme_strsource(rc),
+	    gpgme_strerror(rc));
     return false;
   }
   
@@ -341,14 +350,16 @@ static ssize_t pgp_packet_decrypt(const char *cryptotext,
   ssize_t plaintext_length = 0;
   
   if(debug){
-    fprintf(stderr, "Trying to decrypt OpenPGP data\n");
+    fprintf(stderr, "Mandos plugin mandos-client: "
+	    "Trying to decrypt OpenPGP data\n");
   }
   
   /* Create new GPGME data buffer from memory cryptotext */
   rc = gpgme_data_new_from_mem(&dh_crypto, cryptotext, crypto_size,
 			       0);
   if(rc != GPG_ERR_NO_ERROR){
-    fprintf(stderr, "bad gpgme_data_new_from_mem: %s: %s\n",
+    fprintf(stderr, "Mandos plugin mandos-client: "
+	    "bad gpgme_data_new_from_mem: %s: %s\n",
 	    gpgme_strsource(rc), gpgme_strerror(rc));
     return -1;
   }
@@ -356,7 +367,8 @@ static ssize_t pgp_packet_decrypt(const char *cryptotext,
   /* Create new empty GPGME data buffer for the plaintext */
   rc = gpgme_data_new(&dh_plain);
   if(rc != GPG_ERR_NO_ERROR){
-    fprintf(stderr, "bad gpgme_data_new: %s: %s\n",
+    fprintf(stderr, "Mandos plugin mandos-client: "
+	    "bad gpgme_data_new: %s: %s\n",
 	    gpgme_strsource(rc), gpgme_strerror(rc));
     gpgme_data_release(dh_crypto);
     return -1;
@@ -366,29 +378,37 @@ static ssize_t pgp_packet_decrypt(const char *cryptotext,
      data buffer */
   rc = gpgme_op_decrypt(mc.ctx, dh_crypto, dh_plain);
   if(rc != GPG_ERR_NO_ERROR){
-    fprintf(stderr, "bad gpgme_op_decrypt: %s: %s\n",
+    fprintf(stderr, "Mandos plugin mandos-client: "
+	    "bad gpgme_op_decrypt: %s: %s\n",
 	    gpgme_strsource(rc), gpgme_strerror(rc));
     plaintext_length = -1;
     if(debug){
       gpgme_decrypt_result_t result;
       result = gpgme_op_decrypt_result(mc.ctx);
       if(result == NULL){
-	fprintf(stderr, "gpgme_op_decrypt_result failed\n");
+	fprintf(stderr, "Mandos plugin mandos-client: "
+		"gpgme_op_decrypt_result failed\n");
       } else {
-	fprintf(stderr, "Unsupported algorithm: %s\n",
+	fprintf(stderr, "Mandos plugin mandos-client: "
+		"Unsupported algorithm: %s\n",
 		result->unsupported_algorithm);
-	fprintf(stderr, "Wrong key usage: %u\n",
+	fprintf(stderr, "Mandos plugin mandos-client: "
+		"Wrong key usage: %u\n",
 		result->wrong_key_usage);
 	if(result->file_name != NULL){
-	  fprintf(stderr, "File name: %s\n", result->file_name);
+	  fprintf(stderr, "Mandos plugin mandos-client: "
+		  "File name: %s\n", result->file_name);
 	}
 	gpgme_recipient_t recipient;
 	recipient = result->recipients;
 	while(recipient != NULL){
-	  fprintf(stderr, "Public key algorithm: %s\n",
+	  fprintf(stderr, "Mandos plugin mandos-client: "
+		  "Public key algorithm: %s\n",
 		  gpgme_pubkey_algo_name(recipient->pubkey_algo));
-	  fprintf(stderr, "Key ID: %s\n", recipient->keyid);
-	  fprintf(stderr, "Secret key available: %s\n",
+	  fprintf(stderr, "Mandos plugin mandos-client: "
+		  "Key ID: %s\n", recipient->keyid);
+	  fprintf(stderr, "Mandos plugin mandos-client: "
+		  "Secret key available: %s\n",
 		  recipient->status == GPG_ERR_NO_SECKEY
 		  ? "No" : "Yes");
 	  recipient = recipient->next;
@@ -399,7 +419,8 @@ static ssize_t pgp_packet_decrypt(const char *cryptotext,
   }
   
   if(debug){
-    fprintf(stderr, "Decryption of OpenPGP data succeeded\n");
+    fprintf(stderr, "Mandos plugin mandos-client: "
+	    "Decryption of OpenPGP data succeeded\n");
   }
   
   /* Seek back to the beginning of the GPGME plaintext data buffer */
@@ -412,12 +433,12 @@ static ssize_t pgp_packet_decrypt(const char *cryptotext,
   *plaintext = NULL;
   while(true){
     plaintext_capacity = incbuffer(plaintext,
-				      (size_t)plaintext_length,
-				      plaintext_capacity);
+				   (size_t)plaintext_length,
+				   plaintext_capacity);
     if(plaintext_capacity == 0){
-	perror_plus("incbuffer");
-	plaintext_length = -1;
-	goto decrypt_end;
+      perror_plus("incbuffer");
+      plaintext_length = -1;
+      goto decrypt_end;
     }
     
     ret = gpgme_data_read(dh_plain, *plaintext + plaintext_length,
@@ -436,7 +457,8 @@ static ssize_t pgp_packet_decrypt(const char *cryptotext,
   }
   
   if(debug){
-    fprintf(stderr, "Decrypted password is: ");
+    fprintf(stderr, "Mandos plugin mandos-client: "
+	    "Decrypted password is: ");
     for(ssize_t i = 0; i < plaintext_length; i++){
       fprintf(stderr, "%02hhX ", (*plaintext)[i]);
     }
@@ -464,7 +486,7 @@ static const char * safer_gnutls_strerror(int value){
 /* GnuTLS log function callback */
 static void debuggnutls(__attribute__((unused)) int level,
 			const char* string){
-  fprintf(stderr, "GnuTLS: %s", string);
+  fprintf(stderr, "Mandos plugin mandos-client: GnuTLS: %s", string);
 }
 
 static int init_gnutls_global(const char *pubkeyfilename,
@@ -472,13 +494,14 @@ static int init_gnutls_global(const char *pubkeyfilename,
   int ret;
   
   if(debug){
-    fprintf(stderr, "Initializing GnuTLS\n");
+    fprintf(stderr, "Mandos plugin mandos-client: "
+	    "Initializing GnuTLS\n");
   }
   
   ret = gnutls_global_init();
   if(ret != GNUTLS_E_SUCCESS){
-    fprintf(stderr, "GnuTLS global_init: %s\n",
-	    safer_gnutls_strerror(ret));
+    fprintf(stderr, "Mandos plugin mandos-client: "
+	    "GnuTLS global_init: %s\n", safer_gnutls_strerror(ret));
     return -1;
   }
   
@@ -493,14 +516,15 @@ static int init_gnutls_global(const char *pubkeyfilename,
   /* OpenPGP credentials */
   ret = gnutls_certificate_allocate_credentials(&mc.cred);
   if(ret != GNUTLS_E_SUCCESS){
-    fprintf(stderr, "GnuTLS memory error: %s\n",
-	    safer_gnutls_strerror(ret));
+    fprintf(stderr, "Mandos plugin mandos-client: "
+	    "GnuTLS memory error: %s\n", safer_gnutls_strerror(ret));
     gnutls_global_deinit();
     return -1;
   }
   
   if(debug){
-    fprintf(stderr, "Attempting to use OpenPGP public key %s and"
+    fprintf(stderr, "Mandos plugin mandos-client: "
+	    "Attempting to use OpenPGP public key %s and"
 	    " secret key %s as GnuTLS credentials\n", pubkeyfilename,
 	    seckeyfilename);
   }
@@ -510,23 +534,26 @@ static int init_gnutls_global(const char *pubkeyfilename,
      GNUTLS_OPENPGP_FMT_BASE64);
   if(ret != GNUTLS_E_SUCCESS){
     fprintf(stderr,
+	    "Mandos plugin mandos-client: "
 	    "Error[%d] while reading the OpenPGP key pair ('%s',"
 	    " '%s')\n", ret, pubkeyfilename, seckeyfilename);
-    fprintf(stderr, "The GnuTLS error is: %s\n",
-	    safer_gnutls_strerror(ret));
+    fprintf(stderr, "Mandos plugin mandos-client: "
+	    "The GnuTLS error is: %s\n", safer_gnutls_strerror(ret));
     goto globalfail;
   }
   
   /* GnuTLS server initialization */
   ret = gnutls_dh_params_init(&mc.dh_params);
   if(ret != GNUTLS_E_SUCCESS){
-    fprintf(stderr, "Error in GnuTLS DH parameter initialization:"
+    fprintf(stderr, "Mandos plugin mandos-client: "
+	    "Error in GnuTLS DH parameter initialization:"
 	    " %s\n", safer_gnutls_strerror(ret));
     goto globalfail;
   }
   ret = gnutls_dh_params_generate2(mc.dh_params, mc.dh_bits);
   if(ret != GNUTLS_E_SUCCESS){
-    fprintf(stderr, "Error in GnuTLS prime generation: %s\n",
+    fprintf(stderr, "Mandos plugin mandos-client: "
+	    "Error in GnuTLS prime generation: %s\n",
 	    safer_gnutls_strerror(ret));
     goto globalfail;
   }
@@ -553,7 +580,8 @@ static int init_gnutls_session(gnutls_session_t *session){
     }
   } while(ret == GNUTLS_E_INTERRUPTED or ret == GNUTLS_E_AGAIN);
   if(ret != GNUTLS_E_SUCCESS){
-    fprintf(stderr, "Error in GnuTLS session initialization: %s\n",
+    fprintf(stderr, "Mandos plugin mandos-client: "
+	    "Error in GnuTLS session initialization: %s\n",
 	    safer_gnutls_strerror(ret));
   }
   
@@ -567,9 +595,10 @@ static int init_gnutls_session(gnutls_session_t *session){
       }
     } while(ret == GNUTLS_E_INTERRUPTED or ret == GNUTLS_E_AGAIN);
     if(ret != GNUTLS_E_SUCCESS){
-      fprintf(stderr, "Syntax error at: %s\n", err);
-      fprintf(stderr, "GnuTLS error: %s\n",
-	      safer_gnutls_strerror(ret));
+      fprintf(stderr, "Mandos plugin mandos-client: "
+	      "Syntax error at: %s\n", err);
+      fprintf(stderr, "Mandos plugin mandos-client: "
+	      "GnuTLS error: %s\n", safer_gnutls_strerror(ret));
       gnutls_deinit(*session);
       return -1;
     }
@@ -584,7 +613,8 @@ static int init_gnutls_session(gnutls_session_t *session){
     }
   } while(ret == GNUTLS_E_INTERRUPTED or ret == GNUTLS_E_AGAIN);
   if(ret != GNUTLS_E_SUCCESS){
-    fprintf(stderr, "Error setting GnuTLS credentials: %s\n",
+    fprintf(stderr, "Mandos plugin mandos-client: "
+	    "Error setting GnuTLS credentials: %s\n",
 	    safer_gnutls_strerror(ret));
     gnutls_deinit(*session);
     return -1;
@@ -636,7 +666,8 @@ static int start_mandos_communication(const char *ip, uint16_t port,
     pf = PF_INET;
     break;
   default:
-    fprintf(stderr, "Bad address family: %d\n", af);
+    fprintf(stderr, "Mandos plugin mandos-client: "
+	    "Bad address family: %d\n", af);
     errno = EINVAL;
     return -1;
   }
@@ -647,7 +678,8 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   }
   
   if(debug){
-    fprintf(stderr, "Setting up a TCP connection to %s, port %" PRIu16
+    fprintf(stderr, "Mandos plugin mandos-client: "
+	    "Setting up a TCP connection to %s, port %" PRIu16
 	    "\n", ip, port);
   }
   
@@ -680,7 +712,8 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   }
   if(ret == 0){
     int e = errno;
-    fprintf(stderr, "Bad address: %s\n", ip);
+    fprintf(stderr, "Mandos plugin mandos-client: "
+	    "Bad address: %s\n", ip);
     errno = e;
     goto mandos_end;
   }
@@ -691,9 +724,10 @@ static int start_mandos_communication(const char *ip, uint16_t port,
     
     if(IN6_IS_ADDR_LINKLOCAL /* Spurious warnings from */
        (&to.in6.sin6_addr)){ /* -Wstrict-aliasing=2 or lower and
-			      -Wunreachable-code*/
+				-Wunreachable-code*/
       if(if_index == AVAHI_IF_UNSPEC){
-	fprintf(stderr, "An IPv6 link-local address is incomplete"
+	fprintf(stderr, "Mandos plugin mandos-client: "
+		"An IPv6 link-local address is incomplete"
 		" without a network interface\n");
 	errno = EINVAL;
 	goto mandos_end;
@@ -718,12 +752,13 @@ static int start_mandos_communication(const char *ip, uint16_t port,
       if(if_indextoname((unsigned int)if_index, interface) == NULL){
 	perror_plus("if_indextoname");
       } else {
-	fprintf(stderr, "Connection to: %s%%%s, port %" PRIu16 "\n",
+	fprintf(stderr, "Mandos plugin mandos-client: "
+		"Connection to: %s%%%s, port %" PRIu16 "\n",
 		ip, interface, port);
       }
     } else {
-      fprintf(stderr, "Connection to: %s, port %" PRIu16 "\n", ip,
-	      port);
+      fprintf(stderr, "Mandos plugin mandos-client: "
+	      "Connection to: %s, port %" PRIu16 "\n", ip, port);
     }
     char addrstr[(INET_ADDRSTRLEN > INET6_ADDRSTRLEN) ?
 		 INET_ADDRSTRLEN : INET6_ADDRSTRLEN] = "";
@@ -739,7 +774,8 @@ static int start_mandos_communication(const char *ip, uint16_t port,
       perror_plus("inet_ntop");
     } else {
       if(strcmp(addrstr, ip) != 0){
-	fprintf(stderr, "Canonical address form: %s\n", addrstr);
+	fprintf(stderr, "Mandos plugin mandos-client: "
+		"Canonical address form: %s\n", addrstr);
       }
     }
   }
@@ -773,7 +809,7 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   while(true){
     size_t out_size = strlen(out);
     ret = (int)TEMP_FAILURE_RETRY(write(tcp_sd, out + written,
-				   out_size - written));
+					out_size - written));
     if(ret == -1){
       int e = errno;
       perror_plus("write");
@@ -799,7 +835,8 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   }
   
   if(debug){
-    fprintf(stderr, "Establishing TLS session with %s\n", ip);
+    fprintf(stderr, "Mandos plugin mandos-client: "
+	    "Establishing TLS session with %s\n", ip);
   }
   
   if(quit_now){
@@ -825,7 +862,8 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   
   if(ret != GNUTLS_E_SUCCESS){
     if(debug){
-      fprintf(stderr, "*** GnuTLS Handshake failed ***\n");
+      fprintf(stderr, "Mandos plugin mandos-client: "
+	      "*** GnuTLS Handshake failed ***\n");
       gnutls_perror(ret);
     }
     errno = EPROTO;
@@ -835,8 +873,8 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   /* Read OpenPGP packet that contains the wanted password */
   
   if(debug){
-    fprintf(stderr, "Retrieving OpenPGP encrypted password from %s\n",
-	    ip);
+    fprintf(stderr, "Mandos plugin mandos-client: "
+	    "Retrieving OpenPGP encrypted password from %s\n", ip);
   }
   
   while(true){
@@ -847,7 +885,7 @@ static int start_mandos_communication(const char *ip, uint16_t port,
     }
     
     buffer_capacity = incbuffer(&buffer, buffer_length,
-				   buffer_capacity);
+				buffer_capacity);
     if(buffer_capacity == 0){
       int e = errno;
       perror_plus("incbuffer");
@@ -880,14 +918,16 @@ static int start_mandos_communication(const char *ip, uint16_t port,
 	  }
 	} while(ret == GNUTLS_E_AGAIN or ret == GNUTLS_E_INTERRUPTED);
 	if(ret < 0){
-	  fprintf(stderr, "*** GnuTLS Re-handshake failed ***\n");
+	  fprintf(stderr, "Mandos plugin mandos-client: "
+		  "*** GnuTLS Re-handshake failed ***\n");
 	  gnutls_perror(ret);
 	  errno = EPROTO;
 	  goto mandos_end;
 	}
 	break;
       default:
-	fprintf(stderr, "Unknown error while reading data from"
+	fprintf(stderr, "Mandos plugin mandos-client: "
+		"Unknown error while reading data from"
 		" encrypted session with Mandos server\n");
 	gnutls_bye(session, GNUTLS_SHUT_RDWR);
 	errno = EIO;
@@ -899,7 +939,8 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   }
   
   if(debug){
-    fprintf(stderr, "Closing TLS session\n");
+    fprintf(stderr, "Mandos plugin mandos-client: "
+	    "Closing TLS session\n");
   }
   
   if(quit_now){
@@ -917,8 +958,7 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   
   if(buffer_length > 0){
     ssize_t decrypted_buffer_size;
-    decrypted_buffer_size = pgp_packet_decrypt(buffer,
-					       buffer_length,
+    decrypted_buffer_size = pgp_packet_decrypt(buffer, buffer_length,
 					       &decrypted_buffer);
     if(decrypted_buffer_size >= 0){
       
@@ -935,7 +975,8 @@ static int start_mandos_communication(const char *ip, uint16_t port,
 	if(ret == 0 and ferror(stdout)){
 	  int e = errno;
 	  if(debug){
-	    fprintf(stderr, "Error writing encrypted data: %s\n",
+	    fprintf(stderr, "Mandos plugin mandos-client: "
+		    "Error writing encrypted data: %s\n",
 		    strerror(errno));
 	  }
 	  errno = e;
@@ -999,7 +1040,8 @@ static void resolve_callback(AvahiSServiceResolver *r,
   switch(event){
   default:
   case AVAHI_RESOLVER_FAILURE:
-    fprintf(stderr, "(Avahi Resolver) Failed to resolve service '%s'"
+    fprintf(stderr, "Mandos plugin mandos-client: "
+	    "(Avahi Resolver) Failed to resolve service '%s'"
 	    " of type '%s' in domain '%s': %s\n", name, type, domain,
 	    avahi_strerror(avahi_server_errno(mc.server)));
     break;
@@ -1009,7 +1051,8 @@ static void resolve_callback(AvahiSServiceResolver *r,
       char ip[AVAHI_ADDRESS_STR_MAX];
       avahi_address_snprint(ip, sizeof(ip), address);
       if(debug){
-	fprintf(stderr, "Mandos server \"%s\" found on %s (%s, %"
+	fprintf(stderr, "Mandos plugin mandos-client: "
+		"Mandos server \"%s\" found on %s (%s, %"
 		PRIdMAX ") on port %" PRIu16 "\n", name, host_name,
 		ip, (intmax_t)interface, port);
       }
@@ -1049,7 +1092,8 @@ static void browse_callback(AvahiSServiceBrowser *b,
   default:
   case AVAHI_BROWSER_FAILURE:
     
-    fprintf(stderr, "(Avahi browser) %s\n",
+    fprintf(stderr, "Mandos plugin mandos-client: "
+	    "(Avahi browser) %s\n",
 	    avahi_strerror(avahi_server_errno(mc.server)));
     avahi_simple_poll_quit(mc.simple_poll);
     return;
@@ -1063,7 +1107,8 @@ static void browse_callback(AvahiSServiceBrowser *b,
     if(avahi_s_service_resolver_new(mc.server, interface, protocol,
 				    name, type, domain, protocol, 0,
 				    resolve_callback, NULL) == NULL)
-      fprintf(stderr, "Avahi: Failed to resolve service '%s': %s\n",
+      fprintf(stderr, "Mandos plugin mandos-client: "
+	      "Avahi: Failed to resolve service '%s': %s\n",
 	      name, avahi_strerror(avahi_server_errno(mc.server)));
     break;
     
@@ -1073,7 +1118,8 @@ static void browse_callback(AvahiSServiceBrowser *b,
   case AVAHI_BROWSER_ALL_FOR_NOW:
   case AVAHI_BROWSER_CACHE_EXHAUSTED:
     if(debug){
-      fprintf(stderr, "No Mandos server found, still searching...\n");
+      fprintf(stderr, "Mandos plugin mandos-client: "
+	      "No Mandos server found, still searching...\n");
     }
     break;
   }
@@ -1118,38 +1164,40 @@ bool good_flags(const char *ifname, const struct ifreq *ifr){
   /* Reject the loopback device */
   if(ifr->ifr_flags & IFF_LOOPBACK){
     if(debug){
-      fprintf(stderr, "Rejecting loopback interface \"%s\"\n",
-	      ifname);
+      fprintf(stderr, "Mandos plugin mandos-client: "
+	      "Rejecting loopback interface \"%s\"\n", ifname);
     }
     return false;
   }
   /* Accept point-to-point devices only if connect_to is specified */
   if(connect_to != NULL and (ifr->ifr_flags & IFF_POINTOPOINT)){
     if(debug){
-      fprintf(stderr, "Accepting point-to-point interface \"%s\"\n",
-	      ifname);
+      fprintf(stderr, "Mandos plugin mandos-client: "
+	      "Accepting point-to-point interface \"%s\"\n", ifname);
     }
     return true;
   }
   /* Otherwise, reject non-broadcast-capable devices */
   if(not (ifr->ifr_flags & IFF_BROADCAST)){
     if(debug){
-      fprintf(stderr, "Rejecting non-broadcast interface \"%s\"\n",
-	      ifname);
+      fprintf(stderr, "Mandos plugin mandos-client: "
+	      "Rejecting non-broadcast interface \"%s\"\n", ifname);
     }
     return false;
   }
   /* Reject non-ARP interfaces (including dummy interfaces) */
   if(ifr->ifr_flags & IFF_NOARP){
     if(debug){
-      fprintf(stderr, "Rejecting non-ARP interface \"%s\"\n", ifname);
+      fprintf(stderr, "Mandos plugin mandos-client: "
+	      "Rejecting non-ARP interface \"%s\"\n", ifname);
     }
     return false;
   }
   
   /* Accept this device */
   if(debug){
-    fprintf(stderr, "Interface \"%s\" is good\n", ifname);
+    fprintf(stderr, "Mandos plugin mandos-client: "
+	    "Interface \"%s\" is good\n", ifname);
   }
   return true;
 }
@@ -1160,13 +1208,17 @@ bool good_flags(const char *ifname, const struct ifreq *ifr){
  * (This function is passed to scandir(3) as a filter function.)
  */
 int good_interface(const struct dirent *if_entry){
-  int ret;
   if(if_entry->d_name[0] == '.'){
     return 0;
   }
+  
   struct ifreq ifr;
-
   if(not get_flags(if_entry->d_name, &ifr)){
+    if(debug){
+      fprintf(stderr, "Mandos plugin mandos-client: "
+	      "Failed to get flags for interface \"%s\"\n",
+	      if_entry->d_name);
+    }
     return 0;
   }
   
@@ -1182,107 +1234,42 @@ int good_interface(const struct dirent *if_entry){
  * (This function is passed to scandir(3) as a filter function.)
  */
 int up_interface(const struct dirent *if_entry){
-  ssize_t ssret;
-  char *flagname = NULL;
   if(if_entry->d_name[0] == '.'){
     return 0;
   }
-  int ret = asprintf(&flagname, "%s/%s/flags", sys_class_net,
-		     if_entry->d_name);
-  if(ret < 0){
-    perror_plus("asprintf");
-    return 0;
-  }
-  int flags_fd = (int)TEMP_FAILURE_RETRY(open(flagname, O_RDONLY));
-  if(flags_fd == -1){
-    perror_plus("open");
-    free(flagname);
-    return 0;
-  }
-  free(flagname);
-  typedef short ifreq_flags;	/* ifreq.ifr_flags in netdevice(7) */
-  /* read line from flags_fd */
-  ssize_t to_read = 2+(sizeof(ifreq_flags)*2)+1; /* "0x1003\n" */
-  char *flagstring = malloc((size_t)to_read+1); /* +1 for final \0 */
-  flagstring[(size_t)to_read] = '\0';
-  if(flagstring == NULL){
-    perror_plus("malloc");
-    close(flags_fd);
-    return 0;
-  }
-  while(to_read > 0){
-    ssret = (ssize_t)TEMP_FAILURE_RETRY(read(flags_fd, flagstring,
-					     (size_t)to_read));
-    if(ssret == -1){
-      perror_plus("read");
-      free(flagstring);
-      close(flags_fd);
-      return 0;
-    }
-    to_read -= ssret;
-    if(ssret == 0){
-      break;
-    }
-  }
-  close(flags_fd);
-  intmax_t tmpmax;
-  char *tmp;
-  errno = 0;
-  tmpmax = strtoimax(flagstring, &tmp, 0);
-  if(errno != 0 or tmp == flagstring or (*tmp != '\0'
-					 and not (isspace(*tmp)))
-     or tmpmax != (ifreq_flags)tmpmax){
+  
+  struct ifreq ifr;
+  if(not get_flags(if_entry->d_name, &ifr)){
     if(debug){
-      fprintf(stderr, "Invalid flags \"%s\" for interface \"%s\"\n",
-	      flagstring, if_entry->d_name);
-    }
-    free(flagstring);
-    return 0;
-  }
-  free(flagstring);
-  ifreq_flags flags = (ifreq_flags)tmpmax;
-  /* Reject the loopback device */
-  if(flags & IFF_LOOPBACK){
-    if(debug){
-      fprintf(stderr, "Rejecting loopback interface \"%s\"\n",
+      fprintf(stderr, "Mandos plugin mandos-client: "
+	      "Failed to get flags for interface \"%s\"\n",
 	      if_entry->d_name);
     }
-    return 0;
-  }
-
-  /* Reject down interfaces */
-  if(not (flags & IFF_UP)){
     return 0;
   }
   
-  /* Accept point-to-point devices only if connect_to is specified */
-  if(connect_to != NULL and (flags & IFF_POINTOPOINT)){
+  /* Reject down interfaces */
+  if(not (ifr.ifr_flags & IFF_UP)){
     if(debug){
-      fprintf(stderr, "Accepting point-to-point interface \"%s\"\n",
-	      if_entry->d_name);
-    }
-    return 1;
-  }
-  /* Otherwise, reject non-broadcast-capable devices */
-  if(not (flags & IFF_BROADCAST)){
-    if(debug){
-      fprintf(stderr, "Rejecting non-broadcast interface \"%s\"\n",
+      fprintf(stderr, "Mandos plugin mandos-client: "
+	      "Rejecting down interface \"%s\"\n",
 	      if_entry->d_name);
     }
     return 0;
   }
-  /* Reject non-ARP interfaces (including dummy interfaces) */
-  if(flags & IFF_NOARP){
+  
+  /* Reject non-running interfaces */
+  if(not (ifr.ifr_flags & IFF_RUNNING)){
     if(debug){
-      fprintf(stderr, "Rejecting non-ARP interface \"%s\"\n",
+      fprintf(stderr, "Mandos plugin mandos-client: "
+	      "Rejecting non-running interface \"%s\"\n",
 	      if_entry->d_name);
     }
     return 0;
   }
-  /* Accept this device */
-  if(debug){
-    fprintf(stderr, "Interface \"%s\" is acceptable\n",
-	    if_entry->d_name);
+  
+  if(not good_flags(if_entry->d_name, &ifr)){
+    return 0;
   }
   return 1;
 }
@@ -1301,6 +1288,7 @@ int notdotentries(const struct dirent *direntry){
 /* Is this directory entry a runnable program? */
 int runnable_hook(const struct dirent *direntry){
   int ret;
+  size_t sret;
   struct stat st;
   
   if((direntry->d_name)[0] == '\0'){
@@ -1308,35 +1296,50 @@ int runnable_hook(const struct dirent *direntry){
     return 0;
   }
   
-  /* Save pointer to last character */
-  char *end = strchr(direntry->d_name, '\0')-1;
-  
-  if(*end == '~'){
-    /* Backup name~ */
-    return 0;
-  }
-  
-  if(((direntry->d_name)[0] == '#')
-     and (*end == '#')){
-    /* Temporary #name# */
-    return 0;
-  }
-  
-  /* XXX more rules here */
-  
-  ret = stat(direntry->d_name, &st);
-  if(ret == -1){
+  sret = strspn(direntry->d_name, "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+		"abcdefghijklmnopqrstuvwxyz"
+		"0123456789"
+		"_-");
+  if((direntry->d_name)[sret] != '\0'){
+    /* Contains non-allowed characters */
     if(debug){
-      perror_plus("Could not stat plugin");
+      fprintf(stderr, "Mandos plugin mandos-client: "
+	      "Ignoring hook \"%s\" with bad name\n",
+	      direntry->d_name);
     }
     return 0;
   }
-  if(not (st.st_mode & S_ISREG)){
+  
+  char *fullname = NULL;
+  ret = asprintf(&fullname, "%s/%s", hookdir, direntry->d_name);
+  if(ret < 0){
+    perror_plus("asprintf");
+    return 0;
+  }
+  
+  ret = stat(fullname, &st);
+  if(ret == -1){
+    if(debug){
+      perror_plus("Could not stat hook");
+    }
+    return 0;
+  }
+  if(not (S_ISREG(st.st_mode))){
     /* Not a regular file */
+    if(debug){
+      fprintf(stderr, "Mandos plugin mandos-client: "
+	      "Ignoring hook \"%s\" - not a file\n",
+	      direntry->d_name);
+    }
     return 0;
   }
   if(not (st.st_mode & (S_IXUSR | S_IXGRP | S_IXOTH))){
     /* Not executable */
+    if(debug){
+      fprintf(stderr, "Mandos plugin mandos-client: "
+	      "Ignoring hook \"%s\" - not executable\n",
+	      direntry->d_name);
+    }
     return 0;
   }
   return 1;
@@ -1351,13 +1354,14 @@ int avahi_loop_with_timeout(AvahiSimplePoll *s, int retry_interval){
   while(true){
     if(mc.current_server == NULL){
       if (debug){
-	fprintf(stderr,
+	fprintf(stderr, "Mandos plugin mandos-client: "
 		"Wait until first server is found. No timeout!\n");
       }
       ret = avahi_simple_poll_iterate(s, -1);
     } else {
       if (debug){
-	fprintf(stderr, "Check current_server if we should run it,"
+	fprintf(stderr, "Mandos plugin mandos-client: "
+		"Check current_server if we should run it,"
 		" or wait\n");
       }
       /* the current time */
@@ -1380,7 +1384,8 @@ int avahi_loop_with_timeout(AvahiSimplePoll *s, int retry_interval){
 		    - ((intmax_t)waited_time.tv_nsec / 1000000));
       
       if (debug){
-	fprintf(stderr, "Blocking for %" PRIdMAX " ms\n", block_time);
+	fprintf(stderr, "Mandos plugin mandos-client: "
+		"Blocking for %" PRIdMAX " ms\n", block_time);
       }
       
       if(block_time <= 0){
@@ -1406,7 +1411,7 @@ int avahi_loop_with_timeout(AvahiSimplePoll *s, int retry_interval){
       ret = avahi_simple_poll_iterate(s, (int)block_time);
     }
     if(ret != 0){
-      if (ret > 0 or errno != EINTR) {
+      if (ret > 0 or errno != EINTR){
 	return (ret != 1) ? ret : 0;
       }
     }
@@ -1500,6 +1505,10 @@ int main(int argc, char *argv[]){
 	.arg = "SECONDS",
 	.doc = "Retry interval used when denied by the mandos server",
 	.group = 2 },
+      { .name = "network-hook-dir", .key = 133,
+	.arg = "DIR",
+	.doc = "Directory where network hooks are located",
+	.group = 2 },
       /*
        * These reproduce what we would get without ARGP_NO_HELP
        */
@@ -1558,6 +1567,9 @@ int main(int argc, char *argv[]){
 	  argp_error(state, "Bad retry interval");
 	}
 	break;
+      case 133:			/* --network-hook-dir */
+	hookdir = arg;
+	break;
 	/*
 	 * These reproduce what we would get without ARGP_NO_HELP
 	 */
@@ -1569,6 +1581,7 @@ int main(int argc, char *argv[]){
 	argp_state_help(state, state->out_stream,
 			ARGP_HELP_USAGE | ARGP_HELP_EXIT_ERR);
       case 'V':			/* --version */
+	fprintf(state->out_stream, "Mandos plugin mandos-client: ");
 	fprintf(state->out_stream, "%s\n", argp_program_version);
 	exit(argp_err_exit_status);
 	break;
@@ -1663,37 +1676,99 @@ int main(int argc, char *argv[]){
   {
     struct dirent **direntries;
     struct dirent *direntry;
-    int numhooks = scandir(HOOKDIR, &direntries, runnable_hook,
+    int numhooks = scandir(hookdir, &direntries, runnable_hook,
 			   alphasort);
-    int devnull = open("/dev/null", O_RDONLY);
-    for(int i = 0; i < numhooks; i++){
-      direntry = direntries[0];
-      char *fullname = NULL;
-      ret = asprintf(&fullname, "%s/%s", tempdir,
-		     direntry->d_name);
-      if(ret < 0){
-	perror_plus("asprintf");
-	continue;
+    if(numhooks == -1){
+      perror_plus("scandir");
+    } else {
+      int devnull = open("/dev/null", O_RDONLY);
+      for(int i = 0; i < numhooks; i++){
+	direntry = direntries[0];
+	char *fullname = NULL;
+	ret = asprintf(&fullname, "%s/%s", hookdir, direntry->d_name);
+	if(ret < 0){
+	  perror_plus("asprintf");
+	  continue;
+	}
+	pid_t hook_pid = fork();
+	if(hook_pid == 0){
+	  /* Child */
+	  dup2(devnull, STDIN_FILENO);
+	  close(devnull);
+	  dup2(STDERR_FILENO, STDOUT_FILENO);
+	  ret = setenv("MANDOSNETHOOKDIR", hookdir, 1);
+	  if(ret == -1){
+	    perror_plus("setenv");
+	    exit(1);
+	  }
+	  ret = setenv("DEVICE", interface, 1);
+	  if(ret == -1){
+	    perror_plus("setenv");
+	    exit(1);
+	  }
+	  ret = setenv("VERBOSE", debug ? "1" : "0", 1);
+	  if(ret == -1){
+	    perror_plus("setenv");
+	    exit(1);
+	  }
+	  ret = setenv("MODE", "start", 1);
+	  if(ret == -1){
+	    perror_plus("setenv");
+	    exit(1);
+	  }
+	  char *delaystring;
+	  ret = asprintf(&delaystring, "%f", delay);
+	  if(ret == -1){
+	    perror_plus("asprintf");
+	    exit(1);
+	  }
+	  ret = setenv("DELAY", delaystring, 1);
+	  if(ret == -1){
+	    free(delaystring);
+	    perror_plus("setenv");
+	    exit(1);
+	  }
+	  free(delaystring);
+	  ret = execl(fullname, direntry->d_name, "start", NULL);
+	  perror_plus("execl");
+	} else {
+	  int status;
+	  if(TEMP_FAILURE_RETRY(waitpid(hook_pid, &status, 0)) == -1){
+	    perror_plus("waitpid");
+	    free(fullname);
+	    continue;
+	  }
+	  if(WIFEXITED(status)){
+	    if(WEXITSTATUS(status) != 0){
+	      fprintf(stderr, "Mandos plugin mandos-client: "
+		      "Warning: network hook \"%s\" exited"
+		      " with status %d\n", direntry->d_name,
+		      WEXITSTATUS(status));
+	      free(fullname);
+	      continue;
+	    }
+	  } else if(WIFSIGNALED(status)){
+	    fprintf(stderr, "Mandos plugin mandos-client: "
+		    "Warning: network hook \"%s\" died by"
+		    " signal %d\n", direntry->d_name,
+		    WTERMSIG(status));
+	    free(fullname);
+	    continue;
+	  } else {
+	    fprintf(stderr, "Mandos plugin mandos-client: "
+		    "Warning: network hook \"%s\" crashed\n",
+		    direntry->d_name);
+	    free(fullname);
+	    continue;
+	  }
+	}
+	free(fullname);
+	if(quit_now){
+	  goto end;
+	}
       }
-      pid_t hook_pid = fork();
-      if(hook_pid == 0){
-	/* Child */
-	dup2(devnull, STDIN_FILENO);
-	close(devnull);
-	dup2(STDERR_FILENO, STDOUT_FILENO);
-	setenv("DEVICE", interface, 1);
-	setenv("VERBOSE", debug ? "1" : "0", 1);
-	setenv("MODE", "start", 1);
-	/* setenv( XXX more here */
-	ret = execl(fullname, direntry->d_name, "start");
-	perror_plus("execl");
-      }
-      free(fullname);
-      if(quit_now){
-	goto end;
-      }
+      close(devnull);
     }
-    close(devnull);
   }
   
   if(not debug){
@@ -1702,13 +1777,21 @@ int main(int argc, char *argv[]){
   
   if(interface[0] == '\0'){
     struct dirent **direntries;
-    ret = scandir(sys_class_net, &direntries, good_interface,
+    /* First look for interfaces that are up */
+    ret = scandir(sys_class_net, &direntries, up_interface,
 		  alphasort);
+    if(ret == 0){
+      /* No up interfaces, look for any good interfaces */
+      free(direntries);
+      ret = scandir(sys_class_net, &direntries, good_interface,
+		    alphasort);
+    }
     if(ret >= 1){
-      /* Pick the first good interface */
+      /* Pick the first interface returned */
       interface = strdup(direntries[0]->d_name);
       if(debug){
-	fprintf(stderr, "Using interface \"%s\"\n", interface);
+	fprintf(stderr, "Mandos plugin mandos-client: "
+		"Using interface \"%s\"\n", interface);
       }
       if(interface == NULL){
 	perror_plus("malloc");
@@ -1719,7 +1802,8 @@ int main(int argc, char *argv[]){
       free(direntries);
     } else {
       free(direntries);
-      fprintf(stderr, "Could not find a network interface\n");
+      fprintf(stderr, "Mandos plugin mandos-client: "
+	      "Could not find a network interface\n");
       exitcode = EXIT_FAILURE;
       goto end;
     }
@@ -1731,7 +1815,8 @@ int main(int argc, char *argv[]){
   srand((unsigned int) time(NULL));
   mc.simple_poll = avahi_simple_poll_new();
   if(mc.simple_poll == NULL){
-    fprintf(stderr, "Avahi: Failed to create simple poll object.\n");
+    fprintf(stderr, "Mandos plugin mandos-client: "
+	    "Avahi: Failed to create simple poll object.\n");
     exitcode = EX_UNAVAILABLE;
     goto end;
   }
@@ -1803,7 +1888,8 @@ int main(int argc, char *argv[]){
   if(strcmp(interface, "none") != 0){
     if_index = (AvahiIfIndex) if_nametoindex(interface);
     if(if_index == 0){
-      fprintf(stderr, "No such interface: \"%s\"\n", interface);
+      fprintf(stderr, "Mandos plugin mandos-client: "
+	      "No such interface: \"%s\"\n", interface);
       exitcode = EX_UNAVAILABLE;
       goto end;
     }
@@ -1950,7 +2036,8 @@ int main(int argc, char *argv[]){
   
   ret = init_gnutls_global(pubkey, seckey);
   if(ret == -1){
-    fprintf(stderr, "init_gnutls_global failed\n");
+    fprintf(stderr, "Mandos plugin mandos-client: "
+	    "init_gnutls_global failed\n");
     exitcode = EX_UNAVAILABLE;
     goto end;
   } else {
@@ -1972,7 +2059,8 @@ int main(int argc, char *argv[]){
   }
   
   if(not init_gpgme(pubkey, seckey, tempdir)){
-    fprintf(stderr, "init_gpgme failed\n");
+    fprintf(stderr, "Mandos plugin mandos-client: "
+	    "init_gpgme failed\n");
     exitcode = EX_UNAVAILABLE;
     goto end;
   } else {
@@ -1988,7 +2076,8 @@ int main(int argc, char *argv[]){
     /* (Mainly meant for debugging) */
     char *address = strrchr(connect_to, ':');
     if(address == NULL){
-      fprintf(stderr, "No colon in address\n");
+      fprintf(stderr, "Mandos plugin mandos-client: "
+	      "No colon in address\n");
       exitcode = EX_USAGE;
       goto end;
     }
@@ -2002,7 +2091,8 @@ int main(int argc, char *argv[]){
     tmpmax = strtoimax(address+1, &tmp, 10);
     if(errno != 0 or tmp == address+1 or *tmp != '\0'
        or tmpmax != (uint16_t)tmpmax){
-      fprintf(stderr, "Bad port number\n");
+      fprintf(stderr, "Mandos plugin mandos-client: "
+	      "Bad port number\n");
       exitcode = EX_USAGE;
       goto end;
     }
@@ -2038,8 +2128,8 @@ int main(int argc, char *argv[]){
 	break;
       }
       if(debug){
-	fprintf(stderr, "Retrying in %d seconds\n",
-		(int)retry_interval);
+	fprintf(stderr, "Mandos plugin mandos-client: "
+		"Retrying in %d seconds\n", (int)retry_interval);
       }
       sleep((int)retry_interval);
     }
@@ -2075,7 +2165,8 @@ int main(int argc, char *argv[]){
   
   /* Check if creating the Avahi server object succeeded */
   if(mc.server == NULL){
-    fprintf(stderr, "Failed to create Avahi server: %s\n",
+    fprintf(stderr, "Mandos plugin mandos-client: "
+	    "Failed to create Avahi server: %s\n",
 	    avahi_strerror(error));
     exitcode = EX_UNAVAILABLE;
     goto end;
@@ -2090,7 +2181,8 @@ int main(int argc, char *argv[]){
 				   AVAHI_PROTO_UNSPEC, "_mandos._tcp",
 				   NULL, 0, browse_callback, NULL);
   if(sb == NULL){
-    fprintf(stderr, "Failed to create service browser: %s\n",
+    fprintf(stderr, "Mandos plugin mandos-client: "
+	    "Failed to create service browser: %s\n",
 	    avahi_strerror(avahi_server_errno(mc.server)));
     exitcode = EX_UNAVAILABLE;
     goto end;
@@ -2103,20 +2195,23 @@ int main(int argc, char *argv[]){
   /* Run the main loop */
   
   if(debug){
-    fprintf(stderr, "Starting Avahi loop search\n");
+    fprintf(stderr, "Mandos plugin mandos-client: "
+	    "Starting Avahi loop search\n");
   }
 
   ret = avahi_loop_with_timeout(mc.simple_poll,
 				(int)(retry_interval * 1000));
   if(debug){
-    fprintf(stderr, "avahi_loop_with_timeout exited %s\n",
+    fprintf(stderr, "Mandos plugin mandos-client: "
+	    "avahi_loop_with_timeout exited %s\n",
 	    (ret == 0) ? "successfully" : "with error");
   }
   
  end:
   
   if(debug){
-    fprintf(stderr, "%s exiting\n", argv[0]);
+    fprintf(stderr, "Mandos plugin mandos-client: "
+	    "%s exiting\n", argv[0]);
   }
   
   /* Cleanup things */
@@ -2164,7 +2259,7 @@ int main(int argc, char *argv[]){
       ret = ioctl(sd, SIOCGIFFLAGS, &network);
       if(ret == -1){
 	perror_plus("ioctl SIOCGIFFLAGS");
-      } else if(network.ifr_flags & IFF_UP) {
+      } else if(network.ifr_flags & IFF_UP){
 	network.ifr_flags &= ~(short)IFF_UP; /* clear flag */
 	ret = ioctl(sd, SIOCSIFFLAGS, &network);
 	if(ret == -1){
@@ -2202,8 +2297,8 @@ int main(int argc, char *argv[]){
 	}
 	ret = remove(fullname);
 	if(ret == -1){
-	  fprintf(stderr, "remove(\"%s\"): %s\n", fullname,
-		  strerror(errno));
+	  fprintf(stderr, "Mandos plugin mandos-client: "
+		  "remove(\"%s\"): %s\n", fullname, strerror(errno));
 	}
 	free(fullname);
       }
