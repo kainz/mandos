@@ -86,24 +86,28 @@ except AttributeError:
 
 
 version = "1.4.1"
-
-logger = logging.getLogger()
 stored_state_path = "/var/lib/mandos/clients.pickle"
 
+logger = logging.getLogger()
 syslogger = (logging.handlers.SysLogHandler
              (facility = logging.handlers.SysLogHandler.LOG_DAEMON,
               address = str("/dev/log")))
-syslogger.setFormatter(logging.Formatter
-                       ('Mandos [%(process)d]: %(levelname)s:'
-                        ' %(message)s'))
-logger.addHandler(syslogger)
 
-console = logging.StreamHandler()
-console.setFormatter(logging.Formatter('%(asctime)s %(name)s'
-                                       ' [%(process)d]:'
-                                       ' %(levelname)s:'
-                                       ' %(message)s'))
-logger.addHandler(console)
+def initlogger(level=logging.WARNING):
+    """init logger and add loglevel"""
+    
+    syslogger.setFormatter(logging.Formatter
+                           ('Mandos [%(process)d]: %(levelname)s:'
+                            ' %(message)s'))
+    logger.addHandler(syslogger)
+    
+    console = logging.StreamHandler()
+    console.setFormatter(logging.Formatter('%(asctime)s %(name)s'
+                                           ' [%(process)d]:'
+                                           ' %(levelname)s:'
+                                           ' %(message)s'))
+    logger.addHandler(console)
+    logger.setLevel(level)
 
 
 class AvahiError(Exception):
@@ -1995,6 +1999,15 @@ def main():
     use_dbus = server_settings["use_dbus"]
     use_ipv6 = server_settings["use_ipv6"]
     
+    if debug:
+        initlogger(logging.DEBUG)
+    else:
+        if not debuglevel:
+            initlogger()
+        else:
+            level = getattr(logging, debuglevel.upper())
+            initlogger(level)    
+    
     if server_settings["servicename"] != "Mandos":
         syslogger.setFormatter(logging.Formatter
                                ('Mandos (%s) [%%(process)d]:'
@@ -2054,14 +2067,7 @@ def main():
         if error[0] != errno.EPERM:
             raise error
     
-    if not debug and not debuglevel:
-        logger.setLevel(logging.WARNING)
-    if debuglevel:
-        level = getattr(logging, debuglevel.upper())
-        logger.setLevel(level)
-    
     if debug:
-        logger.setLevel(logging.DEBUG)
         # Enable all possible GnuTLS debugging
         
         # "Use a log level over 10 to enable all debugging options."
