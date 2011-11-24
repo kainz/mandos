@@ -742,7 +742,7 @@ int main(int argc, char *argv[]){
     }
   }
   
-  {
+  if(getuid() == 0){
     /* Work around Debian bug #633582:
        <http://bugs.debian.org/633582> */
     int plugindir_fd = open(/* plugindir or */ PDIR, O_RDONLY);
