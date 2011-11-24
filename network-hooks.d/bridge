@@ -1,0 +1,61 @@
+#!/bin/sh
+#
+# This is an example of a Mandos client network hook.  This hook
+# brings up a bridge interface as specified in a separate
+# configuration file.  To be used, this file and any needed
+# configuration file(s) should be copied into the
+# /etc/mandos/network-hooks.d directory.
+# 
+# Copying and distribution of this file, with or without modification,
+# are permitted in any medium without royalty provided the copyright
+# notice and this notice are preserved.  This file is offered as-is,
+# without any warranty.
+
+set -e
+
+CONFIG="$MANDOSNETHOOKDIR/bridge.conf"
+
+# Read config file, which must set "BRIDGE", "PORTS", and optionally
+# "IPADDRS" and "ROUTES".
+if [ -e "$CONFIG" ]; then
+    . "$CONFIG"
+fi
+
+if [ -z "$BRIDGE" -o -z "$PORTS" ]; then
+    exit
+fi
+
+if [ -n "$DEVICE" -a "$DEVICE" != "$BRIDGE" ]; then
+    exit
+fi
+
+case "$1" in
+    start)
+	brctl addbr "$BRIDGE"
+	for port in $PORTS; do
+	    brctl addif "$BRIDGE" "$port"
+	done
+	ip link set up "$BRIDGE"
+	if [ -n "$IPADDRS" ]; then
+            for ipaddr in $IPADDRS; do
+		ip addr add "$ipaddr" dev "$BRIDGE"
+	    done
+	fi
+	if [ -n "$ROUTES" ]; then
+            for route in $ROUTES; do
+		ip route add "$route" dev "$BRIDGE"
+	    done
+	fi
+	;;
+    stop)
+	ip link set down "$BRIDGE"
+	for port in $PORTS; do
+	    brctl delif "$BRIDGE" "$port"
+	done
+	brctl delbr "$BRIDGE"
+	;;
+    files)
+	echo /bin/ip
+	echo /usr/bin/brctl
+	;;
+esac
