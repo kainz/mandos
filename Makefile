@@ -250,7 +250,7 @@ run-client: all keydir/seckey.txt keydir/pubkey.txt
 	@echo "###################################################################"
 	./plugin-runner --plugin-dir=plugins.d \
 		--config-file=plugin-runner.conf \
-		--options-for=mandos-client:--seckey=keydir/seckey.txt,--pubkey=keydir/pubkey.txt \
+		--options-for=mandos-client:--seckey=keydir/seckey.txt,--pubkey=keydir/pubkey.txt,--network-hook-dir=network-hooks.d \
 		$(CLIENTARGS)
 
 # Used by run-client

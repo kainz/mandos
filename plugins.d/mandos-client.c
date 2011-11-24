@@ -1301,6 +1301,10 @@ int runnable_hook(const struct dirent *direntry){
     }
     return 0;
   }
+  if(debug){
+    fprintf_plus(stderr, "Hook \"%s\" is acceptable\n",
+		 direntry->d_name);
+  }
   return 1;
 }
 
@@ -1388,12 +1392,16 @@ bool run_network_hooks(const char *mode, const char *interface,
   } else {
     int devnull = open("/dev/null", O_RDONLY);
     for(int i = 0; i < numhooks; i++){
-      direntry = direntries[0];
+      direntry = direntries[i];
       char *fullname = NULL;
       ret = asprintf(&fullname, "%s/%s", hookdir, direntry->d_name);
       if(ret < 0){
 	perror_plus("asprintf");
 	continue;
+      }
+      if(debug){
+	fprintf_plus(stderr, "Running network hook \"%s\"\n",
+		     direntry->d_name);
       }
       pid_t hook_pid = fork();
       if(hook_pid == 0){
@@ -1465,8 +1473,9 @@ bool run_network_hooks(const char *mode, const char *interface,
 	}
       }
       free(fullname);
-      if(quit_now){
-	break;
+      if(debug){
+	fprintf_plus(stderr, "Network hook \"%s\" ran successfully\n",
+		     direntry->d_name);
       }
     }
     close(devnull);
@@ -1669,7 +1678,7 @@ int main(int argc, char *argv[]){
     }
   }
     
-  {
+  if(getuid() == 0){
     /* Work around Debian bug #633582:
        <http://bugs.debian.org/633582> */
     struct stat st;
@@ -1733,20 +1742,24 @@ int main(int argc, char *argv[]){
   
   /* Run network hooks */
   {
-    /* Re-raise priviliges */
-    errno = 0;
-    ret = seteuid(0);
-    if(ret == -1){
-      perror_plus("seteuid");
+    if(getuid() == 0){
+      /* Re-raise priviliges */
+      errno = 0;
+      ret = seteuid(0);
+      if(ret == -1){
+	perror_plus("seteuid");
+      }
     }
     if(not run_network_hooks("start", interface, delay)){
       goto end;
     }
-    /* Lower privileges */
-    errno = 0;
-    ret = seteuid(uid);
-    if(ret == -1){
-      perror_plus("seteuid");
+    if(getuid() == 0){
+      /* Lower privileges */
+      errno = 0;
+      ret = seteuid(uid);
+      if(ret == -1){
+	perror_plus("seteuid");
+      }
     }
   }
   
@@ -2192,7 +2205,7 @@ int main(int argc, char *argv[]){
   if(gpgme_initialized){
     gpgme_release(mc.ctx);
   }
-
+  
   /* Cleans up the circular linked list of Mandos servers the client
      has seen */
   if(mc.current_server != NULL){
@@ -2206,15 +2219,16 @@ int main(int argc, char *argv[]){
   
   /* Re-raise priviliges */
   {
-    errno = 0;
-    ret = seteuid(0);
-    if(ret == -1){
-      perror_plus("seteuid");
+    if(getuid() == 0){
+      errno = 0;
+      ret = seteuid(0);
+      if(ret == -1){
+	perror_plus("seteuid");
+      }
     }
+    
     /* Run network hooks */
-    if(not run_network_hooks("stop", interface, delay)){
-      goto end;
-    }
+    run_network_hooks("stop", interface, delay);
     
     /* Take down the network interface */
     if(take_down_interface and geteuid() == 0){
@@ -2234,11 +2248,13 @@ int main(int argc, char *argv[]){
       }
     }
   }
-  /* Lower privileges permanently */
-  errno = 0;
-  ret = setuid(uid);
-  if(ret == -1){
-    perror_plus("setuid");
+  if(getuid() == 0){
+    /* Lower privileges permanently */
+    errno = 0;
+    ret = setuid(uid);
+    if(ret == -1){
+      perror_plus("setuid");
+    }
   }
   
   /* Removes the GPGME temp directory and all files inside */
