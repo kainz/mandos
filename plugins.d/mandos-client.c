@@ -1301,6 +1301,10 @@ int runnable_hook(const struct dirent *direntry){
     }
     return 0;
   }
+  if(debug){
+    fprintf_plus(stderr, "Hook \"%s\" is acceptable\n",
+		 direntry->d_name);
+  }
   return 1;
 }
 
@@ -1469,8 +1473,9 @@ bool run_network_hooks(const char *mode, const char *interface,
 	}
       }
       free(fullname);
-      if(quit_now){
-	break;
+      if(debug){
+	fprintf_plus(stderr, "Network hook \"%s\" ran successfully\n",
+		     direntry->d_name);
       }
     }
     close(devnull);
@@ -2200,7 +2205,7 @@ int main(int argc, char *argv[]){
   if(gpgme_initialized){
     gpgme_release(mc.ctx);
   }
-
+  
   /* Cleans up the circular linked list of Mandos servers the client
      has seen */
   if(mc.current_server != NULL){
@@ -2221,10 +2226,9 @@ int main(int argc, char *argv[]){
 	perror_plus("seteuid");
       }
     }
+    
     /* Run network hooks */
-    if(not run_network_hooks("stop", interface, delay)){
-      goto end;
-    }
+    run_network_hooks("stop", interface, delay);
     
     /* Take down the network interface */
     if(take_down_interface and geteuid() == 0){
