@@ -178,7 +178,8 @@ int fprintf_plus(FILE *stream, const char *format, ...){
   va_list ap;
   va_start (ap, format);
   
-  TEMP_FAILURE_RETRY(fprintf(stream, "Mandos plugin %s: ", program_invocation_short_name));
+  TEMP_FAILURE_RETRY(fprintf(stream, "Mandos plugin %s: ",
+			     program_invocation_short_name));
   return TEMP_FAILURE_RETRY(vfprintf(stream, format, ap));
 }
 
@@ -262,14 +263,14 @@ static bool init_gpgme(const char *seckey, const char *pubkey,
     rc = gpgme_data_new_from_fd(&pgp_data, fd);
     if(rc != GPG_ERR_NO_ERROR){
       fprintf_plus(stderr, "bad gpgme_data_new_from_fd: %s: %s\n",
-	      gpgme_strsource(rc), gpgme_strerror(rc));
+		   gpgme_strsource(rc), gpgme_strerror(rc));
       return false;
     }
     
     rc = gpgme_op_import(mc.ctx, pgp_data);
     if(rc != GPG_ERR_NO_ERROR){
       fprintf_plus(stderr, "bad gpgme_op_import: %s: %s\n",
-	      gpgme_strsource(rc), gpgme_strerror(rc));
+		   gpgme_strsource(rc), gpgme_strerror(rc));
       return false;
     }
     
@@ -290,7 +291,7 @@ static bool init_gpgme(const char *seckey, const char *pubkey,
   rc = gpgme_engine_check_version(GPGME_PROTOCOL_OpenPGP);
   if(rc != GPG_ERR_NO_ERROR){
     fprintf_plus(stderr, "bad gpgme_engine_check_version: %s: %s\n",
-	    gpgme_strsource(rc), gpgme_strerror(rc));
+		 gpgme_strsource(rc), gpgme_strerror(rc));
     return false;
   }
   
@@ -298,7 +299,7 @@ static bool init_gpgme(const char *seckey, const char *pubkey,
   rc = gpgme_get_engine_info(&engine_info);
   if(rc != GPG_ERR_NO_ERROR){
     fprintf_plus(stderr, "bad gpgme_get_engine_info: %s: %s\n",
-	    gpgme_strsource(rc), gpgme_strerror(rc));
+		 gpgme_strsource(rc), gpgme_strerror(rc));
     return false;
   }
   while(engine_info != NULL){
@@ -310,7 +311,8 @@ static bool init_gpgme(const char *seckey, const char *pubkey,
     engine_info = engine_info->next;
   }
   if(engine_info == NULL){
-    fprintf_plus(stderr, "Could not set GPGME home dir to %s\n", tempdir);
+    fprintf_plus(stderr, "Could not set GPGME home dir to %s\n",
+		 tempdir);
     return false;
   }
   
@@ -318,8 +320,8 @@ static bool init_gpgme(const char *seckey, const char *pubkey,
   rc = gpgme_new(&(mc.ctx));
   if(rc != GPG_ERR_NO_ERROR){
     fprintf_plus(stderr, "Mandos plugin mandos-client: "
-	    "bad gpgme_new: %s: %s\n", gpgme_strsource(rc),
-	    gpgme_strerror(rc));
+		 "bad gpgme_new: %s: %s\n", gpgme_strsource(rc),
+		 gpgme_strerror(rc));
     return false;
   }
   
@@ -352,7 +354,7 @@ static ssize_t pgp_packet_decrypt(const char *cryptotext,
 			       0);
   if(rc != GPG_ERR_NO_ERROR){
     fprintf_plus(stderr, "bad gpgme_data_new_from_mem: %s: %s\n",
-	    gpgme_strsource(rc), gpgme_strerror(rc));
+		 gpgme_strsource(rc), gpgme_strerror(rc));
     return -1;
   }
   
@@ -360,8 +362,8 @@ static ssize_t pgp_packet_decrypt(const char *cryptotext,
   rc = gpgme_data_new(&dh_plain);
   if(rc != GPG_ERR_NO_ERROR){
     fprintf_plus(stderr, "Mandos plugin mandos-client: "
-	    "bad gpgme_data_new: %s: %s\n",
-	    gpgme_strsource(rc), gpgme_strerror(rc));
+		 "bad gpgme_data_new: %s: %s\n",
+		 gpgme_strsource(rc), gpgme_strerror(rc));
     gpgme_data_release(dh_crypto);
     return -1;
   }
@@ -371,7 +373,7 @@ static ssize_t pgp_packet_decrypt(const char *cryptotext,
   rc = gpgme_op_decrypt(mc.ctx, dh_crypto, dh_plain);
   if(rc != GPG_ERR_NO_ERROR){
     fprintf_plus(stderr, "bad gpgme_op_decrypt: %s: %s\n",
-	    gpgme_strsource(rc), gpgme_strerror(rc));
+		 gpgme_strsource(rc), gpgme_strerror(rc));
     plaintext_length = -1;
     if(debug){
       gpgme_decrypt_result_t result;
@@ -380,9 +382,9 @@ static ssize_t pgp_packet_decrypt(const char *cryptotext,
 	fprintf_plus(stderr, "gpgme_op_decrypt_result failed\n");
       } else {
 	fprintf_plus(stderr, "Unsupported algorithm: %s\n",
-		result->unsupported_algorithm);
+		     result->unsupported_algorithm);
 	fprintf_plus(stderr, "Wrong key usage: %u\n",
-		result->wrong_key_usage);
+		     result->wrong_key_usage);
 	if(result->file_name != NULL){
 	  fprintf_plus(stderr, "File name: %s\n", result->file_name);
 	}
@@ -390,11 +392,12 @@ static ssize_t pgp_packet_decrypt(const char *cryptotext,
 	recipient = result->recipients;
 	while(recipient != NULL){
 	  fprintf_plus(stderr, "Public key algorithm: %s\n",
-		  gpgme_pubkey_algo_name(recipient->pubkey_algo));
+		       gpgme_pubkey_algo_name
+		       (recipient->pubkey_algo));
 	  fprintf_plus(stderr, "Key ID: %s\n", recipient->keyid);
 	  fprintf_plus(stderr, "Secret key available: %s\n",
-		  recipient->status == GPG_ERR_NO_SECKEY
-		  ? "No" : "Yes");
+		       recipient->status == GPG_ERR_NO_SECKEY
+		       ? "No" : "Yes");
 	  recipient = recipient->next;
 	}
       }
@@ -481,7 +484,8 @@ static int init_gnutls_global(const char *pubkeyfilename,
   
   ret = gnutls_global_init();
   if(ret != GNUTLS_E_SUCCESS){
-    fprintf_plus(stderr, "GnuTLS global_init: %s\n", safer_gnutls_strerror(ret));
+    fprintf_plus(stderr, "GnuTLS global_init: %s\n",
+		 safer_gnutls_strerror(ret));
     return -1;
   }
   
@@ -496,15 +500,17 @@ static int init_gnutls_global(const char *pubkeyfilename,
   /* OpenPGP credentials */
   ret = gnutls_certificate_allocate_credentials(&mc.cred);
   if(ret != GNUTLS_E_SUCCESS){
-    fprintf_plus(stderr, "GnuTLS memory error: %s\n", safer_gnutls_strerror(ret));
+    fprintf_plus(stderr, "GnuTLS memory error: %s\n",
+		 safer_gnutls_strerror(ret));
     gnutls_global_deinit();
     return -1;
   }
   
   if(debug){
     fprintf_plus(stderr, "Attempting to use OpenPGP public key %s and"
-	    " secret key %s as GnuTLS credentials\n", pubkeyfilename,
-	    seckeyfilename);
+		 " secret key %s as GnuTLS credentials\n",
+		 pubkeyfilename,
+		 seckeyfilename);
   }
   
   ret = gnutls_certificate_set_openpgp_key_file
@@ -514,21 +520,23 @@ static int init_gnutls_global(const char *pubkeyfilename,
     fprintf_plus(stderr,
 		 "Error[%d] while reading the OpenPGP key pair ('%s',"
 		 " '%s')\n", ret, pubkeyfilename, seckeyfilename);
-    fprintf_plus(stderr, "The GnuTLS error is: %s\n", safer_gnutls_strerror(ret));
+    fprintf_plus(stderr, "The GnuTLS error is: %s\n",
+		 safer_gnutls_strerror(ret));
     goto globalfail;
   }
   
   /* GnuTLS server initialization */
   ret = gnutls_dh_params_init(&mc.dh_params);
   if(ret != GNUTLS_E_SUCCESS){
-    fprintf_plus(stderr, "Error in GnuTLS DH parameter initialization:"
-	    " %s\n", safer_gnutls_strerror(ret));
+    fprintf_plus(stderr, "Error in GnuTLS DH parameter"
+		 " initialization: %s\n",
+		 safer_gnutls_strerror(ret));
     goto globalfail;
   }
   ret = gnutls_dh_params_generate2(mc.dh_params, mc.dh_bits);
   if(ret != GNUTLS_E_SUCCESS){
     fprintf_plus(stderr, "Error in GnuTLS prime generation: %s\n",
-	    safer_gnutls_strerror(ret));
+		 safer_gnutls_strerror(ret));
     goto globalfail;
   }
   
@@ -554,8 +562,9 @@ static int init_gnutls_session(gnutls_session_t *session){
     }
   } while(ret == GNUTLS_E_INTERRUPTED or ret == GNUTLS_E_AGAIN);
   if(ret != GNUTLS_E_SUCCESS){
-    fprintf_plus(stderr, "Error in GnuTLS session initialization: %s\n",
-	    safer_gnutls_strerror(ret));
+    fprintf_plus(stderr,
+		 "Error in GnuTLS session initialization: %s\n",
+		 safer_gnutls_strerror(ret));
   }
   
   {
@@ -569,7 +578,8 @@ static int init_gnutls_session(gnutls_session_t *session){
     } while(ret == GNUTLS_E_INTERRUPTED or ret == GNUTLS_E_AGAIN);
     if(ret != GNUTLS_E_SUCCESS){
       fprintf_plus(stderr, "Syntax error at: %s\n", err);
-      fprintf_plus(stderr, "GnuTLS error: %s\n", safer_gnutls_strerror(ret));
+      fprintf_plus(stderr, "GnuTLS error: %s\n",
+		   safer_gnutls_strerror(ret));
       gnutls_deinit(*session);
       return -1;
     }
@@ -585,7 +595,7 @@ static int init_gnutls_session(gnutls_session_t *session){
   } while(ret == GNUTLS_E_INTERRUPTED or ret == GNUTLS_E_AGAIN);
   if(ret != GNUTLS_E_SUCCESS){
     fprintf_plus(stderr, "Error setting GnuTLS credentials: %s\n",
-	    safer_gnutls_strerror(ret));
+		 safer_gnutls_strerror(ret));
     gnutls_deinit(*session);
     return -1;
   }
@@ -647,8 +657,8 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   }
   
   if(debug){
-    fprintf_plus(stderr, "Setting up a TCP connection to %s, port %" PRIu16
-	    "\n", ip, port);
+    fprintf_plus(stderr, "Setting up a TCP connection to %s, port %"
+		 PRIu16 "\n", ip, port);
   }
   
   tcp_sd = socket(pf, SOCK_STREAM, 0);
@@ -693,8 +703,8 @@ static int start_mandos_communication(const char *ip, uint16_t port,
        (&to.in6.sin6_addr)){ /* -Wstrict-aliasing=2 or lower and
 				-Wunreachable-code*/
       if(if_index == AVAHI_IF_UNSPEC){
-	fprintf_plus(stderr, "An IPv6 link-local address is incomplete"
-		" without a network interface\n");
+	fprintf_plus(stderr, "An IPv6 link-local address is"
+		     " incomplete without a network interface\n");
 	errno = EINVAL;
 	goto mandos_end;
       }
@@ -718,11 +728,12 @@ static int start_mandos_communication(const char *ip, uint16_t port,
       if(if_indextoname((unsigned int)if_index, interface) == NULL){
 	perror_plus("if_indextoname");
       } else {
-	fprintf_plus(stderr, "Connection to: %s%%%s, port %" PRIu16 "\n",
-		ip, interface, port);
+	fprintf_plus(stderr, "Connection to: %s%%%s, port %" PRIu16
+		     "\n", ip, interface, port);
       }
     } else {
-      fprintf_plus(stderr, "Connection to: %s, port %" PRIu16 "\n", ip, port);
+      fprintf_plus(stderr, "Connection to: %s, port %" PRIu16 "\n",
+		   ip, port);
     }
     char addrstr[(INET_ADDRSTRLEN > INET6_ADDRSTRLEN) ?
 		 INET_ADDRSTRLEN : INET6_ADDRSTRLEN] = "";
@@ -834,7 +845,8 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   /* Read OpenPGP packet that contains the wanted password */
   
   if(debug){
-    fprintf_plus(stderr, "Retrieving OpenPGP encrypted password from %s\n", ip);
+    fprintf_plus(stderr, "Retrieving OpenPGP encrypted password from"
+		 " %s\n", ip);
   }
   
   while(true){
@@ -878,7 +890,8 @@ static int start_mandos_communication(const char *ip, uint16_t port,
 	  }
 	} while(ret == GNUTLS_E_AGAIN or ret == GNUTLS_E_INTERRUPTED);
 	if(ret < 0){
-	  fprintf_plus(stderr, "*** GnuTLS Re-handshake failed ***\n");
+	  fprintf_plus(stderr, "*** GnuTLS Re-handshake failed "
+		       "***\n");
 	  gnutls_perror(ret);
 	  errno = EPROTO;
 	  goto mandos_end;
@@ -886,7 +899,7 @@ static int start_mandos_communication(const char *ip, uint16_t port,
 	break;
       default:
 	fprintf_plus(stderr, "Unknown error while reading data from"
-		" encrypted session with Mandos server\n");
+		     " encrypted session with Mandos server\n");
 	gnutls_bye(session, GNUTLS_SHUT_RDWR);
 	errno = EIO;
 	goto mandos_end;
@@ -933,7 +946,7 @@ static int start_mandos_communication(const char *ip, uint16_t port,
 	  int e = errno;
 	  if(debug){
 	    fprintf_plus(stderr, "Error writing encrypted data: %s\n",
-		    strerror(errno));
+			 strerror(errno));
 	  }
 	  errno = e;
 	  goto mandos_end;
@@ -996,9 +1009,10 @@ static void resolve_callback(AvahiSServiceResolver *r,
   switch(event){
   default:
   case AVAHI_RESOLVER_FAILURE:
-    fprintf_plus(stderr, "(Avahi Resolver) Failed to resolve service '%s'"
-	    " of type '%s' in domain '%s': %s\n", name, type, domain,
-	    avahi_strerror(avahi_server_errno(mc.server)));
+    fprintf_plus(stderr, "(Avahi Resolver) Failed to resolve service "
+		 "'%s' of type '%s' in domain '%s': %s\n", name, type,
+		 domain,
+		 avahi_strerror(avahi_server_errno(mc.server)));
     break;
     
   case AVAHI_RESOLVER_FOUND:
@@ -1007,8 +1021,8 @@ static void resolve_callback(AvahiSServiceResolver *r,
       avahi_address_snprint(ip, sizeof(ip), address);
       if(debug){
 	fprintf_plus(stderr, "Mandos server \"%s\" found on %s (%s, %"
-		PRIdMAX ") on port %" PRIu16 "\n", name, host_name,
-		ip, (intmax_t)interface, port);
+		     PRIdMAX ") on port %" PRIu16 "\n", name,
+		     host_name, ip, (intmax_t)interface, port);
       }
       int ret = start_mandos_communication(ip, port, interface,
 					   avahi_proto_to_af(proto));
@@ -1047,7 +1061,7 @@ static void browse_callback(AvahiSServiceBrowser *b,
   case AVAHI_BROWSER_FAILURE:
     
     fprintf_plus(stderr, "(Avahi browser) %s\n",
-	    avahi_strerror(avahi_server_errno(mc.server)));
+		 avahi_strerror(avahi_server_errno(mc.server)));
     avahi_simple_poll_quit(mc.simple_poll);
     return;
     
@@ -1060,8 +1074,9 @@ static void browse_callback(AvahiSServiceBrowser *b,
     if(avahi_s_service_resolver_new(mc.server, interface, protocol,
 				    name, type, domain, protocol, 0,
 				    resolve_callback, NULL) == NULL)
-      fprintf_plus(stderr, "Avahi: Failed to resolve service '%s': %s\n",
-	      name, avahi_strerror(avahi_server_errno(mc.server)));
+      fprintf_plus(stderr, "Avahi: Failed to resolve service '%s':"
+		   " %s\n", name,
+		   avahi_strerror(avahi_server_errno(mc.server)));
     break;
     
   case AVAHI_BROWSER_REMOVE:
@@ -1070,7 +1085,8 @@ static void browse_callback(AvahiSServiceBrowser *b,
   case AVAHI_BROWSER_ALL_FOR_NOW:
   case AVAHI_BROWSER_CACHE_EXHAUSTED:
     if(debug){
-      fprintf_plus(stderr, "No Mandos server found, still searching...\n");
+      fprintf_plus(stderr, "No Mandos server found, still"
+		   " searching...\n");
     }
     break;
   }
@@ -1115,28 +1131,32 @@ bool good_flags(const char *ifname, const struct ifreq *ifr){
   /* Reject the loopback device */
   if(ifr->ifr_flags & IFF_LOOPBACK){
     if(debug){
-      fprintf_plus(stderr, "Rejecting loopback interface \"%s\"\n", ifname);
+      fprintf_plus(stderr, "Rejecting loopback interface \"%s\"\n",
+		   ifname);
     }
     return false;
   }
   /* Accept point-to-point devices only if connect_to is specified */
   if(connect_to != NULL and (ifr->ifr_flags & IFF_POINTOPOINT)){
     if(debug){
-      fprintf_plus(stderr, "Accepting point-to-point interface \"%s\"\n", ifname);
+      fprintf_plus(stderr, "Accepting point-to-point interface"
+		   " \"%s\"\n", ifname);
     }
     return true;
   }
   /* Otherwise, reject non-broadcast-capable devices */
   if(not (ifr->ifr_flags & IFF_BROADCAST)){
     if(debug){
-      fprintf_plus(stderr, "Rejecting non-broadcast interface \"%s\"\n", ifname);
+      fprintf_plus(stderr, "Rejecting non-broadcast interface"
+		   " \"%s\"\n", ifname);
     }
     return false;
   }
   /* Reject non-ARP interfaces (including dummy interfaces) */
   if(ifr->ifr_flags & IFF_NOARP){
     if(debug){
-      fprintf_plus(stderr, "Rejecting non-ARP interface \"%s\"\n", ifname);
+      fprintf_plus(stderr, "Rejecting non-ARP interface \"%s\"\n",
+		   ifname);
     }
     return false;
   }
@@ -1161,8 +1181,8 @@ int good_interface(const struct dirent *if_entry){
   struct ifreq ifr;
   if(not get_flags(if_entry->d_name, &ifr)){
     if(debug){
-      fprintf_plus(stderr, "Failed to get flags for interface \"%s\"\n",
-	      if_entry->d_name);
+      fprintf_plus(stderr, "Failed to get flags for interface "
+		   "\"%s\"\n", if_entry->d_name);
     }
     return 0;
   }
@@ -1186,8 +1206,8 @@ int up_interface(const struct dirent *if_entry){
   struct ifreq ifr;
   if(not get_flags(if_entry->d_name, &ifr)){
     if(debug){
-      fprintf_plus(stderr, "Failed to get flags for interface \"%s\"\n",
-	      if_entry->d_name);
+      fprintf_plus(stderr, "Failed to get flags for interface "
+		   "\"%s\"\n", if_entry->d_name);
     }
     return 0;
   }
@@ -1196,7 +1216,7 @@ int up_interface(const struct dirent *if_entry){
   if(not (ifr.ifr_flags & IFF_UP)){
     if(debug){
       fprintf_plus(stderr, "Rejecting down interface \"%s\"\n",
-	      if_entry->d_name);
+		   if_entry->d_name);
     }
     return 0;
   }
@@ -1205,7 +1225,7 @@ int up_interface(const struct dirent *if_entry){
   if(not (ifr.ifr_flags & IFF_RUNNING)){
     if(debug){
       fprintf_plus(stderr, "Rejecting non-running interface \"%s\"\n",
-	      if_entry->d_name);
+		   if_entry->d_name);
     }
     return 0;
   }
@@ -1246,7 +1266,7 @@ int runnable_hook(const struct dirent *direntry){
     /* Contains non-allowed characters */
     if(debug){
       fprintf_plus(stderr, "Ignoring hook \"%s\" with bad name\n",
-	      direntry->d_name);
+		   direntry->d_name);
     }
     return 0;
   }
@@ -1269,7 +1289,7 @@ int runnable_hook(const struct dirent *direntry){
     /* Not a regular file */
     if(debug){
       fprintf_plus(stderr, "Ignoring hook \"%s\" - not a file\n",
-	      direntry->d_name);
+		   direntry->d_name);
     }
     return 0;
   }
@@ -1277,7 +1297,7 @@ int runnable_hook(const struct dirent *direntry){
     /* Not executable */
     if(debug){
       fprintf_plus(stderr, "Ignoring hook \"%s\" - not executable\n",
-	      direntry->d_name);
+		   direntry->d_name);
     }
     return 0;
   }
@@ -1293,13 +1313,14 @@ int avahi_loop_with_timeout(AvahiSimplePoll *s, int retry_interval){
   while(true){
     if(mc.current_server == NULL){
       if (debug){
-	fprintf_plus(stderr, "Wait until first server is found. No timeout!\n");
+	fprintf_plus(stderr, "Wait until first server is found."
+		     " No timeout!\n");
       }
       ret = avahi_simple_poll_iterate(s, -1);
     } else {
       if (debug){
-	fprintf_plus(stderr, "Check current_server if we should run it,"
-		" or wait\n");
+	fprintf_plus(stderr, "Check current_server if we should run"
+		     " it, or wait\n");
       }
       /* the current time */
       ret = clock_gettime(CLOCK_MONOTONIC, &now);
@@ -1321,7 +1342,8 @@ int avahi_loop_with_timeout(AvahiSimplePoll *s, int retry_interval){
 		    - ((intmax_t)waited_time.tv_nsec / 1000000));
       
       if (debug){
-	fprintf_plus(stderr, "Blocking for %" PRIdMAX " ms\n", block_time);
+	fprintf_plus(stderr, "Blocking for %" PRIdMAX " ms\n",
+		     block_time);
       }
       
       if(block_time <= 0){
@@ -1352,6 +1374,104 @@ int avahi_loop_with_timeout(AvahiSimplePoll *s, int retry_interval){
       }
     }
   }
+}
+
+bool run_network_hooks(const char *mode, const char *interface,
+		       const float delay){
+  struct dirent **direntries;
+  struct dirent *direntry;
+  int ret;
+  int numhooks = scandir(hookdir, &direntries, runnable_hook,
+			 alphasort);
+  if(numhooks == -1){
+    perror_plus("scandir");
+  } else {
+    int devnull = open("/dev/null", O_RDONLY);
+    for(int i = 0; i < numhooks; i++){
+      direntry = direntries[0];
+      char *fullname = NULL;
+      ret = asprintf(&fullname, "%s/%s", hookdir, direntry->d_name);
+      if(ret < 0){
+	perror_plus("asprintf");
+	continue;
+      }
+      pid_t hook_pid = fork();
+      if(hook_pid == 0){
+	/* Child */
+	dup2(devnull, STDIN_FILENO);
+	close(devnull);
+	dup2(STDERR_FILENO, STDOUT_FILENO);
+	ret = setenv("MANDOSNETHOOKDIR", hookdir, 1);
+	if(ret == -1){
+	  perror_plus("setenv");
+	  return false;
+	}
+	ret = setenv("DEVICE", interface, 1);
+	if(ret == -1){
+	  perror_plus("setenv");
+	  return false;
+	}
+	ret = setenv("VERBOSE", debug ? "1" : "0", 1);
+	if(ret == -1){
+	  perror_plus("setenv");
+	  return false;
+	}
+	ret = setenv("MODE", mode, 1);
+	if(ret == -1){
+	  perror_plus("setenv");
+	  return false;
+	}
+	char *delaystring;
+	ret = asprintf(&delaystring, "%f", delay);
+	if(ret == -1){
+	  perror_plus("asprintf");
+	  return false;
+	}
+	ret = setenv("DELAY", delaystring, 1);
+	if(ret == -1){
+	  free(delaystring);
+	  perror_plus("setenv");
+	  return false;
+	}
+	free(delaystring);
+	ret = execl(fullname, direntry->d_name, mode, NULL);
+	perror_plus("execl");
+      } else {
+	int status;
+	if(TEMP_FAILURE_RETRY(waitpid(hook_pid, &status, 0)) == -1){
+	  perror_plus("waitpid");
+	  free(fullname);
+	  continue;
+	}
+	if(WIFEXITED(status)){
+	  if(WEXITSTATUS(status) != 0){
+	    fprintf_plus(stderr, "Warning: network hook \"%s\" exited"
+			 " with status %d\n", direntry->d_name,
+			 WEXITSTATUS(status));
+	    free(fullname);
+	    continue;
+	  }
+	} else if(WIFSIGNALED(status)){
+	  fprintf_plus(stderr, "Warning: network hook \"%s\" died by"
+		       " signal %d\n", direntry->d_name,
+		       WTERMSIG(status));
+	  free(fullname);
+	  continue;
+	} else {
+	  fprintf_plus(stderr, "Warning: network hook \"%s\""
+		       " crashed\n", direntry->d_name);
+	  free(fullname);
+	  continue;
+	}
+      }
+      free(fullname);
+      if(quit_now){
+	break;
+      }
+    }
+    close(devnull);
+  }
+  return true;
 }
 
 int main(int argc, char *argv[]){
@@ -1517,7 +1637,8 @@ int main(int argc, char *argv[]){
 	argp_state_help(state, state->out_stream,
 			ARGP_HELP_USAGE | ARGP_HELP_EXIT_ERR);
       case 'V':			/* --version */
-	fprintf_plus(state->out_stream, "Mandos plugin mandos-client: ");
+	fprintf_plus(state->out_stream,
+		     "Mandos plugin mandos-client: ");
 	fprintf_plus(state->out_stream, "%s\n", argp_program_version);
 	exit(argp_err_exit_status);
 	break;
@@ -1569,7 +1690,8 @@ int main(int argc, char *argv[]){
 	if(ret == -1){
 	  perror_plus("fstat");
 	} else {
-	  if(S_ISREG(st.st_mode) and st.st_uid == 0 and st.st_gid == 0){
+	  if(S_ISREG(st.st_mode)
+	     and st.st_uid == 0 and st.st_gid == 0){
 	    ret = fchown(seckey_fd, uid, gid);
 	    if(ret == -1){
 	      perror_plus("fchown");
@@ -1589,7 +1711,8 @@ int main(int argc, char *argv[]){
 	if(ret == -1){
 	  perror_plus("fstat");
 	} else {
-	  if(S_ISREG(st.st_mode) and st.st_uid == 0 and st.st_gid == 0){
+	  if(S_ISREG(st.st_mode)
+	     and st.st_uid == 0 and st.st_gid == 0){
 	    ret = fchown(pubkey_fd, uid, gid);
 	    if(ret == -1){
 	      perror_plus("fchown");
@@ -1608,99 +1731,22 @@ int main(int argc, char *argv[]){
     }
   }
   
-  /* Find network hooks and run them */
+  /* Run network hooks */
   {
-    struct dirent **direntries;
-    struct dirent *direntry;
-    int numhooks = scandir(hookdir, &direntries, runnable_hook,
-			   alphasort);
-    if(numhooks == -1){
-      perror_plus("scandir");
-    } else {
-      int devnull = open("/dev/null", O_RDONLY);
-      for(int i = 0; i < numhooks; i++){
-	direntry = direntries[0];
-	char *fullname = NULL;
-	ret = asprintf(&fullname, "%s/%s", hookdir, direntry->d_name);
-	if(ret < 0){
-	  perror_plus("asprintf");
-	  continue;
-	}
-	pid_t hook_pid = fork();
-	if(hook_pid == 0){
-	  /* Child */
-	  dup2(devnull, STDIN_FILENO);
-	  close(devnull);
-	  dup2(STDERR_FILENO, STDOUT_FILENO);
-	  ret = setenv("MANDOSNETHOOKDIR", hookdir, 1);
-	  if(ret == -1){
-	    perror_plus("setenv");
-	    exit(1);
-	  }
-	  ret = setenv("DEVICE", interface, 1);
-	  if(ret == -1){
-	    perror_plus("setenv");
-	    exit(1);
-	  }
-	  ret = setenv("VERBOSE", debug ? "1" : "0", 1);
-	  if(ret == -1){
-	    perror_plus("setenv");
-	    exit(1);
-	  }
-	  ret = setenv("MODE", "start", 1);
-	  if(ret == -1){
-	    perror_plus("setenv");
-	    exit(1);
-	  }
-	  char *delaystring;
-	  ret = asprintf(&delaystring, "%f", delay);
-	  if(ret == -1){
-	    perror_plus("asprintf");
-	    exit(1);
-	  }
-	  ret = setenv("DELAY", delaystring, 1);
-	  if(ret == -1){
-	    free(delaystring);
-	    perror_plus("setenv");
-	    exit(1);
-	  }
-	  free(delaystring);
-	  ret = execl(fullname, direntry->d_name, "start", NULL);
-	  perror_plus("execl");
-	} else {
-	  int status;
-	  if(TEMP_FAILURE_RETRY(waitpid(hook_pid, &status, 0)) == -1){
-	    perror_plus("waitpid");
-	    free(fullname);
-	    continue;
-	  }
-	  if(WIFEXITED(status)){
-	    if(WEXITSTATUS(status) != 0){
-	      fprintf_plus(stderr, "Warning: network hook \"%s\" exited"
-		      " with status %d\n", direntry->d_name,
-		      WEXITSTATUS(status));
-	      free(fullname);
-	      continue;
-	    }
-	  } else if(WIFSIGNALED(status)){
-	    fprintf_plus(stderr, "Warning: network hook \"%s\" died by"
-		    " signal %d\n", direntry->d_name,
-		    WTERMSIG(status));
-	    free(fullname);
-	    continue;
-	  } else {
-	    fprintf_plus(stderr, "Warning: network hook \"%s\" crashed\n",
-		    direntry->d_name);
-	    free(fullname);
-	    continue;
-	  }
-	}
-	free(fullname);
-	if(quit_now){
-	  goto end;
-	}
-      }
-      close(devnull);
+    /* Re-raise priviliges */
+    errno = 0;
+    ret = seteuid(0);
+    if(ret == -1){
+      perror_plus("seteuid");
+    }
+    if(not run_network_hooks("start", interface, delay)){
+      goto end;
+    }
+    /* Lower privileges */
+    errno = 0;
+    ret = seteuid(uid);
+    if(ret == -1){
+      perror_plus("seteuid");
     }
   }
   
@@ -1746,7 +1792,8 @@ int main(int argc, char *argv[]){
   srand((unsigned int) time(NULL));
   mc.simple_poll = avahi_simple_poll_new();
   if(mc.simple_poll == NULL){
-    fprintf_plus(stderr, "Avahi: Failed to create simple poll object.\n");
+    fprintf_plus(stderr,
+		 "Avahi: Failed to create simple poll object.\n");
     exitcode = EX_UNAVAILABLE;
     goto end;
   }
@@ -1944,18 +1991,10 @@ int main(int argc, char *argv[]){
 #endif	/* __linux__ */
     /* Lower privileges */
     errno = 0;
-    if(take_down_interface){
-      /* Lower privileges */
-      ret = seteuid(uid);
-      if(ret == -1){
-	perror_plus("seteuid");
-      }
-    } else {
-      /* Lower privileges permanently */
-      ret = setuid(uid);
-      if(ret == -1){
-	perror_plus("setuid");
-      }
+    /* Lower privileges */
+    ret = seteuid(uid);
+    if(ret == -1){
+      perror_plus("seteuid");
     }
   }
   
@@ -2053,7 +2092,8 @@ int main(int argc, char *argv[]){
 	break;
       }
       if(debug){
-	fprintf_plus(stderr, "Retrying in %d seconds\n", (int)retry_interval);
+	fprintf_plus(stderr, "Retrying in %d seconds\n",
+		     (int)retry_interval);
       }
       sleep((int)retry_interval);
     }
@@ -2090,7 +2130,7 @@ int main(int argc, char *argv[]){
   /* Check if creating the Avahi server object succeeded */
   if(mc.server == NULL){
     fprintf_plus(stderr, "Failed to create Avahi server: %s\n",
-	    avahi_strerror(error));
+		 avahi_strerror(error));
     exitcode = EX_UNAVAILABLE;
     goto end;
   }
@@ -2105,7 +2145,7 @@ int main(int argc, char *argv[]){
 				   NULL, 0, browse_callback, NULL);
   if(sb == NULL){
     fprintf_plus(stderr, "Failed to create service browser: %s\n",
-	    avahi_strerror(avahi_server_errno(mc.server)));
+		 avahi_strerror(avahi_server_errno(mc.server)));
     exitcode = EX_UNAVAILABLE;
     goto end;
   }
@@ -2124,7 +2164,7 @@ int main(int argc, char *argv[]){
 				(int)(retry_interval * 1000));
   if(debug){
     fprintf_plus(stderr, "avahi_loop_with_timeout exited %s\n",
-	    (ret == 0) ? "successfully" : "with error");
+		 (ret == 0) ? "successfully" : "with error");
   }
   
  end:
@@ -2164,17 +2204,20 @@ int main(int argc, char *argv[]){
     }
   }
   
-  /* XXX run network hooks "stop" here  */
-  
-  /* Take down the network interface */
-  if(take_down_interface){
-    /* Re-raise priviliges */
+  /* Re-raise priviliges */
+  {
     errno = 0;
     ret = seteuid(0);
     if(ret == -1){
       perror_plus("seteuid");
     }
-    if(geteuid() == 0){
+    /* Run network hooks */
+    if(not run_network_hooks("stop", interface, delay)){
+      goto end;
+    }
+    
+    /* Take down the network interface */
+    if(take_down_interface and geteuid() == 0){
       ret = ioctl(sd, SIOCGIFFLAGS, &network);
       if(ret == -1){
 	perror_plus("ioctl SIOCGIFFLAGS");
@@ -2189,13 +2232,13 @@ int main(int argc, char *argv[]){
       if(ret == -1){
 	perror_plus("close");
       }
-      /* Lower privileges permanently */
-      errno = 0;
-      ret = setuid(uid);
-      if(ret == -1){
-	perror_plus("setuid");
-      }
     }
+  }
+  /* Lower privileges permanently */
+  errno = 0;
+  ret = setuid(uid);
+  if(ret == -1){
+    perror_plus("setuid");
   }
   
   /* Removes the GPGME temp directory and all files inside */
@@ -2216,7 +2259,8 @@ int main(int argc, char *argv[]){
 	}
 	ret = remove(fullname);
 	if(ret == -1){
-	  fprintf_plus(stderr, "remove(\"%s\"): %s\n", fullname, strerror(errno));
+	  fprintf_plus(stderr, "remove(\"%s\"): %s\n", fullname,
+		       strerror(errno));
 	}
 	free(fullname);
       }
