@@ -93,6 +93,23 @@ syslogger = (logging.handlers.SysLogHandler
              (facility = logging.handlers.SysLogHandler.LOG_DAEMON,
               address = str("/dev/log")))
 
+try:
+    if_nametoindex = (ctypes.cdll.LoadLibrary
+                      (ctypes.util.find_library("c"))
+                      .if_nametoindex)
+except (OSError, AttributeError):
+    def if_nametoindex(interface):
+        "Get an interface index the hard way, i.e. using fcntl()"
+        SIOCGIFINDEX = 0x8933  # From /usr/include/linux/sockios.h
+        with contextlib.closing(socket.socket()) as s:
+            ifreq = fcntl.ioctl(s, SIOCGIFINDEX,
+                                struct.pack(str("16s16x"),
+                                            interface))
+        interface_index = struct.unpack(str("I"),
+                                        ifreq[16:20])[0]
+        return interface_index
+
+
 def initlogger(level=logging.WARNING):
     """init logger and add loglevel"""
     
@@ -230,7 +247,7 @@ class AvahiService(object):
             try:
                 self.group.Free()
             except (dbus.exceptions.UnknownMethodException,
-                    dbus.exceptions.DBusException) as e:
+                    dbus.exceptions.DBusException):
                 pass
             self.group = None
         self.remove()
@@ -764,7 +781,7 @@ class DBusObjectWithProperties(dbus.service.Object):
         
         Note: Will not include properties with access="write".
         """
-        all = {}
+        properties = {}
         for name, prop in self._get_all_dbus_properties():
             if (interface_name
                 and interface_name != prop._dbus_interface):
@@ -775,11 +792,11 @@ class DBusObjectWithProperties(dbus.service.Object):
                 continue
             value = prop()
             if not hasattr(value, "variant_level"):
-                all[name] = value
+                properties[name] = value
                 continue
-            all[name] = type(value)(value, variant_level=
-                                    value.variant_level+1)
-        return dbus.Dictionary(all, signature="sv")
+            properties[name] = type(value)(value, variant_level=
+                                           value.variant_level+1)
+        return dbus.Dictionary(properties, signature="sv")
     
     @dbus.service.method(dbus.INTROSPECTABLE_IFACE,
                          out_signature="s",
@@ -1850,30 +1867,6 @@ def string_to_delta(interval):
             raise ValueError(*(e.args))
         timevalue += delta
     return timevalue
-
-
-def if_nametoindex(interface):
-    """Call the C function if_nametoindex(), or equivalent
-    
-    Note: This function cannot accept a unicode string."""
-    global if_nametoindex
-    try:
-        if_nametoindex = (ctypes.cdll.LoadLibrary
-                          (ctypes.util.find_library("c"))
-                          .if_nametoindex)
-    except (OSError, AttributeError):
-        logger.warning("Doing if_nametoindex the hard way")
-        def if_nametoindex(interface):
-            "Get an interface index the hard way, i.e. using fcntl()"
-            SIOCGIFINDEX = 0x8933  # From /usr/include/linux/sockios.h
-            with contextlib.closing(socket.socket()) as s:
-                ifreq = fcntl.ioctl(s, SIOCGIFINDEX,
-                                    struct.pack(str("16s16x"),
-                                                interface))
-            interface_index = struct.unpack(str("I"),
-                                            ifreq[16:20])[0]
-            return interface_index
-    return if_nametoindex(interface)
 
 
 def daemon(nochdir = False, noclose = False):
