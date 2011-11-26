@@ -331,9 +331,10 @@ class Client(object):
     interval:   datetime.timedelta(); How often to start a new checker
     last_approval_request: datetime.datetime(); (UTC) or None
     last_checked_ok: datetime.datetime(); (UTC) or None
-    last_checker_status: integer between 0 and 255 reflecting exit status
-                         of last checker. -1 reflect crashed checker,
-                         or None.
+
+    last_checker_status: integer between 0 and 255 reflecting exit
+                         status of last checker. -1 reflects crashed
+                         checker, or None.
     last_enabled: datetime.datetime(); (UTC)
     name:       string; from the config file, used in log messages and
                         D-Bus identifiers
@@ -419,11 +420,15 @@ class Client(object):
         self.changedstate = (multiprocessing_manager
                              .Condition(multiprocessing_manager
                                         .Lock()))
-        self.client_structure = [attr for attr in self.__dict__.iterkeys() if not attr.startswith("_")]
+        self.client_structure = [attr for attr in
+                                 self.__dict__.iterkeys()
+                                 if not attr.startswith("_")]
         self.client_structure.append("client_structure")
         
         for name, t in inspect.getmembers(type(self),
-                                          lambda obj: isinstance(obj, property)):
+                                          lambda obj:
+                                              isinstance(obj,
+                                                         property)):
             if not name.startswith("_"):
                 self.client_structure.append(name)
     
@@ -610,14 +615,17 @@ class Client(object):
                 raise
         self.checker = None
     
-    # Encrypts a client secret and stores it in a varible encrypted_secret
+    # Encrypts a client secret and stores it in a varible
+    # encrypted_secret
     def encrypt_secret(self, key):
-        # Encryption-key need to be of a specific size, so we hash inputed key
+        # Encryption-key need to be of a specific size, so we hash
+        # inputed key
         hasheng = hashlib.sha256()
         hasheng.update(key)
         encryptionkey = hasheng.digest()
         
-        # Create validation hash so we know at decryption if it was sucessful
+        # Create validation hash so we know at decryption if it was
+        # sucessful
         hasheng = hashlib.sha256()
         hasheng.update(self.secret)
         validationhash = hasheng.digest()
@@ -625,7 +633,8 @@ class Client(object):
         # Encrypt secret
         iv = os.urandom(Crypto.Cipher.AES.block_size)
         ciphereng = Crypto.Cipher.AES.new(encryptionkey,
-                                        Crypto.Cipher.AES.MODE_CFB, iv)
+                                        Crypto.Cipher.AES.MODE_CFB,
+                                          iv)
         ciphertext = ciphereng.encrypt(validationhash+self.secret)
         self.encrypted_secret = (ciphertext, iv)
     
@@ -639,7 +648,8 @@ class Client(object):
         # Decrypt encrypted secret
         ciphertext, iv = self.encrypted_secret
         ciphereng = Crypto.Cipher.AES.new(encryptionkey,
-                                        Crypto.Cipher.AES.MODE_CFB, iv)
+                                        Crypto.Cipher.AES.MODE_CFB,
+                                          iv)
         plain = ciphereng.decrypt(ciphertext)
         
         # Validate decrypted secret to know if it was succesful
@@ -648,8 +658,8 @@ class Client(object):
         secret = plain[hasheng.digest_size:]
         hasheng.update(secret)
         
-        # if validation fails, we use key as new secret. Otherwhise, we use
-        # the decrypted secret
+        # if validation fails, we use key as new secret. Otherwhise,
+        # we use the decrypted secret
         if hasheng.digest() == validationhash:
             self.secret = secret
         else:
@@ -1932,8 +1942,8 @@ def main():
     parser.add_argument("--no-ipv6", action="store_false",
                         dest="use_ipv6", help="Do not use IPv6")
     parser.add_argument("--no-restore", action="store_false",
-                        dest="restore", help="Do not restore stored state",
-                        default=True)
+                        dest="restore", help="Do not restore stored"
+                        " state", default=True)
     
     options = parser.parse_args()
     
@@ -2001,7 +2011,7 @@ def main():
             initlogger()
         else:
             level = getattr(logging, debuglevel.upper())
-            initlogger(level)    
+            initlogger(level)
     
     if server_settings["servicename"] != "Mandos":
         syslogger.setFormatter(logging.Formatter
@@ -2137,22 +2147,27 @@ def main():
     # with exceptions for any special settings as defined above
     client_settings = dict((clientname,
                            dict((setting,
-                                 (value if setting not in special_settings
-                                  else special_settings[setting](clientname)))
-                                for setting, value in client_config.items(clientname)))
+                                 (value
+                                  if setting not in special_settings
+                                  else special_settings[setting]
+                                  (clientname)))
+                                for setting, value in
+                                client_config.items(clientname)))
                           for clientname in client_config.sections())
     
     old_client_settings = {}
     clients_data = []
     
-    # Get client data and settings from last running state. 
+    # Get client data and settings from last running state.
     if server_settings["restore"]:
         try:
             with open(stored_state_path, "rb") as stored_state:
-                clients_data, old_client_settings = pickle.load(stored_state)
+                clients_data, old_client_settings = (pickle.load
+                                                     (stored_state))
             os.remove(stored_state_path)
         except IOError as e:
-            logger.warning("Could not load persistant state: {0}".format(e))
+            logger.warning("Could not load persistant state: {0}"
+                           .format(e))
             if e.errno != errno.ENOENT:
                 raise
     
@@ -2169,27 +2184,31 @@ def main():
                 # For each value in new config, check if it differs
                 # from the old config value (Except for the "secret"
                 # attribute)
-                if name != "secret" and value != old_client_settings[client_name][name]:
+                if (name != "secret" and
+                    value != old_client_settings[client_name][name]):
                     setattr(client, name, value)
             except KeyError:
                 pass
         
-        # Clients who has passed its expire date, can still be enabled if its
-        # last checker was sucessful. Clients who checkers failed before we
-        # stored it state is asumed to had failed checker during downtime.
+        # Clients who has passed its expire date, can still be enabled
+        # if its last checker was sucessful. Clients who checkers
+        # failed before we stored it state is asumed to had failed
+        # checker during downtime.
         if client["enabled"] and client["last_checked_ok"]:
-            if ((datetime.datetime.utcnow() - client["last_checked_ok"])
-                > client["interval"]):
+            if ((datetime.datetime.utcnow()
+                 - client["last_checked_ok"]) > client["interval"]):
                 if client["last_checker_status"] != 0:
                     client["enabled"] = False
                 else:
-                    client["expires"] = datetime.datetime.utcnow() + client["timeout"]
+                    client["expires"] = (datetime.datetime.utcnow()
+                                         + client["timeout"])
         
         client["changedstate"] = (multiprocessing_manager
                                   .Condition(multiprocessing_manager
                                              .Lock()))
         if use_dbus:
-            new_client = ClientDBusTransitional.__new__(ClientDBusTransitional)
+            new_client = (ClientDBusTransitional.__new__
+                          (ClientDBusTransitional))
             tcp_server.clients[client_name] = new_client
             new_client.bus = bus
             for name, value in client.iteritems():
@@ -2198,27 +2217,29 @@ def main():
                 {ord("."): ord("_"),
                  ord("-"): ord("_")})
             new_client.dbus_object_path = (dbus.ObjectPath
-                                     ("/clients/" + client_object_name))
+                                           ("/clients/"
+                                            + client_object_name))
             DBusObjectWithProperties.__init__(new_client,
                                               new_client.bus,
-                                              new_client.dbus_object_path)
+                                              new_client
+                                              .dbus_object_path)
         else:
             tcp_server.clients[client_name] = Client.__new__(Client)
             for name, value in client.iteritems():
                 setattr(tcp_server.clients[client_name], name, value)
                 
         tcp_server.clients[client_name].decrypt_secret(
-            client_settings[client_name]["secret"])            
+            client_settings[client_name]["secret"])
         
     # Create/remove clients based on new changes made to config
     for clientname in set(old_client_settings) - set(client_settings):
         del tcp_server.clients[clientname]
     for clientname in set(client_settings) - set(old_client_settings):
-        tcp_server.clients[clientname] = (client_class(name = clientname,
+        tcp_server.clients[clientname] = (client_class(name
+                                                       = clientname,
                                                        config =
                                                        client_settings
                                                        [clientname]))
-    
     
     if not tcp_server.clients:
         logger.warning("No clients defined")
@@ -2308,17 +2329,19 @@ def main():
         if not (tcp_server.clients or client_settings):
             return
         
-        # Store client before exiting. Secrets are encrypted with key based
-        # on what config file has. If config file is removed/edited, old
-        # secret will thus be unrecovable.
+        # Store client before exiting. Secrets are encrypted with key
+        # based on what config file has. If config file is
+        # removed/edited, old secret will thus be unrecovable.
         clients = []
         for client in tcp_server.clients.itervalues():
-            client.encrypt_secret(client_settings[client.name]["secret"])
+            client.encrypt_secret(client_settings[client.name]
+                                  ["secret"])
             
             client_dict = {}
             
-            # A list of attributes that will not be stored when shuting down.
-            exclude = set(("bus", "changedstate", "secret"))            
+            # A list of attributes that will not be stored when
+            # shutting down.
+            exclude = set(("bus", "changedstate", "secret"))
             for name, typ in inspect.getmembers(dbus.service.Object):
                 exclude.add(name)
                 
@@ -2327,14 +2350,17 @@ def main():
                 if attr not in exclude:
                     client_dict[attr] = getattr(client, attr)
             
-            clients.append(client_dict) 
+            clients.append(client_dict)
             del client_settings[client.name]["secret"]
             
         try:
-            with os.fdopen(os.open(stored_state_path, os.O_CREAT|os.O_WRONLY|os.O_TRUNC, 0600), "wb") as stored_state:
+            with os.fdopen(os.open(stored_state_path,
+                                   os.O_CREAT|os.O_WRONLY|os.O_TRUNC,
+                                   0600), "wb") as stored_state:
                 pickle.dump((clients, client_settings), stored_state)
         except IOError as e:
-            logger.warning("Could not save persistant state: {0}".format(e))
+            logger.warning("Could not save persistant state: {0}"
+                           .format(e))
             if e.errno != errno.ENOENT:
                 raise
         
