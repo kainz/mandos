@@ -3,7 +3,7 @@
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY CONFNAME "mandos-clients.conf">
 <!ENTITY CONFPATH "<filename>/etc/mandos/clients.conf</filename>">
-<!ENTITY TIMESTAMP "2011-10-10">
+<!ENTITY TIMESTAMP "2011-11-26">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -340,6 +340,20 @@
 	    <quote><literal>110s 110s 110s</literal></quote>, and
 	    <quote><literal>5m 30s</literal></quote> will give a value
 	    of five minutes and thirty seconds.
+	  </para>
+	</listitem>
+      </varlistentry>
+      
+      <varlistentry>
+	<term><option>enabled<literal> = </literal>{ <literal
+	>1</literal> | <literal>yes</literal> |	<literal>true</literal
+	> | <literal >on</literal> | <literal>0</literal> | <literal
+	>no</literal> | <literal>false</literal> | <literal
+	>off</literal> }</option></term>
+	<listitem>
+	  <para>
+	    Whether this client should be enabled by default.  The
+	    default is <quote>true</quote>.
 	  </para>
 	</listitem>
       </varlistentry>
