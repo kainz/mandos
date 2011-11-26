@@ -87,7 +87,7 @@ except AttributeError:
 
 
 version = "1.4.1"
-stored_state_path = "/var/lib/mandos/clients.pickle"
+stored_state_file = "clients.pickle"
 
 logger = logging.getLogger()
 syslogger = (logging.handlers.SysLogHandler
@@ -1972,7 +1972,9 @@ def main():
                         dest="use_ipv6", help="Do not use IPv6")
     parser.add_argument("--no-restore", action="store_false",
                         dest="restore", help="Do not restore stored"
-                        " state", default=True)
+                        " state")
+    parser.add_argument("--statedir", metavar="DIR",
+                        help="Directory to save/restore state in")
     
     options = parser.parse_args()
     
@@ -1992,6 +1994,8 @@ def main():
                         "use_dbus": "True",
                         "use_ipv6": "True",
                         "debuglevel": "",
+                        "restore": "True",
+                        "statedir": "/var/lib/mandos"
                         }
     
     # Parse config file for server-global settings
@@ -2014,7 +2018,8 @@ def main():
     # options, if set.
     for option in ("interface", "address", "port", "debug",
                    "priority", "servicename", "configdir",
-                   "use_dbus", "use_ipv6", "debuglevel", "restore"):
+                   "use_dbus", "use_ipv6", "debuglevel", "restore",
+                   "statedir"):
         value = getattr(options, option)
         if value is not None:
             server_settings[option] = value
@@ -2032,6 +2037,8 @@ def main():
     debuglevel = server_settings["debuglevel"]
     use_dbus = server_settings["use_dbus"]
     use_ipv6 = server_settings["use_ipv6"]
+    stored_state_path = os.path.join(server_settings["statedir"],
+                                     stored_state_file)
     
     if debug:
         initlogger(logging.DEBUG)
