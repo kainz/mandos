@@ -415,7 +415,7 @@ class Client(object):
     last_checker_status: integer between 0 and 255 reflecting exit
                          status of last checker. -1 reflects crashed
                          checker, or None.
-    last_enabled: datetime.datetime(); (UTC)
+    last_enabled: datetime.datetime(); (UTC) or None
     name:       string; from the config file, used in log messages and
                         D-Bus identifiers
     secret:     bytestring; sent verbatim (over TLS) to client
@@ -473,9 +473,12 @@ class Client(object):
                             % self.name)
         self.host = config.get("host", "")
         self.created = datetime.datetime.utcnow()
-        self.enabled = True
+        self.enabled = config.get("enabled", True)
         self.last_approval_request = None
-        self.last_enabled = datetime.datetime.utcnow()
+        if self.enabled:
+            self.last_enabled = datetime.datetime.utcnow()
+        else:
+            self.last_enabled = None
         self.last_checked_ok = None
         self.last_checker_status = None
         self.timeout = string_to_delta(config["timeout"])
@@ -485,7 +488,10 @@ class Client(object):
         self.checker = None
         self.checker_initiator_tag = None
         self.disable_initiator_tag = None
-        self.expires = datetime.datetime.utcnow() + self.timeout
+        if self.enabled:
+            self.expires = datetime.datetime.utcnow() + self.timeout
+        else:
+            self.expires = None
         self.checker_callback_tag = None
         self.checker_command = config["checker"]
         self.current_checker_command = None
@@ -1278,7 +1284,7 @@ class ClientDBus(Client, DBusObjectWithProperties):
     # Created - property
     @dbus_service_property(_interface, signature="s", access="read")
     def Created_dbus_property(self):
-        return dbus.String(datetime_to_dbus(self.created))
+        return datetime_to_dbus(self.created)
     
     # LastEnabled - property
     @dbus_service_property(_interface, signature="s", access="read")
@@ -1360,11 +1366,12 @@ class ClientDBus(Client, DBusObjectWithProperties):
         self.interval = datetime.timedelta(0, 0, 0, value)
         if getattr(self, "checker_initiator_tag", None) is None:
             return
-        # Reschedule checker run
-        gobject.source_remove(self.checker_initiator_tag)
-        self.checker_initiator_tag = (gobject.timeout_add
-                                      (value, self.start_checker))
-        self.start_checker()    # Start one now, too
+        if self.enabled:
+            # Reschedule checker run
+            gobject.source_remove(self.checker_initiator_tag)
+            self.checker_initiator_tag = (gobject.timeout_add
+                                          (value, self.start_checker))
+            self.start_checker()    # Start one now, too
     
     # Checker - property
     @dbus_service_property(_interface, signature="s",
@@ -2177,6 +2184,9 @@ def main():
         "approved_by_default":
             lambda section:
             client_config.getboolean(section, "approved_by_default"),
+        "enabled":
+            lambda section:
+            client_config.getboolean(section, "enabled"),
         }
     # Construct a new dict of client settings of this form:
     # { client_name: {setting_name: value, ...}, ...}
