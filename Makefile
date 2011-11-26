@@ -26,12 +26,16 @@ htmldir=man
 version=1.4.1
 SED=sed
 
+USER=$(firstword $(subst :, ,$(shell getent passwd _mandos || getent passwd nobody || echo 65534)))
+GROUP=$(firstword $(subst :, ,$(shell getent group _mandos || getent group nobody || echo 65534)))
+
 ## Use these settings for a traditional /usr/local install
 # PREFIX=$(DESTDIR)/usr/local
 # CONFDIR=$(DESTDIR)/etc/mandos
 # KEYDIR=$(DESTDIR)/etc/mandos/keys
 # MANDIR=$(PREFIX)/man
 # INITRAMFSTOOLS=$(DESTDIR)/etc/initramfs-tools
+# STATEDIR=$(DESTDIR)/var/lib/mandos
 ##
 
 ## These settings are for a package-type install
@@ -40,6 +44,7 @@ CONFDIR=$(DESTDIR)/etc/mandos
 KEYDIR=$(DESTDIR)/etc/keys/mandos
 MANDIR=$(PREFIX)/share/man
 INITRAMFSTOOLS=$(DESTDIR)/usr/share/initramfs-tools
+STATEDIR=$(DESTDIR)/var/lib/mandos
 ##
 
 GNUTLS_CFLAGS=$(shell pkg-config --cflags-only-I gnutls)
@@ -230,7 +235,7 @@ clean:
 distclean: clean
 mostlyclean: clean
 maintainer-clean: clean
-	-rm --force --recursive keydir confdir
+	-rm --force --recursive keydir confdir statedir
 
 check:	all
 	./mandos --check
@@ -260,8 +265,8 @@ keydir/seckey.txt keydir/pubkey.txt: mandos-keygen
 
 # Run the server with a local config
 run-server: confdir/mandos.conf confdir/clients.conf
-	./mandos --debug --no-dbus --configdir=confdir --no-restore \
-	$(SERVERARGS)
+	./mandos --debug --no-dbus --configdir=confdir \
+		--statedir=statedir $(SERVERARGS)
 
 # Used by run-server
 confdir/mandos.conf: mandos.conf
@@ -272,6 +277,8 @@ confdir/clients.conf: clients.conf keydir/seckey.txt
 	install --mode=u=rw $< $@
 # Add a client password
 	./mandos-keygen --dir keydir --password >> $@
+statedir:
+	install --directory statedir
 
 install: install-server install-client-nokey
 
@@ -282,6 +289,8 @@ install-html: html
 
 install-server: doc
 	install --directory $(CONFDIR)
+	install --directory --mode=u=rwx --owner=$(USER) \
+		--group=$(GROUP) $(STATEDIR)
 	install --mode=u=rwx,go=rx mandos $(PREFIX)/sbin/mandos
 	install --mode=u=rwx,go=rx --target-directory=$(PREFIX)/sbin \
 		mandos-ctl
