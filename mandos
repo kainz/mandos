@@ -421,8 +421,7 @@ class Client(object):
                                         .Lock()))
         self.client_structure = [attr for attr in self.__dict__.iterkeys() if not attr.startswith("_")]
         self.client_structure.append("client_structure")
-
-
+        
         for name, t in inspect.getmembers(type(self),
                                           lambda obj: isinstance(obj, property)):
             if not name.startswith("_"):
@@ -466,7 +465,7 @@ class Client(object):
     
     def __del__(self):
         self.disable()
-
+    
     def init_checker(self):
         # Schedule a new checker to be started an 'interval' from now,
         # and every interval from then on.
@@ -479,8 +478,7 @@ class Client(object):
                                     self.disable))
         # Also start a new checker *right now*.
         self.start_checker()
-
-        
+    
     def checker_callback(self, pid, condition, command):
         """The checker has completed, so take appropriate actions."""
         self.checker_callback_tag = None
@@ -611,45 +609,45 @@ class Client(object):
             if error.errno != errno.ESRCH: # No such process
                 raise
         self.checker = None
-
+    
     # Encrypts a client secret and stores it in a varible encrypted_secret
     def encrypt_secret(self, key):
         # Encryption-key need to be of a specific size, so we hash inputed key
         hasheng = hashlib.sha256()
         hasheng.update(key)
         encryptionkey = hasheng.digest()
-
+        
         # Create validation hash so we know at decryption if it was sucessful
         hasheng = hashlib.sha256()
         hasheng.update(self.secret)
         validationhash = hasheng.digest()
-
+        
         # Encrypt secret
         iv = os.urandom(Crypto.Cipher.AES.block_size)
         ciphereng = Crypto.Cipher.AES.new(encryptionkey,
                                         Crypto.Cipher.AES.MODE_CFB, iv)
         ciphertext = ciphereng.encrypt(validationhash+self.secret)
         self.encrypted_secret = (ciphertext, iv)
-
+    
     # Decrypt a encrypted client secret
     def decrypt_secret(self, key):
         # Decryption-key need to be of a specific size, so we hash inputed key
         hasheng = hashlib.sha256()
         hasheng.update(key)
         encryptionkey = hasheng.digest()
-
+        
         # Decrypt encrypted secret
         ciphertext, iv = self.encrypted_secret
         ciphereng = Crypto.Cipher.AES.new(encryptionkey,
                                         Crypto.Cipher.AES.MODE_CFB, iv)
         plain = ciphereng.decrypt(ciphertext)
-
+        
         # Validate decrypted secret to know if it was succesful
         hasheng = hashlib.sha256()
         validationhash = plain[:hasheng.digest_size]
         secret = plain[hasheng.digest_size:]
         hasheng.update(secret)
-
+        
         # if validation fails, we use key as new secret. Otherwhise, we use
         # the decrypted secret
         if hasheng.digest() == validationhash:
@@ -853,6 +851,7 @@ def datetime_to_dbus (dt, variant_level=0):
     return dbus.String(dt.isoformat(),
                        variant_level=variant_level)
 
+
 class AlternateDBusNamesMetaclass(DBusObjectWithProperties
                                   .__metaclass__):
     """Applied to an empty subclass of a D-Bus object, this metaclass
@@ -950,6 +949,7 @@ class AlternateDBusNamesMetaclass(DBusObjectWithProperties
                                         attribute.func_closure)))
         return type.__new__(mcs, name, bases, attr)
 
+
 class ClientDBus(Client, DBusObjectWithProperties):
     """A Client class using D-Bus
     
@@ -966,7 +966,7 @@ class ClientDBus(Client, DBusObjectWithProperties):
     def __init__(self, bus = None, *args, **kwargs):
         self.bus = bus
         Client.__init__(self, *args, **kwargs)
-
+        
         self._approvals_pending = 0
         # Only now, when this client is initialized, can it show up on
         # the D-Bus
@@ -983,7 +983,7 @@ class ClientDBus(Client, DBusObjectWithProperties):
                              variant_level=1):
         """ Modify a variable so that it's a property which announces
         its changes to DBus.
-
+        
         transform_fun: Function that takes a value and a variant_level
                        and transforms it to a D-Bus type.
         dbus_name: D-Bus name of the variable
@@ -1150,7 +1150,7 @@ class ClientDBus(Client, DBusObjectWithProperties):
         Is sent after a client request a password.
         """
         pass
-
+    
     ## Methods
     
     # Approve - method
@@ -1385,8 +1385,10 @@ class ProxyClient(object):
             return super(ProxyClient, self).__setattr__(name, value)
         self._pipe.send(('setattr', name, value))
 
+
 class ClientDBusTransitional(ClientDBus):
     __metaclass__ = AlternateDBusNamesMetaclass
+
 
 class ClientHandler(socketserver.BaseRequestHandler, object):
     """A class to handle client connections.
@@ -1932,7 +1934,7 @@ def main():
     parser.add_argument("--no-restore", action="store_false",
                         dest="restore", help="Do not restore stored state",
                         default=True)
-
+    
     options = parser.parse_args()
     
     if options.check:
@@ -2142,7 +2144,7 @@ def main():
     
     old_client_settings = {}
     clients_data = []
-
+    
     # Get client data and settings from last running state. 
     if server_settings["restore"]:
         try:
@@ -2153,7 +2155,7 @@ def main():
             logger.warning("Could not load persistant state: {0}".format(e))
             if e.errno != errno.ENOENT:
                 raise
-
+    
     for client in clients_data:
         client_name = client["name"]
         
@@ -2171,7 +2173,7 @@ def main():
                     setattr(client, name, value)
             except KeyError:
                 pass
-
+        
         # Clients who has passed its expire date, can still be enabled if its
         # last checker was sucessful. Clients who checkers failed before we
         # stored it state is asumed to had failed checker during downtime.
@@ -2182,7 +2184,7 @@ def main():
                     client["enabled"] = False
                 else:
                     client["expires"] = datetime.datetime.utcnow() + client["timeout"]
-
+        
         client["changedstate"] = (multiprocessing_manager
                                   .Condition(multiprocessing_manager
                                              .Lock()))
@@ -2217,7 +2219,7 @@ def main():
                                                        client_settings
                                                        [clientname]))
     
-
+    
     if not tcp_server.clients:
         logger.warning("No clients defined")
         
@@ -2305,16 +2307,16 @@ def main():
         multiprocessing.active_children()
         if not (tcp_server.clients or client_settings):
             return
-
+        
         # Store client before exiting. Secrets are encrypted with key based
         # on what config file has. If config file is removed/edited, old
         # secret will thus be unrecovable.
         clients = []
         for client in tcp_server.clients.itervalues():
             client.encrypt_secret(client_settings[client.name]["secret"])
-
+            
             client_dict = {}
-
+            
             # A list of attributes that will not be stored when shuting down.
             exclude = set(("bus", "changedstate", "secret"))            
             for name, typ in inspect.getmembers(dbus.service.Object):
@@ -2324,7 +2326,7 @@ def main():
             for attr in client.client_structure:
                 if attr not in exclude:
                     client_dict[attr] = getattr(client, attr)
-
+            
             clients.append(client_dict) 
             del client_settings[client.name]["secret"]
             
@@ -2335,7 +2337,7 @@ def main():
             logger.warning("Could not save persistant state: {0}".format(e))
             if e.errno != errno.ENOENT:
                 raise
-
+        
         # Delete all clients, and settings from config
         while tcp_server.clients:
             name, client = tcp_server.clients.popitem()
