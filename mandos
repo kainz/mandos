@@ -63,7 +63,8 @@ import functools
 import cPickle as pickle
 import multiprocessing
 import types
-import hashlib
+import binascii
+import tempfile
 
 import dbus
 import dbus.service
@@ -74,7 +75,7 @@ import ctypes
 import ctypes.util
 import xml.dom.minidom
 import inspect
-import Crypto.Cipher.AES
+import GnuPGInterface
 
 try:
     SO_BINDTODEVICE = socket.SO_BINDTODEVICE
@@ -125,6 +126,85 @@ def initlogger(level=logging.WARNING):
                                            ' %(message)s'))
     logger.addHandler(console)
     logger.setLevel(level)
+
+
+class CryptoError(Exception):
+    pass
+
+
+class Crypto(object):
+    """A simple class for OpenPGP symmetric encryption & decryption"""
+    def __init__(self):
+        self.gnupg = GnuPGInterface.GnuPG()
+        self.tempdir = tempfile.mkdtemp(prefix="mandos-")
+        self.gnupg = GnuPGInterface.GnuPG()
+        self.gnupg.options.meta_interactive = False
+        self.gnupg.options.homedir = self.tempdir
+        self.gnupg.options.extra_args.extend(['--force-mdc',
+                                              '--quiet'])
+    
+    def __enter__(self):
+        return self
+    
+    def __exit__ (self, exc_type, exc_value, traceback):
+        self._cleanup()
+        return False
+    
+    def __del__(self):
+        self._cleanup()
+    
+    def _cleanup(self):
+        if self.tempdir is not None:
+            # Delete contents of tempdir
+            for root, dirs, files in os.walk(self.tempdir,
+                                             topdown = False):
+                for filename in files:
+                    os.remove(os.path.join(root, filename))
+                for dirname in dirs:
+                    os.rmdir(os.path.join(root, dirname))
+            # Remove tempdir
+            os.rmdir(self.tempdir)
+            self.tempdir = None
+    
+    def password_encode(self, password):
+        # Passphrase can not be empty and can not contain newlines or
+        # NUL bytes.  So we prefix it and hex encode it.
+        return b"mandos" + binascii.hexlify(password)
+    
+    def encrypt(self, data, password):
+        self.gnupg.passphrase = self.password_encode(password)
+        with open(os.devnull) as devnull:
+            try:
+                proc = self.gnupg.run(['--symmetric'],
+                                      create_fhs=['stdin', 'stdout'],
+                                      attach_fhs={'stderr': devnull})
+                with contextlib.closing(proc.handles['stdin']) as f:
+                    f.write(data)
+                with contextlib.closing(proc.handles['stdout']) as f:
+                    ciphertext = f.read()
+                proc.wait()
+            except IOError as e:
+                raise CryptoError(e)
+        self.gnupg.passphrase = None
+        return ciphertext
+    
+    def decrypt(self, data, password):
+        self.gnupg.passphrase = self.password_encode(password)
+        with open(os.devnull) as devnull:
+            try:
+                proc = self.gnupg.run(['--decrypt'],
+                                      create_fhs=['stdin', 'stdout'],
+                                      attach_fhs={'stderr': devnull})
+                with contextlib.closing(proc.handles['stdin'] ) as f:
+                    f.write(data)
+                with contextlib.closing(proc.handles['stdout']) as f:
+                    decrypted_plaintext = f.read()
+                proc.wait()
+            except IOError as e:
+                raise CryptoError(e)
+        self.gnupg.passphrase = None
+        return decrypted_plaintext
+
 
 
 class AvahiError(Exception):
@@ -614,57 +694,6 @@ class Client(object):
             if error.errno != errno.ESRCH: # No such process
                 raise
         self.checker = None
-    
-    # Encrypts a client secret and stores it in a varible
-    # encrypted_secret
-    def encrypt_secret(self, key):
-        # Encryption-key need to be of a specific size, so we hash
-        # inputed key
-        hasheng = hashlib.sha256()
-        hasheng.update(key)
-        encryptionkey = hasheng.digest()
-        
-        # Create validation hash so we know at decryption if it was
-        # sucessful
-        hasheng = hashlib.sha256()
-        hasheng.update(self.secret)
-        validationhash = hasheng.digest()
-        
-        # Encrypt secret
-        iv = os.urandom(Crypto.Cipher.AES.block_size)
-        ciphereng = Crypto.Cipher.AES.new(encryptionkey,
-                                        Crypto.Cipher.AES.MODE_CFB,
-                                          iv)
-        ciphertext = ciphereng.encrypt(validationhash+self.secret)
-        self.encrypted_secret = (ciphertext, iv)
-    
-    # Decrypt a encrypted client secret
-    def decrypt_secret(self, key):
-        # Decryption-key need to be of a specific size, so we hash inputed key
-        hasheng = hashlib.sha256()
-        hasheng.update(key)
-        encryptionkey = hasheng.digest()
-        
-        # Decrypt encrypted secret
-        ciphertext, iv = self.encrypted_secret
-        ciphereng = Crypto.Cipher.AES.new(encryptionkey,
-                                        Crypto.Cipher.AES.MODE_CFB,
-                                          iv)
-        plain = ciphereng.decrypt(ciphertext)
-        
-        # Validate decrypted secret to know if it was succesful
-        hasheng = hashlib.sha256()
-        validationhash = plain[:hasheng.digest_size]
-        secret = plain[hasheng.digest_size:]
-        hasheng.update(secret)
-        
-        # if validation fails, we use key as new secret. Otherwhise,
-        # we use the decrypted secret
-        if hasheng.digest() == validationhash:
-            self.secret = secret
-        else:
-            self.secret = key
-        del self.encrypted_secret
 
 
 def dbus_service_property(dbus_interface, signature="v",
@@ -1618,7 +1647,7 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
         # Convert the buffer to a Python bytestring
         fpr = ctypes.string_at(buf, buf_len.value)
         # Convert the bytestring to hexadecimal notation
-        hex_fpr = ''.join("%02X" % ord(char) for char in fpr)
+        hex_fpr = binascii.hexlify(fpr).upper()
         return hex_fpr
 
 
@@ -2166,71 +2195,86 @@ def main():
                                                      (stored_state))
             os.remove(stored_state_path)
         except IOError as e:
-            logger.warning("Could not load persistant state: {0}"
+            logger.warning("Could not load persistent state: {0}"
                            .format(e))
             if e.errno != errno.ENOENT:
                 raise
     
-    for client in clients_data:
-        client_name = client["name"]
-        
-        # Decide which value to use after restoring saved state.
-        # We have three different values: Old config file,
-        # new config file, and saved state.
-        # New config value takes precedence if it differs from old
-        # config value, otherwise use saved state.
-        for name, value in client_settings[client_name].items():
+    with Crypto() as crypt:
+        for client in clients_data:
+            client_name = client["name"]
+            
+            # Decide which value to use after restoring saved state.
+            # We have three different values: Old config file,
+            # new config file, and saved state.
+            # New config value takes precedence if it differs from old
+            # config value, otherwise use saved state.
+            for name, value in client_settings[client_name].items():
+                try:
+                    # For each value in new config, check if it
+                    # differs from the old config value (Except for
+                    # the "secret" attribute)
+                    if (name != "secret" and
+                        value != old_client_settings[client_name]
+                        [name]):
+                        setattr(client, name, value)
+                except KeyError:
+                    pass
+            
+            # Clients who has passed its expire date can still be
+            # enabled if its last checker was sucessful.  Clients
+            # whose checker failed before we stored its state is
+            # assumed to have failed all checkers during downtime.
+            if client["enabled"] and client["last_checked_ok"]:
+                if ((datetime.datetime.utcnow()
+                     - client["last_checked_ok"])
+                    > client["interval"]):
+                    if client["last_checker_status"] != 0:
+                        client["enabled"] = False
+                    else:
+                        client["expires"] = (datetime.datetime
+                                             .utcnow()
+                                             + client["timeout"])
+            
+            client["changedstate"] = (multiprocessing_manager
+                                      .Condition
+                                      (multiprocessing_manager
+                                       .Lock()))
+            if use_dbus:
+                new_client = (ClientDBusTransitional.__new__
+                              (ClientDBusTransitional))
+                tcp_server.clients[client_name] = new_client
+                new_client.bus = bus
+                for name, value in client.iteritems():
+                    setattr(new_client, name, value)
+                client_object_name = unicode(client_name).translate(
+                    {ord("."): ord("_"),
+                     ord("-"): ord("_")})
+                new_client.dbus_object_path = (dbus.ObjectPath
+                                               ("/clients/"
+                                                + client_object_name))
+                DBusObjectWithProperties.__init__(new_client,
+                                                  new_client.bus,
+                                                  new_client
+                                                  .dbus_object_path)
+            else:
+                tcp_server.clients[client_name] = (Client.__new__
+                                                   (Client))
+                for name, value in client.iteritems():
+                    setattr(tcp_server.clients[client_name],
+                            name, value)
+            
             try:
-                # For each value in new config, check if it differs
-                # from the old config value (Except for the "secret"
-                # attribute)
-                if (name != "secret" and
-                    value != old_client_settings[client_name][name]):
-                    setattr(client, name, value)
-            except KeyError:
-                pass
-        
-        # Clients who has passed its expire date, can still be enabled
-        # if its last checker was sucessful. Clients who checkers
-        # failed before we stored it state is asumed to had failed
-        # checker during downtime.
-        if client["enabled"] and client["last_checked_ok"]:
-            if ((datetime.datetime.utcnow()
-                 - client["last_checked_ok"]) > client["interval"]):
-                if client["last_checker_status"] != 0:
-                    client["enabled"] = False
-                else:
-                    client["expires"] = (datetime.datetime.utcnow()
-                                         + client["timeout"])
-        
-        client["changedstate"] = (multiprocessing_manager
-                                  .Condition(multiprocessing_manager
-                                             .Lock()))
-        if use_dbus:
-            new_client = (ClientDBusTransitional.__new__
-                          (ClientDBusTransitional))
-            tcp_server.clients[client_name] = new_client
-            new_client.bus = bus
-            for name, value in client.iteritems():
-                setattr(new_client, name, value)
-            client_object_name = unicode(client_name).translate(
-                {ord("."): ord("_"),
-                 ord("-"): ord("_")})
-            new_client.dbus_object_path = (dbus.ObjectPath
-                                           ("/clients/"
-                                            + client_object_name))
-            DBusObjectWithProperties.__init__(new_client,
-                                              new_client.bus,
-                                              new_client
-                                              .dbus_object_path)
-        else:
-            tcp_server.clients[client_name] = Client.__new__(Client)
-            for name, value in client.iteritems():
-                setattr(tcp_server.clients[client_name], name, value)
-                
-        tcp_server.clients[client_name].decrypt_secret(
-            client_settings[client_name]["secret"])
-        
+                tcp_server.clients[client_name].secret = (
+                    crypt.decrypt(tcp_server.clients[client_name]
+                                  .encrypted_secret,
+                                  client_settings[client_name]
+                                  ["secret"]))
+            except CryptoError:
+                # If decryption fails, we use secret from new settings
+                tcp_server.clients[client_name].secret = (
+                    client_settings[client_name]["secret"])
+    
     # Create/remove clients based on new changes made to config
     for clientname in set(old_client_settings) - set(client_settings):
         del tcp_server.clients[clientname]
@@ -2333,35 +2377,38 @@ def main():
         # based on what config file has. If config file is
         # removed/edited, old secret will thus be unrecovable.
         clients = []
-        for client in tcp_server.clients.itervalues():
-            client.encrypt_secret(client_settings[client.name]
-                                  ["secret"])
-            
-            client_dict = {}
-            
-            # A list of attributes that will not be stored when
-            # shutting down.
-            exclude = set(("bus", "changedstate", "secret"))
-            for name, typ in inspect.getmembers(dbus.service.Object):
-                exclude.add(name)
+        with Crypto() as crypt:
+            for client in tcp_server.clients.itervalues():
+                key = client_settings[client.name]["secret"]
+                client.encrypted_secret = crypt.encrypt(client.secret,
+                                                        key)
+                client_dict = {}
                 
-            client_dict["encrypted_secret"] = client.encrypted_secret
-            for attr in client.client_structure:
-                if attr not in exclude:
-                    client_dict[attr] = getattr(client, attr)
-            
-            clients.append(client_dict)
-            del client_settings[client.name]["secret"]
-            
+                # A list of attributes that will not be stored when
+                # shutting down.
+                exclude = set(("bus", "changedstate", "secret"))
+                for name, typ in (inspect.getmembers
+                                  (dbus.service.Object)):
+                    exclude.add(name)
+                
+                client_dict["encrypted_secret"] = (client
+                                                   .encrypted_secret)
+                for attr in client.client_structure:
+                    if attr not in exclude:
+                        client_dict[attr] = getattr(client, attr)
+                
+                clients.append(client_dict)
+                del client_settings[client.name]["secret"]
+        
         try:
             with os.fdopen(os.open(stored_state_path,
                                    os.O_CREAT|os.O_WRONLY|os.O_TRUNC,
                                    0600), "wb") as stored_state:
                 pickle.dump((clients, client_settings), stored_state)
-        except IOError as e:
-            logger.warning("Could not save persistant state: {0}"
+        except (IOError, OSError) as e:
+            logger.warning("Could not save persistent state: {0}"
                            .format(e))
-            if e.errno != errno.ENOENT:
+            if e.errno not in (errno.ENOENT, errno.EACCES):
                 raise
         
         # Delete all clients, and settings from config
@@ -2387,7 +2434,6 @@ def main():
         # Need to initiate checking of clients
         if client.enabled:
             client.init_checker()
-
     
     tcp_server.enable()
     tcp_server.server_activate()
