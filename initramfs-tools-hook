@@ -116,7 +116,7 @@ for hook in /etc/mandos/network-hooks.d/*; do
     esac
     # Copy any files needed by the network hook
     MANDOSNETHOOKDIR=/etc/mandos/network-hooks.d MODE=files \
-	"$hook" files | while read file target; do
+	VERBOSITY=0 "$hook" files | while read file target; do
 	if [ -z "${target}" ]; then
 	    copy_exec "$file"
 	else
