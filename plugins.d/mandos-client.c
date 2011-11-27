@@ -73,7 +73,7 @@
 				*/
 #include <unistd.h>		/* close(), SEEK_SET, off_t, write(),
 				   getuid(), getgid(), seteuid(),
-				   setgid(), pause() */
+				   setgid(), pause(), _exit() */
 #include <arpa/inet.h>		/* inet_pton(), htons, inet_ntop() */
 #include <iso646.h>		/* not, or, and */
 #include <argp.h>		/* struct argp_option, error_t, struct
@@ -1412,34 +1412,34 @@ bool run_network_hooks(const char *mode, const char *interface,
 	ret = setenv("MANDOSNETHOOKDIR", hookdir, 1);
 	if(ret == -1){
 	  perror_plus("setenv");
-	  return false;
+	  _exit(EX_OSERR);
 	}
 	ret = setenv("DEVICE", interface, 1);
 	if(ret == -1){
 	  perror_plus("setenv");
-	  return false;
+	  _exit(EX_OSERR);
 	}
 	ret = setenv("VERBOSE", debug ? "1" : "0", 1);
 	if(ret == -1){
 	  perror_plus("setenv");
-	  return false;
+	  _exit(EX_OSERR);
 	}
 	ret = setenv("MODE", mode, 1);
 	if(ret == -1){
 	  perror_plus("setenv");
-	  return false;
+	  _exit(EX_OSERR);
 	}
 	char *delaystring;
 	ret = asprintf(&delaystring, "%f", delay);
 	if(ret == -1){
 	  perror_plus("asprintf");
-	  return false;
+	  _exit(EX_OSERR);
 	}
 	ret = setenv("DELAY", delaystring, 1);
 	if(ret == -1){
 	  free(delaystring);
 	  perror_plus("setenv");
-	  return false;
+	  _exit(EX_OSERR);
 	}
 	free(delaystring);
 	ret = execl(fullname, direntry->d_name, mode, NULL);
