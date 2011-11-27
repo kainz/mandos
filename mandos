@@ -2291,6 +2291,8 @@ def main():
                                 ["secret"]))
             except PGPError:
                 # If decryption fails, we use secret from new settings
+                logger.debug("Failed to decrypt {0} old secret"
+                             .format(client_name))
                 tcp_server.clients[client_name].secret = (
                     client_settings[client_name]["secret"])
     
