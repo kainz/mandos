@@ -51,6 +51,11 @@
   disk environment, the network interface *must* exist at that stage.
   Thus, the interface can *not* be a pseudo-interface such as "br0" or
   "tun0"; instead, only real interface (such as "eth0") can be used.
+  This can be overcome by writing a "network hook" program (see
+  mandos-client(8mandos)) and placing it in
+  "/etc/mandos/network-hooks.d", from where it will be copied into the
+  initial RAM disk.  Some example network hook scripts can be found in
+  "/usr/share/doc/mandos-client/network-hooks.d".
 
 * User-Supplied Plugins
   
@@ -84,4 +89,4 @@
   work, "--options-for=mandos-client:--connect=<ADDRESS>:<PORT>" needs
   to be manually added to the file "/etc/mandos/plugin-runner.conf".
 
- -- Teddy Hogeborn <teddy@recompile.se>, Wed,  5 Oct 2011 17:50:22 +0200
+ -- Teddy Hogeborn <teddy@recompile.se>, Sun, 27 Nov 2011 03:30:40 +0100
