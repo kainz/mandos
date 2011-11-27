@@ -378,7 +378,7 @@ class AvahiServiceToSyslog(AvahiService):
                                 % self.name))
         return ret
 
-def _timedelta_to_milliseconds(td):
+def timedelta_to_milliseconds(td):
     "Convert a datetime.timedelta() to milliseconds"
     return ((td.days * 24 * 60 * 60 * 1000)
             + (td.seconds * 1000)
@@ -388,7 +388,7 @@ class Client(object):
     """A representation of a client host served by this server.
     
     Attributes:
-    _approved:   bool(); 'None' if not yet approved/disapproved
+    approved:   bool(); 'None' if not yet approved/disapproved
     approval_delay: datetime.timedelta(); Time to wait for approval
     approval_duration: datetime.timedelta(); Duration of one approval
     checker:    subprocess.Popen(); a running checker process used
@@ -435,18 +435,18 @@ class Client(object):
     
     def timeout_milliseconds(self):
         "Return the 'timeout' attribute in milliseconds"
-        return _timedelta_to_milliseconds(self.timeout)
+        return timedelta_to_milliseconds(self.timeout)
     
     def extended_timeout_milliseconds(self):
         "Return the 'extended_timeout' attribute in milliseconds"
-        return _timedelta_to_milliseconds(self.extended_timeout)
+        return timedelta_to_milliseconds(self.extended_timeout)
     
     def interval_milliseconds(self):
         "Return the 'interval' attribute in milliseconds"
-        return _timedelta_to_milliseconds(self.interval)
+        return timedelta_to_milliseconds(self.interval)
     
     def approval_delay_milliseconds(self):
-        return _timedelta_to_milliseconds(self.approval_delay)
+        return timedelta_to_milliseconds(self.approval_delay)
     
     def __init__(self, name = None, config=None):
         """Note: the 'checker' key in 'config' sets the
@@ -496,7 +496,7 @@ class Client(object):
         self.checker_callback_tag = None
         self.checker_command = config["checker"]
         self.current_checker_command = None
-        self._approved = None
+        self.approved = None
         self.approved_by_default = config.get("approved_by_default",
                                               True)
         self.approvals_pending = 0
@@ -602,7 +602,7 @@ class Client(object):
             gobject.source_remove(self.disable_initiator_tag)
         if getattr(self, "enabled", False):
             self.disable_initiator_tag = (gobject.timeout_add
-                                          (_timedelta_to_milliseconds
+                                          (timedelta_to_milliseconds
                                            (timeout), self.disable))
             self.expires = datetime.datetime.utcnow() + timeout
     
@@ -1072,21 +1072,21 @@ class ClientDBus(Client, DBusObjectWithProperties):
     approval_delay = notifychangeproperty(dbus.UInt16,
                                           "ApprovalDelay",
                                           type_func =
-                                          _timedelta_to_milliseconds)
+                                          timedelta_to_milliseconds)
     approval_duration = notifychangeproperty(
         dbus.UInt16, "ApprovalDuration",
-        type_func = _timedelta_to_milliseconds)
+        type_func = timedelta_to_milliseconds)
     host = notifychangeproperty(dbus.String, "Host")
     timeout = notifychangeproperty(dbus.UInt16, "Timeout",
                                    type_func =
-                                   _timedelta_to_milliseconds)
+                                   timedelta_to_milliseconds)
     extended_timeout = notifychangeproperty(
         dbus.UInt16, "ExtendedTimeout",
-        type_func = _timedelta_to_milliseconds)
+        type_func = timedelta_to_milliseconds)
     interval = notifychangeproperty(dbus.UInt16,
                                     "Interval",
                                     type_func =
-                                    _timedelta_to_milliseconds)
+                                    timedelta_to_milliseconds)
     checker_command = notifychangeproperty(dbus.String, "Checker")
     
     del notifychangeproperty
@@ -1134,13 +1134,13 @@ class ClientDBus(Client, DBusObjectWithProperties):
         return r
     
     def _reset_approved(self):
-        self._approved = None
+        self.approved = None
         return False
     
     def approve(self, value=True):
         self.send_changedstate()
-        self._approved = value
-        gobject.timeout_add(_timedelta_to_milliseconds
+        self.approved = value
+        gobject.timeout_add(timedelta_to_milliseconds
                             (self.approval_duration),
                             self._reset_approved)
     
@@ -1260,7 +1260,7 @@ class ClientDBus(Client, DBusObjectWithProperties):
                            access="readwrite")
     def ApprovalDuration_dbus_property(self, value=None):
         if value is None:       # get
-            return dbus.UInt64(_timedelta_to_milliseconds(
+            return dbus.UInt64(timedelta_to_milliseconds(
                     self.approval_duration))
         self.approval_duration = datetime.timedelta(0, 0, 0, value)
     
@@ -1335,11 +1335,11 @@ class ClientDBus(Client, DBusObjectWithProperties):
         gobject.source_remove(self.disable_initiator_tag)
         self.disable_initiator_tag = None
         self.expires = None
-        time_to_die = _timedelta_to_milliseconds((self
-                                                  .last_checked_ok
-                                                  + self.timeout)
-                                                 - datetime.datetime
-                                                 .utcnow())
+        time_to_die = timedelta_to_milliseconds((self
+                                                 .last_checked_ok
+                                                 + self.timeout)
+                                                - datetime.datetime
+                                                .utcnow())
         if time_to_die <= 0:
             # The timeout has passed
             self.disable()
@@ -1415,7 +1415,7 @@ class ProxyClient(object):
             raise KeyError()
     
     def __getattribute__(self, name):
-        if(name == '_pipe'):
+        if name == '_pipe':
             return super(ProxyClient, self).__getattribute__(name)
         self._pipe.send(('getattr', name))
         data = self._pipe.recv()
@@ -1428,7 +1428,7 @@ class ProxyClient(object):
             return func
     
     def __setattr__(self, name, value):
-        if(name == '_pipe'):
+        if name == '_pipe':
             return super(ProxyClient, self).__setattr__(name, value)
         self._pipe.send(('setattr', name, value))
 
@@ -1503,15 +1503,16 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
                     logger.warning("Bad certificate: %s", error)
                     return
                 logger.debug("Fingerprint: %s", fpr)
-                if self.server.use_dbus:
-                    # Emit D-Bus signal
-                    client.NewRequest(str(self.client_address))
                 
                 try:
                     client = ProxyClient(child_pipe, fpr,
                                          self.client_address)
                 except KeyError:
                     return
+                
+                if self.server.use_dbus:
+                    # Emit D-Bus signal
+                    client.NewRequest(str(self.client_address))
                 
                 if client.approval_delay:
                     delay = client.approval_delay
@@ -1527,10 +1528,10 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
                             client.Rejected("Disabled")
                         return
                     
-                    if client._approved or not client.approval_delay:
+                    if client.approved or not client.approval_delay:
                         #We are approved or approval is disabled
                         break
-                    elif client._approved is None:
+                    elif client.approved is None:
                         logger.info("Client %s needs approval",
                                     client.name)
                         if self.server.use_dbus:
@@ -1550,7 +1551,7 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
                     time = datetime.datetime.now()
                     client.changedstate.acquire()
                     (client.changedstate.wait
-                     (float(client._timedelta_to_milliseconds(delay)
+                     (float(client.timedelta_to_milliseconds(delay)
                             / 1000)))
                     client.changedstate.release()
                     time2 = datetime.datetime.now()
