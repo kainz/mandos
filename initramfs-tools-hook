@@ -72,7 +72,7 @@ HOOKDIR="${MANDOSDIR}/network-hooks.d"
 
 # Make directories
 install --directory --mode=u=rwx,go=rx "${DESTDIR}${CONFDIR}" \
-	"${DESTDIR}${MANDOSDIR}"
+	"${DESTDIR}${MANDOSDIR}" "${DESTDIR}${HOOKDIR}"
 install --owner=${mandos_user} --group=${mandos_group} --directory \
     --mode=u=rwx "${DESTDIR}${PLUGINDIR}"
 
@@ -111,18 +111,27 @@ done
 for hook in /etc/mandos/network-hooks.d/*; do
     case "`basename \"$hook\"`" in
 	"*") continue ;;
-	*[!A-Za-z0-9_-]*) continue ;;
+	*[!A-Za-z0-9_.-]*) continue ;;
 	*) test -d "$hook" || copy_exec "$hook" "${HOOKDIR}" ;;
     esac
-    # Copy any files needed by the network hook
-    MANDOSNETHOOKDIR=/etc/mandos/network-hooks.d MODE=files \
-	"$hook" files | while read file target; do
-	if [ -z "${target}" ]; then
-	    copy_exec "$file"
-	else
-	    copy_exec "$file" "$target"
-	fi
-    done
+    if [ -x "$hook" ]; then
+        # Copy any files needed by the network hook
+	MANDOSNETHOOKDIR=/etc/mandos/network-hooks.d MODE=files \
+	    VERBOSITY=0 "$hook" files | while read file target; do
+	    if [ -z "${target}" ]; then
+		copy_exec "$file"
+	    else
+		copy_exec "$file" "$target"
+	    fi
+	done
+        # Copy and load any modules needed by the network hook
+	MANDOSNETHOOKDIR=/etc/mandos/network-hooks.d MODE=modules \
+	    VERBOSITY=0 "$hook" modules | while read module; do
+	    if [ -z "${target}" ]; then
+		force_load "$module"
+	    fi
+	done
+    fi
 done
 
 # GPGME needs /usr/bin/gpg
