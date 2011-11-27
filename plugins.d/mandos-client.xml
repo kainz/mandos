@@ -468,7 +468,7 @@
       <para>
 	A network hook must be an executable file, and its name must
 	consist entirely of upper and lower case letters, digits,
-	underscores, and hyphens.
+	underscores, periods, and hyphens.
       </para>
       <para>
 	A network hook will receive one argument, which can be one of
@@ -497,17 +497,30 @@
 	  <term><literal>files</literal></term>
 	  <listitem>
 	    <para>
-	      This should make the network hook print, <emphasis>on
-	      separate lines</emphasis>, all the files needed for it
-	      to run.  (These files will be copied into the initial
-	      RAM filesystem.)  Intended use is for a network hook
-	      which is a shell script to print its needed binaries.
+	      This should make the network hook print, <emphasis>one
+	      file per line</emphasis>, all the files needed for it to
+	      run.  (These files will be copied into the initial RAM
+	      filesystem.)  Typical use is for a network hook which is
+	      a shell script to print its needed binaries.
 	    </para>
 	    <para>
 	      It is not necessary to print any non-executable files
 	      already in the network hook directory, these will be
 	      copied implicitly if they otherwise satisfy the name
 	      requirement.
+	    </para>
+	  </listitem>
+	</varlistentry>
+	<varlistentry>
+	  <term><literal>modules</literal></term>
+	  <listitem>
+	    <para>
+	      This should make the network hook print, <emphasis>on
+	      separate lines</emphasis>, all the kernel modules needed
+	      for it to run.  (These modules will be copied into the
+	      initial RAM filesystem.)  For instance, a tunnel
+	      interface needs the
+	      <quote><literal>tun</literal></quote> module.
 	    </para>
 	  </listitem>
 	</varlistentry>
@@ -525,8 +538,8 @@
 	      <command>&COMMANDNAME;</command> by the
 	      <option>--network-hook-dir</option> option.  Note: this
 	      should <emphasis>always</emphasis> be used by the
-	      network hook to refer to itself or any files it may
-	      require.
+	      network hook to refer to itself or any files in the hook
+	      directory it may require.
 	    </para>
 	  </listitem>
 	</varlistentry>
@@ -548,8 +561,9 @@
 	    <para>
 	      This will be the same as the first argument;
 	      i.e. <quote><literal>start</literal></quote>,
-	      <quote><literal>stop</literal></quote>, or
-	      <quote><literal>files</literal></quote>.
+	      <quote><literal>stop</literal></quote>,
+	      <quote><literal>files</literal></quote>, or
+	      <quote><literal>modules</literal></quote>.
 	    </para>
 	  </listitem>
 	</varlistentry>
