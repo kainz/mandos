@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY COMMANDNAME "mandos-client">
-<!ENTITY TIMESTAMP "2011-10-03">
+<!ENTITY TIMESTAMP "2011-11-27">
 <!ENTITY % common SYSTEM "../common.ent">
 %common;
 ]>
@@ -102,7 +102,8 @@
       </arg>
       <sbr/>
       <arg>
-	<option>--network-hook-dir<replaceable>DIR</replaceable></option>
+	<option>--network-hook-dir
+	<replaceable>DIR</replaceable></option>
       </arg>
       <sbr/>
       <arg>
@@ -145,6 +146,26 @@
       or a TERM signal.  After all servers have been tried, all
       servers are periodically retried.  If no servers are found it
       will wait indefinitely for new servers to appear.
+    </para>
+    <para>
+      The network interface is selected like this: If an interface is
+      specified using the <option>--interface</option> option, that
+      interface is used.  Otherwise, <command>&COMMANDNAME;</command>
+      will choose any interface that is up and running and is not a
+      loopback interface, is not a point-to-point interface, is
+      capable of broadcasting and does not have the NOARP flag (see
+      <citerefentry><refentrytitle>netdevice</refentrytitle>
+      <manvolnum>7</manvolnum></citerefentry>).  (If the
+      <option>--connect</option> option is used, point-to-point
+      interfaces and non-broadcast interfaces are accepted.)  If no
+      acceptable interfaces are found, re-run the check but without
+      the <quote>up and running</quote> requirement, and manually take
+      the selected interface up (and later take it down on program
+      exit).
+    </para>
+    <para>
+      Before a network interface is selected, all <quote>network
+      hooks</quote> are run; see <xref linkend="network-hooks"/>.
     </para>
     <para>
       This program is not meant to be run directly; it is really meant
@@ -227,7 +248,8 @@
 	    can not be a pseudo-interface such as <quote>br0</quote>
 	    or <quote>tun0</quote>; such interfaces will not exist
 	    until much later in the boot process, and can not be used
-	    by this program.
+	    by this program, unless created by a <quote>network
+	    hook</quote> — see <xref linkend="network-hooks"/>.
 	  </para>
 	  <para>
 	    <replaceable>NAME</replaceable> can be the string
@@ -393,8 +415,10 @@
       <refentrytitle>plugin-runner</refentrytitle>
       <manvolnum>8mandos</manvolnum></citerefentry>) is used to run
       both this program and others in in parallel,
-      <emphasis>one</emphasis> of which will prompt for passwords on
-      the system console.
+      <emphasis>one</emphasis> of which (<citerefentry>
+      <refentrytitle>password-prompt</refentrytitle>
+      <manvolnum>8mandos</manvolnum></citerefentry>) will prompt for
+      passwords on the system console.
     </para>
   </refsect1>
   
@@ -421,6 +445,144 @@
     </para>
   </refsect1>
   
+  <refsect1 id="network-hooks">
+    <title>NETWORK HOOKS</title>
+    <para>
+      If a network interface like a bridge or tunnel is required to
+      find a Mandos server, this requires the interface to be up and
+      running before <command>&COMMANDNAME;</command> starts looking
+      for Mandos servers.  This can be accomplished by creating a
+      <quote>network hook</quote> program, and placing it in a special
+      directory.
+    </para>
+    <para>
+      Before the network is used (and again before program exit), any
+      runnable programs found in the network hook directory are run
+      with the argument <quote><literal>start</literal></quote> or
+      <quote><literal>stop</literal></quote>.  This should bring up or
+      down, respectively, any network interface which
+      <command>&COMMANDNAME;</command> should use.
+    </para>
+    <refsect2 id="hook-requirements">
+      <title>REQUIREMENTS</title>
+      <para>
+	A network hook must be an executable file, and its name must
+	consist entirely of upper and lower case letters, digits,
+	underscores, and hyphens.
+      </para>
+      <para>
+	A network hook will receive one argument, which can be one of
+	the following:
+      </para>
+      <variablelist>
+	<varlistentry>
+	  <term><literal>start</literal></term>
+	  <listitem>
+	    <para>
+	      This should make the network hook create (if necessary)
+	      and bring up a network interface.
+	    </para>
+	  </listitem>
+	</varlistentry>
+	<varlistentry>
+	  <term><literal>stop</literal></term>
+	  <listitem>
+	    <para>
+	      This should make the network hook take down a network
+	      interface, and delete it if it did not exist previously.
+	    </para>
+	  </listitem>
+	</varlistentry>
+	<varlistentry>
+	  <term><literal>files</literal></term>
+	  <listitem>
+	    <para>
+	      This should make the network hook print, <emphasis>on
+	      separate lines</emphasis>, all the files needed for it
+	      to run.  (These files will be copied into the initial
+	      RAM filesystem.)  Intended use is for a network hook
+	      which is a shell script to print its needed binaries.
+	    </para>
+	    <para>
+	      It is not necessary to print any non-executable files
+	      already in the network hook directory, these will be
+	      copied implicitly if they otherwise satisfy the name
+	      requirement.
+	    </para>
+	  </listitem>
+	</varlistentry>
+      </variablelist>
+      <para>
+	The network hook will be provided with a number of environment
+	variables:
+      </para>
+      <variablelist>
+	<varlistentry>
+	  <term><envar>MANDOSNETHOOKDIR</envar></term>
+	  <listitem>
+	    <para>
+	      The network hook directory, specified to
+	      <command>&COMMANDNAME;</command> by the
+	      <option>--network-hook-dir</option> option.  Note: this
+	      should <emphasis>always</emphasis> be used by the
+	      network hook to refer to itself or any files it may
+	      require.
+	    </para>
+	  </listitem>
+	</varlistentry>
+	<varlistentry>
+	  <term><envar>DEVICE</envar></term>
+	  <listitem>
+	    <para>
+	      The network interface, as specified to
+	      <command>&COMMANDNAME;</command> by the
+	      <option>--interface</option> option.  If this is not the
+	      interface a hook will bring up, there is no reason for a
+	      hook to continue.
+	    </para>
+	  </listitem>
+	</varlistentry>
+	<varlistentry>
+	  <term><envar>MODE</envar></term>
+	  <listitem>
+	    <para>
+	      This will be the same as the first argument;
+	      i.e. <quote><literal>start</literal></quote>,
+	      <quote><literal>stop</literal></quote>, or
+	      <quote><literal>files</literal></quote>.
+	    </para>
+	  </listitem>
+	</varlistentry>
+	<varlistentry>
+	  <term><envar>VERBOSITY</envar></term>
+	  <listitem>
+	    <para>
+	      This will be the <quote><literal>1</literal></quote> if
+	      the <option>--debug</option> option is passed to
+	      <command>&COMMANDNAME;</command>, otherwise
+	      <quote><literal>0</literal></quote>.
+	    </para>
+	  </listitem>
+	</varlistentry>
+	<varlistentry>
+	  <term><envar>DELAY</envar></term>
+	  <listitem>
+	    <para>
+	      This will be the same as the <option>--delay</option>
+	      option passed to <command>&COMMANDNAME;</command>.
+	    </para>
+	  </listitem>
+	</varlistentry>
+      </variablelist>
+      <para>
+	A hook may not read from standard input, and should be
+	restrictive in printing to standard output or standard error
+	unless <varname>VERBOSITY</varname> is
+	<quote><literal>1</literal></quote>.
+      </para>
+    </refsect2>
+  </refsect1>
+  
   <refsect1 id="files">
     <title>FILES</title>
     <variablelist>
@@ -435,6 +597,17 @@
 	    Armor</quote> format.  These are the default file names,
 	    they can be changed with the <option>--pubkey</option> and
 	    <option>--seckey</option> options.
+	  </para>
+	</listitem>
+      </varlistentry>
+      <varlistentry>
+	<term><filename
+	class="directory">/lib/mandos/network-hooks.d</filename></term>
+	<listitem>
+	  <para>
+	    Directory where network hooks are located.  Change this
+	    with the <option>--network-hook-dir</option> option.  See
+	    <xref linkend="network-hooks"/>.
 	  </para>
 	</listitem>
       </varlistentry>
