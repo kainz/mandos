@@ -128,11 +128,12 @@ def initlogger(level=logging.WARNING):
     logger.setLevel(level)
 
 
-class CryptoError(Exception):
+class PGPError(Exception):
+    """Exception if encryption/decryption fails"""
     pass
 
 
-class Crypto(object):
+class PGPEngine(object):
     """A simple class for OpenPGP symmetric encryption & decryption"""
     def __init__(self):
         self.gnupg = GnuPGInterface.GnuPG()
@@ -184,7 +185,7 @@ class Crypto(object):
                     ciphertext = f.read()
                 proc.wait()
             except IOError as e:
-                raise CryptoError(e)
+                raise PGPError(e)
         self.gnupg.passphrase = None
         return ciphertext
     
@@ -201,7 +202,7 @@ class Crypto(object):
                     decrypted_plaintext = f.read()
                 proc.wait()
             except IOError as e:
-                raise CryptoError(e)
+                raise PGPError(e)
         self.gnupg.passphrase = None
         return decrypted_plaintext
 
@@ -2217,7 +2218,7 @@ def main():
             if e.errno != errno.ENOENT:
                 raise
     
-    with Crypto() as crypt:
+    with PGPEngine() as pgp:
         for client in clients_data:
             client_name = client["name"]
             
@@ -2283,11 +2284,11 @@ def main():
             
             try:
                 tcp_server.clients[client_name].secret = (
-                    crypt.decrypt(tcp_server.clients[client_name]
-                                  .encrypted_secret,
-                                  client_settings[client_name]
-                                  ["secret"]))
-            except CryptoError:
+                    pgp.decrypt(tcp_server.clients[client_name]
+                                .encrypted_secret,
+                                client_settings[client_name]
+                                ["secret"]))
+            except PGPError:
                 # If decryption fails, we use secret from new settings
                 tcp_server.clients[client_name].secret = (
                     client_settings[client_name]["secret"])
@@ -2394,11 +2395,11 @@ def main():
         # based on what config file has. If config file is
         # removed/edited, old secret will thus be unrecovable.
         clients = []
-        with Crypto() as crypt:
+        with PGPEngine() as pgp:
             for client in tcp_server.clients.itervalues():
                 key = client_settings[client.name]["secret"]
-                client.encrypted_secret = crypt.encrypt(client.secret,
-                                                        key)
+                client.encrypted_secret = pgp.encrypt(client.secret,
+                                                      key)
                 client_dict = {}
                 
                 # A list of attributes that will not be stored when
