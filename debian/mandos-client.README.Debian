@@ -89,4 +89,4 @@
   work, "--options-for=mandos-client:--connect=<ADDRESS>:<PORT>" needs
   to be manually added to the file "/etc/mandos/plugin-runner.conf".
 
- -- Teddy Hogeborn <teddy@fukt.bsnet.se>, Sun, 27 Nov 2011 15:06:34 +0100
+ -- Teddy Hogeborn <teddy@recompile.se>, Mon, 28 Nov 2011 23:07:22 +0100
