@@ -87,6 +87,7 @@
 				   EX_NOHOST, EX_IOERR, EX_PROTOCOL */
 #include <sys/wait.h>		/* waitpid(), WIFEXITED(),
 				   WEXITSTATUS(), WTERMSIG() */
+#include <grp.h>		/* setgroups() */
 
 #ifdef __linux__
 #include <sys/klog.h> 		/* klogctl() */
@@ -1406,6 +1407,32 @@ bool run_network_hooks(const char *mode, const char *interface,
       pid_t hook_pid = fork();
       if(hook_pid == 0){
 	/* Child */
+	/* Raise privileges */
+	errno = 0;
+	ret = seteuid(0);
+	if(ret == -1){
+	  perror_plus("seteuid");
+	}
+	/* Raise privileges even more */
+	errno = 0;
+	ret = setuid(0);
+	if(ret == -1){
+	  perror_plus("setuid");
+	}
+	/* Set group */
+	errno = 0;
+	ret = setgid(0);
+	if(ret == -1){
+	  perror_plus("setgid");
+	}
+	/* Reset supplementary groups */
+	errno = 0;
+	ret = setgroups(0, NULL);
+	if(ret == -1){
+	  perror_plus("setgroups");
+	}
+	fprintf_plus(stderr, "Child: getuid() = %d\n", getuid());
+	fprintf_plus(stderr, "Child: geteuid() = %d\n", geteuid());
 	dup2(devnull, STDIN_FILENO);
 	close(devnull);
 	dup2(STDERR_FILENO, STDOUT_FILENO);
@@ -1678,82 +1705,60 @@ int main(int argc, char *argv[]){
     }
   }
     
-  if(getuid() == 0){
+  {
     /* Work around Debian bug #633582:
        <http://bugs.debian.org/633582> */
-    struct stat st;
     
     /* Re-raise priviliges */
     errno = 0;
     ret = seteuid(0);
     if(ret == -1){
       perror_plus("seteuid");
-    }
-    
-    if(strcmp(seckey, PATHDIR "/" SECKEY) == 0){
-      int seckey_fd = open(seckey, O_RDONLY);
-      if(seckey_fd == -1){
-	perror_plus("open");
-      } else {
-	ret = (int)TEMP_FAILURE_RETRY(fstat(seckey_fd, &st));
-	if(ret == -1){
-	  perror_plus("fstat");
+    } else {
+      struct stat st;
+      
+      if(strcmp(seckey, PATHDIR "/" SECKEY) == 0){
+	int seckey_fd = open(seckey, O_RDONLY);
+	if(seckey_fd == -1){
+	  perror_plus("open");
 	} else {
-	  if(S_ISREG(st.st_mode)
-	     and st.st_uid == 0 and st.st_gid == 0){
-	    ret = fchown(seckey_fd, uid, gid);
-	    if(ret == -1){
-	      perror_plus("fchown");
+	  ret = (int)TEMP_FAILURE_RETRY(fstat(seckey_fd, &st));
+	  if(ret == -1){
+	    perror_plus("fstat");
+	  } else {
+	    if(S_ISREG(st.st_mode)
+	       and st.st_uid == 0 and st.st_gid == 0){
+	      ret = fchown(seckey_fd, uid, gid);
+	      if(ret == -1){
+		perror_plus("fchown");
+	      }
 	    }
 	  }
+	  TEMP_FAILURE_RETRY(close(seckey_fd));
 	}
-	TEMP_FAILURE_RETRY(close(seckey_fd));
       }
-    }
     
-    if(strcmp(pubkey, PATHDIR "/" PUBKEY) == 0){
-      int pubkey_fd = open(pubkey, O_RDONLY);
-      if(pubkey_fd == -1){
-	perror_plus("open");
-      } else {
-	ret = (int)TEMP_FAILURE_RETRY(fstat(pubkey_fd, &st));
-	if(ret == -1){
-	  perror_plus("fstat");
+      if(strcmp(pubkey, PATHDIR "/" PUBKEY) == 0){
+	int pubkey_fd = open(pubkey, O_RDONLY);
+	if(pubkey_fd == -1){
+	  perror_plus("open");
 	} else {
-	  if(S_ISREG(st.st_mode)
-	     and st.st_uid == 0 and st.st_gid == 0){
-	    ret = fchown(pubkey_fd, uid, gid);
-	    if(ret == -1){
-	      perror_plus("fchown");
+	  ret = (int)TEMP_FAILURE_RETRY(fstat(pubkey_fd, &st));
+	  if(ret == -1){
+	    perror_plus("fstat");
+	  } else {
+	    if(S_ISREG(st.st_mode)
+	       and st.st_uid == 0 and st.st_gid == 0){
+	      ret = fchown(pubkey_fd, uid, gid);
+	      if(ret == -1){
+		perror_plus("fchown");
+	      }
 	    }
 	  }
+	  TEMP_FAILURE_RETRY(close(pubkey_fd));
 	}
-	TEMP_FAILURE_RETRY(close(pubkey_fd));
       }
-    }
     
-    /* Lower privileges */
-    errno = 0;
-    ret = seteuid(uid);
-    if(ret == -1){
-      perror_plus("seteuid");
-    }
-  }
-  
-  /* Run network hooks */
-  {
-    if(getuid() == 0){
-      /* Re-raise priviliges */
-      errno = 0;
-      ret = seteuid(0);
-      if(ret == -1){
-	perror_plus("seteuid");
-      }
-    }
-    if(not run_network_hooks("start", interface, delay)){
-      goto end;
-    }
-    if(getuid() == 0){
       /* Lower privileges */
       errno = 0;
       ret = seteuid(uid);
@@ -1761,6 +1766,11 @@ int main(int argc, char *argv[]){
 	perror_plus("seteuid");
       }
     }
+  }
+  
+  /* Run network hooks */
+  if(not run_network_hooks("start", interface, delay)){
+    goto end;
   }
   
   if(not debug){
@@ -2217,18 +2227,16 @@ int main(int argc, char *argv[]){
     }
   }
   
+  /* Run network hooks */
+  run_network_hooks("stop", interface, delay);
+  
   /* Re-raise priviliges */
   {
-    if(getuid() == 0){
-      errno = 0;
-      ret = seteuid(0);
-      if(ret == -1){
-	perror_plus("seteuid");
-      }
+    errno = 0;
+    ret = seteuid(0);
+    if(ret == -1){
+      perror_plus("seteuid");
     }
-    
-    /* Run network hooks */
-    run_network_hooks("stop", interface, delay);
     
     /* Take down the network interface */
     if(take_down_interface and geteuid() == 0){
@@ -2248,13 +2256,11 @@ int main(int argc, char *argv[]){
       }
     }
   }
-  if(getuid() == 0){
-    /* Lower privileges permanently */
-    errno = 0;
-    ret = setuid(uid);
-    if(ret == -1){
-      perror_plus("setuid");
-    }
+  /* Lower privileges permanently */
+  errno = 0;
+  ret = setuid(uid);
+  if(ret == -1){
+    perror_plus("setuid");
   }
   
   /* Removes the GPGME temp directory and all files inside */
