@@ -31,9 +31,9 @@ fi
 
 case "$1" in
     start)
-	brctl addbr "$BRIDGE"
+	/usr/sbin/brctl addbr "$BRIDGE"
 	for port in $PORTS; do
-	    brctl addif "$BRIDGE" "$port"
+	    /usr/sbin/brctl addif "$BRIDGE" "$port"
 	done
 	ip link set up "$BRIDGE"
 	if [ -n "$IPADDRS" ]; then
@@ -50,9 +50,9 @@ case "$1" in
     stop)
 	ip link set down "$BRIDGE"
 	for port in $PORTS; do
-	    brctl delif "$BRIDGE" "$port"
+	    /usr/sbin/brctl delif "$BRIDGE" "$port"
 	done
-	brctl delbr "$BRIDGE"
+	/usr/sbin/brctl delbr "$BRIDGE"
 	;;
     files)
 	echo /bin/ip

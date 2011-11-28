@@ -7,7 +7,9 @@
 * mandos-applet
 
 * mandos-client
-** TODO [#A] Document network hook functionality
+** TODO [#B] Flag fprintf_plus so compiler checks the format string.
+** TODO [#A] OpenVPN network hook
+** TODO [#A] Wireless network hook
 ** TODO [#B] Use capabilities instead of seteuid().
 ** TODO [#B] Use struct sockaddr_storage instead of a union
 ** TODO [#B] Use getaddrinfo(hints=AI_NUMERICHOST) instead of inet_pton()
@@ -73,6 +75,7 @@
 ** TODO Generate Client.runtime_expansions from client options + extra
 ** TODO Allow %%(checker)s as a runtime expansion
 ** TODO Use python-tlslite?
+** TODO D-Bus AddClient() method on server object
 
 * mandos.xml
 ** Add mandos contact info in manual pages
