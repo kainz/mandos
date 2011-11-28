@@ -1431,8 +1431,6 @@ bool run_network_hooks(const char *mode, const char *interface,
 	if(ret == -1){
 	  perror_plus("setgroups");
 	}
-	fprintf_plus(stderr, "Child: getuid() = %d\n", getuid());
-	fprintf_plus(stderr, "Child: geteuid() = %d\n", geteuid());
 	dup2(devnull, STDIN_FILENO);
 	close(devnull);
 	dup2(STDERR_FILENO, STDOUT_FILENO);
