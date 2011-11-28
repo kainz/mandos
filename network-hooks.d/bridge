@@ -29,6 +29,12 @@ if [ -n "$DEVICE" -a "$DEVICE" != "$BRIDGE" ]; then
     exit
 fi
 
+for brctl in /sbin/brctl /usr/sbin/brctl; do
+    if [ -e "$brctl" ]; then
+	break
+    fi
+done
+
 case "$1" in
     start)
 	/usr/sbin/brctl addbr "$BRIDGE"
@@ -56,7 +62,7 @@ case "$1" in
 	;;
     files)
 	echo /bin/ip
-	echo /usr/sbin/brctl
+	echo "$brctl"
 	;;
     modules)
 	echo bridge
