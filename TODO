@@ -41,15 +41,13 @@
 ** TODO [#B] Use openat()
 
 * mandos (server)
-** TODO [#B] Log level							  :BUGS:
 ** TODO Persistent state						  :BUGS:
    /var/lib/mandos/*
 *** TODO /etc/mandos/clients.d/*.conf
     Watch this directory and add/remove/update clients?
 ** TODO [#C] config for TXT record
-** TODO Log level option
-   syslogger.setLevel(logging.WARNING)
-   + SetLogLevel D-Bus call
+** TODO Log level dbus option
+   SetLogLevel D-Bus call
 ** TODO Implement --foreground						  :BUGS:
    [[info:standards:Option%20Table][Table of Long Options]]
 ** TODO Implement --socket
@@ -58,7 +56,7 @@
    Is this the default?
 ** TODO [#C] DBusServiceObjectUsingSuper
 ** TODO [#B] Global enable/disable flag
-** TODO [#B] By-client countdown on secrets given
+** TODO [#B] By-client countdown on number of secrets given
 ** TODO [#B] Support RFC 3339 time duration syntax
 ** More D-Bus methods
 *** NeedsPassword(50) - Timeout, default disapprove
