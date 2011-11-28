@@ -29,8 +29,9 @@ if [ -n "$DEVICE" -a "$DEVICE" != "$BRIDGE" ]; then
     exit
 fi
 
-for brctl in /sbin/brctl /usr/sbin/brctl; do
-    if [ -e "$brctl" ]; then
+for b in /sbin/brctl /usr/sbin/brctl; do
+    if [ -e "$b" ]; then
+	brctl="$b"
 	break
     fi
 done
