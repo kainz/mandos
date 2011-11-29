@@ -107,6 +107,16 @@ for file in /etc/mandos/plugins.d/*; do
     esac
 done
 
+# Get DEVICE from initramfs.conf and other files
+. /etc/initramfs-tools/initramfs.conf
+for conf in /etc/initramfs-tools/conf.d/*; do
+    if [ -n `basename \"$conf\" | grep '^[[:alnum:]][[:alnum:]\._-]*$' \
+	| grep -v '\.dpkg-.*$'` ]; then
+	[ -f ${conf} ] && . ${conf}
+    fi
+done
+export DEVICE
+
 # Copy network hooks
 for hook in /etc/mandos/network-hooks.d/*; do
     case "`basename \"$hook\"`" in
