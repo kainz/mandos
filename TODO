@@ -42,8 +42,6 @@
 * mandos (server)
 ** TODO [#B] Log level							  :BUGS:
   
-*** TODO /etc/mandos/clients.d/*.conf
-    Watch this directory and add/remove/update clients?
 ** TODO [#C] config for TXT record
 ** TODO Log level option
    syslogger.setLevel(logging.WARNING)
