@@ -2236,7 +2236,7 @@ def main():
                     if (name != "secret" and
                         value != old_client_settings[client_name]
                         [name]):
-                        setattr(client, name, value)
+                        client[name] = value
                 except KeyError:
                     pass
             
