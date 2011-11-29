@@ -41,6 +41,7 @@
 
 * mandos (server)
 ** TODO [#B] Log level							  :BUGS:
+** TODO [#A] Save state to new file and move instead of overwrite
   
 ** TODO [#C] config for TXT record
 ** TODO Log level option
