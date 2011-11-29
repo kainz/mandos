@@ -1069,21 +1069,21 @@ class ClientDBus(Client, DBusObjectWithProperties):
         datetime_to_dbus, "LastApprovalRequest")
     approved_by_default = notifychangeproperty(dbus.Boolean,
                                                "ApprovedByDefault")
-    approval_delay = notifychangeproperty(dbus.UInt16,
+    approval_delay = notifychangeproperty(dbus.UInt64,
                                           "ApprovalDelay",
                                           type_func =
                                           timedelta_to_milliseconds)
     approval_duration = notifychangeproperty(
-        dbus.UInt16, "ApprovalDuration",
+        dbus.UInt64, "ApprovalDuration",
         type_func = timedelta_to_milliseconds)
     host = notifychangeproperty(dbus.String, "Host")
-    timeout = notifychangeproperty(dbus.UInt16, "Timeout",
+    timeout = notifychangeproperty(dbus.UInt64, "Timeout",
                                    type_func =
                                    timedelta_to_milliseconds)
     extended_timeout = notifychangeproperty(
-        dbus.UInt16, "ExtendedTimeout",
+        dbus.UInt64, "ExtendedTimeout",
         type_func = timedelta_to_milliseconds)
-    interval = notifychangeproperty(dbus.UInt16,
+    interval = notifychangeproperty(dbus.UInt64,
                                     "Interval",
                                     type_func =
                                     timedelta_to_milliseconds)
