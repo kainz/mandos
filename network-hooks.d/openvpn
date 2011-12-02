@@ -13,10 +13,10 @@
 
 set -e
 
-CONFIG="$MANDOSNETHOOKDIR/openvpn.conf"
+CONFIG="openvpn.conf"
 
 # Extract the "dev" setting from the config file
-VPNDEVICE="`sed -n -e 's/#.*//' -e 's/^[[:space:]]*dev[[:space:]]\+//p' \"$CONFIG\"`"
+VPNDEVICE="`sed -n -e 's/#.*//' -e 's/^[[:space:]]*dev[[:space:]]\+//p' \"$MANDOSNETHOOKDIR/$CONFIG\"`"
 
 PIDFILE=/run/openvpn-mandos.pid
 
@@ -38,7 +38,7 @@ case "$1" in
 	sleep "$DELAY"
 	;;
     stop)
-	PID=`cat \"$PIDFILE\"`
+	PID="`cat \"$PIDFILE\"`"
 	if [ "$PID" -gt 0 ]; then
 	    kill "$PID"
 	fi
