@@ -93,29 +93,23 @@ def string_to_delta(interval):
     >>> string_to_delta("5m 30s")
     datetime.timedelta(0, 330)
     """
-    timevalue = datetime.timedelta(0)
-    regexp = re.compile("\d+[dsmhw]")
+    value = datetime.timedelta(0)
+    regexp = re.compile("(\d+)([dsmhw]?)")
     
-    for s in regexp.findall(interval):
-        try:
-            suffix = unicode(s[-1])
-            value = int(s[:-1])
-            if suffix == "d":
-                delta = datetime.timedelta(value)
-            elif suffix == "s":
-                delta = datetime.timedelta(0, value)
-            elif suffix == "m":
-                delta = datetime.timedelta(0, 0, 0, 0, value)
-            elif suffix == "h":
-                delta = datetime.timedelta(0, 0, 0, 0, 0, value)
-            elif suffix == "w":
-                delta = datetime.timedelta(0, 0, 0, 0, 0, 0, value)
-            else:
-                raise ValueError
-        except (ValueError, IndexError):
-            raise ValueError
-        timevalue += delta
-    return timevalue
+    for num, suffix in regexp.findall(interval):
+        if suffix == "d":
+            value += datetime.timedelta(int(num))
+        elif suffix == "s":
+            value += datetime.timedelta(0, int(num))
+        elif suffix == "m":
+            value += datetime.timedelta(0, 0, 0, 0, int(num))
+        elif suffix == "h":
+            value += datetime.timedelta(0, 0, 0, 0, 0, int(num))
+        elif suffix == "w":
+            value += datetime.timedelta(0, 0, 0, 0, 0, 0, int(num))
+        elif suffix == "":
+            value += datetime.timedelta(0, 0, 0, int(num))
+    return value
 
 def print_clients(clients, keywords):
     def valuetostring(value, keyword):
