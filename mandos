@@ -85,7 +85,6 @@ except AttributeError:
     except ImportError:
         SO_BINDTODEVICE = None
 
-
 version = "1.4.1"
 stored_state_file = "clients.pickle"
 
@@ -432,6 +431,16 @@ class Client(object):
                           "created", "enabled", "fingerprint",
                           "host", "interval", "last_checked_ok",
                           "last_enabled", "name", "timeout")
+    client_defaults = { "timeout": "5m",
+                        "extended_timeout": "15m",
+                        "interval": "2m",
+                        "checker": "fping -q -- %%(host)s",
+                        "host": "",
+                        "approval_delay": "0s",
+                        "approval_duration": "1s",
+                        "approved_by_default": "True",
+                        "enabled": "True",
+                        }
     
     def timeout_milliseconds(self):
         "Return the 'timeout' attribute in milliseconds"
@@ -447,34 +456,65 @@ class Client(object):
     
     def approval_delay_milliseconds(self):
         return timedelta_to_milliseconds(self.approval_delay)
-    
-    def __init__(self, name = None, config=None):
+
+    @staticmethod
+    def config_parser(config):
+        """ Construct a new dict of client settings of this form:
+        { client_name: {setting_name: value, ...}, ...}
+        with exceptions for any special settings as defined above"""
+        settings = {}
+        for client_name in config.sections():
+            section = dict(config.items(client_name))
+            client = settings[client_name] = {}
+            
+            # Default copying each value from config to new dict
+            for setting, value in section.iteritems():
+                client[setting] = value
+            
+            # Reformat values from string types to Python types
+            client["approved_by_default"] = config.getboolean(
+                client_name, "approved_by_default")
+            client["enabled"] = config.getboolean(client_name, "enabled")
+            
+            client["fingerprint"] = (section["fingerprint"].upper()
+                                     .replace(" ", ""))
+            if "secret" in section:
+                client["secret"] = section["secret"].decode("base64")
+            elif "secfile" in section:
+                with open(os.path.expanduser(os.path.expandvars
+                                             (section["secfile"])),
+                          "rb") as secfile:
+                    client["secret"] = secfile.read()
+            else:
+                raise TypeError("No secret or secfile for section %s"
+                                % section)
+            client["timeout"] = string_to_delta(section["timeout"])
+            client["extended_timeout"] = string_to_delta(
+                section["extended_timeout"])
+            client["interval"] = string_to_delta(section["interval"])
+            client["approval_delay"] = string_to_delta(
+                section["approval_delay"])
+            client["approval_duration"] = string_to_delta(
+                section["approval_duration"])
+
+        return settings
+        
+        
+    def __init__(self, config, name = None):
         """Note: the 'checker' key in 'config' sets the
         'checker_command' attribute and *not* the 'checker'
         attribute."""
         self.name = name
-        if config is None:
-            config = {}
         logger.debug("Creating client %r", self.name)
         # Uppercase and remove spaces from fingerprint for later
         # comparison purposes with return value from the fingerprint()
         # function
-        self.fingerprint = (config["fingerprint"].upper()
-                            .replace(" ", ""))
+        self.fingerprint = config["fingerprint"]
         logger.debug("  Fingerprint: %s", self.fingerprint)
-        if "secret" in config:
-            self.secret = config["secret"].decode("base64")
-        elif "secfile" in config:
-            with open(os.path.expanduser(os.path.expandvars
-                                         (config["secfile"])),
-                      "rb") as secfile:
-                self.secret = secfile.read()
-        else:
-            raise TypeError("No secret or secfile for client %s"
-                            % self.name)
-        self.host = config.get("host", "")
+        self.secret = config["secret"]
+        self.host = config["host"]
         self.created = datetime.datetime.utcnow()
-        self.enabled = config.get("enabled", True)
+        self.enabled = config["enabled"]
         self.last_approval_request = None
         if self.enabled:
             self.last_enabled = datetime.datetime.utcnow()
@@ -482,10 +522,9 @@ class Client(object):
             self.last_enabled = None
         self.last_checked_ok = None
         self.last_checker_status = None
-        self.timeout = string_to_delta(config["timeout"])
-        self.extended_timeout = string_to_delta(config
-                                                ["extended_timeout"])
-        self.interval = string_to_delta(config["interval"])
+        self.timeout = config["timeout"]
+        self.extended_timeout = config["extended_timeout"]
+        self.interval = config["interval"]
         self.checker = None
         self.checker_initiator_tag = None
         self.disable_initiator_tag = None
@@ -497,13 +536,10 @@ class Client(object):
         self.checker_command = config["checker"]
         self.current_checker_command = None
         self.approved = None
-        self.approved_by_default = config.get("approved_by_default",
-                                              True)
+        self.approved_by_default = config["approved_by_default"]
         self.approvals_pending = 0
-        self.approval_delay = string_to_delta(
-            config["approval_delay"])
-        self.approval_duration = string_to_delta(
-            config["approval_duration"])
+        self.approval_delay = config["approval_delay"]
+        self.approval_duration = config["approval_duration"]
         self.changedstate = (multiprocessing_manager
                              .Condition(multiprocessing_manager
                                         .Lock()))
@@ -1665,7 +1701,7 @@ class MultiprocessingMixIn(object):
     def sub_process_main(self, request, address):
         try:
             self.finish_request(request, address)
-        except:
+        except Exception:
             self.handle_error(request, address)
         self.close_request(request)
     
@@ -2065,15 +2101,7 @@ def main():
                                 % server_settings["servicename"]))
     
     # Parse config file with clients
-    client_defaults = { "timeout": "5m",
-                        "extended_timeout": "15m",
-                        "interval": "2m",
-                        "checker": "fping -q -- %%(host)s",
-                        "host": "",
-                        "approval_delay": "0s",
-                        "approval_duration": "1s",
-                        }
-    client_config = configparser.SafeConfigParser(client_defaults)
+    client_config = configparser.SafeConfigParser(Client.client_defaults)
     client_config.read(os.path.join(server_settings["configdir"],
                                     "clients.conf"))
     
@@ -2180,29 +2208,7 @@ def main():
         client_class = functools.partial(ClientDBusTransitional,
                                          bus = bus)
     
-    special_settings = {
-        # Some settings need to be accessd by special methods;
-        # booleans need .getboolean(), etc.  Here is a list of them:
-        "approved_by_default":
-            lambda section:
-            client_config.getboolean(section, "approved_by_default"),
-        "enabled":
-            lambda section:
-            client_config.getboolean(section, "enabled"),
-        }
-    # Construct a new dict of client settings of this form:
-    # { client_name: {setting_name: value, ...}, ...}
-    # with exceptions for any special settings as defined above
-    client_settings = dict((clientname,
-                           dict((setting,
-                                 (value
-                                  if setting not in special_settings
-                                  else special_settings[setting]
-                                  (clientname)))
-                                for setting, value in
-                                client_config.items(clientname)))
-                          for clientname in client_config.sections())
-    
+    client_settings = Client.config_parser(client_config)
     old_client_settings = {}
     clients_data = []
     
@@ -2241,14 +2247,23 @@ def main():
                     pass
             
             # Clients who has passed its expire date can still be
-            # enabled if its last checker was sucessful.  Clients
+            # enabled if its last checker was successful.  Clients
             # whose checker failed before we stored its state is
             # assumed to have failed all checkers during downtime.
             if client["enabled"]:
-                if client["expires"] <= (datetime.datetime
-                                         .utcnow()):
-                    # Client has expired
-                    if client["last_checker_status"] != 0:
+                if datetime.datetime.utcnow() >= client["expires"]:
+                    if not client["last_checked_ok"]:
+                        logger.warning(
+                            "disabling client {0} - Client never "
+                            "performed a successfull checker"
+                            .format(client["name"]))
+                        client["enabled"] = False
+                    elif client["last_checker_status"] != 0:
+                        logger.warning(
+                            "disabling client {0} - Client "
+                            "last checker failed with error code {1}"
+                            .format(client["name"],
+                                    client["last_checker_status"]))
                         client["enabled"] = False
                     else:
                         client["expires"] = (datetime.datetime
@@ -2259,6 +2274,7 @@ def main():
                                       .Condition
                                       (multiprocessing_manager
                                        .Lock()))
+            client["checker"] = None
             if use_dbus:
                 new_client = (ClientDBusTransitional.__new__
                               (ClientDBusTransitional))
@@ -2300,8 +2316,7 @@ def main():
     for clientname in set(old_client_settings) - set(client_settings):
         del tcp_server.clients[clientname]
     for clientname in set(client_settings) - set(old_client_settings):
-        tcp_server.clients[clientname] = (client_class(name
-                                                       = clientname,
+        tcp_server.clients[clientname] = (client_class(name = clientname,
                                                        config =
                                                        client_settings
                                                        [clientname]))
@@ -2322,7 +2337,6 @@ def main():
             # "pidfile" was never created
             pass
         del pidfilename
-        
         signal.signal(signal.SIGINT, signal.SIG_IGN)
     
     signal.signal(signal.SIGHUP, lambda signum, frame: sys.exit())
@@ -2407,7 +2421,8 @@ def main():
                 
                 # A list of attributes that will not be stored when
                 # shutting down.
-                exclude = set(("bus", "changedstate", "secret"))
+                exclude = set(("bus", "changedstate", "secret",
+                               "checker"))
                 for name, typ in (inspect.getmembers
                                   (dbus.service.Object)):
                     exclude.add(name)
@@ -2499,7 +2514,6 @@ def main():
     logger.debug("Server exiting")
     # Must run before the D-Bus bus name gets deregistered
     cleanup()
-
 
 if __name__ == '__main__':
     main()
