@@ -467,10 +467,7 @@ class Client(object):
             section = dict(config.items(client_name))
             client = settings[client_name] = {}
             
-            # Default copying each value from config to new dict
-            for setting, value in section.iteritems():
-                client[setting] = value
-            
+            client["host"] = section["host"]
             # Reformat values from string types to Python types
             client["approved_by_default"] = config.getboolean(
                 client_name, "approved_by_default")
@@ -496,50 +493,45 @@ class Client(object):
                 section["approval_delay"])
             client["approval_duration"] = string_to_delta(
                 section["approval_duration"])
+            client["checker_command"] = section["checker"]
+            client["last_approval_request"] = None
+            client["last_checked_ok"] = None
+            client["last_checker_status"] = None
+            if client["enabled"]:
+                client["last_enabled"] = datetime.datetime.utcnow()
+                client["expires"] = (datetime.datetime.utcnow()
+                                     + client["timeout"])
+            else:
+                client["last_enabled"] = None
+                client["expires"] = None
 
         return settings
         
         
-    def __init__(self, config, name = None):
+    def __init__(self, settings, name = None):
         """Note: the 'checker' key in 'config' sets the
         'checker_command' attribute and *not* the 'checker'
         attribute."""
         self.name = name
+        # adding all client settings
+        for setting, value in settings.iteritems():
+            setattr(self, setting, value)
+        
         logger.debug("Creating client %r", self.name)
         # Uppercase and remove spaces from fingerprint for later
         # comparison purposes with return value from the fingerprint()
         # function
-        self.fingerprint = config["fingerprint"]
         logger.debug("  Fingerprint: %s", self.fingerprint)
-        self.secret = config["secret"]
-        self.host = config["host"]
-        self.created = datetime.datetime.utcnow()
-        self.enabled = config["enabled"]
-        self.last_approval_request = None
-        if self.enabled:
-            self.last_enabled = datetime.datetime.utcnow()
-        else:
-            self.last_enabled = None
-        self.last_checked_ok = None
-        self.last_checker_status = None
-        self.timeout = config["timeout"]
-        self.extended_timeout = config["extended_timeout"]
-        self.interval = config["interval"]
+        self.created = settings.get("created", datetime.datetime.utcnow())
+
+        # attributes specific for this server instance
         self.checker = None
         self.checker_initiator_tag = None
         self.disable_initiator_tag = None
-        if self.enabled:
-            self.expires = datetime.datetime.utcnow() + self.timeout
-        else:
-            self.expires = None
         self.checker_callback_tag = None
-        self.checker_command = config["checker"]
         self.current_checker_command = None
         self.approved = None
-        self.approved_by_default = config["approved_by_default"]
         self.approvals_pending = 0
-        self.approval_delay = config["approval_delay"]
-        self.approval_duration = config["approval_duration"]
         self.changedstate = (multiprocessing_manager
                              .Condition(multiprocessing_manager
                                         .Lock()))
@@ -2210,7 +2202,7 @@ def main():
     
     client_settings = Client.config_parser(client_config)
     old_client_settings = {}
-    clients_data = []
+    clients_data = {}
     
     # Get client data and settings from last running state.
     if server_settings["restore"]:
@@ -2226,9 +2218,7 @@ def main():
                 raise
     
     with PGPEngine() as pgp:
-        for client in clients_data:
-            client_name = client["name"]
-            
+        for client_name, client in clients_data.iteritems():
             # Decide which value to use after restoring saved state.
             # We have three different values: Old config file,
             # new config file, and saved state.
@@ -2269,57 +2259,30 @@ def main():
                         client["expires"] = (datetime.datetime
                                              .utcnow()
                                              + client["timeout"])
-            
-            client["changedstate"] = (multiprocessing_manager
-                                      .Condition
-                                      (multiprocessing_manager
-                                       .Lock()))
-            client["checker"] = None
-            if use_dbus:
-                new_client = (ClientDBusTransitional.__new__
-                              (ClientDBusTransitional))
-                tcp_server.clients[client_name] = new_client
-                new_client.bus = bus
-                for name, value in client.iteritems():
-                    setattr(new_client, name, value)
-                client_object_name = unicode(client_name).translate(
-                    {ord("."): ord("_"),
-                     ord("-"): ord("_")})
-                new_client.dbus_object_path = (dbus.ObjectPath
-                                               ("/clients/"
-                                                + client_object_name))
-                DBusObjectWithProperties.__init__(new_client,
-                                                  new_client.bus,
-                                                  new_client
-                                                  .dbus_object_path)
-            else:
-                tcp_server.clients[client_name] = (Client.__new__
-                                                   (Client))
-                for name, value in client.iteritems():
-                    setattr(tcp_server.clients[client_name],
-                            name, value)
-            
+                    
             try:
-                tcp_server.clients[client_name].secret = (
-                    pgp.decrypt(tcp_server.clients[client_name]
-                                .encrypted_secret,
+                client["secret"] = (
+                    pgp.decrypt(client["encrypted_secret"],
                                 client_settings[client_name]
                                 ["secret"]))
             except PGPError:
                 # If decryption fails, we use secret from new settings
                 logger.debug("Failed to decrypt {0} old secret"
                              .format(client_name))
-                tcp_server.clients[client_name].secret = (
+                client["secret"] = (
                     client_settings[client_name]["secret"])
+
     
-    # Create/remove clients based on new changes made to config
-    for clientname in set(old_client_settings) - set(client_settings):
-        del tcp_server.clients[clientname]
-    for clientname in set(client_settings) - set(old_client_settings):
-        tcp_server.clients[clientname] = (client_class(name = clientname,
-                                                       config =
-                                                       client_settings
-                                                       [clientname]))
+    # Add/remove clients based on new changes made to config
+    for client_name in set(old_client_settings) - set(client_settings):
+        del clients_data[client_name]
+    for client_name in set(client_settings) - set(old_client_settings):
+        clients_data[client_name] = client_settings[client_name]
+
+    # Create clients all clients
+    for client_name, client in clients_data.iteritems():
+        tcp_server.clients[client_name] = client_class(
+            name = client_name, settings = client)
     
     if not tcp_server.clients:
         logger.warning("No clients defined")
@@ -2411,7 +2374,7 @@ def main():
         # Store client before exiting. Secrets are encrypted with key
         # based on what config file has. If config file is
         # removed/edited, old secret will thus be unrecovable.
-        clients = []
+        clients = {}
         with PGPEngine() as pgp:
             for client in tcp_server.clients.itervalues():
                 key = client_settings[client.name]["secret"]
@@ -2419,8 +2382,8 @@ def main():
                                                       key)
                 client_dict = {}
                 
-                # A list of attributes that will not be stored when
-                # shutting down.
+                # A list of attributes that can not be pickled
+                # + secret.
                 exclude = set(("bus", "changedstate", "secret",
                                "checker"))
                 for name, typ in (inspect.getmembers
@@ -2433,7 +2396,7 @@ def main():
                     if attr not in exclude:
                         client_dict[attr] = getattr(client, attr)
                 
-                clients.append(client_dict)
+                clients[client.name] = client_dict
                 del client_settings[client.name]["secret"]
         
         try:
