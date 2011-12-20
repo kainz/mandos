@@ -2145,6 +2145,8 @@ def main():
         # Close all input and output, do double fork, etc.
         daemon()
     
+    gobject.threads_init()
+    
     global main_loop
     # From the Avahi example code
     DBusGMainLoop(set_as_default=True )
