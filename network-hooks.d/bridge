@@ -29,13 +29,22 @@ if [ -n "$DEVICE" -a "$DEVICE" != "$BRIDGE" ]; then
     exit
 fi
 
+for b in /sbin/brctl /usr/sbin/brctl; do
+    if [ -e "$b" ]; then
+	brctl="$b"
+	break
+    fi
+done
+
 case "$1" in
     start)
-	/usr/sbin/brctl addbr "$BRIDGE"
+	"$brctl" addbr "$BRIDGE"
 	for port in $PORTS; do
-	    /usr/sbin/brctl addif "$BRIDGE" "$port"
+	    "$brctl" addif "$BRIDGE" "$port"
+	    ip link set up "$port"
 	done
 	ip link set up "$BRIDGE"
+	sleep "$DELAY"
 	if [ -n "$IPADDRS" ]; then
             for ipaddr in $IPADDRS; do
 		ip addr add "$ipaddr" dev "$BRIDGE"
@@ -50,13 +59,14 @@ case "$1" in
     stop)
 	ip link set down "$BRIDGE"
 	for port in $PORTS; do
-	    /usr/sbin/brctl delif "$BRIDGE" "$port"
+	    ip link set down "$port"
+	    "$brctl" delif "$BRIDGE" "$port"
 	done
-	/usr/sbin/brctl delbr "$BRIDGE"
+	"$brctl" delbr "$BRIDGE"
 	;;
     files)
 	echo /bin/ip
-	echo /usr/sbin/brctl
+	echo "$brctl"
 	;;
     modules)
 	echo bridge
