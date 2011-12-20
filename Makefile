@@ -324,6 +324,8 @@ install-client-nokey: all doc
 		install --mode=u=rwx \
 			--directory "$(CONFDIR)/plugins.d"; \
 	fi
+	install --mode=u=rwx,go=rx --directory \
+		"$(CONFDIR)/network-hooks.d"
 	install --mode=u=rwx,go=rx \
 		--target-directory=$(PREFIX)/lib/mandos plugin-runner
 	install --mode=u=rwx,go=rx --target-directory=$(PREFIX)/sbin \
