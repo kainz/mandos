@@ -236,7 +236,7 @@ def main():
             #restore stderr
             os.dup2(stderrcopy, sys.stderr.fileno())
             os.close(stderrcopy)
-    except dbus.exceptions.DBusException, e:
+    except dbus.exceptions.DBusException:
         print("Access denied: Accessing mandos server through dbus.",
               file=sys.stderr)
         sys.exit(1)
