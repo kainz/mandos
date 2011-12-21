@@ -255,7 +255,7 @@ run-client: all keydir/seckey.txt keydir/pubkey.txt
 	@echo "###################################################################"
 	./plugin-runner --plugin-dir=plugins.d \
 		--config-file=plugin-runner.conf \
-		--options-for=mandos-client:--seckey=keydir/seckey.txt,--pubkey=keydir/pubkey.txt \
+		--options-for=mandos-client:--seckey=keydir/seckey.txt,--pubkey=keydir/pubkey.txt,--network-hook-dir=network-hooks.d \
 		$(CLIENTARGS)
 
 # Used by run-client
@@ -328,6 +328,8 @@ install-client-nokey: all doc
 		install --mode=u=rwx \
 			--directory "$(CONFDIR)/plugins.d"; \
 	fi
+	install --mode=u=rwx,go=rx --directory \
+		"$(CONFDIR)/network-hooks.d"
 	install --mode=u=rwx,go=rx \
 		--target-directory=$(PREFIX)/lib/mandos plugin-runner
 	install --mode=u=rwx,go=rx --target-directory=$(PREFIX)/sbin \
