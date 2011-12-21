@@ -7,6 +7,9 @@
 * mandos-applet
 
 * mandos-client
+** TODO [#B] Flag fprintf_plus so compiler checks the format string.
+** TODO [#A] OpenVPN network hook
+** TODO [#A] Wireless network hook
 ** TODO [#B] Use capabilities instead of seteuid().
 ** TODO [#B] Use struct sockaddr_storage instead of a union
 ** TODO [#B] Use getaddrinfo(hints=AI_NUMERICHOST) instead of inet_pton()
@@ -42,19 +45,19 @@
 * mandos (server)
 ** TODO Document why we ignore sigint
 ** TODO [#B] Log level							  :BUGS:
-** TODO [#A] Save state to new file and move instead of overwrite
-  
+** TODO [#A] Save state to new file and move instead of overwrite  
+*** TODO /etc/mandos/clients.d/*.conf
+    Watch this directory and add/remove/update clients?
 ** TODO [#C] config for TXT record
-** TODO Log level option
-   syslogger.setLevel(logging.WARNING)
-   + SetLogLevel D-Bus call
+** TODO Log level dbus option
+   SetLogLevel D-Bus call
 ** TODO Implement --foreground						  :BUGS:
    [[info:standards:Option%20Table][Table of Long Options]]
 ** TODO Implement --socket
    [[info:standards:Option%20Table][Table of Long Options]]
 ** TODO [#C] DBusServiceObjectUsingSuper
 ** TODO [#B] Global enable/disable flag
-** TODO [#B] By-client countdown on secrets given
+** TODO [#B] By-client countdown on number of secrets given
 ** TODO [#B] Support RFC 3339 time duration syntax
 ** More D-Bus methods
 *** NeedsPassword(50) - Timeout, default disapprove
@@ -70,6 +73,7 @@
 ** TODO Generate Client.runtime_expansions from client options + extra
 ** TODO Allow %%(checker)s as a runtime expansion
 ** TODO Use python-tlslite?
+** TODO D-Bus AddClient() method on server object
 
 * mandos.xml
 ** Add mandos contact info in manual pages
