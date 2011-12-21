@@ -4,3 +4,4 @@ etc/init.d
 etc/default
 etc/dbus-1/system.d
 usr/sbin
+var/lib/mandos
