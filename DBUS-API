@@ -112,7 +112,7 @@ This file documents the D-Bus interface to the Mandos server.
       Disable().
    
    f) The date and time this client will be disabled, as an RFC 3339
-      string, or an empty string if this has not happened.
+      string, or an empty string if this is not scheduled.
    
    g) The date and time of the last approval request, as an RFC 3339
       string, or an empty string if this has not happened.
@@ -151,6 +151,9 @@ This file documents the D-Bus interface to the Mandos server.
     
 *** Rejected(s: Reason)
     This client was not given its secret for a specified Reason.
+
+*** NewRequest(s: IP address)
+    A client at IP adress has asked for its password.
 
 * Copyright
 

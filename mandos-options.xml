@@ -86,4 +86,15 @@ It is also used for some texts by mandos-client(8mandos).
     advanced users should consider changing this option</emphasis>.
   </para>
   
+  <para id="restore">
+    This option controls whether the server will restore any state from
+    last time it ran. Default is to try restore last state.
+  </para>
+  
+  <para id="statedir">
+    Directory to save (and restore) state in.  Default is
+    <quote><filename
+    class="directory">/var/lib/mandos</filename></quote>.
+  </para>
+  
 </section>
