@@ -2218,6 +2218,9 @@ def main():
                            .format(e))
             if e.errno != errno.ENOENT:
                 raise
+        except EOFError as e:
+            logger.warning("Could not load persistent state: "
+                           "EOFError: {0}".format(e))
     
     with PGPEngine() as pgp:
         for client_name, client in clients_data.iteritems():
