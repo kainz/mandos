@@ -35,11 +35,12 @@ case "$1" in
 		--disabled-password --gecos "Mandos password system" \
 		_mandos
 	fi
+	chown _mandos:_mandos /var/lib/mandos
 	;;
-
+    
     abort-upgrade|abort-deconfigure|abort-remove)
 	;;
-
+    
     *)
 	echo "$0 called with unknown argument '$1'" 1>&2
 	exit 1
