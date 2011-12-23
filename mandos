@@ -110,7 +110,7 @@ except (OSError, AttributeError):
         return interface_index
 
 
-def initlogger(level=logging.WARNING):
+def initlogger(debug, level=logging.WARNING):
     """init logger and add loglevel"""
     
     syslogger.setFormatter(logging.Formatter
@@ -118,12 +118,13 @@ def initlogger(level=logging.WARNING):
                             ' %(message)s'))
     logger.addHandler(syslogger)
     
-    console = logging.StreamHandler()
-    console.setFormatter(logging.Formatter('%(asctime)s %(name)s'
-                                           ' [%(process)d]:'
-                                           ' %(levelname)s:'
-                                           ' %(message)s'))
-    logger.addHandler(console)
+    if debug:
+        console = logging.StreamHandler()
+        console.setFormatter(logging.Formatter('%(asctime)s %(name)s'
+                                               ' [%(process)d]:'
+                                               ' %(levelname)s:'
+                                               ' %(message)s'))
+        logger.addHandler(console)
     logger.setLevel(level)
 
 
@@ -2078,13 +2079,13 @@ def main():
                                      stored_state_file)
     
     if debug:
-        initlogger(logging.DEBUG)
+        initlogger(debug, logging.DEBUG)
     else:
         if not debuglevel:
-            initlogger()
+            initlogger(debug)
         else:
             level = getattr(logging, debuglevel.upper())
-            initlogger(level)
+            initlogger(debug, level)
     
     if server_settings["servicename"] != "Mandos":
         syslogger.setFormatter(logging.Formatter
@@ -2156,9 +2157,6 @@ def main():
         os.dup2(null, sys.stdin.fileno())
         if null > 2:
             os.close(null)
-    else:
-        # No console logging
-        logger.removeHandler(console)
     
     # Need to fork before connecting to D-Bus
     if not debug:
@@ -2415,9 +2413,14 @@ def main():
         except (IOError, OSError) as e:
             logger.warning("Could not save persistent state: {0}"
                            .format(e))
+            if not debug:
+                try:
+                    os.remove(tempname)
+                except NameError:
+                    pass
             if e.errno not in set((errno.ENOENT, errno.EACCES,
                                    errno.EEXIST)):
-                raise
+                raise e
         
         # Delete all clients, and settings from config
         while tcp_server.clients:
