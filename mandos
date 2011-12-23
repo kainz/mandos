@@ -2405,12 +2405,13 @@ def main():
                 del client_settings[client.name]["secret"]
         
         try:
-            with os.fdopen(os.open(stored_state_path,
-                                   (os.O_CREAT | os.O_WRONLY
-                                    | os.O_TRUNC | os.O_EXCL),
-                                   (stat.S_IREAD | stat.S_IWRITE)),
-                           "wb") as stored_state:
+            tempfd, tempname = tempfile.mkstemp(suffix=".pickle",
+                                                prefix="clients-",
+                                                dir=os.path.dirname
+                                                (stored_state_path))
+            with os.fdopen(tempfd, "wb") as stored_state:
                 pickle.dump((clients, client_settings), stored_state)
+            os.rename(tempname, stored_state_path)
         except (IOError, OSError) as e:
             logger.warning("Could not save persistent state: {0}"
                            .format(e))
