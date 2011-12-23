@@ -45,7 +45,6 @@
 * mandos (server)
 ** TODO Document why we ignore sigint
 ** TODO [#B] Log level							  :BUGS:
-** TODO [#A] Save state to new file and move instead of overwrite  
 *** TODO /etc/mandos/clients.d/*.conf
     Watch this directory and add/remove/update clients?
 ** TODO [#C] config for TXT record
