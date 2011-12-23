@@ -2406,13 +2406,16 @@ def main():
         
         try:
             with os.fdopen(os.open(stored_state_path,
-                                   os.O_CREAT|os.O_WRONLY|os.O_TRUNC,
-                                   0600), "wb") as stored_state:
+                                   (os.O_CREAT | os.O_WRONLY
+                                    | os.O_TRUNC | os.O_EXCL),
+                                   (stat.S_IREAD | stat.S_IWRITE)),
+                           "wb") as stored_state:
                 pickle.dump((clients, client_settings), stored_state)
         except (IOError, OSError) as e:
             logger.warning("Could not save persistent state: {0}"
                            .format(e))
-            if e.errno not in (errno.ENOENT, errno.EACCES):
+            if e.errno not in set((errno.ENOENT, errno.EACCES,
+                                   errno.EEXIST)):
                 raise
         
         # Delete all clients, and settings from config
