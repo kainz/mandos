@@ -202,13 +202,13 @@ size_t incbuffer(char **buffer, size_t buffer_length,
 }
 
 /* Add server to set of servers to retry periodically */
-int add_server(const char *ip, uint16_t port, AvahiIfIndex if_index,
-	       int af){
+bool add_server(const char *ip, uint16_t port, AvahiIfIndex if_index,
+		int af){
   int ret;
   server *new_server = malloc(sizeof(server));
   if(new_server == NULL){
     perror_plus("malloc");
-    return -1;
+    return false;
   }
   *new_server = (server){ .ip = strdup(ip),
 			  .port = port,
@@ -216,7 +216,7 @@ int add_server(const char *ip, uint16_t port, AvahiIfIndex if_index,
 			  .af = af };
   if(new_server->ip == NULL){
     perror_plus("strdup");
-    return -1;
+    return false;
   }
   /* Special case of first server */
   if (mc.current_server == NULL){
@@ -233,9 +233,9 @@ int add_server(const char *ip, uint16_t port, AvahiIfIndex if_index,
   ret = clock_gettime(CLOCK_MONOTONIC, &mc.current_server->last_seen);
   if(ret == -1){
     perror_plus("clock_gettime");
-    return -1;
+    return false;
   }
-  return 0;
+  return true;
 }
 
 /* 
@@ -1030,8 +1030,11 @@ static void resolve_callback(AvahiSServiceResolver *r,
       if(ret == 0){
 	avahi_simple_poll_quit(mc.simple_poll);
       } else {
-	ret = add_server(ip, port, interface,
-			 avahi_proto_to_af(proto));
+	if(not add_server(ip, port, interface,
+			  avahi_proto_to_af(proto))){
+	  fprintf_plus(stderr, "Failed to add server \"%s\" to server"
+		       " list\n", name);
+	}
       }
     }
   }
@@ -1671,8 +1674,6 @@ int main(int argc, char *argv[]){
 	argp_state_help(state, state->out_stream,
 			ARGP_HELP_USAGE | ARGP_HELP_EXIT_ERR);
       case 'V':			/* --version */
-	fprintf_plus(state->out_stream,
-		     "Mandos plugin mandos-client: ");
 	fprintf_plus(state->out_stream, "%s\n", argp_program_version);
 	exit(argp_err_exit_status);
 	break;
