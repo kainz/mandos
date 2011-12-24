@@ -46,6 +46,7 @@
 
 
 /* Function to use when printing errors */
+__attribute__((format (gnu_printf, 3, 4)))
 void error_plus(int status, int errnum, const char *formatstring,
 		...){
   va_list ap;

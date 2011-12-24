@@ -9,7 +9,6 @@
 * mandos-applet
 
 * mandos-client
-** TODO [#B] Flag fprintf_plus so compiler checks the format string.
 ** TODO [#A] OpenVPN network hook
 ** TODO [#A] Wireless network hook
 ** TODO [#B] Use capabilities instead of seteuid().
