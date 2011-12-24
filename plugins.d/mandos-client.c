@@ -175,6 +175,7 @@ void perror_plus(const char *print_text){
   perror(print_text);
 }
 
+__attribute__((format (gnu_printf, 2, 3)))
 int fprintf_plus(FILE *stream, const char *format, ...){
   va_list ap;
   va_start (ap, format);
@@ -1470,8 +1471,10 @@ bool run_network_hooks(const char *mode, const char *interface,
 	  _exit(EX_OSERR);
 	}
 	free(delaystring);
-	ret = execl(fullname, direntry->d_name, mode, NULL);
-	perror_plus("execl");
+	if(execl(fullname, direntry->d_name, mode, NULL) == -1){
+	  perror_plus("execl");
+	  _exit(EXIT_FAILURE);
+	}
       } else {
 	int status;
 	if(TEMP_FAILURE_RETRY(waitpid(hook_pid, &status, 0)) == -1){
