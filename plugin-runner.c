@@ -426,7 +426,7 @@ int main(int argc, char *argv[]){
     errno = 0;
     switch(key){
       char *tmp;
-      intmax_t tmpmax;
+      intmax_t tmp_id;
     case 'g': 			/* --global-options */
       {
 	char *plugin_option;
@@ -505,24 +505,24 @@ int main(int argc, char *argv[]){
       /* This is already done by parse_opt_config_file() */
       break;
     case 130:			/* --userid */
-      tmpmax = strtoimax(arg, &tmp, 10);
+      tmp_id = strtoimax(arg, &tmp, 10);
       if(errno != 0 or tmp == arg or *tmp != '\0'
-	 or tmpmax != (uid_t)tmpmax){
+	 or tmp_id != (uid_t)tmp_id){
 	argp_error(state, "Bad user ID number: \"%s\", using %"
 		   PRIdMAX, arg, (intmax_t)uid);
 	break;
       }
-      uid = (uid_t)tmpmax;
+      uid = (uid_t)tmp_id;
       break;
     case 131:			/* --groupid */
-      tmpmax = strtoimax(arg, &tmp, 10);
+      tmp_id = strtoimax(arg, &tmp, 10);
       if(errno != 0 or tmp == arg or *tmp != '\0'
-	 or tmpmax != (gid_t)tmpmax){
+	 or tmp_id != (gid_t)tmp_id){
 	argp_error(state, "Bad group ID number: \"%s\", using %"
 		   PRIdMAX, arg, (intmax_t)gid);
 	break;
       }
-      gid = (gid_t)tmpmax;
+      gid = (gid_t)tmp_id;
       break;
     case 132:			/* --debug */
       debug = true;
