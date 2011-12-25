@@ -77,7 +77,6 @@
 *** Handle "no D-Bus server" and/or "no Mandos server found" better
 *** [#B] --dump option
 ** TODO Support RFC 3339 time duration syntax
-** TODO Send milliseconds if bare integer is passed as time duration
 
 * TODO mandos-dispatch
   Listens for specified D-Bus signals and spawns shell commands with
