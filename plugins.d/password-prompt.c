@@ -124,13 +124,13 @@ bool conflict_detection(void){
     int ret;
     int cl_fd;
     {
-      uintmax_t maxvalue;
+      uintmax_t proc_id;
       char *tmp;
       errno = 0;
-      maxvalue = strtoumax(proc_entry->d_name, &tmp, 10);
+      proc_id = strtoumax(proc_entry->d_name, &tmp, 10);
       
       if(errno != 0 or *tmp != '\0'
-	 or maxvalue != (uintmax_t)((pid_t)maxvalue)){
+	 or proc_id != (uintmax_t)((pid_t)proc_id)){
 	return 0;
       }
     }
@@ -514,6 +514,7 @@ int main(int argc, char **argv){
 	switch(e){
 	case EBADF:
 	  status = EX_UNAVAILABLE;
+	  break;
 	case EIO:
 	case EINVAL:
 	default:
