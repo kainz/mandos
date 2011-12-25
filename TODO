@@ -1,15 +1,10 @@
 -*- org -*-
 
-* Use _attribute_((nonnull)) wherever possible.
-* Use __attribute__((pure)) or __attribute__((const)) where possible.
-* Use __attribute__((signal)) on signal handlers.
-
 * [[http://www.undeadly.org/cgi?action=article&sid=20110530221728][OpenBSD]]
 
 * mandos-applet
 
 * mandos-client
-** TODO [#A] OpenVPN network hook
 ** TODO [#A] Wireless network hook
 ** TODO [#B] Use capabilities instead of seteuid().
 ** TODO [#B] Use struct sockaddr_storage instead of a union
