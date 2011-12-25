@@ -154,6 +154,7 @@ bool become_a_daemon(void){
   return true;
 }
 
+__attribute__((nonnull (2, 3)))
 bool exec_and_wait(pid_t *pid_return, const char *path,
 		   const char **argv, bool interruptable,
 		   bool daemonize){
@@ -213,6 +214,7 @@ bool exec_and_wait(pid_t *pid_return, const char *path,
   return false;
 }
 
+__attribute__((nonnull))
 int is_plymouth(const struct dirent *proc_entry){
   int ret;
   {

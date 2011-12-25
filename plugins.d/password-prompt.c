@@ -72,6 +72,16 @@ const char *argp_program_bug_address = "<mandos@recompile.se>";
 /* Needed for conflict resolution */
 const char plymouth_name[] = "plymouthd";
 
+__attribute__((format (gnu_printf, 2, 3), nonnull(1)))
+int fprintf_plus(FILE *stream, const char *format, ...){
+  va_list ap;
+  va_start (ap, format);
+  
+  TEMP_FAILURE_RETRY(fprintf(stream, "Mandos plugin %s: ",
+			     program_invocation_short_name));
+  return TEMP_FAILURE_RETRY(vfprintf(stream, format, ap));
+}
+
 /* Function to use when printing errors */
 __attribute__((format (gnu_printf, 3, 4)))
 void error_plus(int status, int errnum, const char *formatstring,
@@ -86,8 +96,7 @@ void error_plus(int status, int errnum, const char *formatstring,
     fprintf(stderr, "Mandos plugin %s: ",
 	    program_invocation_short_name);
     vfprintf(stderr, formatstring, ap);
-    fprintf(stderr, ": ");
-    fprintf(stderr, "%s\n", strerror(errnum));
+    fprintf(stderr, ": %s\n", strerror(errnum));
     error(status, errno, "vasprintf while printing error");
     return;
   }
@@ -110,6 +119,7 @@ bool conflict_detection(void){
      from the terminal.  Password-prompt will exit if it detects
      plymouth since plymouth performs the same functionality.
    */
+  __attribute__((nonnull))
   int is_plymouth(const struct dirent *proc_entry){
     int ret;
     int cl_fd;
@@ -129,7 +139,7 @@ bool conflict_detection(void){
     ret = asprintf(&cmdline_filename, "/proc/%s/cmdline",
 		   proc_entry->d_name);
     if(ret == -1){
-      error(0, errno, "asprintf");
+      error_plus(0, errno, "asprintf");
       return 0;
     }
     
@@ -138,7 +148,7 @@ bool conflict_detection(void){
     free(cmdline_filename);
     if(cl_fd == -1){
       if(errno != ENOENT){
-	error(0, errno, "open");
+	error_plus(0, errno, "open");
       }
       return 0;
     }
@@ -155,7 +165,7 @@ bool conflict_detection(void){
 	if(cmdline_len + blocksize + 1 > cmdline_allocated){
 	  tmp = realloc(cmdline, cmdline_allocated + blocksize + 1);
 	  if(tmp == NULL){
-	    error(0, errno, "realloc");
+	    error_plus(0, errno, "realloc");
 	    free(cmdline);
 	    close(cl_fd);
 	    return 0;
@@ -168,7 +178,7 @@ bool conflict_detection(void){
 	sret = read(cl_fd, cmdline + cmdline_len,
 		    cmdline_allocated - cmdline_len);
 	if(sret == -1){
-	  error(0, errno, "read");
+	  error_plus(0, errno, "read");
 	  free(cmdline);
 	  close(cl_fd);
 	  return 0;
@@ -177,7 +187,7 @@ bool conflict_detection(void){
       } while(sret != 0);
       ret = close(cl_fd);
       if(ret == -1){
-	error(0, errno, "close");
+	error_plus(0, errno, "close");
 	free(cmdline);
 	return 0;
       }
@@ -213,7 +223,7 @@ bool conflict_detection(void){
   int ret;
   ret = scandir("/proc", &direntries, is_plymouth, alphasort);
   if (ret == -1){
-    error(1, errno, "scandir");
+    error_plus(1, errno, "scandir");
   }
   free(direntries);
   return ret > 0;
@@ -250,6 +260,7 @@ int main(int argc, char **argv){
       { .name = NULL }
     };
     
+    __attribute__((nonnull(3)))
     error_t parse_opt (int key, char *arg, struct argp_state *state){
       errno = 0;
       switch (key){
@@ -291,7 +302,7 @@ int main(int argc, char **argv){
     case ENOMEM:
     default:
       errno = ret;
-      error(0, errno, "argp_parse");
+      error_plus(0, errno, "argp_parse");
       return EX_OSERR;
     case EINVAL:
       return EX_USAGE;
@@ -315,7 +326,7 @@ int main(int argc, char **argv){
   
   if(tcgetattr(STDIN_FILENO, &t_old) != 0){
     int e = errno;
-    error(0, errno, "tcgetattr");
+    error_plus(0, errno, "tcgetattr");
     switch(e){
     case EBADF:
     case ENOTTY:
@@ -328,17 +339,17 @@ int main(int argc, char **argv){
   sigemptyset(&new_action.sa_mask);
   ret = sigaddset(&new_action.sa_mask, SIGINT);
   if(ret == -1){
-    error(0, errno, "sigaddset");
+    error_plus(0, errno, "sigaddset");
     return EX_OSERR;
   }
   ret = sigaddset(&new_action.sa_mask, SIGHUP);
   if(ret == -1){
-    error(0, errno, "sigaddset");
+    error_plus(0, errno, "sigaddset");
     return EX_OSERR;
   }
   ret = sigaddset(&new_action.sa_mask, SIGTERM);
   if(ret == -1){
-    error(0, errno, "sigaddset");
+    error_plus(0, errno, "sigaddset");
     return EX_OSERR;
   }
   /* Need to check if the handler is SIG_IGN before handling:
@@ -347,37 +358,37 @@ int main(int argc, char **argv){
   */
   ret = sigaction(SIGINT, NULL, &old_action);
   if(ret == -1){
-    error(0, errno, "sigaction");
+    error_plus(0, errno, "sigaction");
     return EX_OSERR;
   }
   if(old_action.sa_handler != SIG_IGN){
     ret = sigaction(SIGINT, &new_action, NULL);
     if(ret == -1){
-      error(0, errno, "sigaction");
+      error_plus(0, errno, "sigaction");
       return EX_OSERR;
     }
   }
   ret = sigaction(SIGHUP, NULL, &old_action);
   if(ret == -1){
-    error(0, errno, "sigaction");
+    error_plus(0, errno, "sigaction");
     return EX_OSERR;
   }
   if(old_action.sa_handler != SIG_IGN){
     ret = sigaction(SIGHUP, &new_action, NULL);
     if(ret == -1){
-      error(0, errno, "sigaction");
+      error_plus(0, errno, "sigaction");
       return EX_OSERR;
     }
   }
   ret = sigaction(SIGTERM, NULL, &old_action);
   if(ret == -1){
-    error(0, errno, "sigaction");
+    error_plus(0, errno, "sigaction");
     return EX_OSERR;
   }
   if(old_action.sa_handler != SIG_IGN){
     ret = sigaction(SIGTERM, &new_action, NULL);
     if(ret == -1){
-      error(0, errno, "sigaction");
+      error_plus(0, errno, "sigaction");
       return EX_OSERR;
     }
   }
@@ -391,7 +402,7 @@ int main(int argc, char **argv){
   t_new.c_lflag &= ~(tcflag_t)ECHO;
   if(tcsetattr(STDIN_FILENO, TCSAFLUSH, &t_new) != 0){
     int e = errno;
-    error(0, errno, "tcsetattr-echo");
+    error_plus(0, errno, "tcsetattr-echo");
     switch(e){
     case EBADF:
     case ENOTTY:
@@ -461,7 +472,7 @@ int main(int argc, char **argv){
 	sret = write(STDOUT_FILENO, buffer + written, n - written);
 	if(sret < 0){
 	  int e = errno;
-	  error(0, errno, "write");
+	  error_plus(0, errno, "write");
 	  switch(e){
 	  case EBADF:
 	  case EFAULT:
@@ -483,7 +494,7 @@ int main(int argc, char **argv){
       sret = close(STDOUT_FILENO);
       if(sret == -1){
 	int e = errno;
-	error(0, errno, "close");
+	error_plus(0, errno, "close");
 	switch(e){
 	case EBADF:
 	  status = EX_OSFILE;
@@ -499,7 +510,7 @@ int main(int argc, char **argv){
     if(sret < 0){
       int e = errno;
       if(errno != EINTR and not feof(stdin)){
-	error(0, errno, "getline");
+	error_plus(0, errno, "getline");
 	switch(e){
 	case EBADF:
 	  status = EX_UNAVAILABLE;
@@ -528,7 +539,7 @@ int main(int argc, char **argv){
     fprintf(stderr, "Restoring terminal attributes\n");
   }
   if(tcsetattr(STDIN_FILENO, TCSAFLUSH, &t_old) != 0){
-    error(0, errno, "tcsetattr+echo");
+    error_plus(0, errno, "tcsetattr+echo");
   }
   
   if(quit_now){
@@ -536,7 +547,7 @@ int main(int argc, char **argv){
     old_action.sa_handler = SIG_DFL;
     ret = sigaction(signal_received, &old_action, NULL);
     if(ret == -1){
-      error(0, errno, "sigaction");
+      error_plus(0, errno, "sigaction");
     }
     raise(signal_received);
   }

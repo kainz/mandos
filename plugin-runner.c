@@ -171,6 +171,7 @@ static plugin *getplugin(char *name){
 }
 
 /* Helper function for add_argument and add_environment */
+__attribute__((nonnull))
 static bool add_to_char_array(const char *new, char ***array,
 			      int *len){
   /* Resize the pointed-to array to hold one more pointer */
@@ -199,6 +200,7 @@ static bool add_to_char_array(const char *new, char ***array,
 }
 
 /* Add to a plugin's argument vector */
+__attribute__((nonnull(2)))
 static bool add_argument(plugin *p, const char *arg){
   if(p == NULL){
     return false;
@@ -207,6 +209,7 @@ static bool add_argument(plugin *p, const char *arg){
 }
 
 /* Add to a plugin's environment */
+__attribute__((nonnull(2)))
 static bool add_environment(plugin *p, const char *def, bool replace){
   if(p == NULL){
     return false;
@@ -286,6 +289,7 @@ static void handle_sigchld(__attribute__((unused)) int sig){
 }
 
 /* Prints out a password to stdout */
+__attribute__((nonnull))
 static bool print_out_password(const char *buffer, size_t length){
   ssize_t ret;
   for(size_t written = 0; written < length; written += (size_t)ret){
@@ -299,6 +303,7 @@ static bool print_out_password(const char *buffer, size_t length){
 }
 
 /* Removes and free a plugin from the plugin list */
+__attribute__((nonnull))
 static void free_plugin(plugin *plugin_node){
   
   for(char **arg = plugin_node->argv; *arg != NULL; arg++){
@@ -416,6 +421,7 @@ int main(int argc, char *argv[]){
     { .name = NULL }
   };
   
+  __attribute__((nonnull(3)))
   error_t parse_opt(int key, char *arg, struct argp_state *state){
     errno = 0;
     switch(key){

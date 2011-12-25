@@ -170,8 +170,10 @@ int signal_received = 0;
 
 /* Function to use when printing errors */
 void perror_plus(const char *print_text){
+  int e = errno;
   fprintf(stderr, "Mandos plugin %s: ",
 	  program_invocation_short_name);
+  errno = e;
   perror(print_text);
 }
 
