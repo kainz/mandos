@@ -41,9 +41,9 @@ case "$1" in
 	"$brctl" addbr "$BRIDGE"
 	for port in $PORTS; do
 	    "$brctl" addif "$BRIDGE" "$port"
-	    ip link set up "$port"
+	    ip link set dev "$port" up
 	done
-	ip link set up "$BRIDGE"
+	ip link set dev "$BRIDGE" up
 	sleep "$DELAY"
 	if [ -n "$IPADDRS" ]; then
             for ipaddr in $IPADDRS; do
@@ -57,9 +57,9 @@ case "$1" in
 	fi
 	;;
     stop)
-	ip link set down "$BRIDGE"
+	ip link set dev "$BRIDGE" down
 	for port in $PORTS; do
-	    ip link set down "$port"
+	    ip link set dev "$port" down
 	    "$brctl" delif "$BRIDGE" "$port"
 	done
 	"$brctl" delbr "$BRIDGE"
