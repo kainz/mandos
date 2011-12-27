@@ -1,0 +1,136 @@
+#!/bin/sh
+#
+# This is an example of a Mandos client network hook.  This hook
+# brings up a wireless interface as specified in a separate
+# configuration file.  To be used, this file and any needed
+# configuration file(s) should be copied into the
+# /etc/mandos/network-hooks.d directory.
+# 
+# Copying and distribution of this file, with or without modification,
+# are permitted in any medium without royalty provided the copyright
+# notice and this notice are preserved.  This file is offered as-is,
+# without any warranty.
+
+set -e
+
+RUNDIR="/run"
+CTRL="$RUNDIR/wpa_supplicant-global"
+CTRLDIR="$RUNDIR/wpa_supplicant"
+PIDFILE="$RUNDIR/wpa_supplicant-mandos.pid"
+
+CONFIG="$MANDOSNETHOOKDIR/wireless.conf"
+
+# Read config file
+if [ -e "$CONFIG" ]; then
+    . "$CONFIG"
+else
+    exit
+fi
+
+interfaces="`env|sed -n -e 's/^\(MODULE\|IPADDRS\|ROUTES\|WPA_DRIVER\)_\([^=]*\)=.*/\2/p' \"$CONFIG\" |sort -u`"
+
+# Exit if DEVICE is set and is not any of the wireless interfaces
+if [ -n "$DEVICE" ]; then
+    while :; do
+	for IF in $interfaces; do
+	    if [ "$IF" = "$DEVICE" ]; then
+		break 2
+	    fi
+	done
+	exit
+    done
+fi
+
+wpa_supplicant=/sbin/wpa_supplicant
+wpa_cli=/sbin/wpa_cli
+ip=/bin/ip
+
+# Used by the wpa_interface_* functions in the wireless.conf file
+wpa_cli_set(){
+    case "$1" in
+        ssid|psk) arg="\"$2\"" ;;
+        *) arg="$2" ;;
+    esac
+    "$wpa_cli" -p "$CTRLDIR" -i "$INTERFACE" set_network "$NETWORK" \
+	"$1" "$arg" 2>&1 | sed -e '/^OK$/d'
+}
+
+if [ $VERBOSITY -gt 0 ]; then
+    WPAS_OPTIONS="-d $WPAS_OPTIONS"
+fi
+if [ -n "$PIDFILE" ]; then
+    WPAS_OPTIONS="-P$PIDFILE $WPAS_OPTIONS"
+fi
+
+case "${MODE:-$1}" in
+    start)
+	mkdir -m u=rwx,go= -p "$CTRLDIR"
+	"$wpa_supplicant" -B -g "$CTRL" -p "$CTRLDIR" $WPAS_OPTIONS
+        for INTERFACE in $interfaces; do
+	    DRIVER=`eval 'echo "$WPA_DRIVER_'"$INTERFACE"\"`
+	    DELAY=`eval 'echo "$DELAY_'"$INTERFACE"\"`
+	    "$wpa_cli" -g "$CTRL" interface_add "$INTERFACE" "" \
+		"${DRIVER:-wext}" "$CTRLDIR" > /dev/null \
+		| sed -e '/^OK$/d'
+	    NETWORK=`"$wpa_cli" -p "$CTRLDIR" -i "$INTERFACE" add_network`
+	    eval wpa_interface_"$INTERFACE"
+	    "$wpa_cli" -p "$CTRLDIR" -i "$INTERFACE" enable_network \
+		"$NETWORK" | sed -e '/^OK$/d'
+	    ( sleep "${DELAY:-$DELAY}" || : ) &
+	    sleep=$!
+	    while :; do
+		kill -0 $sleep || break
+		STATE=`"$wpa_cli" -p "$CTRLDIR" -i "$INTERFACE" status | sed -n -e 's/^wpa_state=//p'`
+		if [ "$STATE" = COMPLETED ]; then
+		    kill $sleep
+		    break
+		fi
+		sleep 1
+	    done &
+	    wait $sleep || :
+	    IPADDRS=`eval 'echo "$IPADDRS_'"$INTERFACE"\"`
+	    if [ -n "$IPADDRS" ]; then
+		if [ "$IPADDRS" = dhcp ]; then
+		    ipconfig -c dhcp -d "$INTERFACE" || :
+		    #dhclient "$INTERFACE"
+		else
+		    for ipaddr in $IPADDRS; do
+			"$ip" addr add "$ipaddr" dev "$INTERFACE"
+		    done
+		fi
+	    fi
+	    ROUTES=`eval 'echo "$ROUTES_'"$INTERFACE"\"`
+	    if [ -n "$ROUTES" ]; then
+		for route in $ROUTES; do
+		    "$ip" route add "$route" dev "$BRIDGE"
+		done
+	    fi
+        done
+	;;
+    stop)
+	"$wpa_cli" -g "$CTRL" terminate 2>&1 | sed -e '/^OK$/d'
+        for INTERFACE in $interfaces; do
+	    "$ip" addr show scope global permanent dev "$INTERFACE" \
+		| while read type addr rest; do
+		case "$type" in
+		    inet|inet6)
+			"$ip" addr del "$addr" dev "$INTERFACE"
+			;;
+		esac
+	    done
+	    "$ip" link set dev "$INTERFACE" down
+	done
+	;;
+    files)
+	echo "$wpa_supplicant"
+	echo "$wpa_cli"
+	echo "$ip"
+	;;
+    modules)
+	if [ "$IPADDRS" = dhcp ]; then
+	    echo af_packet
+	fi
+	sed -n -e 's/#.*$//' -e 's/[ 	]*$//' -e 's/^MODULE=//p' \
+	    "$CONFIG"
+	;;
+esac
