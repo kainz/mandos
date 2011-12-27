@@ -2,6 +2,15 @@
 
 * [[http://www.undeadly.org/cgi?action=article&sid=20110530221728][OpenBSD]]
 
+* mandos
+** Use org.freedesktop.DBus.Method.NoReply annotation on async methods.
+** Emit [[http://dbus.freedesktop.org/doc/dbus-specification.html#standard-interfaces-properties][org.freedesktop.DBus.Properties.PropertiesChanged]] signal
+   Deprecate se.recompile.Mandos.Client.PropertyChanged - annotate!
+   Can use "invalidates" annotation to also emit on changed secret.
+** Support [[http://dbus.freedesktop.org/doc/dbus-specification.html#standard-interfaces-objectmanager][org.freedesktop.DBus.ObjectManager]] interface on server object
+   Deprecate methods GetAllClients(), GetAllClientsWithProperties()
+   and signals ClientAdded and ClientRemoved.
+
 * mandos-applet
 
 * mandos-client
