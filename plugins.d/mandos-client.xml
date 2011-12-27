@@ -583,7 +583,23 @@
 	  <listitem>
 	    <para>
 	      This will be the same as the <option>--delay</option>
-	      option passed to <command>&COMMANDNAME;</command>.
+	      option passed to <command>&COMMANDNAME;</command>.  Is
+	      only set if <envar>MODE</envar> is
+	      <quote><literal>start</literal></quote> or
+	      <quote><literal>stop</literal></quote>.
+	    </para>
+	  </listitem>
+	</varlistentry>
+	<varlistentry>
+	  <term><envar>CONNECT</envar></term>
+	  <listitem>
+	    <para>
+	      This will be the same as the <option>--connect</option>
+	      option passed to <command>&COMMANDNAME;</command>.  Is
+	      only set if <option>--connect</option> is passed and
+	      <envar>MODE</envar> is
+	      <quote><literal>start</literal></quote> or
+	      <quote><literal>stop</literal></quote>.
 	    </para>
 	  </listitem>
 	</varlistentry>
