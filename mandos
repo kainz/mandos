@@ -142,7 +142,8 @@ class PGPEngine(object):
         self.gnupg.options.meta_interactive = False
         self.gnupg.options.homedir = self.tempdir
         self.gnupg.options.extra_args.extend(['--force-mdc',
-                                              '--quiet'])
+                                              '--quiet',
+                                              '--no-use-agent'])
     
     def __enter__(self):
         return self
