@@ -1474,7 +1474,7 @@ bool run_network_hooks(const char *mode, const char *interface,
 	}
 	free(delaystring);
 	if(connect_to != NULL){
-	  ret = setenv("CONNECT", connect_to);
+	  ret = setenv("CONNECT", connect_to, 1);
 	  if(ret == -1){
 	    perror_plus("setenv");
 	    _exit(EX_OSERR);
