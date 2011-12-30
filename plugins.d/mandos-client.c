@@ -1450,7 +1450,7 @@ bool run_network_hooks(const char *mode, const char *interface,
 	  perror_plus("setenv");
 	  _exit(EX_OSERR);
 	}
-	ret = setenv("VERBOSE", debug ? "1" : "0", 1);
+	ret = setenv("VERBOSITY", debug ? "1" : "0", 1);
 	if(ret == -1){
 	  perror_plus("setenv");
 	  _exit(EX_OSERR);
