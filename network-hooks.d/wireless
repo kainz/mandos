@@ -76,7 +76,7 @@ case "${MODE:-$1}" in
 	    eval wpa_interface_"$INTERFACE"
 	    "$wpa_cli" -p "$CTRLDIR" -i "$INTERFACE" enable_network \
 		"$NETWORK" | sed -e '/^OK$/d'
-	    ( sleep "${IFDELAY:-$DELAY}" || : ) &
+	    sleep "${IFDELAY:-$DELAY}" &
 	    sleep=$!
 	    while :; do
 		kill -0 $sleep 2>/dev/null || break
