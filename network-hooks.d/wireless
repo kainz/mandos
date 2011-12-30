@@ -68,7 +68,7 @@ case "${MODE:-$1}" in
 	"$wpa_supplicant" -B -g "$CTRL" -p "$CTRLDIR" $WPAS_OPTIONS
         for INTERFACE in $interfaces; do
 	    DRIVER=`eval 'echo "$WPA_DRIVER_'"$INTERFACE"\"`
-	    DELAY=`eval 'echo "$DELAY_'"$INTERFACE"\"`
+	    IFDELAY=`eval 'echo "$DELAY_'"$INTERFACE"\"`
 	    "$wpa_cli" -g "$CTRL" interface_add "$INTERFACE" "" \
 		"${DRIVER:-wext}" "$CTRLDIR" > /dev/null \
 		| sed -e '/^OK$/d'
@@ -76,13 +76,13 @@ case "${MODE:-$1}" in
 	    eval wpa_interface_"$INTERFACE"
 	    "$wpa_cli" -p "$CTRLDIR" -i "$INTERFACE" enable_network \
 		"$NETWORK" | sed -e '/^OK$/d'
-	    ( sleep "${DELAY:-$DELAY}" || : ) &
+	    ( sleep "${IFDELAY:-$DELAY}" || : ) &
 	    sleep=$!
 	    while :; do
-		kill -0 $sleep || break
+		kill -0 $sleep 2>/dev/null || break
 		STATE=`"$wpa_cli" -p "$CTRLDIR" -i "$INTERFACE" status | sed -n -e 's/^wpa_state=//p'`
 		if [ "$STATE" = COMPLETED ]; then
-		    kill $sleep
+		    kill $sleep 2>/dev/null
 		    break
 		fi
 		sleep 1
@@ -130,7 +130,7 @@ case "${MODE:-$1}" in
 	if [ "$IPADDRS" = dhcp ]; then
 	    echo af_packet
 	fi
-	sed -n -e 's/#.*$//' -e 's/[ 	]*$//' -e 's/^MODULE=//p' \
-	    "$CONFIG"
+	sed -n -e 's/#.*$//' -e 's/[ 	]*$//' \
+	    -e 's/^MODULE_[^=]\+=//p' "$CONFIG"
 	;;
 esac
