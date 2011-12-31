@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY COMMANDNAME "mandos">
-<!ENTITY TIMESTAMP "2011-11-26">
+<!ENTITY TIMESTAMP "2012-01-01">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -35,6 +35,7 @@
       <year>2009</year>
       <year>2010</year>
       <year>2011</year>
+      <year>2012</year>
       <holder>Teddy Hogeborn</holder>
       <holder>Björn Påhlsson</holder>
     </copyright>
