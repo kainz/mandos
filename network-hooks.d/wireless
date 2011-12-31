@@ -21,7 +21,8 @@ PIDFILE="$RUNDIR/wpa_supplicant-mandos.pid"
 CONFIG="$MANDOSNETHOOKDIR/wireless.conf"
 
 addrtoif(){
-    grep -liFe "$1" /sys/class/net/*/address | sed -e 's,.*/\([^/]*\)/[^/]*,\1,'
+    grep -liFe "$1" /sys/class/net/*/address \
+	| sed -e 's,.*/\([^/]*\)/[^/]*,\1,'
 }
 
 # Read config file
@@ -31,7 +32,8 @@ else
     exit
 fi
 
-ifkeys="`env | sed -n -e 's/^ADDRESS_\([^=]*\)=.*/\1/p' \"$CONFIG\" | sort -u`"
+ifkeys=`env | sed -n -e 's/^ADDRESS_\([^=]*\)=.*/\1/p' "$CONFIG" \
+    | sort -u`
 
 # Exit if DEVICE is set and is not any of the wireless interfaces
 if [ -n "$DEVICE" ]; then
@@ -80,7 +82,8 @@ case "${MODE:-$1}" in
 	    "$wpa_cli" -g "$CTRL" interface_add "$INTERFACE" "" \
 		"${DRIVER:-wext}" "$CTRLDIR" > /dev/null \
 		| sed -e '/^OK$/d'
-	    NETWORK=`"$wpa_cli" -p "$CTRLDIR" -i "$INTERFACE" add_network`
+	    NETWORK=`"$wpa_cli" -p "$CTRLDIR" -i "$INTERFACE" \
+		add_network`
 	    eval wpa_interface_"$KEY"
 	    "$wpa_cli" -p "$CTRLDIR" -i "$INTERFACE" enable_network \
 		"$NETWORK" | sed -e '/^OK$/d'
@@ -88,7 +91,8 @@ case "${MODE:-$1}" in
 	    sleep=$!
 	    while :; do
 		kill -0 $sleep 2>/dev/null || break
-		STATE=`"$wpa_cli" -p "$CTRLDIR" -i "$INTERFACE" status | sed -n -e 's/^wpa_state=//p'`
+		STATE=`"$wpa_cli" -p "$CTRLDIR" -i "$INTERFACE" \
+		    status | sed -n -e 's/^wpa_state=//p'`
 		if [ "$STATE" = COMPLETED ]; then
 		    while :; do
 			kill -0 $sleep 2>/dev/null || break 2
