@@ -1450,7 +1450,7 @@ bool run_network_hooks(const char *mode, const char *interface,
 	  perror_plus("setenv");
 	  _exit(EX_OSERR);
 	}
-	ret = setenv("VERBOSE", debug ? "1" : "0", 1);
+	ret = setenv("VERBOSITY", debug ? "1" : "0", 1);
 	if(ret == -1){
 	  perror_plus("setenv");
 	  _exit(EX_OSERR);
@@ -1473,6 +1473,13 @@ bool run_network_hooks(const char *mode, const char *interface,
 	  _exit(EX_OSERR);
 	}
 	free(delaystring);
+	if(connect_to != NULL){
+	  ret = setenv("CONNECT", connect_to, 1);
+	  if(ret == -1){
+	    perror_plus("setenv");
+	    _exit(EX_OSERR);
+	  }
+	}
 	if(execl(fullname, direntry->d_name, mode, NULL) == -1){
 	  perror_plus("execl");
 	  _exit(EXIT_FAILURE);
@@ -1601,7 +1608,7 @@ int main(int argc, char *argv[]){
 	.group = 2 },
       { .name = "retry", .key = 132,
 	.arg = "SECONDS",
-	.doc = "Retry interval used when denied by the mandos server",
+	.doc = "Retry interval used when denied by the Mandos server",
 	.group = 2 },
       { .name = "network-hook-dir", .key = 133,
 	.arg = "DIR",
