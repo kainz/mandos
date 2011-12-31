@@ -460,9 +460,12 @@ class Client(object):
 
     @staticmethod
     def config_parser(config):
-        """ Construct a new dict of client settings of this form:
+        """Construct a new dict of client settings of this form:
         { client_name: {setting_name: value, ...}, ...}
-        with exceptions for any special settings as defined above"""
+        with exceptions for any special settings as defined above.
+        NOTE: Must be a pure function. Must return the same result
+        value given the same arguments.
+        """
         settings = {}
         for client_name in config.sections():
             section = dict(config.items(client_name))
@@ -498,14 +501,7 @@ class Client(object):
             client["last_approval_request"] = None
             client["last_checked_ok"] = None
             client["last_checker_status"] = None
-            if client["enabled"]:
-                client["last_enabled"] = datetime.datetime.utcnow()
-                client["expires"] = (datetime.datetime.utcnow()
-                                     + client["timeout"])
-            else:
-                client["last_enabled"] = None
-                client["expires"] = None
-
+        
         return settings
         
         
@@ -518,6 +514,16 @@ class Client(object):
         for setting, value in settings.iteritems():
             setattr(self, setting, value)
         
+        if self.enabled:
+            if not hasattr(self, "last_enabled"):
+                self.last_enabled = datetime.datetime.utcnow()
+            if not hasattr(self, "expires"):
+                self.expires = (datetime.datetime.utcnow()
+                                + self.timeout)
+        else:
+            self.last_enabled = None
+            self.expires = None
+       
         logger.debug("Creating client %r", self.name)
         # Uppercase and remove spaces from fingerprint for later
         # comparison purposes with return value from the fingerprint()
@@ -2263,7 +2269,9 @@ def main():
                         client["expires"] = (datetime.datetime
                                              .utcnow()
                                              + client["timeout"])
-                    
+                        logger.debug("Last checker succeeded,"
+                                     " keeping {0} enabled"
+                                     .format(client["name"]))
             try:
                 client["secret"] = (
                     pgp.decrypt(client["encrypted_secret"],
