@@ -15,13 +15,18 @@ set -e
 
 CONFIG="$MANDOSNETHOOKDIR/bridge.conf"
 
-# Read config file, which must set "BRIDGE", "PORTS", and optionally
-# "IPADDRS" and "ROUTES".
+addrtoif(){
+    grep -liFe "$1" /sys/class/net/*/address \
+	| sed -e 's,.*/\([^/]*\)/[^/]*,\1,'
+}
+
+# Read config file, which must set "BRIDGE", "PORT_ADDRESSES", and
+# optionally "IPADDRS" and "ROUTES".
 if [ -e "$CONFIG" ]; then
     . "$CONFIG"
 fi
 
-if [ -z "$BRIDGE" -o -z "$PORTS" ]; then
+if [ -z "$BRIDGE" -o -z "$PORT_ADDRESSES" ]; then
     exit
 fi
 
@@ -39,11 +44,12 @@ done
 case "$1" in
     start)
 	"$brctl" addbr "$BRIDGE"
-	for port in $PORTS; do
-	    "$brctl" addif "$BRIDGE" "$port"
-	    ip link set up "$port"
+	for address in $PORT_ADDRESSES; do
+	    interface=`addrtoif "$address"`
+	    "$brctl" addif "$BRIDGE" "$interface"
+	    ip link set dev "$interface" up
 	done
-	ip link set up "$BRIDGE"
+	ip link set dev "$BRIDGE" up
 	sleep "$DELAY"
 	if [ -n "$IPADDRS" ]; then
             for ipaddr in $IPADDRS; do
@@ -57,10 +63,11 @@ case "$1" in
 	fi
 	;;
     stop)
-	ip link set down "$BRIDGE"
-	for port in $PORTS; do
-	    ip link set down "$port"
-	    "$brctl" delif "$BRIDGE" "$port"
+	ip link set dev "$BRIDGE" down
+	for address in $PORT_ADDRESSES; do
+	    interface=`addrtoif "$address"`
+	    ip link set dev "$interface" down
+	    "$brctl" delif "$BRIDGE" "$interface"
 	done
 	"$brctl" delbr "$BRIDGE"
 	;;
