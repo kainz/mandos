@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY COMMANDNAME "usplash">
-<!ENTITY TIMESTAMP "2011-10-03">
+<!ENTITY TIMESTAMP "2012-01-01">
 <!ENTITY % common SYSTEM "../common.ent">
 %common;
 ]>
@@ -34,6 +34,7 @@
       <year>2008</year>
       <year>2009</year>
       <year>2011</year>
+      <year>2012</year>
       <holder>Teddy Hogeborn</holder>
       <holder>Björn Påhlsson</holder>
     </copyright>
