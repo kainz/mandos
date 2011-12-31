@@ -82,8 +82,15 @@ case "${MODE:-$1}" in
 		kill -0 $sleep 2>/dev/null || break
 		STATE=`"$wpa_cli" -p "$CTRLDIR" -i "$INTERFACE" status | sed -n -e 's/^wpa_state=//p'`
 		if [ "$STATE" = COMPLETED ]; then
-		    kill $sleep 2>/dev/null
-		    break
+		    while :; do
+			kill -0 $sleep 2>/dev/null || break 2
+			UP=`cat /sys/class/net/"$INTERFACE"/operstate`
+			if [ "$UP" = up ]; then
+			    kill $sleep 2>/dev/null
+			    break 2
+			fi
+			sleep 1
+		    done
 		fi
 		sleep 1
 	    done &
