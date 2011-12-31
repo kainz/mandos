@@ -16,7 +16,8 @@ set -e
 CONFIG="$MANDOSNETHOOKDIR/bridge.conf"
 
 addrtoif(){
-    grep -liFe "$1" /sys/class/net/*/address | sed -e 's,.*/\([^/]*\)/[^/]*,\1,'
+    grep -liFe "$1" /sys/class/net/*/address \
+	| sed -e 's,.*/\([^/]*\)/[^/]*,\1,'
 }
 
 # Read config file, which must set "BRIDGE", "PORT_ADDRESSES", and
