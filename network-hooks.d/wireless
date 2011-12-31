@@ -20,6 +20,10 @@ PIDFILE="$RUNDIR/wpa_supplicant-mandos.pid"
 
 CONFIG="$MANDOSNETHOOKDIR/wireless.conf"
 
+addrtoif(){
+    grep -liFe "$1" /sys/class/net/*/address | sed -e 's,.*/\([^/]*\)/[^/]*,\1,'
+}
+
 # Read config file
 if [ -e "$CONFIG" ]; then
     . "$CONFIG"
@@ -27,13 +31,15 @@ else
     exit
 fi
 
-interfaces="`env|sed -n -e 's/^\(MODULE\|IPADDRS\|ROUTES\|WPA_DRIVER\)_\([^=]*\)=.*/\2/p' \"$CONFIG\" |sort -u`"
+ifkeys="`env | sed -n -e 's/^ADDRESS_\([^=]*\)=.*/\1/p' \"$CONFIG\" | sort -u`"
 
 # Exit if DEVICE is set and is not any of the wireless interfaces
 if [ -n "$DEVICE" ]; then
     while :; do
-	for IF in $interfaces; do
-	    if [ "$IF" = "$DEVICE" ]; then
+	for KEY in $ifkeys; do
+	    ADDRESS=`eval 'echo "$ADDRESS_'"$KEY"\"`
+	    INTERFACE=`addrtoif "$ADDRESS"`
+	    if [ "$INTERFACE" = "$DEVICE" ]; then
 		break 2
 	    fi
 	done
@@ -66,14 +72,16 @@ case "${MODE:-$1}" in
     start)
 	mkdir -m u=rwx,go= -p "$CTRLDIR"
 	"$wpa_supplicant" -B -g "$CTRL" -p "$CTRLDIR" $WPAS_OPTIONS
-        for INTERFACE in $interfaces; do
-	    DRIVER=`eval 'echo "$WPA_DRIVER_'"$INTERFACE"\"`
-	    IFDELAY=`eval 'echo "$DELAY_'"$INTERFACE"\"`
+        for KEY in $ifkeys; do
+	    ADDRESS=`eval 'echo "$ADDRESS_'"$KEY"\"`
+	    INTERFACE=`addrtoif "$ADDRESS"`
+	    DRIVER=`eval 'echo "$WPA_DRIVER_'"$KEY"\"`
+	    IFDELAY=`eval 'echo "$DELAY_'"$KEY"\"`
 	    "$wpa_cli" -g "$CTRL" interface_add "$INTERFACE" "" \
 		"${DRIVER:-wext}" "$CTRLDIR" > /dev/null \
 		| sed -e '/^OK$/d'
 	    NETWORK=`"$wpa_cli" -p "$CTRLDIR" -i "$INTERFACE" add_network`
-	    eval wpa_interface_"$INTERFACE"
+	    eval wpa_interface_"$KEY"
 	    "$wpa_cli" -p "$CTRLDIR" -i "$INTERFACE" enable_network \
 		"$NETWORK" | sed -e '/^OK$/d'
 	    sleep "${IFDELAY:-$DELAY}" &
@@ -95,7 +103,7 @@ case "${MODE:-$1}" in
 		sleep 1
 	    done &
 	    wait $sleep || :
-	    IPADDRS=`eval 'echo "$IPADDRS_'"$INTERFACE"\"`
+	    IPADDRS=`eval 'echo "$IPADDRS_'"$KEY"\"`
 	    if [ -n "$IPADDRS" ]; then
 		if [ "$IPADDRS" = dhcp ]; then
 		    ipconfig -c dhcp -d "$INTERFACE" || :
@@ -106,7 +114,7 @@ case "${MODE:-$1}" in
 		    done
 		fi
 	    fi
-	    ROUTES=`eval 'echo "$ROUTES_'"$INTERFACE"\"`
+	    ROUTES=`eval 'echo "$ROUTES_'"$KEY"\"`
 	    if [ -n "$ROUTES" ]; then
 		for route in $ROUTES; do
 		    "$ip" route add "$route" dev "$BRIDGE"
@@ -116,7 +124,9 @@ case "${MODE:-$1}" in
 	;;
     stop)
 	"$wpa_cli" -g "$CTRL" terminate 2>&1 | sed -e '/^OK$/d'
-        for INTERFACE in $interfaces; do
+        for KEY in $ifkeys; do
+	    ADDRESS=`eval 'echo "$ADDRESS_'"$KEY"\"`
+	    INTERFACE=`addrtoif "$ADDRESS"`
 	    "$ip" addr show scope global permanent dev "$INTERFACE" \
 		| while read type addr rest; do
 		case "$type" in
