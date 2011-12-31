@@ -475,7 +475,8 @@ class Client(object):
             # Reformat values from string types to Python types
             client["approved_by_default"] = config.getboolean(
                 client_name, "approved_by_default")
-            client["enabled"] = config.getboolean(client_name, "enabled")
+            client["enabled"] = config.getboolean(client_name,
+                                                  "enabled")
             
             client["fingerprint"] = (section["fingerprint"].upper()
                                      .replace(" ", ""))
@@ -529,7 +530,8 @@ class Client(object):
         # comparison purposes with return value from the fingerprint()
         # function
         logger.debug("  Fingerprint: %s", self.fingerprint)
-        self.created = settings.get("created", datetime.datetime.utcnow())
+        self.created = settings.get("created",
+                                    datetime.datetime.utcnow())
 
         # attributes specific for this server instance
         self.checker = None
@@ -1365,26 +1367,25 @@ class ClientDBus(Client, DBusObjectWithProperties):
         if value is None:       # get
             return dbus.UInt64(self.timeout_milliseconds())
         self.timeout = datetime.timedelta(0, 0, 0, value)
-        if getattr(self, "disable_initiator_tag", None) is None:
-            return
         # Reschedule timeout
-        gobject.source_remove(self.disable_initiator_tag)
-        self.disable_initiator_tag = None
-        self.expires = None
-        time_to_die = timedelta_to_milliseconds((self
-                                                 .last_checked_ok
-                                                 + self.timeout)
-                                                - datetime.datetime
-                                                .utcnow())
-        if time_to_die <= 0:
-            # The timeout has passed
-            self.disable()
-        else:
-            self.expires = (datetime.datetime.utcnow()
-                            + datetime.timedelta(milliseconds =
-                                                 time_to_die))
-            self.disable_initiator_tag = (gobject.timeout_add
-                                          (time_to_die, self.disable))
+        if self.enabled:
+            now = datetime.datetime.utcnow()
+            time_to_die = timedelta_to_milliseconds(
+                (self.last_checked_ok + self.timeout) - now)
+            if time_to_die <= 0:
+                # The timeout has passed
+                self.disable()
+            else:
+                self.expires = (now +
+                                datetime.timedelta(milliseconds =
+                                                   time_to_die))
+                if (getattr(self, "disable_initiator_tag", None)
+                    is None):
+                    return
+                gobject.source_remove(self.disable_initiator_tag)
+                self.disable_initiator_tag = (gobject.timeout_add
+                                              (time_to_die,
+                                               self.disable))
     
     # ExtendedTimeout - property
     @dbus_service_property(_interface, signature="t",
@@ -2101,7 +2102,8 @@ def main():
                                 % server_settings["servicename"]))
     
     # Parse config file with clients
-    client_config = configparser.SafeConfigParser(Client.client_defaults)
+    client_config = configparser.SafeConfigParser(Client
+                                                  .client_defaults)
     client_config.read(os.path.join(server_settings["configdir"],
                                     "clients.conf"))
     
@@ -2286,9 +2288,11 @@ def main():
 
     
     # Add/remove clients based on new changes made to config
-    for client_name in set(old_client_settings) - set(client_settings):
+    for client_name in (set(old_client_settings)
+                        - set(client_settings)):
         del clients_data[client_name]
-    for client_name in set(client_settings) - set(old_client_settings):
+    for client_name in (set(client_settings)
+                        - set(old_client_settings)):
         clients_data[client_name] = client_settings[client_name]
 
     # Create clients all clients
