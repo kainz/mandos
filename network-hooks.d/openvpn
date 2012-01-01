@@ -1,0 +1,56 @@
+#!/bin/sh
+#
+# This is an example of a Mandos client network hook.  This hook
+# brings up an OpenVPN interface as specified in a separate
+# configuration file.  To be used, this file and any needed
+# configuration file(s) should be copied into the
+# /etc/mandos/network-hooks.d directory.
+# 
+# Copying and distribution of this file, with or without modification,
+# are permitted in any medium without royalty provided the copyright
+# notice and this notice are preserved.  This file is offered as-is,
+# without any warranty.
+
+set -e
+
+CONFIG="openvpn.conf"
+
+# Extract the "dev" setting from the config file
+VPNDEVICE=`sed -n -e 's/[[:space:]]#.*//' \
+    -e 's/^[[:space:]]*dev[[:space:]]\+//p' \
+    "$MANDOSNETHOOKDIR/$CONFIG"`
+
+PIDFILE=/run/openvpn-mandos.pid
+
+# Exit if no device set in config
+if [ -z "$VPNDEVICE" ]; then
+    exit
+fi
+
+# Exit if DEVICE is set and it doesn't match the VPN interface
+if [ -n "$DEVICE" -a "$DEVICE" = "${DEVICE#$VPNDEVICE}" ]; then
+    exit
+fi
+
+openvpn=/usr/sbin/openvpn
+
+case "$1" in
+    start)
+	"$openvpn" --cd "$MANDOSNETHOOKDIR" \
+	    --daemon 'openvpn(Mandos)' --writepid "$PIDFILE" \
+	    --config "$CONFIG"
+	sleep "$DELAY"
+	;;
+    stop)
+	PID="`cat \"$PIDFILE\"`"
+	if [ "$PID" -gt 0 ]; then
+	    kill "$PID"
+	fi
+	;;
+    files)
+	echo "$openvpn"
+	;;
+    modules)
+	echo tun
+	;;
+esac

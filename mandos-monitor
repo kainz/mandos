@@ -3,8 +3,8 @@
 # 
 # Mandos Monitor - Control and monitor the Mandos server
 # 
-# Copyright © 2009-2011 Teddy Hogeborn
-# Copyright © 2009-2011 Björn Påhlsson
+# Copyright © 2009-2012 Teddy Hogeborn
+# Copyright © 2009-2012 Björn Påhlsson
 # 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -242,6 +242,8 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
         self.update()
     
     def checker_started(self, command):
+        """Server signals that a checker started. This could be useful
+           to log in the future. """
         #self.logger('Client %s started checker "%s"'
         #            % (self.properties["Name"], unicode(command)))
         pass
@@ -497,48 +499,6 @@ class UserInterface(object):
         
         self.busname = domain + '.Mandos'
         self.main_loop = gobject.MainLoop()
-        self.bus = dbus.SystemBus()
-        mandos_dbus_objc = self.bus.get_object(
-            self.busname, "/", follow_name_owner_changes=True)
-        self.mandos_serv = dbus.Interface(mandos_dbus_objc,
-                                          dbus_interface
-                                          = server_interface)
-        try:
-            mandos_clients = (self.mandos_serv
-                              .GetAllClientsWithProperties())
-        except dbus.exceptions.DBusException:
-            mandos_clients = dbus.Dictionary()
-        
-        (self.mandos_serv
-         .connect_to_signal("ClientRemoved",
-                            self.find_and_remove_client,
-                            dbus_interface=server_interface,
-                            byte_arrays=True))
-        (self.mandos_serv
-         .connect_to_signal("ClientAdded",
-                            self.add_new_client,
-                            dbus_interface=server_interface,
-                            byte_arrays=True))
-        (self.mandos_serv
-         .connect_to_signal("ClientNotFound",
-                            self.client_not_found,
-                            dbus_interface=server_interface,
-                            byte_arrays=True))
-        for path, client in mandos_clients.iteritems():
-            client_proxy_object = self.bus.get_object(self.busname,
-                                                      path)
-            self.add_client(MandosClientWidget(server_proxy_object
-                                               =self.mandos_serv,
-                                               proxy_object
-                                               =client_proxy_object,
-                                               properties=client,
-                                               update_hook
-                                               =self.refresh,
-                                               delete_hook
-                                               =self.remove_client,
-                                               logger
-                                               =self.log_message),
-                            path=path)
     
     def client_not_found(self, fingerprint, address):
         self.log_message(("Client with address %s and fingerprint %s"
@@ -559,7 +519,6 @@ class UserInterface(object):
                                                      self.divider)))
         if self.log_visible:
             self.uilist.append(self.logbox)
-            pass
         self.topwidget = urwid.Pile(self.uilist)
     
     def log_message(self, message):
@@ -649,6 +608,49 @@ class UserInterface(object):
     
     def run(self):
         """Start the main loop and exit when it's done."""
+        self.bus = dbus.SystemBus()
+        mandos_dbus_objc = self.bus.get_object(
+            self.busname, "/", follow_name_owner_changes=True)
+        self.mandos_serv = dbus.Interface(mandos_dbus_objc,
+                                          dbus_interface
+                                          = server_interface)
+        try:
+            mandos_clients = (self.mandos_serv
+                              .GetAllClientsWithProperties())
+        except dbus.exceptions.DBusException:
+            mandos_clients = dbus.Dictionary()
+        
+        (self.mandos_serv
+         .connect_to_signal("ClientRemoved",
+                            self.find_and_remove_client,
+                            dbus_interface=server_interface,
+                            byte_arrays=True))
+        (self.mandos_serv
+         .connect_to_signal("ClientAdded",
+                            self.add_new_client,
+                            dbus_interface=server_interface,
+                            byte_arrays=True))
+        (self.mandos_serv
+         .connect_to_signal("ClientNotFound",
+                            self.client_not_found,
+                            dbus_interface=server_interface,
+                            byte_arrays=True))
+        for path, client in mandos_clients.iteritems():
+            client_proxy_object = self.bus.get_object(self.busname,
+                                                      path)
+            self.add_client(MandosClientWidget(server_proxy_object
+                                               =self.mandos_serv,
+                                               proxy_object
+                                               =client_proxy_object,
+                                               properties=client,
+                                               update_hook
+                                               =self.refresh,
+                                               delete_hook
+                                               =self.remove_client,
+                                               logger
+                                               =self.log_message),
+                            path=path)
+
         self.refresh()
         self._input_callback_tag = (gobject.io_add_watch
                                     (sys.stdin.fileno(),
