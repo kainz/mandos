@@ -1,6 +1,25 @@
 This NEWS file records noteworthy changes, very tersely.
 See the manual for detailed information.
 
+Version 1.5.0 (2012-01-01)
+* Client
+** Network hooks.  The Mandos client can now run custom scripts to take
+   up a network interface before the client is run.  Three example
+   scripts are provided: "wireless", "openvpn", and "bridge".
+   To facilitate this, the client now prefers network interfaces which
+   are up (if any) over all other interfaces.
+* Server
+** Persistent state.  Client state is now saved between server
+   restarts.
+** clients.conf file can now contain "enabled" setting for clients.
+** Bug fix: Fix rare crash bug.
+** Bug fix: Send corrent D-Bus type in PropertyChanged for
+   "ApprovalDelay", "ApprovalDuration", "Timeout", and
+   "ExtendedTimeout".
+** mandos-ctl: Bare numbers as arguments are taken to be milliseconds.
+** Bug fix: mandos-ctl --secret option now works.
+** New D-Bus signal: se.recompile.Mandos.NewRequest(s).
+
 Version 1.4.1 (2011-10-15)
 * Server
 ** Make D-Bus properties settable again, and handle checkers
