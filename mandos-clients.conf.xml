@@ -66,8 +66,13 @@
       ><refentrytitle>mandos</refentrytitle>
       <manvolnum>8</manvolnum></citerefentry>, read by it at startup.
       The file needs to list all clients that should be able to use
-      the service.  All clients listed will be regarded as enabled,
-      even if a client was disabled in a previous run of the server.
+      the service.  The settings in this file can be overridden by
+      runtime changes to the server, which it saves across restarts.
+      (See the section called <quote>PERSISTENT STATE</quote> in
+      <citerefentry><refentrytitle>mandos</refentrytitle><manvolnum
+      >8</manvolnum></citerefentry>.)  However, any <emphasis
+      >changes</emphasis> to this file (including adding and removing
+      clients) will, at startup, override changes done during runtime.
     </para>
     <para>
       The format starts with a <literal>[<replaceable>section
