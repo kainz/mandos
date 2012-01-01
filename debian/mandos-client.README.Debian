@@ -33,11 +33,12 @@
 * Specifying a Client Network Interface
   
   At boot time the network interface to use will by default be
-  automatically detected.  If should result in an incorrect interface,
-  edit the DEVICE setting in the "/etc/initramfs-tools/initramfs.conf"
-  file.  (The default setting is empty, meaning to autodetect the
-  interface.)  *If* the DEVICE setting is changed, it will be
-  necessary to update the initrd image by running the command
+  automatically detected.  If this should result in an incorrect
+  interface, edit the DEVICE setting in the
+  "/etc/initramfs-tools/initramfs.conf" file.  (The default setting is
+  empty, meaning it will autodetect the interface.)  *If* the DEVICE
+  setting is changed, it will be necessary to update the initrd image
+  by running the command
   
 	update-initramfs -k all -u
   
