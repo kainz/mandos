@@ -1,3 +1,19 @@
+mandos (1.5.0-1) unstable; urgency=low
+
+  * New upstream release.
+  * debian/control (mandos-client/Depends): Added "initramfs-tools".
+  * debian/mandos-client.README.Debian: Corrected mail address and adjust
+                                        wording.
+  * debian/rules (binary-common): Exclude new nework-hooks.d directory
+                                  from dh_fixperms.
+  * debian/mandos-client.README.Debian: Document network hook facility.
+  * debian/mandos-client.docs (network-hooks.d): Added.
+  * debian/mandos.dirs (var/lib/mandos): Added.
+  * debian/mandos.postinst: Fix ownership of /var/lib/mandos.
+  * debian/control (mandos/Depends): Added "python-gnupginterface".
+
+ -- Teddy Hogeborn <teddy@recompile.se>  Sun, 01 Jan 2012 05:58:11 +0100
+
 mandos (1.4.1-1) unstable; urgency=low
 
   * New upstream release.
