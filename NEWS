@@ -1,6 +1,11 @@
 This NEWS file records noteworthy changes, very tersely.
 See the manual for detailed information.
 
+Version 1.5.1 (2012-01-01)
+* Server
+** Include intro(8mandos) manual page, missing since migration from
+   README file in version 1.4.0.
+
 Version 1.5.0 (2012-01-01)
 * Client
 ** Network hooks.  The Mandos client can now run custom scripts to take
