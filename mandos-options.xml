@@ -87,8 +87,8 @@ It is also used for some texts by mandos-client(8mandos).
   </para>
   
   <para id="restore">
-    This option controls whether the server will restore any state from
-    last time it ran. Default is to try restore last state.
+    This option controls whether the server will restore its state
+    from the last time it ran.  Default is to restore last state.
   </para>
   
   <para id="statedir">

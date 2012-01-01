@@ -152,8 +152,8 @@ This file documents the D-Bus interface to the Mandos server.
 *** Rejected(s: Reason)
     This client was not given its secret for a specified Reason.
 
-*** NewRequest(s: IP address)
-    A client at IP adress has asked for its password.
+*** NewRequest(s: IPAddress)
+    A client at IPAdress has requested its secret.
 
 * Copyright
 

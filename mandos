@@ -850,8 +850,8 @@ class DBusObjectWithProperties(dbus.service.Object):
             # signatures other than "ay".
             if prop._dbus_signature != "ay":
                 raise ValueError
-            value = dbus.ByteArray(''.join(unichr(byte)
-                                           for byte in value))
+            value = dbus.ByteArray(b''.join(chr(byte)
+                                            for byte in value))
         prop(value)
     
     @dbus.service.method(dbus.PROPERTIES_IFACE, in_signature="s",
