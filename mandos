@@ -11,8 +11,8 @@
 # "AvahiService" class, and some lines in "main".
 # 
 # Everything else is
-# Copyright © 2008-2011 Teddy Hogeborn
-# Copyright © 2008-2011 Björn Påhlsson
+# Copyright © 2008-2012 Teddy Hogeborn
+# Copyright © 2008-2012 Björn Påhlsson
 # 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -63,6 +63,8 @@ import functools
 import cPickle as pickle
 import multiprocessing
 import types
+import binascii
+import tempfile
 
 import dbus
 import dbus.service
@@ -73,6 +75,7 @@ import ctypes
 import ctypes.util
 import xml.dom.minidom
 import inspect
+import GnuPGInterface
 
 try:
     SO_BINDTODEVICE = socket.SO_BINDTODEVICE
@@ -82,24 +85,129 @@ except AttributeError:
     except ImportError:
         SO_BINDTODEVICE = None
 
-
 version = "1.4.1"
+stored_state_file = "clients.pickle"
 
-#logger = logging.getLogger('mandos')
-logger = logging.Logger('mandos')
+logger = logging.getLogger()
 syslogger = (logging.handlers.SysLogHandler
              (facility = logging.handlers.SysLogHandler.LOG_DAEMON,
               address = str("/dev/log")))
-syslogger.setFormatter(logging.Formatter
-                       ('Mandos [%(process)d]: %(levelname)s:'
-                        ' %(message)s'))
-logger.addHandler(syslogger)
 
-console = logging.StreamHandler()
-console.setFormatter(logging.Formatter('%(name)s [%(process)d]:'
-                                       ' %(levelname)s:'
-                                       ' %(message)s'))
-logger.addHandler(console)
+try:
+    if_nametoindex = (ctypes.cdll.LoadLibrary
+                      (ctypes.util.find_library("c"))
+                      .if_nametoindex)
+except (OSError, AttributeError):
+    def if_nametoindex(interface):
+        "Get an interface index the hard way, i.e. using fcntl()"
+        SIOCGIFINDEX = 0x8933  # From /usr/include/linux/sockios.h
+        with contextlib.closing(socket.socket()) as s:
+            ifreq = fcntl.ioctl(s, SIOCGIFINDEX,
+                                struct.pack(str("16s16x"),
+                                            interface))
+        interface_index = struct.unpack(str("I"),
+                                        ifreq[16:20])[0]
+        return interface_index
+
+
+def initlogger(debug, level=logging.WARNING):
+    """init logger and add loglevel"""
+    
+    syslogger.setFormatter(logging.Formatter
+                           ('Mandos [%(process)d]: %(levelname)s:'
+                            ' %(message)s'))
+    logger.addHandler(syslogger)
+    
+    if debug:
+        console = logging.StreamHandler()
+        console.setFormatter(logging.Formatter('%(asctime)s %(name)s'
+                                               ' [%(process)d]:'
+                                               ' %(levelname)s:'
+                                               ' %(message)s'))
+        logger.addHandler(console)
+    logger.setLevel(level)
+
+
+class PGPError(Exception):
+    """Exception if encryption/decryption fails"""
+    pass
+
+
+class PGPEngine(object):
+    """A simple class for OpenPGP symmetric encryption & decryption"""
+    def __init__(self):
+        self.gnupg = GnuPGInterface.GnuPG()
+        self.tempdir = tempfile.mkdtemp(prefix="mandos-")
+        self.gnupg = GnuPGInterface.GnuPG()
+        self.gnupg.options.meta_interactive = False
+        self.gnupg.options.homedir = self.tempdir
+        self.gnupg.options.extra_args.extend(['--force-mdc',
+                                              '--quiet',
+                                              '--no-use-agent'])
+    
+    def __enter__(self):
+        return self
+    
+    def __exit__ (self, exc_type, exc_value, traceback):
+        self._cleanup()
+        return False
+    
+    def __del__(self):
+        self._cleanup()
+    
+    def _cleanup(self):
+        if self.tempdir is not None:
+            # Delete contents of tempdir
+            for root, dirs, files in os.walk(self.tempdir,
+                                             topdown = False):
+                for filename in files:
+                    os.remove(os.path.join(root, filename))
+                for dirname in dirs:
+                    os.rmdir(os.path.join(root, dirname))
+            # Remove tempdir
+            os.rmdir(self.tempdir)
+            self.tempdir = None
+    
+    def password_encode(self, password):
+        # Passphrase can not be empty and can not contain newlines or
+        # NUL bytes.  So we prefix it and hex encode it.
+        return b"mandos" + binascii.hexlify(password)
+    
+    def encrypt(self, data, password):
+        self.gnupg.passphrase = self.password_encode(password)
+        with open(os.devnull) as devnull:
+            try:
+                proc = self.gnupg.run(['--symmetric'],
+                                      create_fhs=['stdin', 'stdout'],
+                                      attach_fhs={'stderr': devnull})
+                with contextlib.closing(proc.handles['stdin']) as f:
+                    f.write(data)
+                with contextlib.closing(proc.handles['stdout']) as f:
+                    ciphertext = f.read()
+                proc.wait()
+            except IOError as e:
+                raise PGPError(e)
+        self.gnupg.passphrase = None
+        return ciphertext
+    
+    def decrypt(self, data, password):
+        self.gnupg.passphrase = self.password_encode(password)
+        with open(os.devnull) as devnull:
+            try:
+                proc = self.gnupg.run(['--decrypt'],
+                                      create_fhs=['stdin', 'stdout'],
+                                      attach_fhs={'stderr': devnull})
+                with contextlib.closing(proc.handles['stdin'] ) as f:
+                    f.write(data)
+                with contextlib.closing(proc.handles['stdout']) as f:
+                    decrypted_plaintext = f.read()
+                proc.wait()
+            except IOError as e:
+                raise PGPError(e)
+        self.gnupg.passphrase = None
+        return decrypted_plaintext
+
+
 
 class AvahiError(Exception):
     def __init__(self, value, *args, **kwargs):
@@ -164,10 +272,6 @@ class AvahiService(object):
                             .GetAlternativeServiceName(self.name))
         logger.info("Changing Zeroconf service name to %r ...",
                     self.name)
-        syslogger.setFormatter(logging.Formatter
-                               ('Mandos (%s) [%%(process)d]:'
-                                ' %%(levelname)s: %%(message)s'
-                                % self.name))
         self.remove()
         try:
             self.add()
@@ -193,7 +297,7 @@ class AvahiService(object):
                 avahi.DBUS_INTERFACE_ENTRY_GROUP)
         self.entry_group_state_changed_match = (
             self.group.connect_to_signal(
-                'StateChanged', self .entry_group_state_changed))
+                'StateChanged', self.entry_group_state_changed))
         logger.debug("Adding Zeroconf service '%s' of type '%s' ...",
                      self.name, self.type)
         self.group.AddService(
@@ -225,7 +329,7 @@ class AvahiService(object):
             try:
                 self.group.Free()
             except (dbus.exceptions.UnknownMethodException,
-                    dbus.exceptions.DBusException) as e:
+                    dbus.exceptions.DBusException):
                 pass
             self.group = None
         self.remove()
@@ -265,8 +369,17 @@ class AvahiService(object):
                                  self.server_state_changed)
         self.server_state_changed(self.server.GetState())
 
+class AvahiServiceToSyslog(AvahiService):
+    def rename(self):
+        """Add the new name to the syslog messages"""
+        ret = AvahiService.rename(self)
+        syslogger.setFormatter(logging.Formatter
+                               ('Mandos (%s) [%%(process)d]:'
+                                ' %%(levelname)s: %%(message)s'
+                                % self.name))
+        return ret
 
-def _timedelta_to_milliseconds(td):
+def timedelta_to_milliseconds(td):
     "Convert a datetime.timedelta() to milliseconds"
     return ((td.days * 24 * 60 * 60 * 1000)
             + (td.seconds * 1000)
@@ -276,7 +389,7 @@ class Client(object):
     """A representation of a client host served by this server.
     
     Attributes:
-    _approved:   bool(); 'None' if not yet approved/disapproved
+    approved:   bool(); 'None' if not yet approved/disapproved
     approval_delay: datetime.timedelta(); Time to wait for approval
     approval_duration: datetime.timedelta(); Duration of one approval
     checker:    subprocess.Popen(); a running checker process used
@@ -289,8 +402,9 @@ class Client(object):
                      instance %(name)s can be used in the command.
     checker_initiator_tag: a gobject event source tag, or None
     created:    datetime.datetime(); (UTC) object creation
+    client_structure: Object describing what attributes a client has
+                      and is used for storing the client at exit
     current_checker_command: string; current running checker_command
-    disable_hook:  If set, called by disable() as disable_hook(self)
     disable_initiator_tag: a gobject event source tag, or None
     enabled:    bool()
     fingerprint: string (40 or 32 hexadecimal digits); used to
@@ -299,7 +413,10 @@ class Client(object):
     interval:   datetime.timedelta(); How often to start a new checker
     last_approval_request: datetime.datetime(); (UTC) or None
     last_checked_ok: datetime.datetime(); (UTC) or None
-    last_enabled: datetime.datetime(); (UTC)
+    last_checker_status: integer between 0 and 255 reflecting exit
+                         status of last checker. -1 reflects crashed
+                         checker, or None.
+    last_enabled: datetime.datetime(); (UTC) or None
     name:       string; from the config file, used in log messages and
                         D-Bus identifiers
     secret:     bytestring; sent verbatim (over TLS) to client
@@ -315,81 +432,134 @@ class Client(object):
                           "created", "enabled", "fingerprint",
                           "host", "interval", "last_checked_ok",
                           "last_enabled", "name", "timeout")
+    client_defaults = { "timeout": "5m",
+                        "extended_timeout": "15m",
+                        "interval": "2m",
+                        "checker": "fping -q -- %%(host)s",
+                        "host": "",
+                        "approval_delay": "0s",
+                        "approval_duration": "1s",
+                        "approved_by_default": "True",
+                        "enabled": "True",
+                        }
     
     def timeout_milliseconds(self):
         "Return the 'timeout' attribute in milliseconds"
-        return _timedelta_to_milliseconds(self.timeout)
+        return timedelta_to_milliseconds(self.timeout)
     
     def extended_timeout_milliseconds(self):
         "Return the 'extended_timeout' attribute in milliseconds"
-        return _timedelta_to_milliseconds(self.extended_timeout)
+        return timedelta_to_milliseconds(self.extended_timeout)
     
     def interval_milliseconds(self):
         "Return the 'interval' attribute in milliseconds"
-        return _timedelta_to_milliseconds(self.interval)
+        return timedelta_to_milliseconds(self.interval)
     
     def approval_delay_milliseconds(self):
-        return _timedelta_to_milliseconds(self.approval_delay)
-    
-    def __init__(self, name = None, disable_hook=None, config=None):
+        return timedelta_to_milliseconds(self.approval_delay)
+
+    @staticmethod
+    def config_parser(config):
+        """Construct a new dict of client settings of this form:
+        { client_name: {setting_name: value, ...}, ...}
+        with exceptions for any special settings as defined above.
+        NOTE: Must be a pure function. Must return the same result
+        value given the same arguments.
+        """
+        settings = {}
+        for client_name in config.sections():
+            section = dict(config.items(client_name))
+            client = settings[client_name] = {}
+            
+            client["host"] = section["host"]
+            # Reformat values from string types to Python types
+            client["approved_by_default"] = config.getboolean(
+                client_name, "approved_by_default")
+            client["enabled"] = config.getboolean(client_name,
+                                                  "enabled")
+            
+            client["fingerprint"] = (section["fingerprint"].upper()
+                                     .replace(" ", ""))
+            if "secret" in section:
+                client["secret"] = section["secret"].decode("base64")
+            elif "secfile" in section:
+                with open(os.path.expanduser(os.path.expandvars
+                                             (section["secfile"])),
+                          "rb") as secfile:
+                    client["secret"] = secfile.read()
+            else:
+                raise TypeError("No secret or secfile for section %s"
+                                % section)
+            client["timeout"] = string_to_delta(section["timeout"])
+            client["extended_timeout"] = string_to_delta(
+                section["extended_timeout"])
+            client["interval"] = string_to_delta(section["interval"])
+            client["approval_delay"] = string_to_delta(
+                section["approval_delay"])
+            client["approval_duration"] = string_to_delta(
+                section["approval_duration"])
+            client["checker_command"] = section["checker"]
+            client["last_approval_request"] = None
+            client["last_checked_ok"] = None
+            client["last_checker_status"] = None
+        
+        return settings
+        
+        
+    def __init__(self, settings, name = None):
         """Note: the 'checker' key in 'config' sets the
         'checker_command' attribute and *not* the 'checker'
         attribute."""
         self.name = name
-        if config is None:
-            config = {}
+        # adding all client settings
+        for setting, value in settings.iteritems():
+            setattr(self, setting, value)
+        
+        if self.enabled:
+            if not hasattr(self, "last_enabled"):
+                self.last_enabled = datetime.datetime.utcnow()
+            if not hasattr(self, "expires"):
+                self.expires = (datetime.datetime.utcnow()
+                                + self.timeout)
+        else:
+            self.last_enabled = None
+            self.expires = None
+       
         logger.debug("Creating client %r", self.name)
         # Uppercase and remove spaces from fingerprint for later
         # comparison purposes with return value from the fingerprint()
         # function
-        self.fingerprint = (config["fingerprint"].upper()
-                            .replace(" ", ""))
         logger.debug("  Fingerprint: %s", self.fingerprint)
-        if "secret" in config:
-            self.secret = config["secret"].decode("base64")
-        elif "secfile" in config:
-            with open(os.path.expanduser(os.path.expandvars
-                                         (config["secfile"])),
-                      "rb") as secfile:
-                self.secret = secfile.read()
-        else:
-            raise TypeError("No secret or secfile for client %s"
-                            % self.name)
-        self.host = config.get("host", "")
-        self.created = datetime.datetime.utcnow()
-        self.enabled = False
-        self.last_approval_request = None
-        self.last_enabled = None
-        self.last_checked_ok = None
-        self.timeout = string_to_delta(config["timeout"])
-        self.extended_timeout = string_to_delta(config
-                                                ["extended_timeout"])
-        self.interval = string_to_delta(config["interval"])
-        self.disable_hook = disable_hook
+        self.created = settings.get("created",
+                                    datetime.datetime.utcnow())
+
+        # attributes specific for this server instance
         self.checker = None
         self.checker_initiator_tag = None
         self.disable_initiator_tag = None
-        self.expires = None
         self.checker_callback_tag = None
-        self.checker_command = config["checker"]
         self.current_checker_command = None
-        self.last_connect = None
-        self._approved = None
-        self.approved_by_default = config.get("approved_by_default",
-                                              True)
+        self.approved = None
         self.approvals_pending = 0
-        self.approval_delay = string_to_delta(
-            config["approval_delay"])
-        self.approval_duration = string_to_delta(
-            config["approval_duration"])
         self.changedstate = (multiprocessing_manager
                              .Condition(multiprocessing_manager
                                         .Lock()))
+        self.client_structure = [attr for attr in
+                                 self.__dict__.iterkeys()
+                                 if not attr.startswith("_")]
+        self.client_structure.append("client_structure")
+        
+        for name, t in inspect.getmembers(type(self),
+                                          lambda obj:
+                                              isinstance(obj,
+                                                         property)):
+            if not name.startswith("_"):
+                self.client_structure.append(name)
     
+    # Send notice to process children that client state has changed
     def send_changedstate(self):
-        self.changedstate.acquire()
-        self.changedstate.notify_all()
-        self.changedstate.release()
+        with self.changedstate:
+            self.changedstate.notify_all()
     
     def enable(self):
         """Start this client's checker and timeout hooks"""
@@ -397,20 +567,10 @@ class Client(object):
             # Already enabled
             return
         self.send_changedstate()
-        # Schedule a new checker to be started an 'interval' from now,
-        # and every interval from then on.
-        self.checker_initiator_tag = (gobject.timeout_add
-                                      (self.interval_milliseconds(),
-                                       self.start_checker))
-        # Schedule a disable() when 'timeout' has passed
         self.expires = datetime.datetime.utcnow() + self.timeout
-        self.disable_initiator_tag = (gobject.timeout_add
-                                   (self.timeout_milliseconds(),
-                                    self.disable))
         self.enabled = True
         self.last_enabled = datetime.datetime.utcnow()
-        # Also start a new checker *right now*.
-        self.start_checker()
+        self.init_checker()
     
     def disable(self, quiet=True):
         """Disable this client."""
@@ -428,23 +588,33 @@ class Client(object):
             gobject.source_remove(self.checker_initiator_tag)
             self.checker_initiator_tag = None
         self.stop_checker()
-        if self.disable_hook:
-            self.disable_hook(self)
         self.enabled = False
         # Do not run this again if called by a gobject.timeout_add
         return False
     
     def __del__(self):
-        self.disable_hook = None
         self.disable()
+    
+    def init_checker(self):
+        # Schedule a new checker to be started an 'interval' from now,
+        # and every interval from then on.
+        self.checker_initiator_tag = (gobject.timeout_add
+                                      (self.interval_milliseconds(),
+                                       self.start_checker))
+        # Schedule a disable() when 'timeout' has passed
+        self.disable_initiator_tag = (gobject.timeout_add
+                                   (self.timeout_milliseconds(),
+                                    self.disable))
+        # Also start a new checker *right now*.
+        self.start_checker()
     
     def checker_callback(self, pid, condition, command):
         """The checker has completed, so take appropriate actions."""
         self.checker_callback_tag = None
         self.checker = None
         if os.WIFEXITED(condition):
-            exitstatus = os.WEXITSTATUS(condition)
-            if exitstatus == 0:
+            self.last_checker_status = os.WEXITSTATUS(condition)
+            if self.last_checker_status == 0:
                 logger.info("Checker for %(name)s succeeded",
                             vars(self))
                 self.checked_ok()
@@ -452,6 +622,7 @@ class Client(object):
                 logger.info("Checker for %(name)s failed",
                             vars(self))
         else:
+            self.last_checker_status = -1
             logger.warning("Checker for %(name)s crashed?",
                            vars(self))
     
@@ -468,7 +639,7 @@ class Client(object):
             gobject.source_remove(self.disable_initiator_tag)
         if getattr(self, "enabled", False):
             self.disable_initiator_tag = (gobject.timeout_add
-                                          (_timedelta_to_milliseconds
+                                          (timedelta_to_milliseconds
                                            (timeout), self.disable))
             self.expires = datetime.datetime.utcnow() + timeout
     
@@ -679,8 +850,8 @@ class DBusObjectWithProperties(dbus.service.Object):
             # signatures other than "ay".
             if prop._dbus_signature != "ay":
                 raise ValueError
-            value = dbus.ByteArray(''.join(unichr(byte)
-                                           for byte in value))
+            value = dbus.ByteArray(b''.join(chr(byte)
+                                            for byte in value))
         prop(value)
     
     @dbus.service.method(dbus.PROPERTIES_IFACE, in_signature="s",
@@ -691,7 +862,7 @@ class DBusObjectWithProperties(dbus.service.Object):
         
         Note: Will not include properties with access="write".
         """
-        all = {}
+        properties = {}
         for name, prop in self._get_all_dbus_properties():
             if (interface_name
                 and interface_name != prop._dbus_interface):
@@ -702,11 +873,11 @@ class DBusObjectWithProperties(dbus.service.Object):
                 continue
             value = prop()
             if not hasattr(value, "variant_level"):
-                all[name] = value
+                properties[name] = value
                 continue
-            all[name] = type(value)(value, variant_level=
-                                    value.variant_level+1)
-        return dbus.Dictionary(all, signature="sv")
+            properties[name] = type(value)(value, variant_level=
+                                           value.variant_level+1)
+        return dbus.Dictionary(properties, signature="sv")
     
     @dbus.service.method(dbus.INTROSPECTABLE_IFACE,
                          out_signature="s",
@@ -762,6 +933,7 @@ def datetime_to_dbus (dt, variant_level=0):
         return dbus.String("", variant_level = variant_level)
     return dbus.String(dt.isoformat(),
                        variant_level=variant_level)
+
 
 class AlternateDBusNamesMetaclass(DBusObjectWithProperties
                                   .__metaclass__):
@@ -860,6 +1032,7 @@ class AlternateDBusNamesMetaclass(DBusObjectWithProperties
                                         attribute.func_closure)))
         return type.__new__(mcs, name, bases, attr)
 
+
 class ClientDBus(Client, DBusObjectWithProperties):
     """A Client class using D-Bus
     
@@ -874,9 +1047,11 @@ class ClientDBus(Client, DBusObjectWithProperties):
     # dbus.service.Object doesn't use super(), so we can't either.
     
     def __init__(self, bus = None, *args, **kwargs):
-        self._approvals_pending = 0
         self.bus = bus
         Client.__init__(self, *args, **kwargs)
+        self._approvals_pending = 0
+        
+        self._approvals_pending = 0
         # Only now, when this client is initialized, can it show up on
         # the D-Bus
         client_object_name = unicode(self.name).translate(
@@ -892,7 +1067,7 @@ class ClientDBus(Client, DBusObjectWithProperties):
                              variant_level=1):
         """ Modify a variable so that it's a property which announces
         its changes to DBus.
-
+        
         transform_fun: Function that takes a value and a variant_level
                        and transforms it to a D-Bus type.
         dbus_name: D-Bus name of the variable
@@ -932,24 +1107,24 @@ class ClientDBus(Client, DBusObjectWithProperties):
         datetime_to_dbus, "LastApprovalRequest")
     approved_by_default = notifychangeproperty(dbus.Boolean,
                                                "ApprovedByDefault")
-    approval_delay = notifychangeproperty(dbus.UInt16,
+    approval_delay = notifychangeproperty(dbus.UInt64,
                                           "ApprovalDelay",
                                           type_func =
-                                          _timedelta_to_milliseconds)
+                                          timedelta_to_milliseconds)
     approval_duration = notifychangeproperty(
-        dbus.UInt16, "ApprovalDuration",
-        type_func = _timedelta_to_milliseconds)
+        dbus.UInt64, "ApprovalDuration",
+        type_func = timedelta_to_milliseconds)
     host = notifychangeproperty(dbus.String, "Host")
-    timeout = notifychangeproperty(dbus.UInt16, "Timeout",
+    timeout = notifychangeproperty(dbus.UInt64, "Timeout",
                                    type_func =
-                                   _timedelta_to_milliseconds)
+                                   timedelta_to_milliseconds)
     extended_timeout = notifychangeproperty(
-        dbus.UInt16, "ExtendedTimeout",
-        type_func = _timedelta_to_milliseconds)
-    interval = notifychangeproperty(dbus.UInt16,
+        dbus.UInt64, "ExtendedTimeout",
+        type_func = timedelta_to_milliseconds)
+    interval = notifychangeproperty(dbus.UInt64,
                                     "Interval",
                                     type_func =
-                                    _timedelta_to_milliseconds)
+                                    timedelta_to_milliseconds)
     checker_command = notifychangeproperty(dbus.String, "Checker")
     
     del notifychangeproperty
@@ -997,13 +1172,13 @@ class ClientDBus(Client, DBusObjectWithProperties):
         return r
     
     def _reset_approved(self):
-        self._approved = None
+        self.approved = None
         return False
     
     def approve(self, value=True):
         self.send_changedstate()
-        self._approved = value
-        gobject.timeout_add(_timedelta_to_milliseconds
+        self.approved = value
+        gobject.timeout_add(timedelta_to_milliseconds
                             (self.approval_duration),
                             self._reset_approved)
     
@@ -1051,6 +1226,14 @@ class ClientDBus(Client, DBusObjectWithProperties):
     def NeedApproval(self, timeout, default):
         "D-Bus signal"
         return self.need_approval()
+    
+    # NeRwequest - signal
+    @dbus.service.signal(_interface, signature="s")
+    def NewRequest(self, ip):
+        """D-Bus signal
+        Is sent after a client request a password.
+        """
+        pass
     
     ## Methods
     
@@ -1115,7 +1298,7 @@ class ClientDBus(Client, DBusObjectWithProperties):
                            access="readwrite")
     def ApprovalDuration_dbus_property(self, value=None):
         if value is None:       # get
-            return dbus.UInt64(_timedelta_to_milliseconds(
+            return dbus.UInt64(timedelta_to_milliseconds(
                     self.approval_duration))
         self.approval_duration = datetime.timedelta(0, 0, 0, value)
     
@@ -1135,12 +1318,12 @@ class ClientDBus(Client, DBusObjectWithProperties):
     def Host_dbus_property(self, value=None):
         if value is None:       # get
             return dbus.String(self.host)
-        self.host = value
+        self.host = unicode(value)
     
     # Created - property
     @dbus_service_property(_interface, signature="s", access="read")
     def Created_dbus_property(self):
-        return dbus.String(datetime_to_dbus(self.created))
+        return datetime_to_dbus(self.created)
     
     # LastEnabled - property
     @dbus_service_property(_interface, signature="s", access="read")
@@ -1184,26 +1367,25 @@ class ClientDBus(Client, DBusObjectWithProperties):
         if value is None:       # get
             return dbus.UInt64(self.timeout_milliseconds())
         self.timeout = datetime.timedelta(0, 0, 0, value)
-        if getattr(self, "disable_initiator_tag", None) is None:
-            return
         # Reschedule timeout
-        gobject.source_remove(self.disable_initiator_tag)
-        self.disable_initiator_tag = None
-        self.expires = None
-        time_to_die = _timedelta_to_milliseconds((self
-                                                  .last_checked_ok
-                                                  + self.timeout)
-                                                 - datetime.datetime
-                                                 .utcnow())
-        if time_to_die <= 0:
-            # The timeout has passed
-            self.disable()
-        else:
-            self.expires = (datetime.datetime.utcnow()
-                            + datetime.timedelta(milliseconds =
-                                                 time_to_die))
-            self.disable_initiator_tag = (gobject.timeout_add
-                                          (time_to_die, self.disable))
+        if self.enabled:
+            now = datetime.datetime.utcnow()
+            time_to_die = timedelta_to_milliseconds(
+                (self.last_checked_ok + self.timeout) - now)
+            if time_to_die <= 0:
+                # The timeout has passed
+                self.disable()
+            else:
+                self.expires = (now +
+                                datetime.timedelta(milliseconds =
+                                                   time_to_die))
+                if (getattr(self, "disable_initiator_tag", None)
+                    is None):
+                    return
+                gobject.source_remove(self.disable_initiator_tag)
+                self.disable_initiator_tag = (gobject.timeout_add
+                                              (time_to_die,
+                                               self.disable))
     
     # ExtendedTimeout - property
     @dbus_service_property(_interface, signature="t",
@@ -1222,11 +1404,12 @@ class ClientDBus(Client, DBusObjectWithProperties):
         self.interval = datetime.timedelta(0, 0, 0, value)
         if getattr(self, "checker_initiator_tag", None) is None:
             return
-        # Reschedule checker run
-        gobject.source_remove(self.checker_initiator_tag)
-        self.checker_initiator_tag = (gobject.timeout_add
-                                      (value, self.start_checker))
-        self.start_checker()    # Start one now, too
+        if self.enabled:
+            # Reschedule checker run
+            gobject.source_remove(self.checker_initiator_tag)
+            self.checker_initiator_tag = (gobject.timeout_add
+                                          (value, self.start_checker))
+            self.start_checker()    # Start one now, too
     
     # Checker - property
     @dbus_service_property(_interface, signature="s",
@@ -1234,7 +1417,7 @@ class ClientDBus(Client, DBusObjectWithProperties):
     def Checker_dbus_property(self, value=None):
         if value is None:       # get
             return dbus.String(self.checker_command)
-        self.checker_command = value
+        self.checker_command = unicode(value)
     
     # CheckerRunning - property
     @dbus_service_property(_interface, signature="b",
@@ -1269,7 +1452,7 @@ class ProxyClient(object):
             raise KeyError()
     
     def __getattribute__(self, name):
-        if(name == '_pipe'):
+        if name == '_pipe':
             return super(ProxyClient, self).__getattribute__(name)
         self._pipe.send(('getattr', name))
         data = self._pipe.recv()
@@ -1282,12 +1465,14 @@ class ProxyClient(object):
             return func
     
     def __setattr__(self, name, value):
-        if(name == '_pipe'):
+        if name == '_pipe':
             return super(ProxyClient, self).__setattr__(name, value)
         self._pipe.send(('setattr', name, value))
 
+
 class ClientDBusTransitional(ClientDBus):
     __metaclass__ = AlternateDBusNamesMetaclass
+
 
 class ClientHandler(socketserver.BaseRequestHandler, object):
     """A class to handle client connections.
@@ -1362,6 +1547,10 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
                 except KeyError:
                     return
                 
+                if self.server.use_dbus:
+                    # Emit D-Bus signal
+                    client.NewRequest(str(self.client_address))
+                
                 if client.approval_delay:
                     delay = client.approval_delay
                     client.approvals_pending += 1
@@ -1376,10 +1565,10 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
                             client.Rejected("Disabled")
                         return
                     
-                    if client._approved or not client.approval_delay:
+                    if client.approved or not client.approval_delay:
                         #We are approved or approval is disabled
                         break
-                    elif client._approved is None:
+                    elif client.approved is None:
                         logger.info("Client %s needs approval",
                                     client.name)
                         if self.server.use_dbus:
@@ -1399,7 +1588,7 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
                     time = datetime.datetime.now()
                     client.changedstate.acquire()
                     (client.changedstate.wait
-                     (float(client._timedelta_to_milliseconds(delay)
+                     (float(client.timedelta_to_milliseconds(delay)
                             / 1000)))
                     client.changedstate.release()
                     time2 = datetime.datetime.now()
@@ -1504,7 +1693,7 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
         # Convert the buffer to a Python bytestring
         fpr = ctypes.string_at(buf, buf_len.value)
         # Convert the bytestring to hexadecimal notation
-        hex_fpr = ''.join("%02X" % ord(char) for char in fpr)
+        hex_fpr = binascii.hexlify(fpr).upper()
         return hex_fpr
 
 
@@ -1513,7 +1702,7 @@ class MultiprocessingMixIn(object):
     def sub_process_main(self, request, address):
         try:
             self.finish_request(request, address)
-        except:
+        except Exception:
             self.handle_error(request, address)
         self.close_request(request)
     
@@ -1624,7 +1813,7 @@ class MandosServer(IPv6_TCPServer):
         self.enabled = False
         self.clients = clients
         if self.clients is None:
-            self.clients = set()
+            self.clients = {}
         self.use_dbus = use_dbus
         self.gnutls_priority = gnutls_priority
         IPv6_TCPServer.__init__(self, server_address,
@@ -1677,7 +1866,7 @@ class MandosServer(IPv6_TCPServer):
             fpr = request[1]
             address = request[2]
             
-            for c in self.clients:
+            for c in self.clients.itervalues():
                 if c.fingerprint == fpr:
                     client = c
                     break
@@ -1767,30 +1956,6 @@ def string_to_delta(interval):
     return timevalue
 
 
-def if_nametoindex(interface):
-    """Call the C function if_nametoindex(), or equivalent
-    
-    Note: This function cannot accept a unicode string."""
-    global if_nametoindex
-    try:
-        if_nametoindex = (ctypes.cdll.LoadLibrary
-                          (ctypes.util.find_library("c"))
-                          .if_nametoindex)
-    except (OSError, AttributeError):
-        logger.warning("Doing if_nametoindex the hard way")
-        def if_nametoindex(interface):
-            "Get an interface index the hard way, i.e. using fcntl()"
-            SIOCGIFINDEX = 0x8933  # From /usr/include/linux/sockios.h
-            with contextlib.closing(socket.socket()) as s:
-                ifreq = fcntl.ioctl(s, SIOCGIFINDEX,
-                                    struct.pack(str("16s16x"),
-                                                interface))
-            interface_index = struct.unpack(str("I"),
-                                            ifreq[16:20])[0]
-            return interface_index
-    return if_nametoindex(interface)
-
-
 def daemon(nochdir = False, noclose = False):
     """See daemon(3).  Standard BSD Unix function.
     
@@ -1851,6 +2016,12 @@ def main():
                         " system bus interface")
     parser.add_argument("--no-ipv6", action="store_false",
                         dest="use_ipv6", help="Do not use IPv6")
+    parser.add_argument("--no-restore", action="store_false",
+                        dest="restore", help="Do not restore stored"
+                        " state")
+    parser.add_argument("--statedir", metavar="DIR",
+                        help="Directory to save/restore state in")
+    
     options = parser.parse_args()
     
     if options.check:
@@ -1869,6 +2040,8 @@ def main():
                         "use_dbus": "True",
                         "use_ipv6": "True",
                         "debuglevel": "",
+                        "restore": "True",
+                        "statedir": "/var/lib/mandos"
                         }
     
     # Parse config file for server-global settings
@@ -1891,7 +2064,8 @@ def main():
     # options, if set.
     for option in ("interface", "address", "port", "debug",
                    "priority", "servicename", "configdir",
-                   "use_dbus", "use_ipv6", "debuglevel"):
+                   "use_dbus", "use_ipv6", "debuglevel", "restore",
+                   "statedir"):
         value = getattr(options, option)
         if value is not None:
             server_settings[option] = value
@@ -1909,6 +2083,17 @@ def main():
     debuglevel = server_settings["debuglevel"]
     use_dbus = server_settings["use_dbus"]
     use_ipv6 = server_settings["use_ipv6"]
+    stored_state_path = os.path.join(server_settings["statedir"],
+                                     stored_state_file)
+    
+    if debug:
+        initlogger(debug, logging.DEBUG)
+    else:
+        if not debuglevel:
+            initlogger(debug)
+        else:
+            level = getattr(logging, debuglevel.upper())
+            initlogger(debug, level)
     
     if server_settings["servicename"] != "Mandos":
         syslogger.setFormatter(logging.Formatter
@@ -1917,15 +2102,8 @@ def main():
                                 % server_settings["servicename"]))
     
     # Parse config file with clients
-    client_defaults = { "timeout": "5m",
-                        "extended_timeout": "15m",
-                        "interval": "2m",
-                        "checker": "fping -q -- %%(host)s",
-                        "host": "",
-                        "approval_delay": "0s",
-                        "approval_duration": "1s",
-                        }
-    client_config = configparser.SafeConfigParser(client_defaults)
+    client_config = configparser.SafeConfigParser(Client
+                                                  .client_defaults)
     client_config.read(os.path.join(server_settings["configdir"],
                                     "clients.conf"))
     
@@ -1969,14 +2147,6 @@ def main():
         if error[0] != errno.EPERM:
             raise error
     
-    if not debug and not debuglevel:
-        syslogger.setLevel(logging.WARNING)
-        console.setLevel(logging.WARNING)
-    if debuglevel:
-        level = getattr(logging, debuglevel.upper())
-        syslogger.setLevel(level)
-        console.setLevel(level)
-    
     if debug:
         # Enable all possible GnuTLS debugging
         
@@ -1996,14 +2166,13 @@ def main():
         os.dup2(null, sys.stdin.fileno())
         if null > 2:
             os.close(null)
-    else:
-        # No console logging
-        logger.removeHandler(console)
     
     # Need to fork before connecting to D-Bus
     if not debug:
         # Close all input and output, do double fork, etc.
         daemon()
+    
+    gobject.threads_init()
     
     global main_loop
     # From the Avahi example code
@@ -2024,9 +2193,10 @@ def main():
             server_settings["use_dbus"] = False
             tcp_server.use_dbus = False
     protocol = avahi.PROTO_INET6 if use_ipv6 else avahi.PROTO_INET
-    service = AvahiService(name = server_settings["servicename"],
-                           servicetype = "_mandos._tcp",
-                           protocol = protocol, bus = bus)
+    service = AvahiServiceToSyslog(name =
+                                   server_settings["servicename"],
+                                   servicetype = "_mandos._tcp",
+                                   protocol = protocol, bus = bus)
     if server_settings["interface"]:
         service.interface = (if_nametoindex
                              (str(server_settings["interface"])))
@@ -2038,23 +2208,98 @@ def main():
     if use_dbus:
         client_class = functools.partial(ClientDBusTransitional,
                                          bus = bus)
-    def client_config_items(config, section):
-        special_settings = {
-            "approved_by_default":
-                lambda: config.getboolean(section,
-                                          "approved_by_default"),
-            }
-        for name, value in config.items(section):
-            try:
-                yield (name, special_settings[name]())
-            except KeyError:
-                yield (name, value)
     
-    tcp_server.clients.update(set(
-            client_class(name = section,
-                         config= dict(client_config_items(
-                        client_config, section)))
-            for section in client_config.sections()))
+    client_settings = Client.config_parser(client_config)
+    old_client_settings = {}
+    clients_data = {}
+    
+    # Get client data and settings from last running state.
+    if server_settings["restore"]:
+        try:
+            with open(stored_state_path, "rb") as stored_state:
+                clients_data, old_client_settings = (pickle.load
+                                                     (stored_state))
+            os.remove(stored_state_path)
+        except IOError as e:
+            logger.warning("Could not load persistent state: {0}"
+                           .format(e))
+            if e.errno != errno.ENOENT:
+                raise
+        except EOFError as e:
+            logger.warning("Could not load persistent state: "
+                           "EOFError: {0}".format(e))
+    
+    with PGPEngine() as pgp:
+        for client_name, client in clients_data.iteritems():
+            # Decide which value to use after restoring saved state.
+            # We have three different values: Old config file,
+            # new config file, and saved state.
+            # New config value takes precedence if it differs from old
+            # config value, otherwise use saved state.
+            for name, value in client_settings[client_name].items():
+                try:
+                    # For each value in new config, check if it
+                    # differs from the old config value (Except for
+                    # the "secret" attribute)
+                    if (name != "secret" and
+                        value != old_client_settings[client_name]
+                        [name]):
+                        client[name] = value
+                except KeyError:
+                    pass
+            
+            # Clients who has passed its expire date can still be
+            # enabled if its last checker was successful.  Clients
+            # whose checker failed before we stored its state is
+            # assumed to have failed all checkers during downtime.
+            if client["enabled"]:
+                if datetime.datetime.utcnow() >= client["expires"]:
+                    if not client["last_checked_ok"]:
+                        logger.warning(
+                            "disabling client {0} - Client never "
+                            "performed a successfull checker"
+                            .format(client["name"]))
+                        client["enabled"] = False
+                    elif client["last_checker_status"] != 0:
+                        logger.warning(
+                            "disabling client {0} - Client "
+                            "last checker failed with error code {1}"
+                            .format(client["name"],
+                                    client["last_checker_status"]))
+                        client["enabled"] = False
+                    else:
+                        client["expires"] = (datetime.datetime
+                                             .utcnow()
+                                             + client["timeout"])
+                        logger.debug("Last checker succeeded,"
+                                     " keeping {0} enabled"
+                                     .format(client["name"]))
+            try:
+                client["secret"] = (
+                    pgp.decrypt(client["encrypted_secret"],
+                                client_settings[client_name]
+                                ["secret"]))
+            except PGPError:
+                # If decryption fails, we use secret from new settings
+                logger.debug("Failed to decrypt {0} old secret"
+                             .format(client_name))
+                client["secret"] = (
+                    client_settings[client_name]["secret"])
+
+    
+    # Add/remove clients based on new changes made to config
+    for client_name in (set(old_client_settings)
+                        - set(client_settings)):
+        del clients_data[client_name]
+    for client_name in (set(client_settings)
+                        - set(old_client_settings)):
+        clients_data[client_name] = client_settings[client_name]
+
+    # Create clients all clients
+    for client_name, client in clients_data.iteritems():
+        tcp_server.clients[client_name] = client_class(
+            name = client_name, settings = client)
+    
     if not tcp_server.clients:
         logger.warning("No clients defined")
         
@@ -2071,7 +2316,6 @@ def main():
             # "pidfile" was never created
             pass
         del pidfilename
-        
         signal.signal(signal.SIGINT, signal.SIG_IGN)
     
     signal.signal(signal.SIGHUP, lambda signum, frame: sys.exit())
@@ -2103,7 +2347,8 @@ def main():
             def GetAllClients(self):
                 "D-Bus method"
                 return dbus.Array(c.dbus_object_path
-                                  for c in tcp_server.clients)
+                                  for c in
+                                  tcp_server.clients.itervalues())
             
             @dbus.service.method(_interface,
                                  out_signature="a{oa{sv}}")
@@ -2111,15 +2356,15 @@ def main():
                 "D-Bus method"
                 return dbus.Dictionary(
                     ((c.dbus_object_path, c.GetAll(""))
-                     for c in tcp_server.clients),
+                     for c in tcp_server.clients.itervalues()),
                     signature="oa{sv}")
             
             @dbus.service.method(_interface, in_signature="o")
             def RemoveClient(self, object_path):
                 "D-Bus method"
-                for c in tcp_server.clients:
+                for c in tcp_server.clients.itervalues():
                     if c.dbus_object_path == object_path:
-                        tcp_server.clients.remove(c)
+                        del tcp_server.clients[c.name]
                         c.remove_from_connection()
                         # Don't signal anything except ClientRemoved
                         c.disable(quiet=True)
@@ -2139,11 +2384,62 @@ def main():
         service.cleanup()
         
         multiprocessing.active_children()
+        if not (tcp_server.clients or client_settings):
+            return
+        
+        # Store client before exiting. Secrets are encrypted with key
+        # based on what config file has. If config file is
+        # removed/edited, old secret will thus be unrecovable.
+        clients = {}
+        with PGPEngine() as pgp:
+            for client in tcp_server.clients.itervalues():
+                key = client_settings[client.name]["secret"]
+                client.encrypted_secret = pgp.encrypt(client.secret,
+                                                      key)
+                client_dict = {}
+                
+                # A list of attributes that can not be pickled
+                # + secret.
+                exclude = set(("bus", "changedstate", "secret",
+                               "checker"))
+                for name, typ in (inspect.getmembers
+                                  (dbus.service.Object)):
+                    exclude.add(name)
+                
+                client_dict["encrypted_secret"] = (client
+                                                   .encrypted_secret)
+                for attr in client.client_structure:
+                    if attr not in exclude:
+                        client_dict[attr] = getattr(client, attr)
+                
+                clients[client.name] = client_dict
+                del client_settings[client.name]["secret"]
+        
+        try:
+            tempfd, tempname = tempfile.mkstemp(suffix=".pickle",
+                                                prefix="clients-",
+                                                dir=os.path.dirname
+                                                (stored_state_path))
+            with os.fdopen(tempfd, "wb") as stored_state:
+                pickle.dump((clients, client_settings), stored_state)
+            os.rename(tempname, stored_state_path)
+        except (IOError, OSError) as e:
+            logger.warning("Could not save persistent state: {0}"
+                           .format(e))
+            if not debug:
+                try:
+                    os.remove(tempname)
+                except NameError:
+                    pass
+            if e.errno not in set((errno.ENOENT, errno.EACCES,
+                                   errno.EEXIST)):
+                raise e
+        
+        # Delete all clients, and settings from config
         while tcp_server.clients:
-            client = tcp_server.clients.pop()
+            name, client = tcp_server.clients.popitem()
             if use_dbus:
                 client.remove_from_connection()
-            client.disable_hook = None
             # Don't signal anything except ClientRemoved
             client.disable(quiet=True)
             if use_dbus:
@@ -2151,14 +2447,17 @@ def main():
                 mandos_dbus_service.ClientRemoved(client
                                                   .dbus_object_path,
                                                   client.name)
+        client_settings.clear()
     
     atexit.register(cleanup)
     
-    for client in tcp_server.clients:
+    for client in tcp_server.clients.itervalues():
         if use_dbus:
             # Emit D-Bus signal
             mandos_dbus_service.ClientAdded(client.dbus_object_path)
-        client.enable()
+        # Need to initiate checking of clients
+        if client.enabled:
+            client.init_checker()
     
     tcp_server.enable()
     tcp_server.server_activate()
@@ -2203,7 +2502,6 @@ def main():
     logger.debug("Server exiting")
     # Must run before the D-Bus bus name gets deregistered
     cleanup()
-
 
 if __name__ == '__main__':
     main()

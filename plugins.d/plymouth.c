@@ -2,8 +2,8 @@
 /*
  * Plymouth - Read a password from Plymouth and output it
  * 
- * Copyright © 2010-2011 Teddy Hogeborn
- * Copyright © 2010-2011 Björn Påhlsson
+ * Copyright © 2010-2012 Teddy Hogeborn
+ * Copyright © 2010-2012 Björn Påhlsson
  * 
  * This program is free software: you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -75,6 +75,7 @@ static void termination_handler(__attribute__((unused))int signum){
 }
 
 /* Function to use when printing errors */
+__attribute__((format (gnu_printf, 3, 4)))
 void error_plus(int status, int errnum, const char *formatstring,
 		...){
   va_list ap;
@@ -153,6 +154,7 @@ bool become_a_daemon(void){
   return true;
 }
 
+__attribute__((nonnull (2, 3)))
 bool exec_and_wait(pid_t *pid_return, const char *path,
 		   const char **argv, bool interruptable,
 		   bool daemonize){
@@ -212,16 +214,17 @@ bool exec_and_wait(pid_t *pid_return, const char *path,
   return false;
 }
 
+__attribute__((nonnull))
 int is_plymouth(const struct dirent *proc_entry){
   int ret;
   {
-    uintmax_t maxvalue;
+    uintmax_t proc_id;
     char *tmp;
     errno = 0;
-    maxvalue = strtoumax(proc_entry->d_name, &tmp, 10);
+    proc_id = strtoumax(proc_entry->d_name, &tmp, 10);
 
     if(errno != 0 or *tmp != '\0'
-       or maxvalue != (uintmax_t)((pid_t)maxvalue)){
+       or proc_id != (uintmax_t)((pid_t)proc_id)){
       return 0;
     }
   }
@@ -262,36 +265,36 @@ int is_plymouth(const struct dirent *proc_entry){
 
 pid_t get_pid(void){
   int ret;
-  uintmax_t maxvalue = 0;
+  uintmax_t proc_id = 0;
   FILE *pidfile = fopen(plymouth_pid, "r");
   /* Try the new pid file location */
   if(pidfile != NULL){
-    ret = fscanf(pidfile, "%" SCNuMAX, &maxvalue);
+    ret = fscanf(pidfile, "%" SCNuMAX, &proc_id);
     if(ret != 1){
-      maxvalue = 0;
+      proc_id = 0;
     }
     fclose(pidfile);
   }
   /* Try the old pid file location */
-  if(maxvalue == 0){
+  if(proc_id == 0){
     pidfile = fopen(plymouth_pid, "r");
     if(pidfile != NULL){
-      ret = fscanf(pidfile, "%" SCNuMAX, &maxvalue);
+      ret = fscanf(pidfile, "%" SCNuMAX, &proc_id);
       if(ret != 1){
-	maxvalue = 0;
+	proc_id = 0;
       }
       fclose(pidfile);
     }
   }
   /* Look for a plymouth process */
-  if(maxvalue == 0){
+  if(proc_id == 0){
     struct dirent **direntries = NULL;
     ret = scandir("/proc", &direntries, is_plymouth, alphasort);
     if (ret == -1){
       error_plus(0, errno, "scandir");
     }
     if (ret > 0){
-      ret = sscanf(direntries[0]->d_name, "%" SCNuMAX, &maxvalue);
+      ret = sscanf(direntries[0]->d_name, "%" SCNuMAX, &proc_id);
       if (ret < 0){
 	error_plus(0, errno, "sscanf");
       }
@@ -301,8 +304,8 @@ pid_t get_pid(void){
     free(direntries);
   }
   pid_t pid;
-  pid = (pid_t)maxvalue;
-  if((uintmax_t)pid == maxvalue){
+  pid = (pid_t)proc_id;
+  if((uintmax_t)pid == proc_id){
     return pid;
   }
   

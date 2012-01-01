@@ -26,12 +26,16 @@ htmldir=man
 version=1.4.1
 SED=sed
 
+USER=$(firstword $(subst :, ,$(shell getent passwd _mandos || getent passwd nobody || echo 65534)))
+GROUP=$(firstword $(subst :, ,$(shell getent group _mandos || getent group nobody || echo 65534)))
+
 ## Use these settings for a traditional /usr/local install
 # PREFIX=$(DESTDIR)/usr/local
 # CONFDIR=$(DESTDIR)/etc/mandos
 # KEYDIR=$(DESTDIR)/etc/mandos/keys
 # MANDIR=$(PREFIX)/man
 # INITRAMFSTOOLS=$(DESTDIR)/etc/initramfs-tools
+# STATEDIR=$(DESTDIR)/var/lib/mandos
 ##
 
 ## These settings are for a package-type install
@@ -40,6 +44,7 @@ CONFDIR=$(DESTDIR)/etc/mandos
 KEYDIR=$(DESTDIR)/etc/keys/mandos
 MANDIR=$(PREFIX)/share/man
 INITRAMFSTOOLS=$(DESTDIR)/usr/share/initramfs-tools
+STATEDIR=$(DESTDIR)/var/lib/mandos
 ##
 
 GNUTLS_CFLAGS=$(shell pkg-config --cflags-only-I gnutls)
@@ -230,7 +235,7 @@ clean:
 distclean: clean
 mostlyclean: clean
 maintainer-clean: clean
-	-rm --force --recursive keydir confdir
+	-rm --force --recursive keydir confdir statedir
 
 check:	all
 	./mandos --check
@@ -250,7 +255,7 @@ run-client: all keydir/seckey.txt keydir/pubkey.txt
 	@echo "###################################################################"
 	./plugin-runner --plugin-dir=plugins.d \
 		--config-file=plugin-runner.conf \
-		--options-for=mandos-client:--seckey=keydir/seckey.txt,--pubkey=keydir/pubkey.txt \
+		--options-for=mandos-client:--seckey=keydir/seckey.txt,--pubkey=keydir/pubkey.txt,--network-hook-dir=network-hooks.d \
 		$(CLIENTARGS)
 
 # Used by run-client
@@ -260,13 +265,8 @@ keydir/seckey.txt keydir/pubkey.txt: mandos-keygen
 
 # Run the server with a local config
 run-server: confdir/mandos.conf confdir/clients.conf
-	@echo "#################################################################"
-	@echo "# NOTE: Please IGNORE the error about \"Could not open file      #"
-	@echo "# u'/var/run/mandos.pid'\" -  it is harmless and is caused by    #"
-	@echo "# the server not running as root.  Do NOT run \"make run-server\" #"
-	@echo "# server as root if you didn't also unpack and compile it thus. #"
-	@echo "#################################################################"
-	./mandos --debug --no-dbus --configdir=confdir $(SERVERARGS)
+	./mandos --debug --no-dbus --configdir=confdir \
+		--statedir=statedir $(SERVERARGS)
 
 # Used by run-server
 confdir/mandos.conf: mandos.conf
@@ -277,6 +277,8 @@ confdir/clients.conf: clients.conf keydir/seckey.txt
 	install --mode=u=rw $< $@
 # Add a client password
 	./mandos-keygen --dir keydir --password >> $@
+statedir:
+	install --directory statedir
 
 install: install-server install-client-nokey
 
@@ -287,6 +289,8 @@ install-html: html
 
 install-server: doc
 	install --directory $(CONFDIR)
+	install --directory --mode=u=rwx --owner=$(USER) \
+		--group=$(GROUP) $(STATEDIR)
 	install --mode=u=rwx,go=rx mandos $(PREFIX)/sbin/mandos
 	install --mode=u=rwx,go=rx --target-directory=$(PREFIX)/sbin \
 		mandos-ctl
@@ -324,6 +328,8 @@ install-client-nokey: all doc
 		install --mode=u=rwx \
 			--directory "$(CONFDIR)/plugins.d"; \
 	fi
+	install --mode=u=rwx,go=rx --directory \
+		"$(CONFDIR)/network-hooks.d"
 	install --mode=u=rwx,go=rx \
 		--target-directory=$(PREFIX)/lib/mandos plugin-runner
 	install --mode=u=rwx,go=rx --target-directory=$(PREFIX)/sbin \

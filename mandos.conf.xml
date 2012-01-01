@@ -3,7 +3,7 @@
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY CONFNAME "mandos.conf">
 <!ENTITY CONFPATH "<filename>/etc/mandos/mandos.conf</filename>">
-<!ENTITY TIMESTAMP "2011-10-03">
+<!ENTITY TIMESTAMP "2012-01-01">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -35,6 +35,7 @@
       <year>2008</year>
       <year>2009</year>
       <year>2011</year>
+      <year>2012</year>
       <holder>Teddy Hogeborn</holder>
       <holder>Björn Påhlsson</holder>
     </copyright>
@@ -154,6 +155,25 @@
 	</listitem>
       </varlistentry>
       
+      <varlistentry>
+	<term><option>restore<literal> = </literal>{ <literal
+	  >1</literal> | <literal>yes</literal> | <literal
+	  >true</literal> | <literal>on</literal> | <literal
+	  >0</literal> | <literal>no</literal> | <literal
+	  >false</literal> | <literal>off</literal> }</option></term>
+	<listitem>
+	  <xi:include href="mandos-options.xml" xpointer="restore"/>
+	</listitem>
+      </varlistentry>
+      
+      <varlistentry>
+	<term><option>statedir<literal> = </literal><replaceable
+	>DIRECTORY</replaceable></option></term>
+	<listitem>
+	  <xi:include href="mandos-options.xml" xpointer="statedir"/>
+	</listitem>
+      </varlistentry>
+      
     </variablelist>
   </refsect1>
   
@@ -198,6 +218,8 @@ priority = SECURE256:!CTYPE-X.509:+CTYPE-OPENPGP
 servicename = Daena
 use_dbus = False
 use_ipv6 = True
+restore = True
+statedir = /var/lib/mandos
       </programlisting>
     </informalexample>
   </refsect1>
