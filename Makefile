@@ -319,6 +319,8 @@ install-server: doc
 		> $(MANDIR)/man5/mandos.conf.5.gz
 	gzip --best --to-stdout mandos-clients.conf.5 \
 		> $(MANDIR)/man5/mandos-clients.conf.5.gz
+	gzip --best --to-stdout intro.8mandos \
+		> $(MANDIR)/man8/intro.8mandos.gz
 
 install-client-nokey: all doc
 	install --directory $(PREFIX)/lib/mandos $(CONFDIR)
