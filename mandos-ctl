@@ -331,8 +331,7 @@ def main():
                            dbus_interface=dbus.PROPERTIES_IFACE)
             if options.secret is not None:
                 client.Set(client_interface, "Secret",
-                           dbus.ByteArray(open(options.secret,
-                                               "rb").read()),
+                           dbus.ByteArray(options.secret.read()),
                            dbus_interface=dbus.PROPERTIES_IFACE)
             if options.approved_by_default is not None:
                 client.Set(client_interface, "ApprovedByDefault",
