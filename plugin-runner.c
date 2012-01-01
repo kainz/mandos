@@ -2,8 +2,8 @@
 /*
  * Mandos plugin runner - Run Mandos plugins
  *
- * Copyright © 2008-2011 Teddy Hogeborn
- * Copyright © 2008-2011 Björn Påhlsson
+ * Copyright © 2008-2012 Teddy Hogeborn
+ * Copyright © 2008-2012 Björn Påhlsson
  * 
  * This program is free software: you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -171,6 +171,7 @@ static plugin *getplugin(char *name){
 }
 
 /* Helper function for add_argument and add_environment */
+__attribute__((nonnull))
 static bool add_to_char_array(const char *new, char ***array,
 			      int *len){
   /* Resize the pointed-to array to hold one more pointer */
@@ -199,6 +200,7 @@ static bool add_to_char_array(const char *new, char ***array,
 }
 
 /* Add to a plugin's argument vector */
+__attribute__((nonnull(2)))
 static bool add_argument(plugin *p, const char *arg){
   if(p == NULL){
     return false;
@@ -207,6 +209,7 @@ static bool add_argument(plugin *p, const char *arg){
 }
 
 /* Add to a plugin's environment */
+__attribute__((nonnull(2)))
 static bool add_environment(plugin *p, const char *def, bool replace){
   if(p == NULL){
     return false;
@@ -286,6 +289,7 @@ static void handle_sigchld(__attribute__((unused)) int sig){
 }
 
 /* Prints out a password to stdout */
+__attribute__((nonnull))
 static bool print_out_password(const char *buffer, size_t length){
   ssize_t ret;
   for(size_t written = 0; written < length; written += (size_t)ret){
@@ -299,6 +303,7 @@ static bool print_out_password(const char *buffer, size_t length){
 }
 
 /* Removes and free a plugin from the plugin list */
+__attribute__((nonnull))
 static void free_plugin(plugin *plugin_node){
   
   for(char **arg = plugin_node->argv; *arg != NULL; arg++){
@@ -416,11 +421,12 @@ int main(int argc, char *argv[]){
     { .name = NULL }
   };
   
+  __attribute__((nonnull(3)))
   error_t parse_opt(int key, char *arg, struct argp_state *state){
     errno = 0;
     switch(key){
       char *tmp;
-      intmax_t tmpmax;
+      intmax_t tmp_id;
     case 'g': 			/* --global-options */
       {
 	char *plugin_option;
@@ -499,24 +505,24 @@ int main(int argc, char *argv[]){
       /* This is already done by parse_opt_config_file() */
       break;
     case 130:			/* --userid */
-      tmpmax = strtoimax(arg, &tmp, 10);
+      tmp_id = strtoimax(arg, &tmp, 10);
       if(errno != 0 or tmp == arg or *tmp != '\0'
-	 or tmpmax != (uid_t)tmpmax){
+	 or tmp_id != (uid_t)tmp_id){
 	argp_error(state, "Bad user ID number: \"%s\", using %"
 		   PRIdMAX, arg, (intmax_t)uid);
 	break;
       }
-      uid = (uid_t)tmpmax;
+      uid = (uid_t)tmp_id;
       break;
     case 131:			/* --groupid */
-      tmpmax = strtoimax(arg, &tmp, 10);
+      tmp_id = strtoimax(arg, &tmp, 10);
       if(errno != 0 or tmp == arg or *tmp != '\0'
-	 or tmpmax != (gid_t)tmpmax){
+	 or tmp_id != (gid_t)tmp_id){
 	argp_error(state, "Bad group ID number: \"%s\", using %"
 		   PRIdMAX, arg, (intmax_t)gid);
 	break;
       }
-      gid = (gid_t)tmpmax;
+      gid = (gid_t)tmp_id;
       break;
     case 132:			/* --debug */
       debug = true;
@@ -742,7 +748,7 @@ int main(int argc, char *argv[]){
     }
   }
   
-  {
+  if(getuid() == 0){
     /* Work around Debian bug #633582:
        <http://bugs.debian.org/633582> */
     int plugindir_fd = open(/* plugindir or */ PDIR, O_RDONLY);

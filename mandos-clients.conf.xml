@@ -3,7 +3,7 @@
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY CONFNAME "mandos-clients.conf">
 <!ENTITY CONFPATH "<filename>/etc/mandos/clients.conf</filename>">
-<!ENTITY TIMESTAMP "2011-10-10">
+<!ENTITY TIMESTAMP "2012-01-01">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -36,6 +36,7 @@
       <year>2009</year>
       <year>2010</year>
       <year>2011</year>
+      <year>2012</year>
       <holder>Teddy Hogeborn</holder>
       <holder>Björn Påhlsson</holder>
     </copyright>
@@ -65,8 +66,13 @@
       ><refentrytitle>mandos</refentrytitle>
       <manvolnum>8</manvolnum></citerefentry>, read by it at startup.
       The file needs to list all clients that should be able to use
-      the service.  All clients listed will be regarded as enabled,
-      even if a client was disabled in a previous run of the server.
+      the service.  The settings in this file can be overridden by
+      runtime changes to the server, which it saves across restarts.
+      (See the section called <quote>PERSISTENT STATE</quote> in
+      <citerefentry><refentrytitle>mandos</refentrytitle><manvolnum
+      >8</manvolnum></citerefentry>.)  However, any <emphasis
+      >changes</emphasis> to this file (including adding and removing
+      clients) will, at startup, override changes done during runtime.
     </para>
     <para>
       The format starts with a <literal>[<replaceable>section
@@ -340,6 +346,20 @@
 	    <quote><literal>110s 110s 110s</literal></quote>, and
 	    <quote><literal>5m 30s</literal></quote> will give a value
 	    of five minutes and thirty seconds.
+	  </para>
+	</listitem>
+      </varlistentry>
+      
+      <varlistentry>
+	<term><option>enabled<literal> = </literal>{ <literal
+	>1</literal> | <literal>yes</literal> |	<literal>true</literal
+	> | <literal >on</literal> | <literal>0</literal> | <literal
+	>no</literal> | <literal>false</literal> | <literal
+	>off</literal> }</option></term>
+	<listitem>
+	  <para>
+	    Whether this client should be enabled by default.  The
+	    default is <quote>true</quote>.
 	  </para>
 	</listitem>
       </varlistentry>

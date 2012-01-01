@@ -3,8 +3,8 @@
 # 
 # Mandos Monitor - Control and monitor the Mandos server
 # 
-# Copyright © 2008-2011 Teddy Hogeborn
-# Copyright © 2008-2011 Björn Påhlsson
+# Copyright © 2008-2012 Teddy Hogeborn
+# Copyright © 2008-2012 Björn Påhlsson
 # 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -93,29 +93,23 @@ def string_to_delta(interval):
     >>> string_to_delta("5m 30s")
     datetime.timedelta(0, 330)
     """
-    timevalue = datetime.timedelta(0)
-    regexp = re.compile("\d+[dsmhw]")
+    value = datetime.timedelta(0)
+    regexp = re.compile("(\d+)([dsmhw]?)")
     
-    for s in regexp.findall(interval):
-        try:
-            suffix = unicode(s[-1])
-            value = int(s[:-1])
-            if suffix == "d":
-                delta = datetime.timedelta(value)
-            elif suffix == "s":
-                delta = datetime.timedelta(0, value)
-            elif suffix == "m":
-                delta = datetime.timedelta(0, 0, 0, 0, value)
-            elif suffix == "h":
-                delta = datetime.timedelta(0, 0, 0, 0, 0, value)
-            elif suffix == "w":
-                delta = datetime.timedelta(0, 0, 0, 0, 0, 0, value)
-            else:
-                raise ValueError
-        except (ValueError, IndexError):
-            raise ValueError
-        timevalue += delta
-    return timevalue
+    for num, suffix in regexp.findall(interval):
+        if suffix == "d":
+            value += datetime.timedelta(int(num))
+        elif suffix == "s":
+            value += datetime.timedelta(0, int(num))
+        elif suffix == "m":
+            value += datetime.timedelta(0, 0, 0, 0, int(num))
+        elif suffix == "h":
+            value += datetime.timedelta(0, 0, 0, 0, 0, int(num))
+        elif suffix == "w":
+            value += datetime.timedelta(0, 0, 0, 0, 0, 0, int(num))
+        elif suffix == "":
+            value += datetime.timedelta(0, 0, 0, int(num))
+    return value
 
 def print_clients(clients, keywords):
     def valuetostring(value, keyword):
@@ -242,7 +236,7 @@ def main():
             #restore stderr
             os.dup2(stderrcopy, sys.stderr.fileno())
             os.close(stderrcopy)
-    except dbus.exceptions.DBusException, e:
+    except dbus.exceptions.DBusException:
         print("Access denied: Accessing mandos server through dbus.",
               file=sys.stderr)
         sys.exit(1)
@@ -337,8 +331,7 @@ def main():
                            dbus_interface=dbus.PROPERTIES_IFACE)
             if options.secret is not None:
                 client.Set(client_interface, "Secret",
-                           dbus.ByteArray(open(options.secret,
-                                               "rb").read()),
+                           dbus.ByteArray(options.secret.read()),
                            dbus_interface=dbus.PROPERTIES_IFACE)
             if options.approved_by_default is not None:
                 client.Set(client_interface, "ApprovedByDefault",

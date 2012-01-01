@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY COMMANDNAME "mandos">
-<!ENTITY TIMESTAMP "2011-10-03">
+<!ENTITY TIMESTAMP "2012-01-01">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -35,6 +35,7 @@
       <year>2009</year>
       <year>2010</year>
       <year>2011</year>
+      <year>2012</year>
       <holder>Teddy Hogeborn</holder>
       <holder>Björn Påhlsson</holder>
     </copyright>
@@ -94,6 +95,11 @@
       <arg><option>--no-dbus</option></arg>
       <sbr/>
       <arg><option>--no-ipv6</option></arg>
+      <sbr/>
+      <arg><option>--no-restore</option></arg>
+      <sbr/>
+      <arg><option>--statedir
+      <replaceable>DIRECTORY</replaceable></option></arg>
     </cmdsynopsis>
     <cmdsynopsis>
       <command>&COMMANDNAME;</command>
@@ -275,6 +281,24 @@
 	  <xi:include href="mandos-options.xml" xpointer="ipv6"/>
 	</listitem>
       </varlistentry>
+      
+      <varlistentry>
+	<term><option>--no-restore</option></term>
+	<listitem>
+	  <xi:include href="mandos-options.xml" xpointer="restore"/>
+	  <para>
+	    See also <xref linkend="persistent_state"/>.
+	  </para>
+	</listitem>
+      </varlistentry>
+      
+      <varlistentry>
+	<term><option>--statedir
+	<replaceable>DIRECTORY</replaceable></option></term>
+	<listitem>
+	  <xi:include href="mandos-options.xml" xpointer="statedir"/>
+	</listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
   
@@ -387,9 +411,21 @@
     <title>LOGGING</title>
     <para>
       The server will send log message with various severity levels to
-      <filename>/dev/log</filename>.  With the
+      <filename class="devicefile">/dev/log</filename>.  With the
       <option>--debug</option> option, it will log even more messages,
       and also show them on the console.
+    </para>
+  </refsect1>
+  
+  <refsect1 id="persistent_state">
+    <title>PERSISTENT STATE</title>
+    <para>
+      Client settings, initially read from
+      <filename>clients.conf</filename>, are persistent across
+      restarts, and run-time changes will override settings in
+      <filename>clients.conf</filename>.  However, if a setting is
+      <emphasis>changed</emphasis> (or a client added, or removed) in
+      <filename>clients.conf</filename>, this will take precedence.
     </para>
   </refsect1>
   
@@ -469,6 +505,20 @@
 	</listitem>
       </varlistentry>
       <varlistentry>
+	<term><filename class="devicefile">/dev/log</filename></term>
+      </varlistentry>
+      <varlistentry>
+	<term><filename
+	class="directory">/var/lib/mandos</filename></term>
+	<listitem>
+	  <para>
+	    Directory where persistent state will be saved.  Change
+	    this with the <option>--statedir</option> option.  See
+	    also the <option>--no-restore</option> option.
+	  </para>
+	</listitem>
+      </varlistentry>
+      <varlistentry>
 	<term><filename>/dev/log</filename></term>
 	<listitem>
 	  <para>
@@ -498,18 +548,10 @@
       backtrace.  This could be considered a feature.
     </para>
     <para>
-      Currently, if a client is disabled due to having timed out, the
-      server does not record this fact onto permanent storage.  This
-      has some security implications, see <xref linkend="clients"/>.
-    </para>
-    <para>
       There is no fine-grained control over logging and debug output.
     </para>
     <para>
       Debug mode is conflated with running in the foreground.
-    </para>
-    <para>
-      The console log messages do not show a time stamp.
     </para>
     <para>
       This server does not check the expire time of clients’ OpenPGP
@@ -530,9 +572,9 @@
     <informalexample>
       <para>
 	Run the server in debug mode, read configuration files from
-	the <filename>~/mandos</filename> directory, and use the
-	Zeroconf service name <quote>Test</quote> to not collide with
-	any other official Mandos server on this host:
+	the <filename class="directory">~/mandos</filename> directory,
+	and use the Zeroconf service name <quote>Test</quote> to not
+	collide with any other official Mandos server on this host:
       </para>
       <para>
 
@@ -585,21 +627,6 @@
 	As detailed in <xref linkend="checking"/>, the status of all
 	client computers will continually be checked and be assumed
 	compromised if they are gone for too long.
-      </para>
-      <para>
-	If a client is compromised, its downtime should be duly noted
-	by the server which would therefore disable the client.  But
-	if the server was ever restarted, it would re-read its client
-	list from its configuration file and again regard all clients
-	therein as enabled, and hence eligible to receive their
-	passwords.  Therefore, be careful when restarting servers if
-	it is suspected that a client has, in fact, been compromised
-	by parties who may now be running a fake Mandos client with
-	the keys from the non-encrypted initial <acronym>RAM</acronym>
-	image of the client host.  What should be done in that case
-	(if restarting the server program really is necessary) is to
-	stop the server program, edit the configuration file to omit
-	any suspect clients, and restart the server program.
       </para>
       <para>
 	For more details on client-side security, see

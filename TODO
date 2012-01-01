@@ -1,12 +1,11 @@
 -*- org -*-
 
-* Use _attribute_((nonnull)) wherever possible.
-
 * [[http://www.undeadly.org/cgi?action=article&sid=20110530221728][OpenBSD]]
 
 * mandos-applet
 
 * mandos-client
+** TODO [#A] Wireless network hook
 ** TODO [#B] Use capabilities instead of seteuid().
 ** TODO [#B] Use struct sockaddr_storage instead of a union
 ** TODO [#B] Use getaddrinfo(hints=AI_NUMERICHOST) instead of inet_pton()
@@ -40,24 +39,20 @@
 ** TODO [#B] Use openat()
 
 * mandos (server)
+** TODO Document why we ignore sigint
 ** TODO [#B] Log level							  :BUGS:
-** TODO Persistent state						  :BUGS:
-   /var/lib/mandos/*
 *** TODO /etc/mandos/clients.d/*.conf
     Watch this directory and add/remove/update clients?
 ** TODO [#C] config for TXT record
-** TODO Log level option
-   syslogger.setLevel(logging.WARNING)
-   + SetLogLevel D-Bus call
+** TODO Log level dbus option
+   SetLogLevel D-Bus call
 ** TODO Implement --foreground						  :BUGS:
    [[info:standards:Option%20Table][Table of Long Options]]
 ** TODO Implement --socket
    [[info:standards:Option%20Table][Table of Long Options]]
-** TODO Date+time on console log messages				  :BUGS:
-   Is this the default?
 ** TODO [#C] DBusServiceObjectUsingSuper
 ** TODO [#B] Global enable/disable flag
-** TODO [#B] By-client countdown on secrets given
+** TODO [#B] By-client countdown on number of secrets given
 ** TODO [#B] Support RFC 3339 time duration syntax
 ** More D-Bus methods
 *** NeedsPassword(50) - Timeout, default disapprove
@@ -68,12 +63,20 @@
    http://0pointer.de/blog/projects/systemd.html
    http://wiki.debian.org/systemd
 ** TODO Separate logging logic to own object
-** TODO make clients to a dict!
 ** TODO [#A] Limit approval_delay to max gnutls/tls timeout value
 ** TODO [#B] break the wait on approval_delay if connection dies
 ** TODO Generate Client.runtime_expansions from client options + extra
 ** TODO Allow %%(checker)s as a runtime expansion
 ** TODO Use python-tlslite?
+** TODO D-Bus AddClient() method on server object
+** TODO Use org.freedesktop.DBus.Method.NoReply annotation on async methods.
+** TODO Emit [[http://dbus.freedesktop.org/doc/dbus-specification.html#standard-interfaces-properties][org.freedesktop.DBus.Properties.PropertiesChanged]] signal
+   TODO Deprecate se.recompile.Mandos.Client.PropertyChanged - annotate!
+   TODO Can use "invalidates" annotation to also emit on changed secret.
+** TODO Support [[http://dbus.freedesktop.org/doc/dbus-specification.html#standard-interfaces-objectmanager][org.freedesktop.DBus.ObjectManager]] interface on server object
+   Deprecate methods GetAllClients(), GetAllClientsWithProperties()
+   and signals ClientAdded and ClientRemoved.
+** TODO Save state periodically to recover better from hard shutdowns
 
 * mandos.xml
 ** Add mandos contact info in manual pages
@@ -82,7 +85,6 @@
 *** Handle "no D-Bus server" and/or "no Mandos server found" better
 *** [#B] --dump option
 ** TODO Support RFC 3339 time duration syntax
-** TODO Send milliseconds if bare integer is passed as time duration
 
 * TODO mandos-dispatch
   Listens for specified D-Bus signals and spawns shell commands with
@@ -93,8 +95,7 @@
 ** Urwid client data displayer
    Better view of client data in the listing
 *** Properties popup
-** Nicer crashes. Stack traces Messes up shell.
-*** Print a nice "We are sorry" message, save stack trace to log.
+** Print a nice "We are sorry" message, save stack trace to log.
 ** Show timeout countdown for approval
 
 * mandos-keygen
