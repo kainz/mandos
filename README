@@ -1,7 +1,8 @@
 Please see: http://www.recompile.se/mandos/man/intro.8mandos
 
 This information previously in this file has been moved to the
-intro(8mandos) manual page.  Go to the above URL, or run this command:
+intro(8mandos) manual page.  Go to the above URL, or install the
+Mandos server and run this command:
 
 	man 8mandos intro
 
