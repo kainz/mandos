@@ -86,7 +86,7 @@ binary-common:
 		--exclude etc/mandos/clients.conf \
 		--exclude etc/mandos/plugins.d \
 		--exclude usr/lib/mandos/plugins.d \
-		--exclude /usr/share/doc/mandos-client/network-hooks.d
+		--exclude usr/share/doc/mandos-client/network-hooks.d
 	dh_installdeb
 	dh_shlibdeps
 	dh_gencontrol

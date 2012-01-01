@@ -76,6 +76,7 @@
 ** TODO Support [[http://dbus.freedesktop.org/doc/dbus-specification.html#standard-interfaces-objectmanager][org.freedesktop.DBus.ObjectManager]] interface on server object
    Deprecate methods GetAllClients(), GetAllClientsWithProperties()
    and signals ClientAdded and ClientRemoved.
+** TODO Save state periodically to recover better from hard shutdowns
 
 * mandos.xml
 ** Add mandos contact info in manual pages

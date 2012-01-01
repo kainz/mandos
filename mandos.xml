@@ -286,6 +286,9 @@
 	<term><option>--no-restore</option></term>
 	<listitem>
 	  <xi:include href="mandos-options.xml" xpointer="restore"/>
+	  <para>
+	    See also <xref linkend="persistent_state"/>.
+	  </para>
 	</listitem>
       </varlistentry>
       
@@ -411,6 +414,18 @@
       <filename class="devicefile">/dev/log</filename>.  With the
       <option>--debug</option> option, it will log even more messages,
       and also show them on the console.
+    </para>
+  </refsect1>
+  
+  <refsect1 id="persistent_state">
+    <title>PERSISTENT STATE</title>
+    <para>
+      Client settings, initially read from
+      <filename>clients.conf</filename>, are persistent across
+      restarts, and run-time changes will override settings in
+      <filename>clients.conf</filename>.  However, if a setting is
+      <emphasis>changed</emphasis> (or a client added, or removed) in
+      <filename>clients.conf</filename>, this will take precedence.
     </para>
   </refsect1>
   
