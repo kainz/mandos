@@ -1,6 +1,11 @@
 This NEWS file records noteworthy changes, very tersely.
 See the manual for detailed information.
 
+Version 1.5.2 (2012-01-08)
+* Server
+** Removed D-Bus signal se.recompile.Mandos.NewRequest() added in
+   1.5.0.  It was buggy and was of questionable utility.
+
 Version 1.5.1 (2012-01-01)
 * Server
 ** Include intro(8mandos) manual page, missing since migration from
