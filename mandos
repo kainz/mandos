@@ -422,7 +422,7 @@ class Client(object):
     secret:     bytestring; sent verbatim (over TLS) to client
     timeout:    datetime.timedelta(); How long from last_checked_ok
                                       until this client is disabled
-    extended_timeout:   extra long timeout when password has been sent
+    extended_timeout:   extra long timeout when secret has been sent
     runtime_expansions: Allowed attributes for runtime expansion.
     expires:    datetime.datetime(); time (UTC) when a client will be
                 disabled, or None
@@ -1049,9 +1049,6 @@ class ClientDBus(Client, DBusObjectWithProperties):
     def __init__(self, bus = None, *args, **kwargs):
         self.bus = bus
         Client.__init__(self, *args, **kwargs)
-        self._approvals_pending = 0
-        
-        self._approvals_pending = 0
         # Only now, when this client is initialized, can it show up on
         # the D-Bus
         client_object_name = unicode(self.name).translate(
@@ -1226,14 +1223,6 @@ class ClientDBus(Client, DBusObjectWithProperties):
     def NeedApproval(self, timeout, default):
         "D-Bus signal"
         return self.need_approval()
-    
-    # NeRwequest - signal
-    @dbus.service.signal(_interface, signature="s")
-    def NewRequest(self, ip):
-        """D-Bus signal
-        Is sent after a client request a password.
-        """
-        pass
     
     ## Methods
     
@@ -1546,10 +1535,6 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
                                          self.client_address)
                 except KeyError:
                     return
-                
-                if self.server.use_dbus:
-                    # Emit D-Bus signal
-                    client.NewRequest(str(self.client_address))
                 
                 if client.approval_delay:
                     delay = client.approval_delay
@@ -2250,21 +2235,22 @@ def main():
             
             # Clients who has passed its expire date can still be
             # enabled if its last checker was successful.  Clients
-            # whose checker failed before we stored its state is
-            # assumed to have failed all checkers during downtime.
+            # whose checker succeeded before we stored its state is
+            # assumed to have successfully run all checkers during
+            # downtime.
             if client["enabled"]:
                 if datetime.datetime.utcnow() >= client["expires"]:
                     if not client["last_checked_ok"]:
                         logger.warning(
                             "disabling client {0} - Client never "
-                            "performed a successfull checker"
-                            .format(client["name"]))
+                            "performed a successful checker"
+                            .format(client_name))
                         client["enabled"] = False
                     elif client["last_checker_status"] != 0:
                         logger.warning(
                             "disabling client {0} - Client "
                             "last checker failed with error code {1}"
-                            .format(client["name"],
+                            .format(client_name,
                                     client["last_checker_status"]))
                         client["enabled"] = False
                     else:
@@ -2273,7 +2259,7 @@ def main():
                                              + client["timeout"])
                         logger.debug("Last checker succeeded,"
                                      " keeping {0} enabled"
-                                     .format(client["name"]))
+                                     .format(client_name))
             try:
                 client["secret"] = (
                     pgp.decrypt(client["encrypted_secret"],
@@ -2295,7 +2281,7 @@ def main():
                         - set(old_client_settings)):
         clients_data[client_name] = client_settings[client_name]
 
-    # Create clients all clients
+    # Create all client objects
     for client_name, client in clients_data.iteritems():
         tcp_server.clients[client_name] = client_class(
             name = client_name, settings = client)
