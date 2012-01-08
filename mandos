@@ -1224,14 +1224,6 @@ class ClientDBus(Client, DBusObjectWithProperties):
         "D-Bus signal"
         return self.need_approval()
     
-    # NewRequest - signal
-    @dbus.service.signal(_interface, signature="s")
-    def NewRequest(self, ip):
-        """D-Bus signal
-        Is sent after a client request a secret.
-        """
-        pass
-    
     ## Methods
     
     # Approve - method
@@ -1543,10 +1535,6 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
                                          self.client_address)
                 except KeyError:
                     return
-                
-                if self.server.use_dbus:
-                    # Emit D-Bus signal
-                    client.NewRequest(unicode(self.client_address)[0])
                 
                 if client.approval_delay:
                     delay = client.approval_delay
