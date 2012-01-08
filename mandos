@@ -85,7 +85,7 @@ except AttributeError:
     except ImportError:
         SO_BINDTODEVICE = None
 
-version = "1.5.1"
+version = "1.5.2"
 stored_state_file = "clients.pickle"
 
 logger = logging.getLogger()
