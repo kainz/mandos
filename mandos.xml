@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY COMMANDNAME "mandos">
-<!ENTITY TIMESTAMP "2012-01-01">
+<!ENTITY TIMESTAMP "2012-01-15">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -381,9 +381,7 @@
       extended timeout, checker program, and interval between checks
       can be configured both globally and per client; see
       <citerefentry><refentrytitle>mandos-clients.conf</refentrytitle>
-      <manvolnum>5</manvolnum></citerefentry>.  A client successfully
-      receiving its password will also be treated as a successful
-      checker run.
+      <manvolnum>5</manvolnum></citerefentry>.
     </para>
   </refsect1>
   
