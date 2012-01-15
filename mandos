@@ -415,7 +415,7 @@ class Client(object):
     last_checked_ok: datetime.datetime(); (UTC) or None
     last_checker_status: integer between 0 and 255 reflecting exit
                          status of last checker. -1 reflects crashed
-                         checker, or None.
+                         checker, -2 means no checker completed yet.
     last_enabled: datetime.datetime(); (UTC) or None
     name:       string; from the config file, used in log messages and
                         D-Bus identifiers
@@ -501,7 +501,7 @@ class Client(object):
             client["checker_command"] = section["checker"]
             client["last_approval_request"] = None
             client["last_checked_ok"] = None
-            client["last_checker_status"] = None
+            client["last_checker_status"] = -2
         
         return settings
         
@@ -626,15 +626,16 @@ class Client(object):
             logger.warning("Checker for %(name)s crashed?",
                            vars(self))
     
-    def checked_ok(self, timeout=None):
-        """Bump up the timeout for this client.
-        
-        This should only be called when the client has been seen,
-        alive and well.
-        """
+    def checked_ok(self):
+        """Assert that the client has been seen, alive and well."""
+        self.last_checked_ok = datetime.datetime.utcnow()
+        self.last_checker_status = 0
+        self.bump_timeout()
+    
+    def bump_timeout(self, timeout=None):
+        """Bump up the timeout for this client."""
         if timeout is None:
             timeout = self.timeout
-        self.last_checked_ok = datetime.datetime.utcnow()
         if self.disable_initiator_tag is not None:
             gobject.source_remove(self.disable_initiator_tag)
         if getattr(self, "enabled", False):
@@ -1100,6 +1101,8 @@ class ClientDBus(Client, DBusObjectWithProperties):
                                        checker is not None)
     last_checked_ok = notifychangeproperty(datetime_to_dbus,
                                            "LastCheckedOK")
+    last_checker_status = notifychangeproperty(dbus.Int16,
+                                               "LastCheckerStatus")
     last_approval_request = notifychangeproperty(
         datetime_to_dbus, "LastApprovalRequest")
     approved_by_default = notifychangeproperty(dbus.Boolean,
@@ -1338,6 +1341,12 @@ class ClientDBus(Client, DBusObjectWithProperties):
             self.checked_ok()
             return
         return datetime_to_dbus(self.last_checked_ok)
+    
+    # LastCheckerStatus - property
+    @dbus_service_property(_interface, signature="n",
+                           access="read")
+    def LastCheckerStatus_dbus_property(self):
+        return dbus.Int16(self.last_checker_status)
     
     # Expires - property
     @dbus_service_property(_interface, signature="s", access="read")
@@ -1605,7 +1614,7 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
                 
                 logger.info("Sending secret to %s", client.name)
                 # bump the timeout using extended_timeout
-                client.checked_ok(client.extended_timeout)
+                client.bump_timeout(client.extended_timeout)
                 if self.server.use_dbus:
                     # Emit D-Bus signal
                     client.GotSecret()
