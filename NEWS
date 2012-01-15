@@ -1,6 +1,13 @@
 This NEWS file records noteworthy changes, very tersely.
 See the manual for detailed information.
 
+Version 1.5.3 (2012-01-15)
+* Server
+** Add D-Bus property se.recompile.Client.LastCheckerStatus and use it
+   in mandos-monitor.
+* Client
+** Fix bugs in the example "bridge" network hook.
+
 Version 1.5.2 (2012-01-08)
 * Server
 ** Removed D-Bus signal se.recompile.Mandos.NewRequest() added in
