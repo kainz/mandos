@@ -77,6 +77,7 @@
    Deprecate methods GetAllClients(), GetAllClientsWithProperties()
    and signals ClientAdded and ClientRemoved.
 ** TODO Save state periodically to recover better from hard shutdowns
+** TODO CheckerCompleted method, deprecate CheckedOK
 
 * mandos.xml
 ** Add mandos contact info in manual pages
