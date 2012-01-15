@@ -93,10 +93,11 @@ This file documents the D-Bus interface to the Mandos server.
    | Interval (a)            | t    | Read/Write | interval            |
    | LastApprovalRequest (g) | s    | Read       | N/A                 |
    | LastCheckedOK (h)       | s    | Read/Write | N/A                 |
-   | LastEnabled (i)         | s    | Read       | N/A                 |
+   | LastCheckerStatus (i)   | n    | Read       | N/A                 |
+   | LastEnabled (j)         | s    | Read       | N/A                 |
    | Name                    | s    | Read       | (Section name)      |
    | ObjectPath              | o    | Read       | N/A                 |
-   | Secret (j)              | ay   | Write      | secret (or secfile) |
+   | Secret (k)              | ay   | Write      | secret (or secfile) |
    | Timeout (a)             | t    | Read/Write | timeout             |
    
    a) Represented as milliseconds.
@@ -124,10 +125,13 @@ This file documents the D-Bus interface to the Mandos server.
       always use an empty string when setting this property, to allow
       for possible future expansion.
    
-   i) The date and time this client was last enabled, as an RFC 3339
+   i) The exit status of the last checker, -1 if it did not exit
+      cleanly, -2 if a checker has not yet returned.
+   
+   j) The date and time this client was last enabled, as an RFC 3339
       string, or an empty string if this has not happened.
    
-   j) A raw byte array, not hexadecimal digits.
+   k) A raw byte array, not hexadecimal digits.
 
 ** Signals
 *** CheckerCompleted(n: Exitcode, x: Waitstatus, s: Command)
