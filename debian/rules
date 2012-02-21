@@ -38,12 +38,12 @@ build: build-arch build-indep
 
 build-arch: build-arch-stamp
 build-arch-stamp: configure-stamp
-	dh_auto_build -- all doc
+	LC_ALL=en_US.utf8 dh_auto_build -- all doc
 	touch $@
 
 build-indep: build-indep-stamp
 build-indep-stamp: configure-stamp
-	dh_auto_build -- doc
+	LC_ALL=en_US.UTF-8 dh_auto_build -- doc
 	touch $@
 
 clean:
