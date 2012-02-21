@@ -1,3 +1,13 @@
+mandos (1.5.3-1.1) unstable; urgency=low
+
+  * Non-maintainer upload.
+  * Fix "mandos FTBFS on buildds": add build-dependency on locales-all and
+    pass LC_ALL to dh_auto_build to make sure we have and use the en_US.UTF-8
+    locale for manpage creation.
+    (Closes: #656178)
+
+ -- gregor herrmann <gregoa@debian.org>  Tue, 31 Jan 2012 17:56:05 +0100
+
 mandos (1.5.3-1) unstable; urgency=low
 
   * New upstream release.
