@@ -175,7 +175,7 @@ class PGPEngine(object):
     
     def encrypt(self, data, password):
         self.gnupg.passphrase = self.password_encode(password)
-        with open(os.devnull) as devnull:
+        with open(os.devnull, "w") as devnull:
             try:
                 proc = self.gnupg.run(['--symmetric'],
                                       create_fhs=['stdin', 'stdout'],
@@ -192,12 +192,12 @@ class PGPEngine(object):
     
     def decrypt(self, data, password):
         self.gnupg.passphrase = self.password_encode(password)
-        with open(os.devnull) as devnull:
+        with open(os.devnull, "w") as devnull:
             try:
                 proc = self.gnupg.run(['--decrypt'],
                                       create_fhs=['stdin', 'stdout'],
                                       attach_fhs={'stderr': devnull})
-                with contextlib.closing(proc.handles['stdin'] ) as f:
+                with contextlib.closing(proc.handles['stdin']) as f:
                     f.write(data)
                 with contextlib.closing(proc.handles['stdout']) as f:
                     decrypted_plaintext = f.read()
@@ -1963,11 +1963,11 @@ def daemon(nochdir = False, noclose = False):
         sys.exit()
     if not noclose:
         # Close all standard open file descriptors
-        null = os.open(os.path.devnull, os.O_NOCTTY | os.O_RDWR)
+        null = os.open(os.devnull, os.O_NOCTTY | os.O_RDWR)
         if not stat.S_ISCHR(os.fstat(null).st_mode):
             raise OSError(errno.ENODEV,
                           "%s not a character device"
-                          % os.path.devnull)
+                          % os.devnull)
         os.dup2(null, sys.stdin.fileno())
         os.dup2(null, sys.stdout.fileno())
         os.dup2(null, sys.stderr.fileno())
@@ -2156,7 +2156,7 @@ def main():
          .gnutls_global_set_log_function(debug_gnutls))
         
         # Redirect stdin so all checkers get /dev/null
-        null = os.open(os.path.devnull, os.O_NOCTTY | os.O_RDWR)
+        null = os.open(os.devnull, os.O_NOCTTY | os.O_RDWR)
         os.dup2(null, sys.stdin.fileno())
         if null > 2:
             os.close(null)
@@ -2170,7 +2170,7 @@ def main():
     
     global main_loop
     # From the Avahi example code
-    DBusGMainLoop(set_as_default=True )
+    DBusGMainLoop(set_as_default=True)
     main_loop = gobject.MainLoop()
     bus = dbus.SystemBus()
     # End of Avahi example code
