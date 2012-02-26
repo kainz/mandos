@@ -65,6 +65,7 @@ import multiprocessing
 import types
 import binascii
 import tempfile
+import itertools
 
 import dbus
 import dbus.service
@@ -771,6 +772,25 @@ def dbus_service_property(dbus_interface, signature="v",
     return decorator
 
 
+def dbus_interface_annotations(dbus_interface):
+    """Decorator for marking functions returning interface annotations.
+    
+    Usage:
+    
+    @dbus_interface_annotations("org.example.Interface")
+    def _foo(self):  # Function name does not matter
+        return {"org.freedesktop.DBus.Deprecated": "true",
+                "org.freedesktop.DBus.Property.EmitsChangedSignal":
+                    "false"}
+    """
+    def decorator(func):
+        func._dbus_is_interface = True
+        func._dbus_interface = dbus_interface
+        func._dbus_name = dbus_interface
+        return func
+    return decorator
+
+
 class DBusPropertyException(dbus.exceptions.DBusException):
     """A base class for D-Bus property-related exceptions
     """
@@ -799,16 +819,24 @@ class DBusObjectWithProperties(dbus.service.Object):
     """
     
     @staticmethod
-    def _is_dbus_property(obj):
-        return getattr(obj, "_dbus_is_property", False)
+    def _is_dbus_thing(thing):
+        """Returns a function testing if an attribute is a D-Bus thing
+        
+        If called like _is_dbus_thing("method") it returns a function
+        suitable for use as predicate to inspect.getmembers().
+        """
+        return lambda obj: getattr(obj, "_dbus_is_{0}".format(thing),
+                                   False)
     
-    def _get_all_dbus_properties(self):
+    def _get_all_dbus_things(self, thing):
         """Returns a generator of (name, attribute) pairs
         """
-        return ((prop.__get__(self)._dbus_name, prop.__get__(self))
+        return ((athing.__get__(self)._dbus_name,
+                 athing.__get__(self))
                 for cls in self.__class__.__mro__
-                for name, prop in
-                inspect.getmembers(cls, self._is_dbus_property))
+                for name, athing in
+                inspect.getmembers(cls,
+                                   self._is_dbus_thing(thing)))
     
     def _get_dbus_property(self, interface_name, property_name):
         """Returns a bound method if one exists which is a D-Bus
@@ -816,7 +844,8 @@ class DBusObjectWithProperties(dbus.service.Object):
         """
         for cls in  self.__class__.__mro__:
             for name, value in (inspect.getmembers
-                                (cls, self._is_dbus_property)):
+                                (cls,
+                                 self._is_dbus_thing("property"))):
                 if (value._dbus_name == property_name
                     and value._dbus_interface == interface_name):
                     return value.__get__(self)
@@ -864,7 +893,7 @@ class DBusObjectWithProperties(dbus.service.Object):
         Note: Will not include properties with access="write".
         """
         properties = {}
-        for name, prop in self._get_all_dbus_properties():
+        for name, prop in self._get_all_dbus_things("property"):
             if (interface_name
                 and interface_name != prop._dbus_interface):
                 # Interface non-empty but did not match
@@ -885,7 +914,9 @@ class DBusObjectWithProperties(dbus.service.Object):
                          path_keyword='object_path',
                          connection_keyword='connection')
     def Introspect(self, object_path, connection):
-        """Standard D-Bus method, overloaded to insert property tags.
+        """Overloading of standard D-Bus method.
+        
+        Inserts property tags and interface annotation tags.
         """
         xmlstring = dbus.service.Object.Introspect(self, object_path,
                                                    connection)
@@ -898,12 +929,25 @@ class DBusObjectWithProperties(dbus.service.Object):
                 e.setAttribute("access", prop._dbus_access)
                 return e
             for if_tag in document.getElementsByTagName("interface"):
+                # Add property tags
                 for tag in (make_tag(document, name, prop)
                             for name, prop
-                            in self._get_all_dbus_properties()
+                            in self._get_all_dbus_things("property")
                             if prop._dbus_interface
                             == if_tag.getAttribute("name")):
                     if_tag.appendChild(tag)
+                # Add interface annotation tags
+                for annotation, value in dict(
+                    itertools.chain(
+                        *(annotations().iteritems()
+                          for name, annotations in
+                          self._get_all_dbus_things("interface")
+                          if name == if_tag.getAttribute("name")
+                          ))).iteritems():
+                    attr_tag = document.createElement("annotation")
+                    attr_tag.setAttribute("name", annotation)
+                    attr_tag.setAttribute("value", value)
+                    if_tag.appendChild(attr_tag)
                 # Add the names to the return values for the
                 # "org.freedesktop.DBus.Properties" methods
                 if (if_tag.getAttribute("name")
@@ -944,6 +988,7 @@ class AlternateDBusNamesMetaclass(DBusObjectWithProperties
     def __new__(mcs, name, bases, attr):
         # Go through all the base classes which could have D-Bus
         # methods, signals, or properties in them
+        old_interface_names = []
         for base in (b for b in bases
                      if issubclass(b, dbus.service.Object)):
             # Go though all attributes of the base class
@@ -959,6 +1004,8 @@ class AlternateDBusNamesMetaclass(DBusObjectWithProperties
                 alt_interface = (attribute._dbus_interface
                                  .replace("se.recompile.Mandos",
                                           "se.bsnet.fukt.Mandos"))
+                if alt_interface != attribute._dbus_interface:
+                    old_interface_names.append(alt_interface)
                 # Is this a D-Bus signal?
                 if getattr(attribute, "_dbus_is_signal", False):
                     # Extract the original non-method function by
@@ -1031,6 +1078,32 @@ class AlternateDBusNamesMetaclass(DBusObjectWithProperties
                                         attribute.func_name,
                                         attribute.func_defaults,
                                         attribute.func_closure)))
+                # Is this a D-Bus interface?
+                elif getattr(attribute, "_dbus_is_interface", False):
+                    # Create a new, but exactly alike, function
+                    # object.  Decorate it to be a new D-Bus interface
+                    # with the alternate D-Bus interface name.  Add it
+                    # to the class.
+                    attr[attrname] = (dbus_interface_annotations
+                                      (alt_interface)
+                                      (types.FunctionType
+                                       (attribute.func_code,
+                                        attribute.func_globals,
+                                        attribute.func_name,
+                                        attribute.func_defaults,
+                                        attribute.func_closure)))
+        # Deprecate all old interfaces
+        basename="_AlternateDBusNamesMetaclass_interface_annotation{0}"
+        for old_interface_name in old_interface_names:
+            @dbus_interface_annotations(old_interface_name)
+            def func(self):
+                return { "org.freedesktop.DBus.Deprecated": "true" }
+            # Find an unused name
+            for aname in (basename.format(i) for i in
+                          itertools.count()):
+                if aname not in attr:
+                    attr[aname] = func
+                    break
         return type.__new__(mcs, name, bases, attr)
 
 
@@ -1185,6 +1258,13 @@ class ClientDBus(Client, DBusObjectWithProperties):
     
     ## D-Bus methods, signals & properties
     _interface = "se.recompile.Mandos.Client"
+    
+    ## Interfaces
+    
+    @dbus_interface_annotations(_interface)
+    def _foo(self):
+        return { "org.freedesktop.DBus.Property.EmitsChangedSignal":
+                     "false"}
     
     ## Signals
     
@@ -2317,11 +2397,17 @@ def main():
     signal.signal(signal.SIGTERM, lambda signum, frame: sys.exit())
     
     if use_dbus:
-        class MandosDBusService(dbus.service.Object):
+        class MandosDBusService(DBusObjectWithProperties):
             """A D-Bus proxy object"""
             def __init__(self):
                 dbus.service.Object.__init__(self, bus, "/")
             _interface = "se.recompile.Mandos"
+            
+            @dbus_interface_annotations(_interface)
+            def _foo(self):
+                return { "org.freedesktop.DBus.Property"
+                         ".EmitsChangedSignal":
+                             "false"}
             
             @dbus.service.signal(_interface, signature="o")
             def ClientAdded(self, objpath):
