@@ -791,6 +791,24 @@ def dbus_interface_annotations(dbus_interface):
     return decorator
 
 
+def dbus_annotations(annotations):
+    """Decorator to annotate D-Bus methods, signals or properties
+    Usage:
+    
+    @dbus_service_property("org.example.Interface", signature="b",
+                           access="r")
+    @dbus_annotations({{"org.freedesktop.DBus.Deprecated": "true",
+                        "org.freedesktop.DBus.Property."
+                        "EmitsChangedSignal": "false"})
+    def Property_dbus_property(self):
+        return dbus.Boolean(False)
+    """
+    def decorator(func):
+        func._dbus_annotations = annotations
+        return func
+    return decorator
+
+
 class DBusPropertyException(dbus.exceptions.DBusException):
     """A base class for D-Bus property-related exceptions
     """
@@ -831,7 +849,8 @@ class DBusObjectWithProperties(dbus.service.Object):
     def _get_all_dbus_things(self, thing):
         """Returns a generator of (name, attribute) pairs
         """
-        return ((athing.__get__(self)._dbus_name,
+        return ((getattr(athing.__get__(self), "_dbus_name",
+                         name),
                  athing.__get__(self))
                 for cls in self.__class__.__mro__
                 for name, athing in
@@ -936,6 +955,25 @@ class DBusObjectWithProperties(dbus.service.Object):
                             if prop._dbus_interface
                             == if_tag.getAttribute("name")):
                     if_tag.appendChild(tag)
+                # Add annotation tags
+                for typ in ("method", "signal", "property"):
+                    for tag in if_tag.getElementsByTagName(typ):
+                        annots = dict()
+                        for name, prop in (self.
+                                           _get_all_dbus_things(typ)):
+                            if (name == tag.getAttribute("name")
+                                and prop._dbus_interface
+                                == if_tag.getAttribute("name")):
+                                annots.update(getattr
+                                              (prop,
+                                               "_dbus_annotations",
+                                               {}))
+                        for name, value in annots.iteritems():
+                            ann_tag = document.createElement(
+                                "annotation")
+                            ann_tag.setAttribute("name", name)
+                            ann_tag.setAttribute("value", value)
+                            tag.appendChild(ann_tag)
                 # Add interface annotation tags
                 for annotation, value in dict(
                     itertools.chain(
@@ -944,10 +982,10 @@ class DBusObjectWithProperties(dbus.service.Object):
                           self._get_all_dbus_things("interface")
                           if name == if_tag.getAttribute("name")
                           ))).iteritems():
-                    attr_tag = document.createElement("annotation")
-                    attr_tag.setAttribute("name", annotation)
-                    attr_tag.setAttribute("value", value)
-                    if_tag.appendChild(attr_tag)
+                    ann_tag = document.createElement("annotation")
+                    ann_tag.setAttribute("name", annotation)
+                    ann_tag.setAttribute("value", value)
+                    if_tag.appendChild(ann_tag)
                 # Add the names to the return values for the
                 # "org.freedesktop.DBus.Properties" methods
                 if (if_tag.getAttribute("name")
@@ -1026,6 +1064,12 @@ class AlternateDBusNamesMetaclass(DBusObjectWithProperties
                                 nonmethod_func.func_name,
                                 nonmethod_func.func_defaults,
                                 nonmethod_func.func_closure)))
+                    # Copy annotations, if any
+                    try:
+                        new_function._dbus_annotations = (
+                            dict(attribute._dbus_annotations))
+                    except AttributeError:
+                        pass
                     # Define a creator of a function to call both the
                     # old and new functions, so both the old and new
                     # signals gets sent when the function is called
@@ -1059,6 +1103,12 @@ class AlternateDBusNamesMetaclass(DBusObjectWithProperties
                                         attribute.func_name,
                                         attribute.func_defaults,
                                         attribute.func_closure)))
+                    # Copy annotations, if any
+                    try:
+                        attr[attrname]._dbus_annotations = (
+                            dict(attribute._dbus_annotations))
+                    except AttributeError:
+                        pass
                 # Is this a D-Bus property?
                 elif getattr(attribute, "_dbus_is_property", False):
                     # Create a new, but exactly alike, function
@@ -1078,6 +1128,12 @@ class AlternateDBusNamesMetaclass(DBusObjectWithProperties
                                         attribute.func_name,
                                         attribute.func_defaults,
                                         attribute.func_closure)))
+                    # Copy annotations, if any
+                    try:
+                        attr[attrname]._dbus_annotations = (
+                            dict(attribute._dbus_annotations))
+                    except AttributeError:
+                        pass
                 # Is this a D-Bus interface?
                 elif getattr(attribute, "_dbus_is_interface", False):
                     # Create a new, but exactly alike, function
