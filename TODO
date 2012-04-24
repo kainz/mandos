@@ -11,6 +11,7 @@
 ** TODO [#B] Use getaddrinfo(hints=AI_NUMERICHOST) instead of inet_pton()
 ** TODO [#B] Use getnameinfo(serv=NULL, NI_NUMERICHOST) instead of inet_ntop()
 ** TODO [#B] Prefer /run/tmp over /tmp, if it exists
+** TODO [#B] Use in_port_t instead of uint16_t for port numbers.
 
 * splashy
 ** TODO [#B] use scandir(3) instead of readdir(3)
@@ -78,6 +79,8 @@
    and signals ClientAdded and ClientRemoved.
 ** TODO Save state periodically to recover better from hard shutdowns
 ** TODO CheckerCompleted method, deprecate CheckedOK
+** TODO Secret Service API?
+   http://standards.freedesktop.org/secret-service/
 
 * mandos.xml
 ** Add mandos contact info in manual pages
