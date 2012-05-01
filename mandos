@@ -732,10 +732,10 @@ class Client(object):
             return
         logger.debug("Stopping checker for %(name)s", vars(self))
         try:
-            os.kill(self.checker.pid, signal.SIGTERM)
+            self.checker.terminate()
             #time.sleep(0.5)
             #if self.checker.poll() is None:
-            #    os.kill(self.checker.pid, signal.SIGKILL)
+            #    self.checker.kill()
         except OSError as error:
             if error.errno != errno.ESRCH: # No such process
                 raise
