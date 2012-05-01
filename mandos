@@ -277,7 +277,7 @@ class AvahiService(object):
         try:
             self.add()
         except dbus.exceptions.DBusException as error:
-            logger.critical("DBusException: %s", error)
+            logger.critical("D-Bus Exception", exc_info=error)
             self.cleanup()
             os._exit(1)
         self.rename_count += 1
@@ -693,8 +693,8 @@ class Client(object):
                 try:
                     command = self.checker_command % escaped_attrs
                 except TypeError as error:
-                    logger.error('Could not format string "%s":'
-                                 ' %s', self.checker_command, error)
+                    logger.error('Could not format string "%s"',
+                                 self.checker_command, exc_info=error)
                     return True # Try again later
             self.current_checker_command = command
             try:
@@ -718,8 +718,8 @@ class Client(object):
                     gobject.source_remove(self.checker_callback_tag)
                     self.checker_callback(pid, status, command)
             except OSError as error:
-                logger.error("Failed to start subprocess: %s",
-                             error)
+                logger.error("Failed to start subprocess",
+                             exc_info=error)
         # Re-run this periodically if run by gobject.timeout_add
         return True
     
@@ -1006,7 +1006,7 @@ class DBusObjectWithProperties(dbus.service.Object):
         except (AttributeError, xml.dom.DOMException,
                 xml.parsers.expat.ExpatError) as error:
             logger.error("Failed to override Introspection method",
-                         error)
+                         exc_info=error)
         return xmlstring
 
 
@@ -2616,7 +2616,7 @@ def main():
         try:
             service.activate()
         except dbus.exceptions.DBusException as error:
-            logger.critical("DBusException: %s", error)
+            logger.critical("D-Bus Exception", exc_info=error)
             cleanup()
             sys.exit(1)
         # End of Avahi example code
@@ -2629,7 +2629,7 @@ def main():
         logger.debug("Starting main loop")
         main_loop.run()
     except AvahiError as error:
-        logger.critical("AvahiError: %s", error)
+        logger.critical("Avahi Error", exc_info=error)
         cleanup()
         sys.exit(1)
     except KeyboardInterrupt:
