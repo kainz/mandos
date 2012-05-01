@@ -2256,20 +2256,16 @@ def main():
         except IOError:
             logger.error("Could not open file %r", pidfilename)
     
-    try:
-        uid = pwd.getpwnam("_mandos").pw_uid
-        gid = pwd.getpwnam("_mandos").pw_gid
-    except KeyError:
+    for name in ("_mandos", "mandos", "nobody"):
         try:
-            uid = pwd.getpwnam("mandos").pw_uid
-            gid = pwd.getpwnam("mandos").pw_gid
+            uid = pwd.getpwnam(name).pw_uid
+            gid = pwd.getpwnam(name).pw_gid
+            break
         except KeyError:
-            try:
-                uid = pwd.getpwnam("nobody").pw_uid
-                gid = pwd.getpwnam("nobody").pw_gid
-            except KeyError:
-                uid = 65534
-                gid = 65534
+            continue
+    else:
+        uid = 65534
+        gid = 65534
     try:
         os.setgid(gid)
         os.setuid(uid)
