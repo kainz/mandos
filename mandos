@@ -322,8 +322,8 @@ class AvahiService(object):
         elif state == avahi.ENTRY_GROUP_FAILURE:
             logger.critical("Avahi: Error in group state changed %s",
                             unicode(error))
-            raise AvahiGroupError("State changed: %s"
-                                  % unicode(error))
+            raise AvahiGroupError("State changed: {0!s}"
+                                  .format(error))
     def cleanup(self):
         """Derived from the Avahi example code"""
         if self.group is not None:
@@ -375,9 +375,9 @@ class AvahiServiceToSyslog(AvahiService):
         """Add the new name to the syslog messages"""
         ret = AvahiService.rename(self)
         syslogger.setFormatter(logging.Formatter
-                               ('Mandos (%s) [%%(process)d]:'
-                                ' %%(levelname)s: %%(message)s'
-                                % self.name))
+                               ('Mandos ({0}) [%(process)d]:'
+                                ' %(levelname)s: %(message)s'
+                                .format(self.name)))
         return ret
 
 def timedelta_to_milliseconds(td):
@@ -489,8 +489,8 @@ class Client(object):
                           "rb") as secfile:
                     client["secret"] = secfile.read()
             else:
-                raise TypeError("No secret or secfile for section %s"
-                                % section)
+                raise TypeError("No secret or secfile for section {0}"
+                                .format(section))
             client["timeout"] = string_to_delta(section["timeout"])
             client["extended_timeout"] = string_to_delta(
                 section["extended_timeout"])
@@ -758,7 +758,7 @@ def dbus_service_property(dbus_interface, signature="v",
     # "Set" method, so we fail early here:
     if byte_arrays and signature != "ay":
         raise ValueError("Byte arrays not supported for non-'ay'"
-                         " signature %r" % signature)
+                         " signature {0!r}".format(signature))
     def decorator(func):
         func._dbus_is_property = True
         func._dbus_interface = dbus_interface
@@ -2079,7 +2079,8 @@ def string_to_delta(interval):
             elif suffix == "w":
                 delta = datetime.timedelta(0, 0, 0, 0, 0, 0, value)
             else:
-                raise ValueError("Unknown suffix %r" % suffix)
+                raise ValueError("Unknown suffix {0!r}"
+                                 .format(suffix))
         except (ValueError, IndexError) as e:
             raise ValueError(*(e.args))
         timevalue += delta
@@ -2102,8 +2103,8 @@ def daemon(nochdir = False, noclose = False):
         null = os.open(os.devnull, os.O_NOCTTY | os.O_RDWR)
         if not stat.S_ISCHR(os.fstat(null).st_mode):
             raise OSError(errno.ENODEV,
-                          "%s not a character device"
-                          % os.devnull)
+                          "{0} not a character device"
+                          .format(os.devnull))
         os.dup2(null, sys.stdin.fileno())
         os.dup2(null, sys.stdout.fileno())
         os.dup2(null, sys.stderr.fileno())
@@ -2118,7 +2119,7 @@ def main():
     
     parser = argparse.ArgumentParser()
     parser.add_argument("-v", "--version", action="version",
-                        version = "%%(prog)s %s" % version,
+                        version = "%(prog)s {0}".format(version),
                         help="show version number and exit")
     parser.add_argument("-i", "--interface", metavar="IF",
                         help="Bind to interface IF")
@@ -2227,9 +2228,10 @@ def main():
     
     if server_settings["servicename"] != "Mandos":
         syslogger.setFormatter(logging.Formatter
-                               ('Mandos (%s) [%%(process)d]:'
-                                ' %%(levelname)s: %%(message)s'
-                                % server_settings["servicename"]))
+                               ('Mandos ({0}) [%(process)d]:'
+                                ' %(levelname)s: %(message)s'
+                                .format(server_settings
+                                        ["servicename"])))
     
     # Parse config file with clients
     client_config = configparser.SafeConfigParser(Client
@@ -2599,11 +2601,11 @@ def main():
     service.port = tcp_server.socket.getsockname()[1]
     if use_ipv6:
         logger.info("Now listening on address %r, port %d,"
-                    " flowinfo %d, scope_id %d"
-                    % tcp_server.socket.getsockname())
+                    " flowinfo %d, scope_id %d",
+                    *tcp_server.socket.getsockname())
     else:                       # IPv4
-        logger.info("Now listening on address %r, port %d"
-                    % tcp_server.socket.getsockname())
+        logger.info("Now listening on address %r, port %d",
+                    *tcp_server.socket.getsockname())
     
     #service.interface = tcp_server.socket.getsockname()[3]
     
