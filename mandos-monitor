@@ -172,7 +172,8 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
                                          self.rejected,
                                          client_interface,
                                          byte_arrays=True))
-        #self.logger('Created client %s' % (self.properties["Name"]))
+        #self.logger('Created client {0}'
+        #            .format(self.properties["Name"]))
     
     def property_changed(self, property=None, value=None):
         super(self, MandosClientWidget).property_changed(property,
@@ -181,9 +182,9 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
             using_timer(bool(value))
         if property == "LastCheckerStatus":
             using_timer(value != 0)
-            #self.logger('Checker for client %s (command "%s")'
-            #            ' was successful'
-            #            % (self.properties["Name"], command))
+            #self.logger('Checker for client {0} (command "{1}") was '
+            #            ' successful'.format(self.properties["Name"],
+            #                                 command))
     
     def using_timer(self, flag):
         """Call this method with True or False when timer should be
@@ -209,47 +210,49 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
             return
         # Checker failed
         if os.WIFEXITED(condition):
-            self.logger('Checker for client %s (command "%s")'
-                        ' failed with exit code %s'
-                        % (self.properties["Name"], command,
-                           os.WEXITSTATUS(condition)))
+            self.logger('Checker for client {0} (command "{1}")'
+                        ' failed with exit code {2}'
+                        .format(self.properties["Name"], command,
+                                os.WEXITSTATUS(condition)))
         elif os.WIFSIGNALED(condition):
-            self.logger('Checker for client %s (command "%s")'
-                        ' was killed by signal %s'
-                        % (self.properties["Name"], command,
-                           os.WTERMSIG(condition)))
+            self.logger('Checker for client {0} (command "{1}") was'
+                        ' killed by signal {2}'
+                        .format(self.properties["Name"], command,
+                                os.WTERMSIG(condition)))
         elif os.WCOREDUMP(condition):
-            self.logger('Checker for client %s (command "%s")'
+            self.logger('Checker for client {0} (command "{1}")'
                         ' dumped core'
-                        % (self.properties["Name"], command))
+                        .format(self.properties["Name"], command))
         else:
-            self.logger('Checker for client %s completed'
-                        ' mysteriously')
+            self.logger('Checker for client {0} completed'
+                        ' mysteriously'
+                        .format(self.properties["Name"]))
         self.update()
     
     def checker_started(self, command):
         """Server signals that a checker started. This could be useful
            to log in the future. """
-        #self.logger('Client %s started checker "%s"'
-        #            % (self.properties["Name"], unicode(command)))
+        #self.logger('Client {0} started checker "{1}"'
+        #            .format(self.properties["Name"],
+        #                    unicode(command)))
         pass
     
     def got_secret(self):
-        self.logger('Client %s received its secret'
-                    % self.properties["Name"])
+        self.logger('Client {0} received its secret'
+                    .format(self.properties["Name"]))
     
     def need_approval(self, timeout, default):
         if not default:
-            message = 'Client %s needs approval within %s seconds'
+            message = 'Client {0} needs approval within {1} seconds'
         else:
-            message = 'Client %s will get its secret in %s seconds'
-        self.logger(message
-                    % (self.properties["Name"], timeout/1000))
+            message = 'Client {0} will get its secret in {1} seconds'
+        self.logger(message.format(self.properties["Name"],
+                                   timeout/1000))
         self.using_timer(True)
     
     def rejected(self, reason):
-        self.logger('Client %s was rejected; reason: %s'
-                    % (self.properties["Name"], reason))
+        self.logger('Client {0} was rejected; reason: {1}'
+                    .format(self.properties["Name"], reason))
     
     def selectable(self):
         """Make this a "selectable" widget.
@@ -281,8 +284,7 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
         # Rebuild focus and non-focus widgets using current properties
 
         # Base part of a client. Name!
-        base = ('%(name)s: '
-                      % {"name": self.properties["Name"]})
+        base = '{name}: '.format(name=self.properties["Name"])
         if not self.properties["Enabled"]:
             message = "DISABLED"
         elif self.properties["ApprovalPending"]:
@@ -297,10 +299,10 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
             else:
                 timer = datetime.timedelta()
             if self.properties["ApprovedByDefault"]:
-                message = "Approval in %s. (d)eny?"
+                message = "Approval in {0}. (d)eny?"
             else:
-                message = "Denial in %s. (a)pprove?"
-            message = message % unicode(timer).rsplit(".", 1)[0]
+                message = "Denial in {0}. (a)pprove?"
+            message = message.format(unicode(timer).rsplit(".", 1)[0])
         elif self.properties["LastCheckerStatus"] != 0:
             # When checker has failed, print a timer until client expires
             expires = self.properties["Expires"]
@@ -311,11 +313,11 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
                                                      '%Y-%m-%dT%H:%M:%S.%f')
                 timer = expires - datetime.datetime.utcnow()
             message = ('A checker has failed! Time until client'
-                       ' gets disabled: %s'
-                           % unicode(timer).rsplit(".", 1)[0])
+                       ' gets disabled: {0}'
+                       .format(unicode(timer).rsplit(".", 1)[0]))
         else:
             message = "enabled"
-        self._text = "%s%s" % (base, message)
+        self._text = "{0}{1}".format(base, message)
             
         if not urwid.supports_unicode():
             self._text = self._text.encode("ascii", "replace")
@@ -486,9 +488,9 @@ class UserInterface(object):
         self.main_loop = gobject.MainLoop()
     
     def client_not_found(self, fingerprint, address):
-        self.log_message(("Client with address %s and fingerprint %s"
-                          " could not be found" % (address,
-                                                    fingerprint)))
+        self.log_message("Client with address {0} and fingerprint"
+                         " {1} could not be found"
+                         .format(address, fingerprint))
     
     def rebuild(self):
         """This rebuilds the User Interface.
@@ -547,8 +549,8 @@ class UserInterface(object):
             client = self.clients_dict[path]
         except KeyError:
             # not found?
-            self.log_message("Unknown client %r (%r) removed", name,
-                             path)
+            self.log_message("Unknown client {0!r} ({1!r}) removed"
+                             .format(name, path))
             return
         client.delete()
     
