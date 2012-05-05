@@ -116,7 +116,7 @@ def print_clients(clients, keywords):
         if type(value) is dbus.Boolean:
             return "Yes" if value else "No"
         if keyword in ("Timeout", "Interval", "ApprovalDelay",
-                       "ApprovalDuration"):
+                       "ApprovalDuration", "ExtendedTimeout"):
             return milliseconds_to_string(value)
         return unicode(value)
     
