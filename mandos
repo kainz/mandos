@@ -209,7 +209,6 @@ class PGPEngine(object):
         return decrypted_plaintext
 
 
-
 class AvahiError(Exception):
     def __init__(self, value, *args, **kwargs):
         self.value = value
@@ -244,6 +243,7 @@ class AvahiService(object):
     server: D-Bus Server
     bus: dbus.SystemBus()
     """
+    
     def __init__(self, interface = avahi.IF_UNSPEC, name = None,
                  servicetype = None, port = None, TXT = None,
                  domain = "", host = "", max_renames = 32768,
@@ -262,6 +262,7 @@ class AvahiService(object):
         self.server = None
         self.bus = bus
         self.entry_group_state_changed_match = None
+    
     def rename(self):
         """Derived from the Avahi example code"""
         if self.rename_count >= self.max_renames:
@@ -281,6 +282,7 @@ class AvahiService(object):
             self.cleanup()
             os._exit(1)
         self.rename_count += 1
+    
     def remove(self):
         """Derived from the Avahi example code"""
         if self.entry_group_state_changed_match is not None:
@@ -288,6 +290,7 @@ class AvahiService(object):
             self.entry_group_state_changed_match = None
         if self.group is not None:
             self.group.Reset()
+    
     def add(self):
         """Derived from the Avahi example code"""
         self.remove()
@@ -310,6 +313,7 @@ class AvahiService(object):
             dbus.UInt16(self.port),
             avahi.string_array_to_txt_array(self.TXT))
         self.group.Commit()
+    
     def entry_group_state_changed(self, state, error):
         """Derived from the Avahi example code"""
         logger.debug("Avahi entry group state change: %i", state)
@@ -324,6 +328,7 @@ class AvahiService(object):
                             unicode(error))
             raise AvahiGroupError("State changed: {0!s}"
                                   .format(error))
+    
     def cleanup(self):
         """Derived from the Avahi example code"""
         if self.group is not None:
@@ -334,6 +339,7 @@ class AvahiService(object):
                 pass
             self.group = None
         self.remove()
+    
     def server_state_changed(self, state, error=None):
         """Derived from the Avahi example code"""
         logger.debug("Avahi server state change: %i", state)
@@ -358,6 +364,7 @@ class AvahiService(object):
                 logger.debug("Unknown state: %r", state)
             else:
                 logger.debug("Unknown state: %r: %r", state, error)
+    
     def activate(self):
         """Derived from the Avahi example code"""
         if self.server is None:
@@ -385,7 +392,7 @@ def timedelta_to_milliseconds(td):
     return ((td.days * 24 * 60 * 60 * 1000)
             + (td.seconds * 1000)
             + (td.microseconds // 1000))
-        
+
 class Client(object):
     """A representation of a client host served by this server.
     
@@ -458,7 +465,7 @@ class Client(object):
     
     def approval_delay_milliseconds(self):
         return timedelta_to_milliseconds(self.approval_delay)
-
+    
     @staticmethod
     def config_parser(config):
         """Construct a new dict of client settings of this form:
@@ -505,12 +512,8 @@ class Client(object):
             client["last_checker_status"] = -2
         
         return settings
-        
-        
+    
     def __init__(self, settings, name = None):
-        """Note: the 'checker' key in 'config' sets the
-        'checker_command' attribute and *not* the 'checker'
-        attribute."""
         self.name = name
         # adding all client settings
         for setting, value in settings.iteritems():
@@ -525,7 +528,7 @@ class Client(object):
         else:
             self.last_enabled = None
             self.expires = None
-       
+        
         logger.debug("Creating client %r", self.name)
         # Uppercase and remove spaces from fingerprint for later
         # comparison purposes with return value from the fingerprint()
@@ -533,7 +536,7 @@ class Client(object):
         logger.debug("  Fingerprint: %s", self.fingerprint)
         self.created = settings.get("created",
                                     datetime.datetime.utcnow())
-
+        
         # attributes specific for this server instance
         self.checker = None
         self.checker_initiator_tag = None
@@ -773,7 +776,7 @@ def dbus_service_property(dbus_interface, signature="v",
 
 
 def dbus_interface_annotations(dbus_interface):
-    """Decorator for marking functions returning interface annotations.
+    """Decorator for marking functions returning interface annotations
     
     Usage:
     
@@ -1149,14 +1152,13 @@ class AlternateDBusNamesMetaclass(DBusObjectWithProperties
                                         attribute.func_defaults,
                                         attribute.func_closure)))
         # Deprecate all old interfaces
-        basename="_AlternateDBusNamesMetaclass_interface_annotation{0}"
+        iname="_AlternateDBusNamesMetaclass_interface_annotation{0}"
         for old_interface_name in old_interface_names:
             @dbus_interface_annotations(old_interface_name)
             def func(self):
                 return { "org.freedesktop.DBus.Deprecated": "true" }
             # Find an unused name
-            for aname in (basename.format(i) for i in
-                          itertools.count()):
+            for aname in (iname.format(i) for i in itertools.count()):
                 if aname not in attr:
                     attr[aname] = func
                     break
@@ -1188,7 +1190,7 @@ class ClientDBus(Client, DBusObjectWithProperties):
                                  ("/clients/" + client_object_name))
         DBusObjectWithProperties.__init__(self, self.bus,
                                           self.dbus_object_path)
-        
+    
     def notifychangeproperty(transform_func,
                              dbus_name, type_func=lambda x: x,
                              variant_level=1):
@@ -1216,7 +1218,6 @@ class ClientDBus(Client, DBusObjectWithProperties):
             setattr(self, attrname, value)
         
         return property(lambda self: getattr(self, attrname), setter)
-    
     
     expires = notifychangeproperty(datetime_to_dbus, "Expires")
     approvals_pending = notifychangeproperty(dbus.Boolean,
@@ -1310,7 +1311,6 @@ class ClientDBus(Client, DBusObjectWithProperties):
         gobject.timeout_add(timedelta_to_milliseconds
                             (self.approval_duration),
                             self._reset_approved)
-    
     
     ## D-Bus methods, signals & properties
     _interface = "se.recompile.Mandos.Client"
@@ -2414,7 +2414,6 @@ def main():
                              .format(client_name))
                 client["secret"] = (
                     client_settings[client_name]["secret"])
-
     
     # Add/remove clients based on new changes made to config
     for client_name in (set(old_client_settings)
@@ -2423,7 +2422,7 @@ def main():
     for client_name in (set(client_settings)
                         - set(old_client_settings)):
         clients_data[client_name] = client_settings[client_name]
-
+    
     # Create all client objects
     for client_name, client in clients_data.iteritems():
         tcp_server.clients[client_name] = client_class(
@@ -2431,7 +2430,7 @@ def main():
     
     if not tcp_server.clients:
         logger.warning("No clients defined")
-        
+    
     if not debug:
         try:
             with pidfile:
