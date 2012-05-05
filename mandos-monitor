@@ -17,7 +17,8 @@
 #     GNU General Public License for more details.
 # 
 # You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+# along with this program.  If not, see
+# <http://www.gnu.org/licenses/>.
 # 
 # Contact the authors at <mandos@recompile.se>.
 # 
@@ -304,13 +305,13 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
                 message = "Denial in {0}. (a)pprove?"
             message = message.format(unicode(timer).rsplit(".", 1)[0])
         elif self.properties["LastCheckerStatus"] != 0:
-            # When checker has failed, print a timer until client expires
+            # When checker has failed, show timer until client expires
             expires = self.properties["Expires"]
             if expires == "":
                 timer = datetime.timedelta(0)
             else:
-                expires = datetime.datetime.strptime(expires,
-                                                     '%Y-%m-%dT%H:%M:%S.%f')
+                expires = (datetime.datetime.strptime
+                           (expires, '%Y-%m-%dT%H:%M:%S.%f'))
                 timer = expires - datetime.datetime.utcnow()
             message = ('A checker has failed! Time until client'
                        ' gets disabled: {0}'
