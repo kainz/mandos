@@ -17,7 +17,8 @@
 #     GNU General Public License for more details.
 # 
 # You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+# along with this program.  If not, see
+# <http://www.gnu.org/licenses/>.
 # 
 # Contact the authors at <mandos@recompile.se>.
 # 
@@ -207,7 +208,7 @@ def main():
     parser.add_argument("client", nargs="*", help="Client name")
     options = parser.parse_args()
     
-    if has_actions(options) and not options.client and not options.all:
+    if has_actions(options) and not (options.client or options.all):
         parser.error("Options require clients names or --all.")
     if options.verbose and has_actions(options):
         parser.error("--verbose can only be used alone or with"
