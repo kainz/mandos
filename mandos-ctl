@@ -282,15 +282,24 @@ def main():
             if options.remove:
                 mandos_serv.RemoveClient(client.__dbus_object_path__)
             if options.enable:
-                client.Enable(dbus_interface=client_interface)
+                client.Set(client_interface, "Enabled",
+                           dbus.Boolean(True),
+                           dbus_interface=dbus.PROPERTIES_IFACE)
             if options.disable:
-                client.Disable(dbus_interface=client_interface)
+                client.Set(client_interface, "Enabled",
+                           dbus.Boolean(False),
+                           dbus_interface=dbus.PROPERTIES_IFACE)
             if options.bump_timeout:
-                client.CheckedOK(dbus_interface=client_interface)
+                client.Set(client_interface, "LastCheckedOK", "",
+                           dbus_interface=dbus.PROPERTIES_IFACE)
             if options.start_checker:
-                client.StartChecker(dbus_interface=client_interface)
+                client.Set(client_interface, "CheckerRunning",
+                           dbus.Boolean(True),
+                           dbus_interface=dbus.PROPERTIES_IFACE)
             if options.stop_checker:
-                client.StopChecker(dbus_interface=client_interface)
+                client.Set(client_interface, "CheckerRunning",
+                           dbus.Boolean(False),
+                           dbus_interface=dbus.PROPERTIES_IFACE)
             if options.is_enabled:
                 sys.exit(0 if client.Get(client_interface,
                                          "Enabled",
