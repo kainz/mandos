@@ -279,27 +279,28 @@ def main():
     else:
         # Process each client in the list by all selected options
         for client in clients:
+            def set_client_prop(prop, value):
+                """Set a Client D-Bus property"""
+                client.Set(client_interface, prop, value,
+                           dbus_interface=dbus.PROPERTIES_IFACE)
+            def set_client_prop_ms(prop, value):
+                """Set a Client D-Bus property, converted
+                from a string to milliseconds."""
+                set_client_prop(prop,
+                                timedelta_to_milliseconds
+                                (string_to_delta(value)))
             if options.remove:
                 mandos_serv.RemoveClient(client.__dbus_object_path__)
             if options.enable:
-                client.Set(client_interface, "Enabled",
-                           dbus.Boolean(True),
-                           dbus_interface=dbus.PROPERTIES_IFACE)
+                set_client_prop("Enabled", dbus.Boolean(True))
             if options.disable:
-                client.Set(client_interface, "Enabled",
-                           dbus.Boolean(False),
-                           dbus_interface=dbus.PROPERTIES_IFACE)
+                set_client_prop("Enabled", dbus.Boolean(False))
             if options.bump_timeout:
-                client.Set(client_interface, "LastCheckedOK", "",
-                           dbus_interface=dbus.PROPERTIES_IFACE)
+                set_client_prop("LastCheckedOK", "")
             if options.start_checker:
-                client.Set(client_interface, "CheckerRunning",
-                           dbus.Boolean(True),
-                           dbus_interface=dbus.PROPERTIES_IFACE)
+                set_client_prop("CheckerRunning", dbus.Boolean(True))
             if options.stop_checker:
-                client.Set(client_interface, "CheckerRunning",
-                           dbus.Boolean(False),
-                           dbus_interface=dbus.PROPERTIES_IFACE)
+                set_client_prop("CheckerRunning", dbus.Boolean(False))
             if options.is_enabled:
                 sys.exit(0 if client.Get(client_interface,
                                          "Enabled",
@@ -307,48 +308,29 @@ def main():
                                          dbus.PROPERTIES_IFACE)
                          else 1)
             if options.checker is not None:
-                client.Set(client_interface, "Checker",
-                           options.checker,
-                           dbus_interface=dbus.PROPERTIES_IFACE)
+                set_client_prop("Checker", options.checker)
             if options.host is not None:
-                client.Set(client_interface, "Host", options.host,
-                           dbus_interface=dbus.PROPERTIES_IFACE)
+                set_client_prop("Host", options.host)
             if options.interval is not None:
-                client.Set(client_interface, "Interval",
-                           timedelta_to_milliseconds
-                           (string_to_delta(options.interval)),
-                           dbus_interface=dbus.PROPERTIES_IFACE)
+                set_client_prop_ms("Interval", options.interval)
             if options.approval_delay is not None:
-                client.Set(client_interface, "ApprovalDelay",
-                           timedelta_to_milliseconds
-                           (string_to_delta(options.
-                                            approval_delay)),
-                           dbus_interface=dbus.PROPERTIES_IFACE)
+                set_client_prop_ms("ApprovalDelay",
+                                   options.approval_delay)
             if options.approval_duration is not None:
-                client.Set(client_interface, "ApprovalDuration",
-                           timedelta_to_milliseconds
-                           (string_to_delta(options.
-                                            approval_duration)),
-                           dbus_interface=dbus.PROPERTIES_IFACE)
+                set_client_prop_ms("ApprovalDuration",
+                                   options.approval_duration)
             if options.timeout is not None:
-                client.Set(client_interface, "Timeout",
-                           timedelta_to_milliseconds
-                           (string_to_delta(options.timeout)),
-                           dbus_interface=dbus.PROPERTIES_IFACE)
+                set_client_prop_ms("Timeout", options.timeout)
             if options.extended_timeout is not None:
-                client.Set(client_interface, "ExtendedTimeout",
-                           timedelta_to_milliseconds
-                           (string_to_delta(options.extended_timeout)),
-                           dbus_interface=dbus.PROPERTIES_IFACE)
+                set_client_prop_ms("ExtendedTimeout",
+                                   options.extended_timeout)
             if options.secret is not None:
-                client.Set(client_interface, "Secret",
-                           dbus.ByteArray(options.secret.read()),
-                           dbus_interface=dbus.PROPERTIES_IFACE)
+                set_client_prop("Secret",
+                                dbus.ByteArray(options.secret.read()))
             if options.approved_by_default is not None:
-                client.Set(client_interface, "ApprovedByDefault",
-                           dbus.Boolean(options
-                                        .approved_by_default),
-                           dbus_interface=dbus.PROPERTIES_IFACE)
+                set_client_prop("ApprovedByDefault",
+                                dbus.Boolean(options
+                                             .approved_by_default))
             if options.approve:
                 client.Approve(dbus.Boolean(True),
                                dbus_interface=client_interface)
