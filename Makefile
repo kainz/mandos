@@ -264,7 +264,7 @@ keydir/seckey.txt keydir/pubkey.txt: mandos-keygen
 	./mandos-keygen --dir keydir --force
 
 # Run the server with a local config
-run-server: confdir/mandos.conf confdir/clients.conf
+run-server: confdir/mandos.conf confdir/clients.conf statedir
 	./mandos --debug --no-dbus --configdir=confdir \
 		--statedir=statedir $(SERVERARGS)
 

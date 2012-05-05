@@ -1741,7 +1741,8 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
                     try:
                         sent = session.send(client.secret[sent_size:])
                     except gnutls.errors.GNUTLSError as error:
-                        logger.warning("gnutls send failed")
+                        logger.warning("gnutls send failed",
+                                       exc_info=error)
                         return
                     logger.debug("Sent: %d, remaining: %d",
                                  sent, len(client.secret)
@@ -1761,7 +1762,8 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
                 try:
                     session.bye()
                 except gnutls.errors.GNUTLSError as error:
-                    logger.warning("GnuTLS bye failed")
+                    logger.warning("GnuTLS bye failed",
+                                   exc_info=error)
     
     @staticmethod
     def peer_certificate(session):
@@ -2255,8 +2257,9 @@ def main():
         pidfilename = "/var/run/mandos.pid"
         try:
             pidfile = open(pidfilename, "w")
-        except IOError:
-            logger.error("Could not open file %r", pidfilename)
+        except IOError as e:
+            logger.error("Could not open file %r", pidfilename,
+                         exc_info=e)
     
     for name in ("_mandos", "mandos", "nobody"):
         try:
@@ -2316,7 +2319,7 @@ def main():
                             ("se.bsnet.fukt.Mandos", bus,
                              do_not_queue=True))
         except dbus.exceptions.NameExistsException as e:
-            logger.error(unicode(e) + ", disabling D-Bus")
+            logger.error("Disabling D-Bus:", exc_info=e)
             use_dbus = False
             server_settings["use_dbus"] = False
             tcp_server.use_dbus = False
@@ -2349,13 +2352,16 @@ def main():
                                                      (stored_state))
             os.remove(stored_state_path)
         except IOError as e:
-            logger.warning("Could not load persistent state: {0}"
-                           .format(e))
-            if e.errno != errno.ENOENT:
+            if e.errno == errno.ENOENT:
+                logger.warning("Could not load persistent state: {0}"
+                                .format(os.strerror(e.errno)))
+            else:
+                logger.critical("Could not load persistent state:",
+                                exc_info=e)
                 raise
         except EOFError as e:
             logger.warning("Could not load persistent state: "
-                           "EOFError: {0}".format(e))
+                           "EOFError:", exc_info=e)
     
     with PGPEngine() as pgp:
         for client_name, client in clients_data.iteritems():
@@ -2558,15 +2564,17 @@ def main():
                 pickle.dump((clients, client_settings), stored_state)
             os.rename(tempname, stored_state_path)
         except (IOError, OSError) as e:
-            logger.warning("Could not save persistent state: {0}"
-                           .format(e))
             if not debug:
                 try:
                     os.remove(tempname)
                 except NameError:
                     pass
-            if e.errno not in set((errno.ENOENT, errno.EACCES,
-                                   errno.EEXIST)):
+            if e.errno in (errno.ENOENT, errno.EACCES, errno.EEXIST):
+                logger.warning("Could not save persistent state: {0}"
+                               .format(os.strerror(e.errno)))
+            else:
+                logger.warning("Could not save persistent state:",
+                               exc_info=e)
                 raise e
         
         # Delete all clients, and settings from config
