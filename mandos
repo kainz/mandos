@@ -979,12 +979,12 @@ class DBusObjectWithProperties(dbus.service.Object):
                             tag.appendChild(ann_tag)
                 # Add interface annotation tags
                 for annotation, value in dict(
-                    itertools.chain(
-                        *(annotations().iteritems()
-                          for name, annotations in
-                          self._get_all_dbus_things("interface")
-                          if name == if_tag.getAttribute("name")
-                          ))).iteritems():
+                    itertools.chain.from_iterable(
+                        annotations().iteritems()
+                        for name, annotations in
+                        self._get_all_dbus_things("interface")
+                        if name == if_tag.getAttribute("name")
+                        )).iteritems():
                     ann_tag = document.createElement("annotation")
                     ann_tag.setAttribute("name", annotation)
                     ann_tag.setAttribute("value", value)
