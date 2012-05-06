@@ -2564,12 +2564,12 @@ def main():
                 del client_settings[client.name]["secret"]
         
         try:
-            tempfd, tempname = tempfile.mkstemp(suffix=".pickle",
-                                                prefix="clients-",
-                                                dir=os.path.dirname
-                                                (stored_state_path))
-            with os.fdopen(tempfd, "wb") as stored_state:
+            with (tempfile.NamedTemporaryFile
+                  (mode='wb', suffix=".pickle", prefix='clients-',
+                   dir=os.path.dirname(stored_state_path),
+                   delete=False)) as stored_state:
                 pickle.dump((clients, client_settings), stored_state)
+                tempname=stored_state.name
             os.rename(tempname, stored_state_path)
         except (IOError, OSError) as e:
             if not debug:
