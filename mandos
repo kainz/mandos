@@ -657,10 +657,10 @@ class Client(object):
         If a checker already exists, leave it running and do
         nothing."""
         # The reason for not killing a running checker is that if we
-        # did that, then if a checker (for some reason) started
-        # running slowly and taking more than 'interval' time, the
-        # client would inevitably timeout, since no checker would get
-        # a chance to run to completion.  If we instead leave running
+        # did that, and if a checker (for some reason) started running
+        # slowly and taking more than 'interval' time, then the client
+        # would inevitably timeout, since no checker would get a
+        # chance to run to completion.  If we instead leave running
         # checkers alone, the checker would have to take more time
         # than 'timeout' for the client to be disabled, which is as it
         # should be.
@@ -1993,22 +1993,8 @@ class MandosServer(IPv6_TCPServer):
     
     def handle_ipc(self, source, condition, parent_pipe=None,
                    proc = None, client_object=None):
-        condition_names = {
-            gobject.IO_IN: "IN",   # There is data to read.
-            gobject.IO_OUT: "OUT", # Data can be written (without
-                                    # blocking).
-            gobject.IO_PRI: "PRI", # There is urgent data to read.
-            gobject.IO_ERR: "ERR", # Error condition.
-            gobject.IO_HUP: "HUP"  # Hung up (the connection has been
-                                    # broken, usually for pipes and
-                                    # sockets).
-            }
-        conditions_string = ' | '.join(name
-                                       for cond, name in
-                                       condition_names.iteritems()
-                                       if cond & condition)
         # error, or the other end of multiprocessing.Pipe has closed
-        if condition & (gobject.IO_ERR | condition & gobject.IO_HUP):
+        if condition & (gobject.IO_ERR | gobject.IO_HUP):
             # Wait for other process to exit
             proc.join()
             return False
