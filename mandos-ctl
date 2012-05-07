@@ -26,6 +26,8 @@
 from __future__ import (division, absolute_import, print_function,
                         unicode_literals)
 
+from future_builtins import *
+
 import sys
 import dbus
 import argparse

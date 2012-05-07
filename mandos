@@ -34,6 +34,8 @@
 from __future__ import (division, absolute_import, print_function,
                         unicode_literals)
 
+from future_builtins import *
+
 import SocketServer as socketserver
 import socket
 import argparse
@@ -1864,8 +1866,7 @@ class MultiprocessingMixIn(object):
     def process_request(self, request, address):
         """Start a new process to process the request."""
         proc = multiprocessing.Process(target = self.sub_process_main,
-                                       args = (request,
-                                               address))
+                                       args = (request, address))
         proc.start()
         return proc
 

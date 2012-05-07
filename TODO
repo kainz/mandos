@@ -82,7 +82,7 @@
 ** TODO Secret Service API?
    http://standards.freedesktop.org/secret-service/
 ** TODO [[info:python:What's%20New%20in%20Python%202%206][What's New in Python 2.6]]
-*** Start at [[info:python:PEP%203101%20Advanced%20String%20Formatting][PEP 3101 Advanced String Formatting]]
+*** Continue at [[info:python:Porting%20to%20Python%202%206][Porting to Python 2 6]]
 
 * mandos.xml
 ** Add mandos contact info in manual pages
