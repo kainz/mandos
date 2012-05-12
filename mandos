@@ -379,6 +379,7 @@ class AvahiService(object):
                                  self.server_state_changed)
         self.server_state_changed(self.server.GetState())
 
+
 class AvahiServiceToSyslog(AvahiService):
     def rename(self):
         """Add the new name to the syslog messages"""
@@ -389,11 +390,13 @@ class AvahiServiceToSyslog(AvahiService):
                                 .format(self.name)))
         return ret
 
+
 def timedelta_to_milliseconds(td):
     "Convert a datetime.timedelta() to milliseconds"
     return ((td.days * 24 * 60 * 60 * 1000)
             + (td.seconds * 1000)
             + (td.microseconds // 1000))
+
 
 class Client(object):
     """A representation of a client host served by this server.
@@ -1925,13 +1928,17 @@ class IPv6_TCPServer(MultiprocessingMixInWithPipe,
                                            str(self.interface
                                                + '\0'))
                 except socket.error as error:
-                    if error[0] == errno.EPERM:
+                    if error.errno == errno.EPERM:
                         logger.error("No permission to"
                                      " bind to interface %s",
                                      self.interface)
-                    elif error[0] == errno.ENOPROTOOPT:
+                    elif error.errno == errno.ENOPROTOOPT:
                         logger.error("SO_BINDTODEVICE not available;"
                                      " cannot bind to interface %s",
+                                     self.interface)
+                    elif error.errno == errno.ENODEV:
+                        logger.error("Interface %s does not"
+                                     " exist, cannot bind",
                                      self.interface)
                     else:
                         raise
