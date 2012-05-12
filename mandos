@@ -442,8 +442,9 @@ class Client(object):
     """
     
     runtime_expansions = ("approval_delay", "approval_duration",
-                          "created", "enabled", "fingerprint",
-                          "host", "interval", "last_checked_ok",
+                          "created", "enabled", "expires",
+                          "fingerprint", "host", "interval",
+                          "last_approval_request", "last_checked_ok",
                           "last_enabled", "name", "timeout")
     client_defaults = { "timeout": "5m",
                         "extended_timeout": "15m",
@@ -2461,7 +2462,6 @@ def main():
             # "pidfile" was never created
             pass
         del pidfilename
-        signal.signal(signal.SIGINT, signal.SIG_IGN)
     
     signal.signal(signal.SIGHUP, lambda signum, frame: sys.exit())
     signal.signal(signal.SIGTERM, lambda signum, frame: sys.exit())

@@ -40,7 +40,6 @@
 ** TODO [#B] Use openat()
 
 * mandos (server)
-** TODO Document why we ignore sigint
 ** TODO [#B] Log level							  :BUGS:
 *** TODO /etc/mandos/clients.d/*.conf
     Watch this directory and add/remove/update clients?
@@ -55,8 +54,7 @@
 ** TODO [#B] Global enable/disable flag
 ** TODO [#B] By-client countdown on number of secrets given
 ** TODO [#B] Support RFC 3339 time duration syntax
-** More D-Bus methods
-*** NeedsPassword(50) - Timeout, default disapprove
+** D-Bus Client method NeedsPassword(50) - Timeout, default disapprove
     + SetPass(u"gazonk", True) -> Approval, persistent
     + Approve(False) -> Close client connection immediately
 ** TODO [#C] python-parsedatetime
@@ -81,8 +79,6 @@
 ** TODO CheckerCompleted method, deprecate CheckedOK
 ** TODO Secret Service API?
    http://standards.freedesktop.org/secret-service/
-** TODO [[info:python:What's%20New%20in%20Python%202%206][What's New in Python 2.6]]
-*** Continue at [[info:python:Porting%20to%20Python%202%206][Porting to Python 2 6]]
 
 * mandos.xml
 ** Add mandos contact info in manual pages
