@@ -572,29 +572,29 @@ class Client(object):
         if getattr(self, "enabled", False):
             # Already enabled
             return
-        self.send_changedstate()
         self.expires = datetime.datetime.utcnow() + self.timeout
         self.enabled = True
         self.last_enabled = datetime.datetime.utcnow()
         self.init_checker()
+        self.send_changedstate()
     
     def disable(self, quiet=True):
         """Disable this client."""
         if not getattr(self, "enabled", False):
             return False
         if not quiet:
-            self.send_changedstate()
-        if not quiet:
             logger.info("Disabling client %s", self.name)
-        if getattr(self, "disable_initiator_tag", False):
+        if getattr(self, "disable_initiator_tag", None) is not None:
             gobject.source_remove(self.disable_initiator_tag)
             self.disable_initiator_tag = None
         self.expires = None
-        if getattr(self, "checker_initiator_tag", False):
+        if getattr(self, "checker_initiator_tag", None) is not None:
             gobject.source_remove(self.checker_initiator_tag)
             self.checker_initiator_tag = None
         self.stop_checker()
         self.enabled = False
+        if not quiet:
+            self.send_changedstate()
         # Do not run this again if called by a gobject.timeout_add
         return False
     
@@ -604,10 +604,14 @@ class Client(object):
     def init_checker(self):
         # Schedule a new checker to be started an 'interval' from now,
         # and every interval from then on.
+        if self.checker_initiator_tag is not None:
+            gobject.source_remove(self.checker_initiator_tag)
         self.checker_initiator_tag = (gobject.timeout_add
                                       (self.interval_milliseconds(),
                                        self.start_checker))
         # Schedule a disable() when 'timeout' has passed
+        if self.disable_initiator_tag is not None:
+            gobject.source_remove(self.disable_initiator_tag)
         self.disable_initiator_tag = (gobject.timeout_add
                                    (self.timeout_milliseconds(),
                                     self.disable))
@@ -644,6 +648,7 @@ class Client(object):
             timeout = self.timeout
         if self.disable_initiator_tag is not None:
             gobject.source_remove(self.disable_initiator_tag)
+            self.disable_initiator_tag = None
         if getattr(self, "enabled", False):
             self.disable_initiator_tag = (gobject.timeout_add
                                           (timedelta_to_milliseconds
@@ -1335,11 +1340,11 @@ class ClientDBus(Client, DBusObjectWithProperties):
         return False
     
     def approve(self, value=True):
-        self.send_changedstate()
         self.approved = value
         gobject.timeout_add(timedelta_to_milliseconds
                             (self.approval_duration),
                             self._reset_approved)
+        self.send_changedstate()
     
     ## D-Bus methods, signals & properties
     _interface = "se.recompile.Mandos.Client"
@@ -1529,26 +1534,24 @@ class ClientDBus(Client, DBusObjectWithProperties):
     def Timeout_dbus_property(self, value=None):
         if value is None:       # get
             return dbus.UInt64(self.timeout_milliseconds())
+        old_timeout = self.timeout
         self.timeout = datetime.timedelta(0, 0, 0, value)
-        # Reschedule timeout
+        # Reschedule disabling
         if self.enabled:
             now = datetime.datetime.utcnow()
-            time_to_die = timedelta_to_milliseconds(
-                (self.last_checked_ok + self.timeout) - now)
-            if time_to_die <= 0:
+            self.expires += self.timeout - old_timeout
+            if self.expires <= now:
                 # The timeout has passed
                 self.disable()
             else:
-                self.expires = (now +
-                                datetime.timedelta(milliseconds =
-                                                   time_to_die))
                 if (getattr(self, "disable_initiator_tag", None)
                     is None):
                     return
                 gobject.source_remove(self.disable_initiator_tag)
-                self.disable_initiator_tag = (gobject.timeout_add
-                                              (time_to_die,
-                                               self.disable))
+                self.disable_initiator_tag = (
+                    gobject.timeout_add(
+                        timedelta_to_milliseconds(self.expires - now),
+                        self.disable))
     
     # ExtendedTimeout - property
     @dbus_service_property(_interface, signature="t",
@@ -1742,9 +1745,9 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
                     #wait until timeout or approved
                     time = datetime.datetime.now()
                     client.changedstate.acquire()
-                    (client.changedstate.wait
-                     (float(client.timedelta_to_milliseconds(delay)
-                            / 1000)))
+                    client.changedstate.wait(
+                        float(timedelta_to_milliseconds(delay)
+                              / 1000))
                     client.changedstate.release()
                     time2 = datetime.datetime.now()
                     if (time2 - time) >= delay:
