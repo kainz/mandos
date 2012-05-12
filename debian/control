@@ -36,7 +36,7 @@ Description: server giving encrypted passwords to Mandos clients
  whereupon the computers can continue booting normally.
 
 Package: mandos-client
-Architecture: any
+Architecture: linux-any
 Depends: ${shlibs:Depends}, ${misc:Depends}, adduser, cryptsetup,
 	gnupg (<< 2), initramfs-tools
 Breaks: dropbear (<= 0.53.1-1)
