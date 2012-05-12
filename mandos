@@ -690,25 +690,17 @@ class Client(object):
                                       self.current_checker_command)
         # Start a new checker if needed
         if self.checker is None:
+            # Escape attributes for the shell
+            escaped_attrs = dict(
+                (attr, re.escape(unicode(getattr(self, attr))))
+                for attr in
+                self.runtime_expansions)
             try:
-                # In case checker_command has exactly one % operator
-                command = self.checker_command % self.host
-            except TypeError:
-                # Escape attributes for the shell
-                escaped_attrs = dict(
-                    (attr,
-                     re.escape(unicode(str(getattr(self, attr, "")),
-                                       errors=
-                                       'replace')))
-                    for attr in
-                    self.runtime_expansions)
-                
-                try:
-                    command = self.checker_command % escaped_attrs
-                except TypeError as error:
-                    logger.error('Could not format string "%s"',
-                                 self.checker_command, exc_info=error)
-                    return True # Try again later
+                command = self.checker_command % escaped_attrs
+            except TypeError as error:
+                logger.error('Could not format string "%s"',
+                             self.checker_command, exc_info=error)
+                return True # Try again later
             self.current_checker_command = command
             try:
                 logger.info("Starting checker %r for %s",
@@ -720,19 +712,19 @@ class Client(object):
                 self.checker = subprocess.Popen(command,
                                                 close_fds=True,
                                                 shell=True, cwd="/")
-                self.checker_callback_tag = (gobject.child_watch_add
-                                             (self.checker.pid,
-                                              self.checker_callback,
-                                              data=command))
-                # The checker may have completed before the gobject
-                # watch was added.  Check for this.
-                pid, status = os.waitpid(self.checker.pid, os.WNOHANG)
-                if pid:
-                    gobject.source_remove(self.checker_callback_tag)
-                    self.checker_callback(pid, status, command)
             except OSError as error:
                 logger.error("Failed to start subprocess",
                              exc_info=error)
+            self.checker_callback_tag = (gobject.child_watch_add
+                                         (self.checker.pid,
+                                          self.checker_callback,
+                                          data=command))
+            # The checker may have completed before the gobject
+            # watch was added.  Check for this.
+            pid, status = os.waitpid(self.checker.pid, os.WNOHANG)
+            if pid:
+                gobject.source_remove(self.checker_callback_tag)
+                self.checker_callback(pid, status, command)
         # Re-run this periodically if run by gobject.timeout_add
         return True
     
@@ -2295,7 +2287,7 @@ def main():
         os.setgid(gid)
         os.setuid(uid)
     except OSError as error:
-        if error[0] != errno.EPERM:
+        if error.errno != errno.EPERM:
             raise error
     
     if debug:
