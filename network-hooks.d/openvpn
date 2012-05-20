@@ -37,18 +37,22 @@ fi
 
 openvpn=/usr/sbin/openvpn
 
-case "$1" in
-    start)
-	"$openvpn" --cd "$MANDOSNETHOOKDIR" \
-	    --daemon 'openvpn(Mandos)' --writepid "$PIDFILE" \
-	    --config "$CONFIG"
-	sleep "$DELAY"
-	;;
-    stop)
-	PID="`cat \"$PIDFILE\"`"
-	if [ "$PID" -gt 0 ]; then
-	    kill "$PID"
-	fi
+do_start(){
+    "$openvpn" --cd "$MANDOSNETHOOKDIR" --daemon 'openvpn(Mandos)' \
+	--writepid "$PIDFILE" --config "$CONFIG"
+     sleep "$DELAY"
+}
+
+do_stop(){
+    PID="`cat \"$PIDFILE\"`"
+    if [ "$PID" -gt 0 ]; then
+	kill "$PID"
+    fi
+}
+
+case "${MODE:-$1}" in
+    start|stop)
+	do_"${MODE:-$1}"
 	;;
     files)
 	echo "$openvpn"

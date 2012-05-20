@@ -6,8 +6,8 @@
 # configuration file(s) should be copied into the
 # /etc/mandos/network-hooks.d directory.
 # 
-# Copyright © 2011 Teddy Hogeborn
-# Copyright © 2011 Björn Påhlsson
+# Copyright © 2012 Teddy Hogeborn
+# Copyright © 2012 Björn Påhlsson
 # 
 # Copying and distribution of this file, with or without modification,
 # are permitted in any medium without royalty provided the copyright
@@ -45,35 +45,40 @@ for b in "$brctl" /usr/sbin/brctl; do
     fi
 done
 
-case "$1" in
-    start)
-	"$brctl" addbr "$BRIDGE"
-	for address in $PORT_ADDRESSES; do
-	    interface=`addrtoif "$address"`
-	    "$brctl" addif "$BRIDGE" "$interface"
-	    ip link set dev "$interface" up
+do_start(){
+    "$brctl" addbr "$BRIDGE"
+    for address in $PORT_ADDRESSES; do
+	interface=`addrtoif "$address"`
+	"$brctl" addif "$BRIDGE" "$interface"
+	ip link set dev "$interface" up
+    done
+    ip link set dev "$BRIDGE" up
+    sleep "${DELAY%%.*}"
+    if [ -n "$IPADDRS" ]; then
+        for ipaddr in $IPADDRS; do
+	    ip addr add "$ipaddr" dev "$BRIDGE"
 	done
-	ip link set dev "$BRIDGE" up
-	sleep "${DELAY%%.*}"
-	if [ -n "$IPADDRS" ]; then
-            for ipaddr in $IPADDRS; do
-		ip addr add "$ipaddr" dev "$BRIDGE"
-	    done
-	fi
-	if [ -n "$ROUTES" ]; then
-            for route in $ROUTES; do
-		ip route add "$route" dev "$BRIDGE"
-	    done
-	fi
-	;;
-    stop)
-	ip link set dev "$BRIDGE" down
-	for address in $PORT_ADDRESSES; do
-	    interface=`addrtoif "$address"`
-	    ip link set dev "$interface" down
-	    "$brctl" delif "$BRIDGE" "$interface"
+    fi
+    if [ -n "$ROUTES" ]; then
+        for route in $ROUTES; do
+	    ip route add "$route" dev "$BRIDGE"
 	done
-	"$brctl" delbr "$BRIDGE"
+    fi
+}
+
+do_stop(){
+    ip link set dev "$BRIDGE" down
+    for address in $PORT_ADDRESSES; do
+	interface=`addrtoif "$address"`
+	ip link set dev "$interface" down
+	"$brctl" delif "$BRIDGE" "$interface"
+    done
+    "$brctl" delbr "$BRIDGE"
+}
+
+case "${MODE:-$1}" in
+    start|stop)
+	do_"${MODE:-$1}"
 	;;
     files)
 	echo /bin/ip
