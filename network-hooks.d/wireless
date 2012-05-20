@@ -73,77 +73,81 @@ if [ -n "$PIDFILE" ]; then
     WPAS_OPTIONS="-P$PIDFILE $WPAS_OPTIONS"
 fi
 
-case "${MODE:-$1}" in
-    start)
-	mkdir -m u=rwx,go= -p "$CTRLDIR"
-	"$wpa_supplicant" -B -g "$CTRL" -p "$CTRLDIR" $WPAS_OPTIONS
-        for KEY in $ifkeys; do
-	    ADDRESS=`eval 'echo "$ADDRESS_'"$KEY"\"`
-	    INTERFACE=`addrtoif "$ADDRESS"`
-	    DRIVER=`eval 'echo "$WPA_DRIVER_'"$KEY"\"`
-	    IFDELAY=`eval 'echo "$DELAY_'"$KEY"\"`
-	    "$wpa_cli" -g "$CTRL" interface_add "$INTERFACE" "" \
-		"${DRIVER:-wext}" "$CTRLDIR" > /dev/null \
-		| sed -e '/^OK$/d'
-	    NETWORK=`"$wpa_cli" -p "$CTRLDIR" -i "$INTERFACE" \
-		add_network`
-	    eval wpa_interface_"$KEY"
-	    "$wpa_cli" -p "$CTRLDIR" -i "$INTERFACE" enable_network \
-		"$NETWORK" | sed -e '/^OK$/d'
-	    sleep "${IFDELAY:-$DELAY}" &
-	    sleep=$!
-	    while :; do
-		kill -0 $sleep 2>/dev/null || break
-		STATE=`"$wpa_cli" -p "$CTRLDIR" -i "$INTERFACE" \
-		    status | sed -n -e 's/^wpa_state=//p'`
-		if [ "$STATE" = COMPLETED ]; then
-		    while :; do
-			kill -0 $sleep 2>/dev/null || break 2
-			UP=`cat /sys/class/net/"$INTERFACE"/operstate`
-			if [ "$UP" = up ]; then
-			    kill $sleep 2>/dev/null
-			    break 2
-			fi
-			sleep 1
-		    done
-		fi
-		sleep 1
-	    done &
-	    wait $sleep || :
-	    IPADDRS=`eval 'echo "$IPADDRS_'"$KEY"\"`
-	    if [ -n "$IPADDRS" ]; then
-		if [ "$IPADDRS" = dhcp ]; then
-		    ipconfig -c dhcp -d "$INTERFACE" || :
-		    #dhclient "$INTERFACE"
-		else
-		    for ipaddr in $IPADDRS; do
-			"$ip" addr add "$ipaddr" dev "$INTERFACE"
-		    done
-		fi
-	    fi
-	    ROUTES=`eval 'echo "$ROUTES_'"$KEY"\"`
-	    if [ -n "$ROUTES" ]; then
-		for route in $ROUTES; do
-		    "$ip" route add "$route" dev "$BRIDGE"
+do_start(){
+    mkdir -m u=rwx,go= -p "$CTRLDIR"
+    "$wpa_supplicant" -B -g "$CTRL" -p "$CTRLDIR" $WPAS_OPTIONS
+    for KEY in $ifkeys; do
+	ADDRESS=`eval 'echo "$ADDRESS_'"$KEY"\"`
+	INTERFACE=`addrtoif "$ADDRESS"`
+	DRIVER=`eval 'echo "$WPA_DRIVER_'"$KEY"\"`
+	IFDELAY=`eval 'echo "$DELAY_'"$KEY"\"`
+	"$wpa_cli" -g "$CTRL" interface_add "$INTERFACE" "" \
+	    "${DRIVER:-wext}" "$CTRLDIR" > /dev/null \
+	    | sed -e '/^OK$/d'
+        NETWORK=`"$wpa_cli" -p "$CTRLDIR" -i "$INTERFACE" add_network`
+	eval wpa_interface_"$KEY"
+	"$wpa_cli" -p "$CTRLDIR" -i "$INTERFACE" enable_network \
+	    "$NETWORK" | sed -e '/^OK$/d'
+	sleep "${IFDELAY:-$DELAY}" &
+	sleep=$!
+	while :; do
+	    kill -0 $sleep 2>/dev/null || break
+	    STATE=`"$wpa_cli" -p "$CTRLDIR" -i "$INTERFACE" status \
+		| sed -n -e 's/^wpa_state=//p'`
+	    if [ "$STATE" = COMPLETED ]; then
+		while :; do
+		    kill -0 $sleep 2>/dev/null || break 2
+		    UP=`cat /sys/class/net/"$INTERFACE"/operstate`
+		    if [ "$UP" = up ]; then
+			kill $sleep 2>/dev/null
+			break 2
+		    fi
+		    sleep 1
 		done
 	    fi
-        done
-	;;
-    stop)
-	"$wpa_cli" -g "$CTRL" terminate 2>&1 | sed -e '/^OK$/d'
-        for KEY in $ifkeys; do
-	    ADDRESS=`eval 'echo "$ADDRESS_'"$KEY"\"`
-	    INTERFACE=`addrtoif "$ADDRESS"`
-	    "$ip" addr show scope global permanent dev "$INTERFACE" \
-		| while read type addr rest; do
+	    sleep 1
+	done &
+	wait $sleep || :
+	IPADDRS=`eval 'echo "$IPADDRS_'"$KEY"\"`
+	if [ -n "$IPADDRS" ]; then
+	    if [ "$IPADDRS" = dhcp ]; then
+		ipconfig -c dhcp -d "$INTERFACE" || :
+		#dhclient "$INTERFACE"
+	    else
+		for ipaddr in $IPADDRS; do
+		    "$ip" addr add "$ipaddr" dev "$INTERFACE"
+		done
+	    fi
+	fi
+	ROUTES=`eval 'echo "$ROUTES_'"$KEY"\"`
+	if [ -n "$ROUTES" ]; then
+	    for route in $ROUTES; do
+		"$ip" route add "$route" dev "$BRIDGE"
+	    done
+	fi
+    done
+}
+
+do_stop(){
+    "$wpa_cli" -g "$CTRL" terminate 2>&1 | sed -e '/^OK$/d'
+    for KEY in $ifkeys; do
+	ADDRESS=`eval 'echo "$ADDRESS_'"$KEY"\"`
+	INTERFACE=`addrtoif "$ADDRESS"`
+	"$ip" addr show scope global permanent dev "$INTERFACE" \
+	    | while read type addr rest; do
 		case "$type" in
 		    inet|inet6)
 			"$ip" addr del "$addr" dev "$INTERFACE"
 			;;
 		esac
 	    done
-	    "$ip" link set dev "$INTERFACE" down
-	done
+	"$ip" link set dev "$INTERFACE" down
+    done
+}
+
+case "${MODE:-$1}" in
+    start|stop)
+	do_"${MODE:-$1}"
 	;;
     files)
 	echo "$wpa_supplicant"

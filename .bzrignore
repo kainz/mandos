@@ -3,6 +3,7 @@
 *.8mandos
 confdir
 keydir
+statedir
 man
 plugin-runner
 plugins.d/askpass-fifo

@@ -3,7 +3,7 @@
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY CONFNAME "mandos-clients.conf">
 <!ENTITY CONFPATH "<filename>/etc/mandos/clients.conf</filename>">
-<!ENTITY TIMESTAMP "2012-01-01">
+<!ENTITY TIMESTAMP "2012-05-12">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -409,6 +409,7 @@
 	<quote><literal>approval_duration</literal></quote>,
 	<quote><literal>created</literal></quote>,
 	<quote><literal>enabled</literal></quote>,
+	<quote><literal>expires</literal></quote>,
 	<quote><literal>fingerprint</literal></quote>,
 	<quote><literal>host</literal></quote>,
 	<quote><literal>interval</literal></quote>,

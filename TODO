@@ -11,6 +11,7 @@
 ** TODO [#B] Use getaddrinfo(hints=AI_NUMERICHOST) instead of inet_pton()
 ** TODO [#B] Use getnameinfo(serv=NULL, NI_NUMERICHOST) instead of inet_ntop()
 ** TODO [#B] Prefer /run/tmp over /tmp, if it exists
+** TODO [#B] Use in_port_t instead of uint16_t for port numbers.
 
 * splashy
 ** TODO [#B] use scandir(3) instead of readdir(3)
@@ -39,7 +40,6 @@
 ** TODO [#B] Use openat()
 
 * mandos (server)
-** TODO Document why we ignore sigint
 ** TODO [#B] Log level							  :BUGS:
 *** TODO /etc/mandos/clients.d/*.conf
     Watch this directory and add/remove/update clients?
@@ -54,8 +54,7 @@
 ** TODO [#B] Global enable/disable flag
 ** TODO [#B] By-client countdown on number of secrets given
 ** TODO [#B] Support RFC 3339 time duration syntax
-** More D-Bus methods
-*** NeedsPassword(50) - Timeout, default disapprove
+** D-Bus Client method NeedsPassword(50) - Timeout, default disapprove
     + SetPass(u"gazonk", True) -> Approval, persistent
     + Approve(False) -> Close client connection immediately
 ** TODO [#C] python-parsedatetime
@@ -78,6 +77,8 @@
    and signals ClientAdded and ClientRemoved.
 ** TODO Save state periodically to recover better from hard shutdowns
 ** TODO CheckerCompleted method, deprecate CheckedOK
+** TODO Secret Service API?
+   http://standards.freedesktop.org/secret-service/
 
 * mandos.xml
 ** Add mandos contact info in manual pages
