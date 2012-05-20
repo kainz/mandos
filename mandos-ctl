@@ -17,13 +17,16 @@
 #     GNU General Public License for more details.
 # 
 # You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+# along with this program.  If not, see
+# <http://www.gnu.org/licenses/>.
 # 
 # Contact the authors at <mandos@recompile.se>.
 # 
 
 from __future__ import (division, absolute_import, print_function,
                         unicode_literals)
+
+from future_builtins import *
 
 import sys
 import dbus
@@ -70,12 +73,12 @@ def timedelta_to_milliseconds(td):
 
 def milliseconds_to_string(ms):
     td = datetime.timedelta(0, 0, 0, ms)
-    return ("%(days)s%(hours)02d:%(minutes)02d:%(seconds)02d"
-            % { "days": "%dT" % td.days if td.days else "",
-                "hours": td.seconds // 3600,
-                "minutes": (td.seconds % 3600) // 60,
-                "seconds": td.seconds % 60,
-                })
+    return ("{days}{hours:02}:{minutes:02}:{seconds:02}"
+            .format(days = "{0}T".format(td.days) if td.days else "",
+                    hours = td.seconds // 3600,
+                    minutes = (td.seconds % 3600) // 60,
+                    seconds = td.seconds % 60,
+                    ))
 
 def string_to_delta(interval):
     """Parse a string and return a datetime.timedelta
@@ -116,23 +119,25 @@ def print_clients(clients, keywords):
         if type(value) is dbus.Boolean:
             return "Yes" if value else "No"
         if keyword in ("Timeout", "Interval", "ApprovalDelay",
-                       "ApprovalDuration"):
+                       "ApprovalDuration", "ExtendedTimeout"):
             return milliseconds_to_string(value)
         return unicode(value)
     
     # Create format string to print table rows
-    format_string = " ".join("%%-%ds" %
-                             max(len(tablewords[key]),
-                                 max(len(valuetostring(client[key],
-                                                       key))
-                                     for client in
-                                     clients))
-                             for key in keywords)
+    format_string = " ".join("{{{key}:{width}}}".format(
+            width = max(len(tablewords[key]),
+                        max(len(valuetostring(client[key],
+                                              key))
+                            for client in
+                            clients)),
+            key = key) for key in keywords)
     # Print header line
-    print(format_string % tuple(tablewords[key] for key in keywords))
+    print(format_string.format(**tablewords))
     for client in clients:
-        print(format_string % tuple(valuetostring(client[key], key)
-                                    for key in keywords))
+        print(format_string.format(**dict((key,
+                                           valuetostring(client[key],
+                                                         key))
+                                          for key in keywords)))
 
 def has_actions(options):
     return any((options.enable,
@@ -157,7 +162,7 @@ def has_actions(options):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--version", action="version",
-                        version = "%%prog %s" % version,
+                        version = "%(prog)s {0}".format(version),
                         help="show version number and exit")
     parser.add_argument("-a", "--all", action="store_true",
                         help="Select all clients")
@@ -205,7 +210,7 @@ def main():
     parser.add_argument("client", nargs="*", help="Client name")
     options = parser.parse_args()
     
-    if has_actions(options) and not options.client and not options.all:
+    if has_actions(options) and not (options.client or options.all):
         parser.error("Options require clients names or --all.")
     if options.verbose and has_actions(options):
         parser.error("--verbose can only be used alone or with"
@@ -256,8 +261,8 @@ def main():
                     clients[client_objc] = client
                     break
             else:
-                print("Client not found on server: %r" % name,
-                      file=sys.stderr)
+                print("Client not found on server: {0!r}"
+                      .format(name), file=sys.stderr)
                 sys.exit(1)
     
     if not has_actions(options) and clients:
@@ -277,18 +282,28 @@ def main():
     else:
         # Process each client in the list by all selected options
         for client in clients:
+            def set_client_prop(prop, value):
+                """Set a Client D-Bus property"""
+                client.Set(client_interface, prop, value,
+                           dbus_interface=dbus.PROPERTIES_IFACE)
+            def set_client_prop_ms(prop, value):
+                """Set a Client D-Bus property, converted
+                from a string to milliseconds."""
+                set_client_prop(prop,
+                                timedelta_to_milliseconds
+                                (string_to_delta(value)))
             if options.remove:
                 mandos_serv.RemoveClient(client.__dbus_object_path__)
             if options.enable:
-                client.Enable(dbus_interface=client_interface)
+                set_client_prop("Enabled", dbus.Boolean(True))
             if options.disable:
-                client.Disable(dbus_interface=client_interface)
+                set_client_prop("Enabled", dbus.Boolean(False))
             if options.bump_timeout:
-                client.CheckedOK(dbus_interface=client_interface)
+                set_client_prop("LastCheckedOK", "")
             if options.start_checker:
-                client.StartChecker(dbus_interface=client_interface)
+                set_client_prop("CheckerRunning", dbus.Boolean(True))
             if options.stop_checker:
-                client.StopChecker(dbus_interface=client_interface)
+                set_client_prop("CheckerRunning", dbus.Boolean(False))
             if options.is_enabled:
                 sys.exit(0 if client.Get(client_interface,
                                          "Enabled",
@@ -296,48 +311,29 @@ def main():
                                          dbus.PROPERTIES_IFACE)
                          else 1)
             if options.checker is not None:
-                client.Set(client_interface, "Checker",
-                           options.checker,
-                           dbus_interface=dbus.PROPERTIES_IFACE)
+                set_client_prop("Checker", options.checker)
             if options.host is not None:
-                client.Set(client_interface, "Host", options.host,
-                           dbus_interface=dbus.PROPERTIES_IFACE)
+                set_client_prop("Host", options.host)
             if options.interval is not None:
-                client.Set(client_interface, "Interval",
-                           timedelta_to_milliseconds
-                           (string_to_delta(options.interval)),
-                           dbus_interface=dbus.PROPERTIES_IFACE)
+                set_client_prop_ms("Interval", options.interval)
             if options.approval_delay is not None:
-                client.Set(client_interface, "ApprovalDelay",
-                           timedelta_to_milliseconds
-                           (string_to_delta(options.
-                                            approval_delay)),
-                           dbus_interface=dbus.PROPERTIES_IFACE)
+                set_client_prop_ms("ApprovalDelay",
+                                   options.approval_delay)
             if options.approval_duration is not None:
-                client.Set(client_interface, "ApprovalDuration",
-                           timedelta_to_milliseconds
-                           (string_to_delta(options.
-                                            approval_duration)),
-                           dbus_interface=dbus.PROPERTIES_IFACE)
+                set_client_prop_ms("ApprovalDuration",
+                                   options.approval_duration)
             if options.timeout is not None:
-                client.Set(client_interface, "Timeout",
-                           timedelta_to_milliseconds
-                           (string_to_delta(options.timeout)),
-                           dbus_interface=dbus.PROPERTIES_IFACE)
+                set_client_prop_ms("Timeout", options.timeout)
             if options.extended_timeout is not None:
-                client.Set(client_interface, "ExtendedTimeout",
-                           timedelta_to_milliseconds
-                           (string_to_delta(options.extended_timeout)),
-                           dbus_interface=dbus.PROPERTIES_IFACE)
+                set_client_prop_ms("ExtendedTimeout",
+                                   options.extended_timeout)
             if options.secret is not None:
-                client.Set(client_interface, "Secret",
-                           dbus.ByteArray(options.secret.read()),
-                           dbus_interface=dbus.PROPERTIES_IFACE)
+                set_client_prop("Secret",
+                                dbus.ByteArray(options.secret.read()))
             if options.approved_by_default is not None:
-                client.Set(client_interface, "ApprovedByDefault",
-                           dbus.Boolean(options
-                                        .approved_by_default),
-                           dbus_interface=dbus.PROPERTIES_IFACE)
+                set_client_prop("ApprovedByDefault",
+                                dbus.Boolean(options
+                                             .approved_by_default))
             if options.approve:
                 client.Approve(dbus.Boolean(True),
                                dbus_interface=client_interface)
