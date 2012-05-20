@@ -17,13 +17,16 @@
 #     GNU General Public License for more details.
 # 
 # You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+# along with this program.  If not, see
+# <http://www.gnu.org/licenses/>.
 # 
 # Contact the authors at <mandos@recompile.se>.
 # 
 
 from __future__ import (division, absolute_import, print_function,
                         unicode_literals)
+
+from future_builtins import *
 
 import sys
 import os
@@ -83,23 +86,26 @@ class MandosClientPropertyCache(object):
     properties and calls a hook function when any of them are
     changed.
     """
-    def __init__(self, proxy_object=None, *args, **kwargs):
+    def __init__(self, proxy_object=None, properties=None, **kwargs):
         self.proxy = proxy_object # Mandos Client proxy object
-        
-        self.properties = dict()
+        self.properties = dict() if properties is None else properties
         self.property_changed_match = (
             self.proxy.connect_to_signal("PropertyChanged",
-                                         self.property_changed,
+                                         self._property_changed,
                                          client_interface,
                                          byte_arrays=True))
         
-        self.properties.update(
-            self.proxy.GetAll(client_interface,
-                              dbus_interface = dbus.PROPERTIES_IFACE))
-
-        #XXX This breaks good super behaviour
-#        super(MandosClientPropertyCache, self).__init__(
-#            *args, **kwargs)
+        if properties is None:
+            self.properties.update(
+                self.proxy.GetAll(client_interface,
+                                  dbus_interface
+                                  = dbus.PROPERTIES_IFACE))
+        
+        super(MandosClientPropertyCache, self).__init__(**kwargs)
+    
+    def _property_changed(self, property, value):
+        """Helper which takes positional arguments"""
+        return self.property_changed(property=property, value=value)
     
     def property_changed(self, property=None, value=None):
         """This is called whenever we get a PropertyChanged signal
@@ -108,10 +114,8 @@ class MandosClientPropertyCache(object):
         # Update properties dict with new value
         self.properties[property] = value
     
-    def delete(self, *args, **kwargs):
+    def delete(self):
         self.property_changed_match.remove()
-        super(MandosClientPropertyCache, self).__init__(
-            *args, **kwargs)
 
 
 class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
@@ -119,7 +123,7 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
     """
     
     def __init__(self, server_proxy_object=None, update_hook=None,
-                 delete_hook=None, logger=None, *args, **kwargs):
+                 delete_hook=None, logger=None, **kwargs):
         # Called on update
         self.update_hook = update_hook
         # Called on delete
@@ -130,26 +134,14 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
         self.logger = logger
         
         self._update_timer_callback_tag = None
-        self._update_timer_callback_lock = 0
         
         # The widget shown normally
         self._text_widget = urwid.Text("")
         # The widget shown when we have focus
         self._focus_text_widget = urwid.Text("")
-        super(MandosClientWidget, self).__init__(
-            update_hook=update_hook, delete_hook=delete_hook,
-            *args, **kwargs)
+        super(MandosClientWidget, self).__init__(**kwargs)
         self.update()
         self.opened = False
-        
-        last_checked_ok = isoformat_to_datetime(self.properties
-                                                ["LastCheckedOK"])
-        
-        if self.properties ["LastCheckerStatus"] != 0:
-            self.using_timer(True)
-        
-        if self.need_approval:
-            self.using_timer(True)
         
         self.match_objects = (
             self.proxy.connect_to_signal("CheckerCompleted",
@@ -172,34 +164,19 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
                                          self.rejected,
                                          client_interface,
                                          byte_arrays=True))
-        #self.logger('Created client %s' % (self.properties["Name"]))
-    
-    def property_changed(self, property=None, value=None):
-        super(self, MandosClientWidget).property_changed(property,
-                                                         value)
-        if property == "ApprovalPending":
-            using_timer(bool(value))
-        if property == "LastCheckerStatus":
-            using_timer(value != 0)
-            #self.logger('Checker for client %s (command "%s")'
-            #            ' was successful'
-            #            % (self.properties["Name"], command))
+        #self.logger('Created client {0}'
+        #            .format(self.properties["Name"]))
     
     def using_timer(self, flag):
         """Call this method with True or False when timer should be
         activated or deactivated.
         """
-        old = self._update_timer_callback_lock
-        if flag:
-            self._update_timer_callback_lock += 1
-        else:
-            self._update_timer_callback_lock -= 1
-        if old == 0 and self._update_timer_callback_lock:
+        if flag and self._update_timer_callback_tag is None:
             # Will update the shown timer value every second
             self._update_timer_callback_tag = (gobject.timeout_add
                                                (1000,
                                                 self.update_timer))
-        elif old and self._update_timer_callback_lock == 0:
+        elif not (flag or self._update_timer_callback_tag is None):
             gobject.source_remove(self._update_timer_callback_tag)
             self._update_timer_callback_tag = None
     
@@ -209,47 +186,48 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
             return
         # Checker failed
         if os.WIFEXITED(condition):
-            self.logger('Checker for client %s (command "%s")'
-                        ' failed with exit code %s'
-                        % (self.properties["Name"], command,
-                           os.WEXITSTATUS(condition)))
+            self.logger('Checker for client {0} (command "{1}")'
+                        ' failed with exit code {2}'
+                        .format(self.properties["Name"], command,
+                                os.WEXITSTATUS(condition)))
         elif os.WIFSIGNALED(condition):
-            self.logger('Checker for client %s (command "%s")'
-                        ' was killed by signal %s'
-                        % (self.properties["Name"], command,
-                           os.WTERMSIG(condition)))
+            self.logger('Checker for client {0} (command "{1}") was'
+                        ' killed by signal {2}'
+                        .format(self.properties["Name"], command,
+                                os.WTERMSIG(condition)))
         elif os.WCOREDUMP(condition):
-            self.logger('Checker for client %s (command "%s")'
+            self.logger('Checker for client {0} (command "{1}")'
                         ' dumped core'
-                        % (self.properties["Name"], command))
+                        .format(self.properties["Name"], command))
         else:
-            self.logger('Checker for client %s completed'
-                        ' mysteriously')
+            self.logger('Checker for client {0} completed'
+                        ' mysteriously'
+                        .format(self.properties["Name"]))
         self.update()
     
     def checker_started(self, command):
         """Server signals that a checker started. This could be useful
            to log in the future. """
-        #self.logger('Client %s started checker "%s"'
-        #            % (self.properties["Name"], unicode(command)))
+        #self.logger('Client {0} started checker "{1}"'
+        #            .format(self.properties["Name"],
+        #                    unicode(command)))
         pass
     
     def got_secret(self):
-        self.logger('Client %s received its secret'
-                    % self.properties["Name"])
+        self.logger('Client {0} received its secret'
+                    .format(self.properties["Name"]))
     
     def need_approval(self, timeout, default):
         if not default:
-            message = 'Client %s needs approval within %s seconds'
+            message = 'Client {0} needs approval within {1} seconds'
         else:
-            message = 'Client %s will get its secret in %s seconds'
-        self.logger(message
-                    % (self.properties["Name"], timeout/1000))
-        self.using_timer(True)
+            message = 'Client {0} will get its secret in {1} seconds'
+        self.logger(message.format(self.properties["Name"],
+                                   timeout/1000))
     
     def rejected(self, reason):
-        self.logger('Client %s was rejected; reason: %s'
-                    % (self.properties["Name"], reason))
+        self.logger('Client {0} was rejected; reason: {1}'
+                    .format(self.properties["Name"], reason))
     
     def selectable(self):
         """Make this a "selectable" widget.
@@ -277,14 +255,14 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
                           "bold-underline-blink":
                               "bold-underline-blink-standout",
                           }
-
+        
         # Rebuild focus and non-focus widgets using current properties
-
+        
         # Base part of a client. Name!
-        base = ('%(name)s: '
-                      % {"name": self.properties["Name"]})
+        base = '{name}: '.format(name=self.properties["Name"])
         if not self.properties["Enabled"]:
             message = "DISABLED"
+            self.using_timer(False)
         elif self.properties["ApprovalPending"]:
             timeout = datetime.timedelta(milliseconds
                                          = self.properties
@@ -292,31 +270,36 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
             last_approval_request = isoformat_to_datetime(
                 self.properties["LastApprovalRequest"])
             if last_approval_request is not None:
-                timer = timeout - (datetime.datetime.utcnow()
-                                   - last_approval_request)
+                timer = max(timeout - (datetime.datetime.utcnow()
+                                       - last_approval_request),
+                            datetime.timedelta())
             else:
                 timer = datetime.timedelta()
             if self.properties["ApprovedByDefault"]:
-                message = "Approval in %s. (d)eny?"
+                message = "Approval in {0}. (d)eny?"
             else:
-                message = "Denial in %s. (a)pprove?"
-            message = message % unicode(timer).rsplit(".", 1)[0]
+                message = "Denial in {0}. (a)pprove?"
+            message = message.format(unicode(timer).rsplit(".", 1)[0])
+            self.using_timer(True)
         elif self.properties["LastCheckerStatus"] != 0:
-            # When checker has failed, print a timer until client expires
+            # When checker has failed, show timer until client expires
             expires = self.properties["Expires"]
             if expires == "":
                 timer = datetime.timedelta(0)
             else:
-                expires = datetime.datetime.strptime(expires,
-                                                     '%Y-%m-%dT%H:%M:%S.%f')
-                timer = expires - datetime.datetime.utcnow()
+                expires = (datetime.datetime.strptime
+                           (expires, '%Y-%m-%dT%H:%M:%S.%f'))
+                timer = max(expires - datetime.datetime.utcnow(),
+                            datetime.timedelta())
             message = ('A checker has failed! Time until client'
-                       ' gets disabled: %s'
-                           % unicode(timer).rsplit(".", 1)[0])
+                       ' gets disabled: {0}'
+                       .format(unicode(timer).rsplit(".", 1)[0]))
+            self.using_timer(True)
         else:
             message = "enabled"
-        self._text = "%s%s" % (base, message)
-            
+            self.using_timer(False)
+        self._text = "{0}{1}".format(base, message)
+        
         if not urwid.supports_unicode():
             self._text = self._text.encode("ascii", "replace")
         textlist = [("normal", self._text)]
@@ -339,7 +322,7 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
         self.update()
         return True             # Keep calling this
     
-    def delete(self, *args, **kwargs):
+    def delete(self, **kwargs):
         if self._update_timer_callback_tag is not None:
             gobject.source_remove(self._update_timer_callback_tag)
             self._update_timer_callback_tag = None
@@ -348,7 +331,7 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
         self.match_objects = ()
         if self.delete_hook is not None:
             self.delete_hook(self)
-        return super(MandosClientWidget, self).delete(*args, **kwargs)
+        return super(MandosClientWidget, self).delete(**kwargs)
     
     def render(self, maxcolrow, focus=False):
         """Render differently if we have focus.
@@ -396,14 +379,13 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
         else:
             return key
     
-    def property_changed(self, property=None, value=None,
-                         *args, **kwargs):
+    def property_changed(self, property=None, **kwargs):
         """Call self.update() if old value is not new value.
         This overrides the method from MandosClientPropertyCache"""
         property_name = unicode(property)
         old_value = self.properties.get(property_name)
         super(MandosClientWidget, self).property_changed(
-            property=property, value=value, *args, **kwargs)
+            property=property, **kwargs)
         if self.properties.get(property_name) != old_value:
             self.update()
 
@@ -413,8 +395,8 @@ class ConstrainedListBox(urwid.ListBox):
     "down" key presses, thus not allowing any containing widgets to
     use them as an excuse to shift focus away from this widget.
     """
-    def keypress(self, maxcolrow, key):
-        ret = super(ConstrainedListBox, self).keypress(maxcolrow, key)
+    def keypress(self, *args, **kwargs):
+        ret = super(ConstrainedListBox, self).keypress(*args, **kwargs)
         if ret in ("up", "down"):
             return
         return ret
@@ -486,9 +468,9 @@ class UserInterface(object):
         self.main_loop = gobject.MainLoop()
     
     def client_not_found(self, fingerprint, address):
-        self.log_message(("Client with address %s and fingerprint %s"
-                          " could not be found" % (address,
-                                                    fingerprint)))
+        self.log_message("Client with address {0} and fingerprint"
+                         " {1} could not be found"
+                         .format(address, fingerprint))
     
     def rebuild(self):
         """This rebuilds the User Interface.
@@ -547,8 +529,8 @@ class UserInterface(object):
             client = self.clients_dict[path]
         except KeyError:
             # not found?
-            self.log_message("Unknown client %r (%r) removed", name,
-                             path)
+            self.log_message("Unknown client {0!r} ({1!r}) removed"
+                             .format(name, path))
             return
         client.delete()
     
@@ -635,7 +617,7 @@ class UserInterface(object):
                                                logger
                                                =self.log_message),
                             path=path)
-
+        
         self.refresh()
         self._input_callback_tag = (gobject.io_add_watch
                                     (sys.stdin.fileno(),
