@@ -151,7 +151,7 @@ class PGPEngine(object):
     def __enter__(self):
         return self
     
-    def __exit__ (self, exc_type, exc_value, traceback):
+    def __exit__(self, exc_type, exc_value, traceback):
         self._cleanup()
         return False
     
@@ -1016,7 +1016,7 @@ class DBusObjectWithProperties(dbus.service.Object):
         return xmlstring
 
 
-def datetime_to_dbus (dt, variant_level=0):
+def datetime_to_dbus(dt, variant_level=0):
     """Convert a UTC datetime.datetime() to a D-Bus type."""
     if dt is None:
         return dbus.String("", variant_level = variant_level)
@@ -1030,8 +1030,8 @@ def alternate_dbus_interfaces(alt_interface_names, deprecate=True):
     interface names according to the "alt_interface_names" mapping.
     Usage:
     
-    @alternate_dbus_names({"org.example.Interface":
-                               "net.example.AlternateInterface"})
+    @alternate_dbus_interfaces({"org.example.Interface":
+                                    "net.example.AlternateInterface"})
     class SampleDBusObject(dbus.service.Object):
         @dbus.service.method("org.example.Interface")
         def SampleDBusMethod():
