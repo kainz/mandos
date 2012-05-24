@@ -6,8 +6,8 @@ Uploaders: Teddy Hogeborn <teddy@recompile.se>,
 	   Björn Påhlsson <belorn@recompile.se>
 Build-Depends: debhelper (>= 7), docbook-xml, docbook-xsl,
 	libavahi-core-dev, libgpgme11-dev, libgnutls-dev, xsltproc,
-	pkg-config, man, locales-all
-Standards-Version: 3.9.2
+	pkg-config
+Standards-Version: 3.9.3
 Vcs-Bzr: http://ftp.recompile.se/pub/mandos/trunk
 Vcs-Browser: http://bzr.recompile.se/loggerhead/mandos/trunk/files
 Homepage: http://www.recompile.se/mandos
