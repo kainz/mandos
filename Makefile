@@ -71,8 +71,10 @@ DOCBOOKTOMAN=$(strip cd $(dir $<); xsltproc --nonet --xinclude \
 	 /usr/share/xml/docbook/stylesheet/nwalsh/manpages/docbook.xsl \
 	$(notdir $<); \
 	$(MANPOST) $(notdir $@);\
-	LANG=en_US.UTF-8 MANWIDTH=80 man --warnings --encoding=UTF-8 \
-	--local-file $(notdir $@) >/dev/null)
+	if locale --all | grep --regexp='^en_US\.utf8$$' && type man \
+	2>/dev/null; then LANG=en_US.UTF-8 MANWIDTH=80 man \
+	--warnings --encoding=UTF-8 --local-file $(notdir $@); fi \
+	>/dev/null)
 # DocBook-to-man post-processing to fix a '\n' escape bug
 MANPOST=$(SED) --in-place --expression='s,\\\\en,\\en,g;s,\\n,\\en,g'
 
