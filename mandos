@@ -2316,6 +2316,8 @@ def main():
         # Close all input and output, do double fork, etc.
         daemon()
     
+    # multiprocessing will use threads, so before we use gobject we
+    # need to inform gobject that threads will be used.
     gobject.threads_init()
     
     global main_loop
