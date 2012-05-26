@@ -3,7 +3,7 @@
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY CONFNAME "mandos.conf">
 <!ENTITY CONFPATH "<filename>/etc/mandos/mandos.conf</filename>">
-<!ENTITY TIMESTAMP "2012-01-01">
+<!ENTITY TIMESTAMP "2012-05-26">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -171,6 +171,14 @@
 	>DIRECTORY</replaceable></option></term>
 	<listitem>
 	  <xi:include href="mandos-options.xml" xpointer="statedir"/>
+	</listitem>
+      </varlistentry>
+      
+      <varlistentry>
+	<term><option>socket<literal> = </literal><replaceable
+	>NUMBER</replaceable></option></term>
+	<listitem>
+	  <xi:include href="mandos-options.xml" xpointer="socket"/>
 	</listitem>
       </varlistentry>
       
