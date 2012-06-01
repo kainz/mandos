@@ -35,8 +35,7 @@ else
     exit
 fi
 
-ifkeys=`env | sed -n -e 's/^ADDRESS_\([^=]*\)=.*/\1/p' "$CONFIG" \
-    | sort -u`
+ifkeys=`sed -n -e 's/^ADDRESS_\([^=]*\)=.*/\1/p' "$CONFIG" | sort -u`
 
 # Exit if DEVICE is set and is not any of the wireless interfaces
 if [ -n "$DEVICE" ]; then

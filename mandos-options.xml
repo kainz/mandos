@@ -97,4 +97,10 @@ It is also used for some texts by mandos-client(8mandos).
     class="directory">/var/lib/mandos</filename></quote>.
   </para>
   
+  <para id="socket">
+    If this option is used, the server will not create a new network
+    socket, but will instead use the supplied file descriptor.  By
+    default, the server will create a new network socket.
+  </para>
+  
 </section>

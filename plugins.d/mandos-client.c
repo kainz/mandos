@@ -41,7 +41,7 @@
 
 #include <stdio.h>		/* fprintf(), stderr, fwrite(),
 				   stdout, ferror(), remove() */
-#include <stdint.h> 		/* uint16_t, uint32_t */
+#include <stdint.h> 		/* uint16_t, uint32_t, intptr_t */
 #include <stddef.h>		/* NULL, size_t, ssize_t */
 #include <stdlib.h> 		/* free(), EXIT_SUCCESS, srand(),
 				   strtof(), abort() */
@@ -821,8 +821,11 @@ static int start_mandos_communication(const char *ip, uint16_t port,
     goto mandos_end;
   }
   
-  /* Spurious warning from -Wint-to-pointer-cast */
-  gnutls_transport_set_ptr(session, (gnutls_transport_ptr_t) tcp_sd);
+  /* This casting via intptr_t is to eliminate warning about casting
+     an int to a pointer type.  This is exactly how the GnuTLS Guile
+     function "set-session-transport-fd!" does it. */
+  gnutls_transport_set_ptr(session,
+			   (gnutls_transport_ptr_t)(intptr_t)tcp_sd);
   
   if(quit_now){
     errno = EINTR;
