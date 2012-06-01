@@ -48,8 +48,6 @@
    SetLogLevel D-Bus call
 ** TODO Implement --foreground						  :BUGS:
    [[info:standards:Option%20Table][Table of Long Options]]
-** TODO Implement --socket
-   [[info:standards:Option%20Table][Table of Long Options]]
 ** TODO [#C] DBusServiceObjectUsingSuper
 ** TODO [#B] Global enable/disable flag
 ** TODO [#B] By-client countdown on number of secrets given
