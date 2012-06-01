@@ -1,3 +1,12 @@
+mandos (1.5.5-1) unstable; urgency=low
+
+  * New upstream release.
+  * debian/copyright (Format): Updated to
+    "http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/".
+  * debian/control (Build-Depends): Removed "man, locales-all".
+
+ -- Teddy Hogeborn <teddy@recompile.se>  Fri, 01 Jun 2012 20:30:41 +0200
+
 mandos (1.5.4-1) unstable; urgency=low
 
   * New upstream release.

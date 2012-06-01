@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY COMMANDNAME "mandos">
-<!ENTITY TIMESTAMP "2012-01-15">
+<!ENTITY TIMESTAMP "2012-05-26">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -100,6 +100,9 @@
       <sbr/>
       <arg><option>--statedir
       <replaceable>DIRECTORY</replaceable></option></arg>
+      <sbr/>
+      <arg><option>--socket
+      <replaceable>FD</replaceable></option></arg>
     </cmdsynopsis>
     <cmdsynopsis>
       <command>&COMMANDNAME;</command>
@@ -299,6 +302,15 @@
 	  <xi:include href="mandos-options.xml" xpointer="statedir"/>
 	</listitem>
       </varlistentry>
+      
+      <varlistentry>
+	<term><option>--socket
+	<replaceable>FD</replaceable></option></term>
+	<listitem>
+	  <xi:include href="mandos-options.xml" xpointer="socket"/>
+	</listitem>
+      </varlistentry>
+      
     </variablelist>
   </refsect1>
   
