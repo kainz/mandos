@@ -55,7 +55,7 @@ logging.getLogger('dbus.proxies').setLevel(logging.CRITICAL)
 domain = 'se.recompile'
 server_interface = domain + '.Mandos'
 client_interface = domain + '.Mandos.Client'
-version = "1.5.4"
+version = "1.5.5"
 
 # Always run in monochrome mode
 urwid.curses_display.curses.has_colors = lambda : False
