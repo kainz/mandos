@@ -1,6 +1,10 @@
 This NEWS file records noteworthy changes, very tersely.
 See the manual for detailed information.
 
+Version 1.5.5 (2012-06-01)
+* Server
+** Server takes new --socket option
+
 Version 1.5.4 (2012-05-20)
 * Server
 ** Bug fix: Regression fix: Make non-zero approval timeout values work.

@@ -3,7 +3,7 @@
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY CONFNAME "mandos-clients.conf">
 <!ENTITY CONFPATH "<filename>/etc/mandos/clients.conf</filename>">
-<!ENTITY TIMESTAMP "2012-05-12">
+<!ENTITY TIMESTAMP "2012-05-27">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -167,12 +167,12 @@
 	    This option is <emphasis>optional</emphasis>.
 	  </para>
 	  <para>
-	    This option allows you to override the default shell
-	    command that the server will use to check if the client is
-	    still up.  Any output of the command will be ignored, only
-	    the exit code is checked:  If the exit code of the command
-	    is zero, the client is considered up.  The command will be
-	    run using <quote><command><filename>/bin/sh</filename>
+	    This option overrides the default shell command that the
+	    server will use to check if the client is still up.  Any
+	    output of the command will be ignored, only the exit code
+	    is checked:  If the exit code of the command is zero, the
+	    client is considered up.  The command will be run using
+	    <quote><command><filename>/bin/sh</filename>
 	    <option>-c</option></command></quote>, so
 	    <varname>PATH</varname> will be searched.  The default
 	    value for the checker command is <quote><literal
@@ -512,6 +512,8 @@ approval_delay = 30s
       <citerefentry><refentrytitle>mandos.conf</refentrytitle>
       <manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>mandos</refentrytitle>
+      <manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>fping</refentrytitle>
       <manvolnum>8</manvolnum></citerefentry>
     </para>
   </refsect1>
