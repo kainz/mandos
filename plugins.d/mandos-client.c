@@ -135,6 +135,8 @@ const char *argp_program_bug_address = "<mandos@recompile.se>";
 static const char sys_class_net[] = "/sys/class/net";
 char *connect_to = NULL;
 const char *hookdir = HOOKDIR;
+uid_t uid = 65534;
+gid_t gid = 65534;
 
 /* Doubly linked list that need to be circularly linked when used */
 typedef struct server{
@@ -1390,6 +1392,49 @@ int avahi_loop_with_timeout(AvahiSimplePoll *s, int retry_interval){
   }
 }
 
+/* Set effective uid to 0, return errno */
+int raise_privileges(void){
+  int old_errno = errno;
+  int ret_errno = 0;
+  errno = 0;
+  if(seteuid(0) == -1){
+    perror_plus("seteuid");
+  }
+  ret_errno = errno;
+  errno = old_errno;
+  return ret_errno;
+}
+
+/* Set effective and real user ID to 0.  Return errno. */
+int raise_privileges_permanently(void){
+  int old_errno = errno;
+  int ret_errno = raise_privileges();
+  if(ret_errno != 0){
+    errno = old_errno;
+    return ret_errno;
+  }
+  errno = 0;
+  if(setuid(0) == -1){
+    perror_plus("seteuid");
+  }
+  ret_errno = errno;
+  errno = old_errno;
+  return ret_errno;
+}
+
+/* Set effective user ID to unprivileged saved user ID */
+int lower_privileges(void){
+  int old_errno = errno;
+  int ret_errno = 0;
+  errno = 0;
+  if(seteuid(uid) == -1){
+    perror_plus("seteuid");
+  }
+  ret_errno = errno;
+  errno = old_errno;
+  return ret_errno;
+}
+
 bool run_network_hooks(const char *mode, const char *interface,
 		       const float delay){
   struct dirent **direntries;
@@ -1417,17 +1462,7 @@ bool run_network_hooks(const char *mode, const char *interface,
       if(hook_pid == 0){
 	/* Child */
 	/* Raise privileges */
-	errno = 0;
-	ret = seteuid(0);
-	if(ret == -1){
-	  perror_plus("seteuid");
-	}
-	/* Raise privileges even more */
-	errno = 0;
-	ret = setuid(0);
-	if(ret == -1){
-	  perror_plus("setuid");
-	}
+	raise_privileges_permanently();
 	/* Set group */
 	errno = 0;
 	ret = setgid(0);
@@ -1526,6 +1561,118 @@ bool run_network_hooks(const char *mode, const char *interface,
   return true;
 }
 
+int bring_up_interface(const char * const interface, const float delay){
+  int sd = -1;
+  int ret;
+  struct ifreq network;
+  AvahiIfIndex if_index = (AvahiIfIndex)if_nametoindex(interface);
+  if(if_index == 0){
+    fprintf_plus(stderr, "No such interface: \"%s\"\n", interface);
+    return EX_UNAVAILABLE;
+  }
+  
+  if(quit_now){
+    return EINTR;
+  }
+  
+  /* Re-raise priviliges */
+  raise_privileges();
+    
+#ifdef __linux__
+  /* Lower kernel loglevel to KERN_NOTICE to avoid KERN_INFO
+     messages about the network interface to mess up the prompt */
+  ret = klogctl(8, NULL, 5);
+  bool restore_loglevel = true;
+  if(ret == -1){
+    restore_loglevel = false;
+    perror_plus("klogctl");
+  }
+#endif	/* __linux__ */
+    
+  sd = socket(PF_INET6, SOCK_DGRAM, IPPROTO_IP);
+  if(sd < 0){
+    perror_plus("socket");
+#ifdef __linux__
+    if(restore_loglevel){
+      ret = klogctl(7, NULL, 0);
+      if(ret == -1){
+	perror_plus("klogctl");
+      }
+    }
+#endif	/* __linux__ */
+    /* Lower privileges */
+    lower_privileges();
+    return EX_OSERR;
+;
+  }
+  strcpy(network.ifr_name, interface);
+  ret = ioctl(sd, SIOCGIFFLAGS, &network);
+  if(ret == -1){
+    perror_plus("ioctl SIOCGIFFLAGS");
+#ifdef __linux__
+    if(restore_loglevel){
+      ret = klogctl(7, NULL, 0);
+      if(ret == -1){
+	perror_plus("klogctl");
+      }
+    }
+#endif	/* __linux__ */
+    /* Lower privileges */
+    lower_privileges();
+    return EX_OSERR;
+  }
+  if((network.ifr_flags & IFF_UP) == 0){
+    network.ifr_flags |= IFF_UP;
+    ret = ioctl(sd, SIOCSIFFLAGS, &network);
+    if(ret == -1){
+      perror_plus("ioctl SIOCSIFFLAGS +IFF_UP");
+#ifdef __linux__
+      if(restore_loglevel){
+	ret = klogctl(7, NULL, 0);
+	if(ret == -1){
+	  perror_plus("klogctl");
+	}
+      }
+#endif	/* __linux__ */
+	/* Lower privileges */
+      lower_privileges();
+      return EX_OSERR;
+    }
+  }
+  /* Sleep checking until interface is running.
+     Check every 0.25s, up to total time of delay */
+  for(int i=0; i < delay * 4; i++){
+    ret = ioctl(sd, SIOCGIFFLAGS, &network);
+    if(ret == -1){
+      perror_plus("ioctl SIOCGIFFLAGS");
+    } else if(network.ifr_flags & IFF_RUNNING){
+      break;
+    }
+    struct timespec sleeptime = { .tv_nsec = 250000000 };
+    ret = nanosleep(&sleeptime, NULL);
+    if(ret == -1 and errno != EINTR){
+      perror_plus("nanosleep");
+    }
+  }
+  /* Close the socket */
+  ret = (int)TEMP_FAILURE_RETRY(close(sd));
+  if(ret == -1){
+    perror_plus("close");
+  }
+#ifdef __linux__
+  if(restore_loglevel){
+    /* Restores kernel loglevel to default */
+    ret = klogctl(7, NULL, 0);
+    if(ret == -1){
+      perror_plus("klogctl");
+    }
+  }
+#endif	/* __linux__ */
+  /* Lower privileges */
+  lower_privileges();
+  return errno;
+}
+
 int main(int argc, char *argv[]){
   AvahiSServiceBrowser *sb = NULL;
   int error;
@@ -1537,8 +1684,6 @@ int main(int argc, char *argv[]){
   struct ifreq network;
   int sd = -1;
   bool take_down_interface = false;
-  uid_t uid;
-  gid_t gid;
   char tempdir[] = "/tmp/mandosXXXXXX";
   bool tempdir_created = false;
   AvahiIfIndex if_index = AVAHI_IF_UNSPEC;
@@ -1724,11 +1869,7 @@ int main(int argc, char *argv[]){
        <http://bugs.debian.org/633582> */
     
     /* Re-raise priviliges */
-    errno = 0;
-    ret = seteuid(0);
-    if(ret == -1){
-      perror_plus("seteuid");
-    } else {
+    if(raise_privileges() == 0){
       struct stat st;
       
       if(strcmp(seckey, PATHDIR "/" SECKEY) == 0){
@@ -1899,139 +2040,11 @@ int main(int argc, char *argv[]){
   }
   
   /* If the interface is down, bring it up */
-  if(strcmp(interface, "none") != 0){
-    if_index = (AvahiIfIndex) if_nametoindex(interface);
-    if(if_index == 0){
-      fprintf_plus(stderr, "No such interface: \"%s\"\n", interface);
-      exitcode = EX_UNAVAILABLE;
-      goto end;
-    }
-    
-    if(quit_now){
-      goto end;
-    }
-    
-    /* Re-raise priviliges */
-    errno = 0;
-    ret = seteuid(0);
-    if(ret == -1){
-      perror_plus("seteuid");
-    }
-    
-#ifdef __linux__
-    /* Lower kernel loglevel to KERN_NOTICE to avoid KERN_INFO
-       messages about the network interface to mess up the prompt */
-    ret = klogctl(8, NULL, 5);
-    bool restore_loglevel = true;
-    if(ret == -1){
-      restore_loglevel = false;
-      perror_plus("klogctl");
-    }
-#endif	/* __linux__ */
-    
-    sd = socket(PF_INET6, SOCK_DGRAM, IPPROTO_IP);
-    if(sd < 0){
-      perror_plus("socket");
-      exitcode = EX_OSERR;
-#ifdef __linux__
-      if(restore_loglevel){
-	ret = klogctl(7, NULL, 0);
-	if(ret == -1){
-	  perror_plus("klogctl");
-	}
-      }
-#endif	/* __linux__ */
-      /* Lower privileges */
-      errno = 0;
-      ret = seteuid(uid);
-      if(ret == -1){
-	perror_plus("seteuid");
-      }
-      goto end;
-    }
-    strcpy(network.ifr_name, interface);
-    ret = ioctl(sd, SIOCGIFFLAGS, &network);
-    if(ret == -1){
-      perror_plus("ioctl SIOCGIFFLAGS");
-#ifdef __linux__
-      if(restore_loglevel){
-	ret = klogctl(7, NULL, 0);
-	if(ret == -1){
-	  perror_plus("klogctl");
-	}
-      }
-#endif	/* __linux__ */
-      exitcode = EX_OSERR;
-      /* Lower privileges */
-      errno = 0;
-      ret = seteuid(uid);
-      if(ret == -1){
-	perror_plus("seteuid");
-      }
-      goto end;
-    }
-    if((network.ifr_flags & IFF_UP) == 0){
-      network.ifr_flags |= IFF_UP;
-      take_down_interface = true;
-      ret = ioctl(sd, SIOCSIFFLAGS, &network);
-      if(ret == -1){
-	take_down_interface = false;
-	perror_plus("ioctl SIOCSIFFLAGS +IFF_UP");
-	exitcode = EX_OSERR;
-#ifdef __linux__
-	if(restore_loglevel){
-	  ret = klogctl(7, NULL, 0);
-	  if(ret == -1){
-	    perror_plus("klogctl");
-	  }
-	}
-#endif	/* __linux__ */
-	/* Lower privileges */
-	errno = 0;
-	ret = seteuid(uid);
-	if(ret == -1){
-	  perror_plus("seteuid");
-	}
-	goto end;
-      }
-    }
-    /* Sleep checking until interface is running.
-       Check every 0.25s, up to total time of delay */
-    for(int i=0; i < delay * 4; i++){
-      ret = ioctl(sd, SIOCGIFFLAGS, &network);
-      if(ret == -1){
-	perror_plus("ioctl SIOCGIFFLAGS");
-      } else if(network.ifr_flags & IFF_RUNNING){
-	break;
-      }
-      struct timespec sleeptime = { .tv_nsec = 250000000 };
-      ret = nanosleep(&sleeptime, NULL);
-      if(ret == -1 and errno != EINTR){
-	perror_plus("nanosleep");
-      }
-    }
-    if(not take_down_interface){
-      /* We won't need the socket anymore */
-      ret = (int)TEMP_FAILURE_RETRY(close(sd));
-      if(ret == -1){
-	perror_plus("close");
-      }
-    }
-#ifdef __linux__
-    if(restore_loglevel){
-      /* Restores kernel loglevel to default */
-      ret = klogctl(7, NULL, 0);
-      if(ret == -1){
-	perror_plus("klogctl");
-      }
-    }
-#endif	/* __linux__ */
-    /* Lower privileges */
-    errno = 0;
-    /* Lower privileges */
-    ret = seteuid(uid);
-    if(ret == -1){
-      perror_plus("seteuid");
+  if((interface[0] != '\0') and (strcmp(interface, "none") != 0)){
+    ret = bring_up_interface(interface, delay);
+    if(ret){
+      errno = ret;
+      perror_plus("Failed to bring up interface");
     }
   }
   
@@ -2078,6 +2091,7 @@ int main(int argc, char *argv[]){
     /* Connect directly, do not use Zeroconf */
     /* (Mainly meant for debugging) */
     char *address = strrchr(connect_to, ':');
+    
     if(address == NULL){
       fprintf_plus(stderr, "No colon in address\n");
       exitcode = EX_USAGE;
@@ -2246,11 +2260,7 @@ int main(int argc, char *argv[]){
   
   /* Re-raise priviliges */
   {
-    errno = 0;
-    ret = seteuid(0);
-    if(ret == -1){
-      perror_plus("seteuid");
-    }
+    raise_privileges();
     
     /* Take down the network interface */
     if(take_down_interface and geteuid() == 0){
