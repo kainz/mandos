@@ -1563,21 +1563,25 @@ bool run_network_hooks(const char *mode, const char *interface,
 
 int bring_up_interface(const char * const interface, const float delay){
   int sd = -1;
+  int old_errno = errno;
+  int ret_errno = 0;
   int ret;
   struct ifreq network;
   AvahiIfIndex if_index = (AvahiIfIndex)if_nametoindex(interface);
   if(if_index == 0){
     fprintf_plus(stderr, "No such interface: \"%s\"\n", interface);
-    return EX_UNAVAILABLE;
+    errno = old_errno;
+    return ENXIO;
   }
   
   if(quit_now){
+    errno = old_errno;
     return EINTR;
   }
   
   /* Re-raise priviliges */
   raise_privileges();
-    
+  
 #ifdef __linux__
   /* Lower kernel loglevel to KERN_NOTICE to avoid KERN_INFO
      messages about the network interface to mess up the prompt */
@@ -1591,6 +1595,7 @@ int bring_up_interface(const char * const interface, const float delay){
     
   sd = socket(PF_INET6, SOCK_DGRAM, IPPROTO_IP);
   if(sd < 0){
+    ret_errno = errno;
     perror_plus("socket");
 #ifdef __linux__
     if(restore_loglevel){
@@ -1602,12 +1607,13 @@ int bring_up_interface(const char * const interface, const float delay){
 #endif	/* __linux__ */
     /* Lower privileges */
     lower_privileges();
-    return EX_OSERR;
-;
+    errno = old_errno;
+    return ret_errno;
   }
   strcpy(network.ifr_name, interface);
   ret = ioctl(sd, SIOCGIFFLAGS, &network);
   if(ret == -1){
+    ret_errno = errno;
     perror_plus("ioctl SIOCGIFFLAGS");
 #ifdef __linux__
     if(restore_loglevel){
@@ -1619,12 +1625,14 @@ int bring_up_interface(const char * const interface, const float delay){
 #endif	/* __linux__ */
     /* Lower privileges */
     lower_privileges();
-    return EX_OSERR;
+    errno = old_errno;
+    return ret_errno;
   }
   if((network.ifr_flags & IFF_UP) == 0){
     network.ifr_flags |= IFF_UP;
     ret = ioctl(sd, SIOCSIFFLAGS, &network);
     if(ret == -1){
+      ret_errno = errno;
       perror_plus("ioctl SIOCSIFFLAGS +IFF_UP");
 #ifdef __linux__
       if(restore_loglevel){
@@ -1636,7 +1644,8 @@ int bring_up_interface(const char * const interface, const float delay){
 #endif	/* __linux__ */
 	/* Lower privileges */
       lower_privileges();
-      return EX_OSERR;
+      errno = old_errno;
+      return ret_errno;
     }
   }
   /* Sleep checking until interface is running.
@@ -1670,7 +1679,8 @@ int bring_up_interface(const char * const interface, const float delay){
 #endif	/* __linux__ */
   /* Lower privileges */
   lower_privileges();
-  return errno;
+  errno = old_errno;
+  return 0;
 }
 
 int main(int argc, char *argv[]){
@@ -2042,7 +2052,7 @@ int main(int argc, char *argv[]){
   /* If the interface is down, bring it up */
   if((interface[0] != '\0') and (strcmp(interface, "none") != 0)){
     ret = bring_up_interface(interface, delay);
-    if(ret){
+    if(ret != 0){
       errno = ret;
       perror_plus("Failed to bring up interface");
     }
