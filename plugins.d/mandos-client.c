@@ -1393,44 +1393,41 @@ int avahi_loop_with_timeout(AvahiSimplePoll *s, int retry_interval){
 }
 
 /* Set effective uid to 0, return errno */
-int raise_privileges(void){
-  int old_errno = errno;
-  int ret_errno = 0;
-  errno = 0;
+error_t raise_privileges(void){
+  error_t old_errno = errno;
+  error_t ret_errno = 0;
   if(seteuid(0) == -1){
+    ret_errno = errno;
     perror_plus("seteuid");
   }
-  ret_errno = errno;
   errno = old_errno;
   return ret_errno;
 }
 
 /* Set effective and real user ID to 0.  Return errno. */
-int raise_privileges_permanently(void){
-  int old_errno = errno;
-  int ret_errno = raise_privileges();
+error_t raise_privileges_permanently(void){
+  error_t old_errno = errno;
+  error_t ret_errno = raise_privileges();
   if(ret_errno != 0){
     errno = old_errno;
     return ret_errno;
   }
-  errno = 0;
   if(setuid(0) == -1){
+    ret_errno = errno;
     perror_plus("seteuid");
   }
-  ret_errno = errno;
   errno = old_errno;
   return ret_errno;
 }
 
 /* Set effective user ID to unprivileged saved user ID */
-int lower_privileges(void){
-  int old_errno = errno;
-  int ret_errno = 0;
-  errno = 0;
+error_t lower_privileges(void){
+  error_t old_errno = errno;
+  error_t ret_errno = 0;
   if(seteuid(uid) == -1){
+    ret_errno = errno;
     perror_plus("seteuid");
   }
-  ret_errno = errno;
   errno = old_errno;
   return ret_errno;
 }
@@ -1561,7 +1558,8 @@ bool run_network_hooks(const char *mode, const char *interface,
   return true;
 }
 
-int bring_up_interface(const char * const interface, const float delay){
+int bring_up_interface(const char *const interface,
+		       const float delay){
   int sd = -1;
   int old_errno = errno;
   int ret_errno = 0;
