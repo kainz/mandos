@@ -31,8 +31,11 @@ if [ -z "$VPNDEVICE" ]; then
 fi
 
 # Exit if DEVICE is set and it doesn't match the VPN interface
-if [ -n "$DEVICE" -a "$DEVICE" = "${DEVICE#$VPNDEVICE}" ]; then
-    exit
+if [ -n "$DEVICE" ]; then
+    case "$DEVICE" in
+	*,"$VPNDEVICE"*|"$VPNDEVICE"*) :;;
+	*) exit;;
+    esac
 fi
 
 openvpn=/usr/sbin/openvpn
