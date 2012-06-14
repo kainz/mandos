@@ -61,7 +61,6 @@
 				 */
 #include <inttypes.h>		/* PRIu16, PRIdMAX, intmax_t,
 				   strtoimax() */
-#include <assert.h>		/* assert() */
 #include <errno.h>		/* perror(), errno,
 				   program_invocation_short_name */
 #include <time.h>		/* nanosleep(), time(), sleep() */
@@ -145,7 +144,7 @@ gid_t gid = 65534;
 /* Doubly linked list that need to be circularly linked when used */
 typedef struct server{
   const char *ip;
-  uint16_t port;
+  in_port_t port;
   AvahiIfIndex if_index;
   int af;
   struct timespec last_seen;
@@ -211,7 +210,7 @@ size_t incbuffer(char **buffer, size_t buffer_length,
 }
 
 /* Add server to set of servers to retry periodically */
-bool add_server(const char *ip, uint16_t port, AvahiIfIndex if_index,
+bool add_server(const char *ip, in_port_t port, AvahiIfIndex if_index,
 		int af){
   int ret;
   server *new_server = malloc(sizeof(server));
@@ -471,8 +470,7 @@ static ssize_t pgp_packet_decrypt(const char *cryptotext,
 }
 
 static const char * safer_gnutls_strerror(int value){
-  const char *ret = gnutls_strerror(value); /* Spurious warning from
-					       -Wunreachable-code */
+  const char *ret = gnutls_strerror(value);
   if(ret == NULL)
     ret = "(unknown)";
   return ret;
@@ -623,7 +621,7 @@ static void empty_log(__attribute__((unused)) AvahiLogLevel level,
 		      __attribute__((unused)) const char *txt){}
 
 /* Called when a Mandos server is found */
-static int start_mandos_communication(const char *ip, uint16_t port,
+static int start_mandos_communication(const char *ip, in_port_t port,
 				      AvahiIfIndex if_index,
 				      int af){
   int ret, tcp_sd = -1;
@@ -668,7 +666,7 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   
   if(debug){
     fprintf_plus(stderr, "Setting up a TCP connection to %s, port %"
-		 PRIu16 "\n", ip, port);
+		 PRIuMAX "\n", ip, (uintmax_t)port);
   }
   
   tcp_sd = socket(pf, SOCK_STREAM, 0);
@@ -705,10 +703,7 @@ static int start_mandos_communication(const char *ip, uint16_t port,
     goto mandos_end;
   }
   if(af == AF_INET6){
-    to.in6.sin6_port = htons(port); /* Spurious warnings from
-				       -Wconversion and
-				       -Wunreachable-code */
-    
+    to.in6.sin6_port = htons(port);    
     if(IN6_IS_ADDR_LINKLOCAL /* Spurious warnings from */
        (&to.in6.sin6_addr)){ /* -Wstrict-aliasing=2 or lower and
 				-Wunreachable-code*/
@@ -738,12 +733,12 @@ static int start_mandos_communication(const char *ip, uint16_t port,
       if(if_indextoname((unsigned int)if_index, interface) == NULL){
 	perror_plus("if_indextoname");
       } else {
-	fprintf_plus(stderr, "Connection to: %s%%%s, port %" PRIu16
-		     "\n", ip, interface, port);
+	fprintf_plus(stderr, "Connection to: %s%%%s, port %" PRIuMAX
+		     "\n", ip, interface, (uintmax_t)port);
       }
     } else {
-      fprintf_plus(stderr, "Connection to: %s, port %" PRIu16 "\n",
-		   ip, port);
+      fprintf_plus(stderr, "Connection to: %s, port %" PRIuMAX "\n",
+		   ip, (uintmax_t)port);
     }
     char addrstr[(INET_ADDRSTRLEN > INET6_ADDRSTRLEN) ?
 		 INET_ADDRSTRLEN : INET6_ADDRSTRLEN] = "";
@@ -1010,7 +1005,9 @@ static void resolve_callback(AvahiSServiceResolver *r,
 			     AVAHI_GCC_UNUSED AvahiLookupResultFlags
 			     flags,
 			     AVAHI_GCC_UNUSED void* userdata){
-  assert(r);
+  if(r == NULL){
+    return;
+  }
   
   /* Called whenever a service has been resolved successfully or
      timed out */
@@ -1037,12 +1034,13 @@ static void resolve_callback(AvahiSServiceResolver *r,
 		     PRIdMAX ") on port %" PRIu16 "\n", name,
 		     host_name, ip, (intmax_t)interface, port);
       }
-      int ret = start_mandos_communication(ip, port, interface,
+      int ret = start_mandos_communication(ip, (in_port_t)port,
+					   interface,
 					   avahi_proto_to_af(proto));
       if(ret == 0){
 	avahi_simple_poll_quit(mc.simple_poll);
       } else {
-	if(not add_server(ip, port, interface,
+	if(not add_server(ip, (in_port_t)port, interface,
 			  avahi_proto_to_af(proto))){
 	  fprintf_plus(stderr, "Failed to add server \"%s\" to server"
 		       " list\n", name);
@@ -1063,7 +1061,9 @@ static void browse_callback(AvahiSServiceBrowser *b,
 			    AVAHI_GCC_UNUSED AvahiLookupResultFlags
 			    flags,
 			    AVAHI_GCC_UNUSED void* userdata){
-  assert(b);
+  if(b == NULL){
+    return;
+  }
   
   /* Called whenever a new services becomes available on the LAN or
      is removed from the LAN */
@@ -2225,11 +2225,11 @@ int main(int argc, char *argv[]){
       goto end;
     }
     
-    uint16_t port;
+    in_port_t port;
     errno = 0;
     tmpmax = strtoimax(address+1, &tmp, 10);
     if(errno != 0 or tmp == address+1 or *tmp != '\0'
-       or tmpmax != (uint16_t)tmpmax){
+       or tmpmax != (in_port_t)tmpmax){
       fprintf_plus(stderr, "Bad port number\n");
       exitcode = EX_USAGE;
       goto end;
@@ -2239,7 +2239,7 @@ int main(int argc, char *argv[]){
       goto end;
     }
     
-    port = (uint16_t)tmpmax;
+    port = (in_port_t)tmpmax;
     *address = '\0';
     /* Colon in address indicates IPv6 */
     int af;
