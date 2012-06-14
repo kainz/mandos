@@ -43,9 +43,11 @@ if [ -n "$DEVICE" ]; then
 	for KEY in $ifkeys; do
 	    ADDRESS=`eval 'echo "$ADDRESS_'"$KEY"\"`
 	    INTERFACE=`addrtoif "$ADDRESS"`
-	    if [ "$INTERFACE" = "$DEVICE" ]; then
-		break 2
-	    fi
+	    
+	    case "$DEVICE" in
+		*,"$INTERFACE"|*,"$INTERFACE",*|"$INTERFACE",*|"$INTERFACE")
+		    break 2;;
+	    esac
 	done
 	exit
     done
@@ -121,7 +123,7 @@ do_start(){
 	ROUTES=`eval 'echo "$ROUTES_'"$KEY"\"`
 	if [ -n "$ROUTES" ]; then
 	    for route in $ROUTES; do
-		"$ip" route add "$route" dev "$BRIDGE"
+		"$ip" route add "$route" dev "$INTERFACE"
 	    done
 	fi
     done

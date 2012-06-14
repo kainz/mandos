@@ -88,6 +88,10 @@
 #include <sys/wait.h>		/* waitpid(), WIFEXITED(),
 				   WEXITSTATUS(), WTERMSIG() */
 #include <grp.h>		/* setgroups() */
+#include <argz.h>		/* argz_add_sep(), argz_next(),
+				   argz_delete(), argz_append(),
+				   argz_stringify(), argz_add(),
+				   argz_count() */
 
 #ifdef __linux__
 #include <sys/klog.h> 		/* klogctl() */
@@ -135,6 +139,8 @@ const char *argp_program_bug_address = "<mandos@recompile.se>";
 static const char sys_class_net[] = "/sys/class/net";
 char *connect_to = NULL;
 const char *hookdir = HOOKDIR;
+uid_t uid = 65534;
+gid_t gid = 65534;
 
 /* Doubly linked list that need to be circularly linked when used */
 typedef struct server{
@@ -1119,17 +1125,22 @@ static void handle_sigterm(int sig){
 
 bool get_flags(const char *ifname, struct ifreq *ifr){
   int ret;
+  error_t ret_errno;
   
   int s = socket(PF_INET6, SOCK_DGRAM, IPPROTO_IP);
   if(s < 0){
+    ret_errno = errno;
     perror_plus("socket");
+    errno = ret_errno;
     return false;
   }
   strcpy(ifr->ifr_name, ifname);
   ret = ioctl(s, SIOCGIFFLAGS, ifr);
   if(ret == -1){
     if(debug){
+      ret_errno = errno;
       perror_plus("ioctl SIOCGIFFLAGS");
+      errno = ret_errno;
     }
     return false;
   }
@@ -1204,46 +1215,35 @@ int good_interface(const struct dirent *if_entry){
 }
 
 /* 
- * This function determines if a directory entry in /sys/class/net
- * corresponds to an acceptable network device which is up.
- * (This function is passed to scandir(3) as a filter function.)
+ * This function determines if a network interface is up.
  */
-int up_interface(const struct dirent *if_entry){
-  if(if_entry->d_name[0] == '.'){
-    return 0;
-  }
-  
+bool interface_is_up(const char *interface){
   struct ifreq ifr;
-  if(not get_flags(if_entry->d_name, &ifr)){
+  if(not get_flags(interface, &ifr)){
     if(debug){
       fprintf_plus(stderr, "Failed to get flags for interface "
-		   "\"%s\"\n", if_entry->d_name);
+		   "\"%s\"\n", interface);
     }
-    return 0;
+    return false;
   }
   
-  /* Reject down interfaces */
-  if(not (ifr.ifr_flags & IFF_UP)){
+  return (bool)(ifr.ifr_flags & IFF_UP);
+}
+
+/* 
+ * This function determines if a network interface is running
+ */
+bool interface_is_running(const char *interface){
+  struct ifreq ifr;
+  if(not get_flags(interface, &ifr)){
     if(debug){
-      fprintf_plus(stderr, "Rejecting down interface \"%s\"\n",
-		   if_entry->d_name);
+      fprintf_plus(stderr, "Failed to get flags for interface "
+		   "\"%s\"\n", interface);
     }
-    return 0;
+    return false;
   }
   
-  /* Reject non-running interfaces */
-  if(not (ifr.ifr_flags & IFF_RUNNING)){
-    if(debug){
-      fprintf_plus(stderr, "Rejecting non-running interface \"%s\"\n",
-		   if_entry->d_name);
-    }
-    return 0;
-  }
-  
-  if(not good_flags(if_entry->d_name, &ifr)){
-    return 0;
-  }
-  return 1;
+  return (bool)(ifr.ifr_flags & IFF_RUNNING);
 }
 
 int notdotentries(const struct dirent *direntry){
@@ -1390,6 +1390,58 @@ int avahi_loop_with_timeout(AvahiSimplePoll *s, int retry_interval){
   }
 }
 
+/* Set effective uid to 0, return errno */
+error_t raise_privileges(void){
+  error_t old_errno = errno;
+  error_t ret_errno = 0;
+  if(seteuid(0) == -1){
+    ret_errno = errno;
+    perror_plus("seteuid");
+  }
+  errno = old_errno;
+  return ret_errno;
+}
+
+/* Set effective and real user ID to 0.  Return errno. */
+error_t raise_privileges_permanently(void){
+  error_t old_errno = errno;
+  error_t ret_errno = raise_privileges();
+  if(ret_errno != 0){
+    errno = old_errno;
+    return ret_errno;
+  }
+  if(setuid(0) == -1){
+    ret_errno = errno;
+    perror_plus("seteuid");
+  }
+  errno = old_errno;
+  return ret_errno;
+}
+
+/* Set effective user ID to unprivileged saved user ID */
+error_t lower_privileges(void){
+  error_t old_errno = errno;
+  error_t ret_errno = 0;
+  if(seteuid(uid) == -1){
+    ret_errno = errno;
+    perror_plus("seteuid");
+  }
+  errno = old_errno;
+  return ret_errno;
+}
+
+/* Lower privileges permanently */
+error_t lower_privileges_permanently(void){
+  error_t old_errno = errno;
+  error_t ret_errno = 0;
+  if(setuid(uid) == -1){
+    ret_errno = errno;
+    perror_plus("setuid");
+  }
+  errno = old_errno;
+  return ret_errno;
+}
+
 bool run_network_hooks(const char *mode, const char *interface,
 		       const float delay){
   struct dirent **direntries;
@@ -1417,17 +1469,7 @@ bool run_network_hooks(const char *mode, const char *interface,
       if(hook_pid == 0){
 	/* Child */
 	/* Raise privileges */
-	errno = 0;
-	ret = seteuid(0);
-	if(ret == -1){
-	  perror_plus("seteuid");
-	}
-	/* Raise privileges even more */
-	errno = 0;
-	ret = setuid(0);
-	if(ret == -1){
-	  perror_plus("setuid");
-	}
+	raise_privileges_permanently();
 	/* Set group */
 	errno = 0;
 	ret = setgid(0);
@@ -1526,24 +1568,196 @@ bool run_network_hooks(const char *mode, const char *interface,
   return true;
 }
 
+error_t bring_up_interface(const char *const interface,
+			   const float delay){
+  int sd = -1;
+  error_t old_errno = errno;
+  error_t ret_errno = 0;
+  int ret, ret_setflags;
+  struct ifreq network;
+  unsigned int if_index = if_nametoindex(interface);
+  if(if_index == 0){
+    fprintf_plus(stderr, "No such interface: \"%s\"\n", interface);
+    errno = old_errno;
+    return ENXIO;
+  }
+  
+  if(quit_now){
+    errno = old_errno;
+    return EINTR;
+  }
+  
+  if(not interface_is_up(interface)){
+    if(not get_flags(interface, &network) and debug){
+      ret_errno = errno;
+      fprintf_plus(stderr, "Failed to get flags for interface "
+		   "\"%s\"\n", interface);
+      return ret_errno;
+    }
+    network.ifr_flags |= IFF_UP;
+    
+    sd = socket(PF_INET6, SOCK_DGRAM, IPPROTO_IP);
+    if(sd < 0){
+      ret_errno = errno;
+      perror_plus("socket");
+      errno = old_errno;
+      return ret_errno;
+    }
+  
+    if(quit_now){
+      close(sd);
+      errno = old_errno;
+      return EINTR;
+    }
+    
+    if(debug){
+      fprintf_plus(stderr, "Bringing up interface \"%s\"\n",
+		   interface);
+    }
+    
+    /* Raise priviliges */
+    raise_privileges();
+    
+#ifdef __linux__
+    /* Lower kernel loglevel to KERN_NOTICE to avoid KERN_INFO
+       messages about the network interface to mess up the prompt */
+    int ret_linux = klogctl(8, NULL, 5);
+    bool restore_loglevel = true;
+    if(ret_linux == -1){
+      restore_loglevel = false;
+      perror_plus("klogctl");
+    }
+#endif	/* __linux__ */
+    ret_setflags = ioctl(sd, SIOCSIFFLAGS, &network);
+    ret_errno = errno;
+#ifdef __linux__
+    if(restore_loglevel){
+      ret_linux = klogctl(7, NULL, 0);
+      if(ret_linux == -1){
+	perror_plus("klogctl");
+      }
+    }
+#endif	/* __linux__ */
+    
+    /* Lower privileges */
+    lower_privileges();
+    
+    /* Close the socket */
+    ret = (int)TEMP_FAILURE_RETRY(close(sd));
+    if(ret == -1){
+      perror_plus("close");
+    }
+    
+    if(ret_setflags == -1){
+      errno = ret_errno;
+      perror_plus("ioctl SIOCSIFFLAGS +IFF_UP");
+      errno = old_errno;
+      return ret_errno;
+    }
+  } else if(debug){
+    fprintf_plus(stderr, "Interface \"%s\" is already up; good\n",
+		 interface);
+  }
+  
+  /* Sleep checking until interface is running.
+     Check every 0.25s, up to total time of delay */
+  for(int i=0; i < delay * 4; i++){
+    if(interface_is_running(interface)){
+      break;
+    }
+    struct timespec sleeptime = { .tv_nsec = 250000000 };
+    ret = nanosleep(&sleeptime, NULL);
+    if(ret == -1 and errno != EINTR){
+      perror_plus("nanosleep");
+    }
+  }
+  
+  errno = old_errno;
+  return 0;
+}
+
+error_t take_down_interface(const char *const interface){
+  int sd = -1;
+  error_t old_errno = errno;
+  error_t ret_errno = 0;
+  int ret, ret_setflags;
+  struct ifreq network;
+  unsigned int if_index = if_nametoindex(interface);
+  if(if_index == 0){
+    fprintf_plus(stderr, "No such interface: \"%s\"\n", interface);
+    errno = old_errno;
+    return ENXIO;
+  }
+  if(interface_is_up(interface)){
+    if(not get_flags(interface, &network) and debug){
+      ret_errno = errno;
+      fprintf_plus(stderr, "Failed to get flags for interface "
+		   "\"%s\"\n", interface);
+      return ret_errno;
+    }
+    network.ifr_flags &= ~(short)IFF_UP; /* clear flag */
+    
+    sd = socket(PF_INET6, SOCK_DGRAM, IPPROTO_IP);
+    if(sd < 0){
+      ret_errno = errno;
+      perror_plus("socket");
+      errno = old_errno;
+      return ret_errno;
+    }
+    
+    if(debug){
+      fprintf_plus(stderr, "Taking down interface \"%s\"\n",
+		   interface);
+    }
+    
+    /* Raise priviliges */
+    raise_privileges();
+    
+    ret_setflags = ioctl(sd, SIOCSIFFLAGS, &network);
+    ret_errno = errno;
+    
+    /* Lower privileges */
+    lower_privileges();
+    
+    /* Close the socket */
+    ret = (int)TEMP_FAILURE_RETRY(close(sd));
+    if(ret == -1){
+      perror_plus("close");
+    }
+    
+    if(ret_setflags == -1){
+      errno = ret_errno;
+      perror_plus("ioctl SIOCSIFFLAGS -IFF_UP");
+      errno = old_errno;
+      return ret_errno;
+    }
+  } else if(debug){
+    fprintf_plus(stderr, "Interface \"%s\" is already down; odd\n",
+		 interface);
+  }
+  
+  errno = old_errno;
+  return 0;
+}
+
 int main(int argc, char *argv[]){
   AvahiSServiceBrowser *sb = NULL;
-  int error;
+  error_t ret_errno;
   int ret;
   intmax_t tmpmax;
   char *tmp;
   int exitcode = EXIT_SUCCESS;
-  const char *interface = "";
-  struct ifreq network;
-  int sd = -1;
-  bool take_down_interface = false;
-  uid_t uid;
-  gid_t gid;
+  char *interfaces = NULL;
+  size_t interfaces_size = 0;
+  char *interfaces_to_take_down = NULL;
+  size_t interfaces_to_take_down_size = 0;
   char tempdir[] = "/tmp/mandosXXXXXX";
   bool tempdir_created = false;
   AvahiIfIndex if_index = AVAHI_IF_UNSPEC;
   const char *seckey = PATHDIR "/" SECKEY;
   const char *pubkey = PATHDIR "/" PUBKEY;
+  char *interfaces_hooks = NULL;
+  size_t interfaces_hooks_size = 0;
   
   bool gnutls_initialized = false;
   bool gpgme_initialized = false;
@@ -1640,7 +1854,11 @@ int main(int argc, char *argv[]){
 	connect_to = arg;
 	break;
       case 'i':			/* --interface */
-	interface = arg;
+	ret_errno = argz_add_sep(&interfaces, &interfaces_size, arg,
+				 (int)',');
+	if(ret_errno != 0){
+	  argp_error(state, "%s", strerror(ret_errno));
+	}
 	break;
       case 's':			/* --seckey */
 	seckey = arg;
@@ -1724,11 +1942,7 @@ int main(int argc, char *argv[]){
        <http://bugs.debian.org/633582> */
     
     /* Re-raise priviliges */
-    errno = 0;
-    ret = seteuid(0);
-    if(ret == -1){
-      perror_plus("seteuid");
-    } else {
+    if(raise_privileges() == 0){
       struct stat st;
       
       if(strcmp(seckey, PATHDIR "/" SECKEY) == 0){
@@ -1782,45 +1996,39 @@ int main(int argc, char *argv[]){
     }
   }
   
+  /* Remove empty interface names */
+  {
+    char *interface = NULL;
+    while((interface = argz_next(interfaces, interfaces_size,
+				 interface))){
+      if(if_nametoindex(interface) == 0){
+	if(interface[0] != '\0' and strcmp(interface, "none") != 0){
+	  fprintf_plus(stderr, "Not using nonexisting interface"
+		       " \"%s\"\n", interface);
+	}
+	argz_delete(&interfaces, &interfaces_size, interface);
+	interface = NULL;
+      }
+    }
+  }
+  
   /* Run network hooks */
-  if(not run_network_hooks("start", interface, delay)){
-    goto end;
+  {
+    ret_errno = argz_append(&interfaces_hooks, &interfaces_hooks_size,
+			    interfaces, interfaces_size);
+    if(ret_errno != 0){
+      errno = ret_errno;
+      perror_plus("argz_append");
+      goto end;
+    }
+    argz_stringify(interfaces_hooks, interfaces_hooks_size, (int)',');
+    if(not run_network_hooks("start", interfaces_hooks, delay)){
+      goto end;
+    }
   }
   
   if(not debug){
     avahi_set_log_function(empty_log);
-  }
-  
-  if(interface[0] == '\0'){
-    struct dirent **direntries;
-    /* First look for interfaces that are up */
-    ret = scandir(sys_class_net, &direntries, up_interface,
-		  alphasort);
-    if(ret == 0){
-      /* No up interfaces, look for any good interfaces */
-      free(direntries);
-      ret = scandir(sys_class_net, &direntries, good_interface,
-		    alphasort);
-    }
-    if(ret >= 1){
-      /* Pick the first interface returned */
-      interface = strdup(direntries[0]->d_name);
-      if(debug){
-	fprintf_plus(stderr, "Using interface \"%s\"\n", interface);
-      }
-      if(interface == NULL){
-	perror_plus("malloc");
-	free(direntries);
-	exitcode = EXIT_FAILURE;
-	goto end;
-      }
-      free(direntries);
-    } else {
-      free(direntries);
-      fprintf_plus(stderr, "Could not find a network interface\n");
-      exitcode = EXIT_FAILURE;
-      goto end;
-    }
   }
   
   /* Initialize Avahi early so avahi_simple_poll_quit() can be called
@@ -1898,140 +2106,68 @@ int main(int argc, char *argv[]){
     }
   }
   
-  /* If the interface is down, bring it up */
-  if(strcmp(interface, "none") != 0){
-    if_index = (AvahiIfIndex) if_nametoindex(interface);
-    if(if_index == 0){
-      fprintf_plus(stderr, "No such interface: \"%s\"\n", interface);
-      exitcode = EX_UNAVAILABLE;
-      goto end;
-    }
-    
-    if(quit_now){
-      goto end;
-    }
-    
-    /* Re-raise priviliges */
-    errno = 0;
-    ret = seteuid(0);
-    if(ret == -1){
-      perror_plus("seteuid");
-    }
-    
-#ifdef __linux__
-    /* Lower kernel loglevel to KERN_NOTICE to avoid KERN_INFO
-       messages about the network interface to mess up the prompt */
-    ret = klogctl(8, NULL, 5);
-    bool restore_loglevel = true;
-    if(ret == -1){
-      restore_loglevel = false;
-      perror_plus("klogctl");
-    }
-#endif	/* __linux__ */
-    
-    sd = socket(PF_INET6, SOCK_DGRAM, IPPROTO_IP);
-    if(sd < 0){
-      perror_plus("socket");
-      exitcode = EX_OSERR;
-#ifdef __linux__
-      if(restore_loglevel){
-	ret = klogctl(7, NULL, 0);
-	if(ret == -1){
-	  perror_plus("klogctl");
+  /* If no interfaces were specified, make a list */
+  if(interfaces == NULL){
+    struct dirent **direntries;
+    /* Look for any good interfaces */
+    ret = scandir(sys_class_net, &direntries, good_interface,
+		  alphasort);
+    if(ret >= 1){
+      /* Add all found interfaces to interfaces list */
+      for(int i = 0; i < ret; ++i){
+	ret_errno = argz_add(&interfaces, &interfaces_size,
+			     direntries[i]->d_name);
+	if(ret_errno != 0){
+	  perror_plus("argz_add");
+	  continue;
+	}
+	if(debug){
+	  fprintf_plus(stderr, "Will use interface \"%s\"\n",
+		       direntries[i]->d_name);
 	}
       }
-#endif	/* __linux__ */
-      /* Lower privileges */
-      errno = 0;
-      ret = seteuid(uid);
-      if(ret == -1){
-	perror_plus("seteuid");
-      }
+      free(direntries);
+    } else {
+      free(direntries);
+      fprintf_plus(stderr, "Could not find a network interface\n");
+      exitcode = EXIT_FAILURE;
       goto end;
     }
-    strcpy(network.ifr_name, interface);
-    ret = ioctl(sd, SIOCGIFFLAGS, &network);
-    if(ret == -1){
-      perror_plus("ioctl SIOCGIFFLAGS");
-#ifdef __linux__
-      if(restore_loglevel){
-	ret = klogctl(7, NULL, 0);
-	if(ret == -1){
-	  perror_plus("klogctl");
+  }
+  
+  /* If we only got one interface, explicitly use only that one */
+  if(argz_count(interfaces, interfaces_size) == 1){
+    if(debug){
+      fprintf_plus(stderr, "Using only interface \"%s\"\n",
+		   interfaces);
+    }
+    if_index = (AvahiIfIndex)if_nametoindex(interfaces);
+  }
+  
+  /* Bring up interfaces which are down */
+  if(not (argz_count(interfaces, interfaces_size) == 1
+	  and strcmp(interfaces, "none") == 0)){
+    char *interface = NULL;
+    while((interface = argz_next(interfaces, interfaces_size,
+				 interface))){
+      bool interface_was_up = interface_is_up(interface);
+      ret = bring_up_interface(interface, delay);
+      if(not interface_was_up){
+	if(ret != 0){
+	  errno = ret;
+	  perror_plus("Failed to bring up interface");
+	} else {
+	  ret_errno = argz_add(&interfaces_to_take_down,
+			       &interfaces_to_take_down_size,
+			       interface);
 	}
       }
-#endif	/* __linux__ */
-      exitcode = EX_OSERR;
-      /* Lower privileges */
-      errno = 0;
-      ret = seteuid(uid);
-      if(ret == -1){
-	perror_plus("seteuid");
-      }
-      goto end;
     }
-    if((network.ifr_flags & IFF_UP) == 0){
-      network.ifr_flags |= IFF_UP;
-      take_down_interface = true;
-      ret = ioctl(sd, SIOCSIFFLAGS, &network);
-      if(ret == -1){
-	take_down_interface = false;
-	perror_plus("ioctl SIOCSIFFLAGS +IFF_UP");
-	exitcode = EX_OSERR;
-#ifdef __linux__
-	if(restore_loglevel){
-	  ret = klogctl(7, NULL, 0);
-	  if(ret == -1){
-	    perror_plus("klogctl");
-	  }
-	}
-#endif	/* __linux__ */
-	/* Lower privileges */
-	errno = 0;
-	ret = seteuid(uid);
-	if(ret == -1){
-	  perror_plus("seteuid");
-	}
-	goto end;
-      }
-    }
-    /* Sleep checking until interface is running.
-       Check every 0.25s, up to total time of delay */
-    for(int i=0; i < delay * 4; i++){
-      ret = ioctl(sd, SIOCGIFFLAGS, &network);
-      if(ret == -1){
-	perror_plus("ioctl SIOCGIFFLAGS");
-      } else if(network.ifr_flags & IFF_RUNNING){
-	break;
-      }
-      struct timespec sleeptime = { .tv_nsec = 250000000 };
-      ret = nanosleep(&sleeptime, NULL);
-      if(ret == -1 and errno != EINTR){
-	perror_plus("nanosleep");
-      }
-    }
-    if(not take_down_interface){
-      /* We won't need the socket anymore */
-      ret = (int)TEMP_FAILURE_RETRY(close(sd));
-      if(ret == -1){
-	perror_plus("close");
-      }
-    }
-#ifdef __linux__
-    if(restore_loglevel){
-      /* Restores kernel loglevel to default */
-      ret = klogctl(7, NULL, 0);
-      if(ret == -1){
-	perror_plus("klogctl");
-      }
-    }
-#endif	/* __linux__ */
-    /* Lower privileges */
-    errno = 0;
-    /* Lower privileges */
-    ret = seteuid(uid);
-    if(ret == -1){
-      perror_plus("seteuid");
+    free(interfaces);
+    interfaces = NULL;
+    interfaces_size = 0;
+    if(debug and (interfaces_to_take_down == NULL)){
+      fprintf_plus(stderr, "No interfaces were brought up\n");
     }
   }
   
@@ -2078,6 +2214,7 @@ int main(int argc, char *argv[]){
     /* Connect directly, do not use Zeroconf */
     /* (Mainly meant for debugging) */
     char *address = strrchr(connect_to, ':');
+    
     if(address == NULL){
       fprintf_plus(stderr, "No colon in address\n");
       exitcode = EX_USAGE;
@@ -2158,7 +2295,7 @@ int main(int argc, char *argv[]){
     /* Allocate a new server */
     mc.server = avahi_server_new(avahi_simple_poll_get
 				 (mc.simple_poll), &config, NULL,
-				 NULL, &error);
+				 NULL, &ret_errno);
     
     /* Free the Avahi configuration data */
     avahi_server_config_free(&config);
@@ -2167,7 +2304,7 @@ int main(int argc, char *argv[]){
   /* Check if creating the Avahi server object succeeded */
   if(mc.server == NULL){
     fprintf_plus(stderr, "Failed to create Avahi server: %s\n",
-		 avahi_strerror(error));
+		 avahi_strerror(ret_errno));
     exitcode = EX_UNAVAILABLE;
     goto end;
   }
@@ -2241,41 +2378,36 @@ int main(int argc, char *argv[]){
     }
   }
   
-  /* Run network hooks */
-  run_network_hooks("stop", interface, delay);
-  
   /* Re-raise priviliges */
   {
-    errno = 0;
-    ret = seteuid(0);
-    if(ret == -1){
-      perror_plus("seteuid");
-    }
+    raise_privileges();
     
-    /* Take down the network interface */
-    if(take_down_interface and geteuid() == 0){
-      ret = ioctl(sd, SIOCGIFFLAGS, &network);
-      if(ret == -1){
-	perror_plus("ioctl SIOCGIFFLAGS");
-      } else if(network.ifr_flags & IFF_UP){
-	network.ifr_flags &= ~(short)IFF_UP; /* clear flag */
-	ret = ioctl(sd, SIOCSIFFLAGS, &network);
-	if(ret == -1){
-	  perror_plus("ioctl SIOCSIFFLAGS -IFF_UP");
+    /* Run network hooks */
+    run_network_hooks("stop", interfaces_hooks, delay);
+    
+    /* Take down the network interfaces which were brought up */
+    {
+      char *interface = NULL;
+      while((interface=argz_next(interfaces_to_take_down,
+				 interfaces_to_take_down_size,
+				 interface))){
+	ret_errno = take_down_interface(interface);
+	if(ret_errno != 0){
+	  errno = ret_errno;
+	  perror_plus("Failed to take down interface");
 	}
       }
-      ret = (int)TEMP_FAILURE_RETRY(close(sd));
-      if(ret == -1){
-	perror_plus("close");
+      if(debug and (interfaces_to_take_down == NULL)){
+	fprintf_plus(stderr, "No interfaces needed to be taken"
+		     " down\n");
       }
     }
+    
+    lower_privileges_permanently();
   }
-  /* Lower privileges permanently */
-  errno = 0;
-  ret = setuid(uid);
-  if(ret == -1){
-    perror_plus("setuid");
-  }
+  
+  free(interfaces_to_take_down);
+  free(interfaces_hooks);
   
   /* Removes the GPGME temp directory and all files inside */
   if(tempdir_created){
