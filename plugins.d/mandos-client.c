@@ -1450,7 +1450,14 @@ bool run_network_hooks(const char *mode, const char *interface,
   int numhooks = scandir(hookdir, &direntries, runnable_hook,
 			 alphasort);
   if(numhooks == -1){
-    perror_plus("scandir");
+    if(errno == ENOENT){
+      if(debug){
+	fprintf_plus(stderr, "Network hook directory \"%s\" not"
+		     " found\n", hookdir);
+      }
+    } else {
+      perror_plus("scandir");
+    }
   } else {
     int devnull = open("/dev/null", O_RDONLY);
     for(int i = 0; i < numhooks; i++){
