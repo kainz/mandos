@@ -2021,15 +2021,20 @@ int main(int argc, char *argv[]){
   
   /* Run network hooks */
   {
-    ret_errno = argz_append(&interfaces_hooks, &interfaces_hooks_size,
-			    interfaces, interfaces_size);
-    if(ret_errno != 0){
-      errno = ret_errno;
-      perror_plus("argz_append");
-      goto end;
+    
+    if(interfaces != NULL){
+      interfaces_hooks = malloc(interfaces_size);
+      if(interfaces_hooks == NULL){
+	perror_plus("malloc");
+	goto end;
+      }
+      memcpy(interfaces_hooks, interfaces, interfaces_size);
+      interfaces_hooks_size = interfaces_size;
+      argz_stringify(interfaces_hooks, interfaces_hooks_size,
+		     (int)',');
     }
-    argz_stringify(interfaces_hooks, interfaces_hooks_size, (int)',');
-    if(not run_network_hooks("start", interfaces_hooks, delay)){
+    if(not run_network_hooks("start", interfaces_hooks != NULL ?
+			     interfaces_hooks : "", delay)){
       goto end;
     }
   }
@@ -2390,7 +2395,8 @@ int main(int argc, char *argv[]){
     raise_privileges();
     
     /* Run network hooks */
-    run_network_hooks("stop", interfaces_hooks, delay);
+    run_network_hooks("stop", interfaces_hooks != NULL ?
+		      interfaces_hooks : "", delay);
     
     /* Take down the network interfaces which were brought up */
     {
