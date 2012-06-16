@@ -154,7 +154,6 @@ typedef struct server{
 
 /* Used for passing in values through the Avahi callback functions */
 typedef struct {
-  AvahiSimplePoll *simple_poll;
   AvahiServer *server;
   gnutls_certificate_credentials_t cred;
   unsigned int dh_bits;
@@ -164,11 +163,11 @@ typedef struct {
   server *current_server;
 } mandos_context;
 
-/* global context so signal handler can reach it*/
-mandos_context mc = { .simple_poll = NULL, .server = NULL,
-		      .dh_bits = 1024, .priority = "SECURE256"
-		      ":!CTYPE-X.509:+CTYPE-OPENPGP",
-		      .current_server = NULL };
+/* global so signal handler can reach it*/
+AvahiSimplePoll *simple_poll;
+mandos_context mc = { .server = NULL, .dh_bits = 1024,
+		      .priority = "SECURE256:!CTYPE-X.509:"
+		      "+CTYPE-OPENPGP", .current_server = NULL };
 
 sig_atomic_t quit_now = 0;
 int signal_received = 0;
@@ -253,7 +252,6 @@ static bool init_gpgme(const char *seckey, const char *pubkey,
 		       const char *tempdir){
   gpgme_error_t rc;
   gpgme_engine_info_t engine_info;
-  
   
   /*
    * Helper function to insert pub and seckey to the engine keyring.
@@ -1038,7 +1036,7 @@ static void resolve_callback(AvahiSServiceResolver *r,
 					   interface,
 					   avahi_proto_to_af(proto));
       if(ret == 0){
-	avahi_simple_poll_quit(mc.simple_poll);
+	avahi_simple_poll_quit(simple_poll);
       } else {
 	if(not add_server(ip, (in_port_t)port, interface,
 			  avahi_proto_to_af(proto))){
@@ -1078,7 +1076,7 @@ static void browse_callback(AvahiSServiceBrowser *b,
     
     fprintf_plus(stderr, "(Avahi browser) %s\n",
 		 avahi_strerror(avahi_server_errno(mc.server)));
-    avahi_simple_poll_quit(mc.simple_poll);
+    avahi_simple_poll_quit(simple_poll);
     return;
     
   case AVAHI_BROWSER_NEW:
@@ -1117,8 +1115,8 @@ static void handle_sigterm(int sig){
   signal_received = sig;
   int old_errno = errno;
   /* set main loop to exit */
-  if(mc.simple_poll != NULL){
-    avahi_simple_poll_quit(mc.simple_poll);
+  if(simple_poll != NULL){
+    avahi_simple_poll_quit(simple_poll);
   }
   errno = old_errno;
 }
@@ -1366,7 +1364,7 @@ int avahi_loop_with_timeout(AvahiSimplePoll *s, int retry_interval){
 					 mc.current_server->if_index,
 					 mc.current_server->af);
 	if(ret == 0){
-	  avahi_simple_poll_quit(mc.simple_poll);
+	  avahi_simple_poll_quit(simple_poll);
 	  return 0;
 	}
 	ret = clock_gettime(CLOCK_MONOTONIC,
@@ -2047,8 +2045,8 @@ int main(int argc, char *argv[]){
      from the signal handler */
   /* Initialize the pseudo-RNG for Avahi */
   srand((unsigned int) time(NULL));
-  mc.simple_poll = avahi_simple_poll_new();
-  if(mc.simple_poll == NULL){
+  simple_poll = avahi_simple_poll_new();
+  if(simple_poll == NULL){
     fprintf_plus(stderr,
 		 "Avahi: Failed to create simple poll object.\n");
     exitcode = EX_UNAVAILABLE;
@@ -2305,9 +2303,8 @@ int main(int argc, char *argv[]){
     config.publish_domain = 0;
     
     /* Allocate a new server */
-    mc.server = avahi_server_new(avahi_simple_poll_get
-				 (mc.simple_poll), &config, NULL,
-				 NULL, &ret_errno);
+    mc.server = avahi_server_new(avahi_simple_poll_get(simple_poll),
+				 &config, NULL, NULL, &ret_errno);
     
     /* Free the Avahi configuration data */
     avahi_server_config_free(&config);
@@ -2346,7 +2343,7 @@ int main(int argc, char *argv[]){
     fprintf_plus(stderr, "Starting Avahi loop search\n");
   }
 
-  ret = avahi_loop_with_timeout(mc.simple_poll,
+  ret = avahi_loop_with_timeout(simple_poll,
 				(int)(retry_interval * 1000));
   if(debug){
     fprintf_plus(stderr, "avahi_loop_with_timeout exited %s\n",
@@ -2366,8 +2363,8 @@ int main(int argc, char *argv[]){
   if(mc.server != NULL)
     avahi_server_free(mc.server);
   
-  if(mc.simple_poll != NULL)
-    avahi_simple_poll_free(mc.simple_poll);
+  if(simple_poll != NULL)
+    avahi_simple_poll_free(simple_poll);
   
   if(gnutls_initialized){
     gnutls_certificate_free_credentials(mc.cred);
