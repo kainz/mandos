@@ -161,6 +161,8 @@ typedef struct {
   const char *priority;
   gpgme_ctx_t ctx;
   server *current_server;
+  char *interfaces;
+  size_t interfaces_size;
 } mandos_context;
 
 /* global so signal handler can reach it*/
@@ -1755,15 +1757,14 @@ error_t take_down_interface(const char *const interface){
 int main(int argc, char *argv[]){
   mandos_context mc = { .server = NULL, .dh_bits = 1024,
 			.priority = "SECURE256:!CTYPE-X.509:"
-			"+CTYPE-OPENPGP", .current_server = NULL };
+			"+CTYPE-OPENPGP", .current_server = NULL, 
+			.interfaces = NULL, .interfaces_size = 0 };
   AvahiSServiceBrowser *sb = NULL;
   error_t ret_errno;
   int ret;
   intmax_t tmpmax;
   char *tmp;
   int exitcode = EXIT_SUCCESS;
-  char *interfaces = NULL;
-  size_t interfaces_size = 0;
   char *interfaces_to_take_down = NULL;
   size_t interfaces_to_take_down_size = 0;
   char tempdir[] = "/tmp/mandosXXXXXX";
@@ -1869,8 +1870,8 @@ int main(int argc, char *argv[]){
 	connect_to = arg;
 	break;
       case 'i':			/* --interface */
-	ret_errno = argz_add_sep(&interfaces, &interfaces_size, arg,
-				 (int)',');
+	ret_errno = argz_add_sep(&mc.interfaces, &mc.interfaces_size,
+				 arg, (int)',');
 	if(ret_errno != 0){
 	  argp_error(state, "%s", strerror(ret_errno));
 	}
@@ -2014,14 +2015,14 @@ int main(int argc, char *argv[]){
   /* Remove empty interface names */
   {
     char *interface = NULL;
-    while((interface = argz_next(interfaces, interfaces_size,
+    while((interface = argz_next(mc.interfaces, mc.interfaces_size,
 				 interface))){
       if(if_nametoindex(interface) == 0){
 	if(interface[0] != '\0' and strcmp(interface, "none") != 0){
 	  fprintf_plus(stderr, "Not using nonexisting interface"
 		       " \"%s\"\n", interface);
 	}
-	argz_delete(&interfaces, &interfaces_size, interface);
+	argz_delete(&mc.interfaces, &mc.interfaces_size, interface);
 	interface = NULL;
       }
     }
@@ -2030,14 +2031,14 @@ int main(int argc, char *argv[]){
   /* Run network hooks */
   {
     
-    if(interfaces != NULL){
-      interfaces_hooks = malloc(interfaces_size);
+    if(mc.interfaces != NULL){
+      interfaces_hooks = malloc(mc.interfaces_size);
       if(interfaces_hooks == NULL){
 	perror_plus("malloc");
 	goto end;
       }
-      memcpy(interfaces_hooks, interfaces, interfaces_size);
-      interfaces_hooks_size = interfaces_size;
+      memcpy(interfaces_hooks, mc.interfaces, mc.interfaces_size);
+      interfaces_hooks_size = mc.interfaces_size;
       argz_stringify(interfaces_hooks, interfaces_hooks_size,
 		     (int)',');
     }
@@ -2127,7 +2128,7 @@ int main(int argc, char *argv[]){
   }
   
   /* If no interfaces were specified, make a list */
-  if(interfaces == NULL){
+  if(mc.interfaces == NULL){
     struct dirent **direntries;
     /* Look for any good interfaces */
     ret = scandir(sys_class_net, &direntries, good_interface,
@@ -2135,7 +2136,7 @@ int main(int argc, char *argv[]){
     if(ret >= 1){
       /* Add all found interfaces to interfaces list */
       for(int i = 0; i < ret; ++i){
-	ret_errno = argz_add(&interfaces, &interfaces_size,
+	ret_errno = argz_add(&mc.interfaces, &mc.interfaces_size,
 			     direntries[i]->d_name);
 	if(ret_errno != 0){
 	  perror_plus("argz_add");
@@ -2156,19 +2157,19 @@ int main(int argc, char *argv[]){
   }
   
   /* If we only got one interface, explicitly use only that one */
-  if(argz_count(interfaces, interfaces_size) == 1){
+  if(argz_count(mc.interfaces, mc.interfaces_size) == 1){
     if(debug){
       fprintf_plus(stderr, "Using only interface \"%s\"\n",
-		   interfaces);
+		   mc.interfaces);
     }
-    if_index = (AvahiIfIndex)if_nametoindex(interfaces);
+    if_index = (AvahiIfIndex)if_nametoindex(mc.interfaces);
   }
   
   /* Bring up interfaces which are down */
-  if(not (argz_count(interfaces, interfaces_size) == 1
-	  and strcmp(interfaces, "none") == 0)){
+  if(not (argz_count(mc.interfaces, mc.interfaces_size) == 1
+	  and strcmp(mc.interfaces, "none") == 0)){
     char *interface = NULL;
-    while((interface = argz_next(interfaces, interfaces_size,
+    while((interface = argz_next(mc.interfaces, mc.interfaces_size,
 				 interface))){
       bool interface_was_up = interface_is_up(interface);
       ret = bring_up_interface(interface, delay);
@@ -2183,9 +2184,9 @@ int main(int argc, char *argv[]){
 	}
       }
     }
-    free(interfaces);
-    interfaces = NULL;
-    interfaces_size = 0;
+    free(mc.interfaces);
+    mc.interfaces = NULL;
+    mc.interfaces_size = 0;
     if(debug and (interfaces_to_take_down == NULL)){
       fprintf_plus(stderr, "No interfaces were brought up\n");
     }
