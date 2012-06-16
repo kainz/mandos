@@ -10,6 +10,7 @@
 ** TODO [#B] Use getaddrinfo(hints=AI_NUMERICHOST) instead of inet_pton()
 ** TODO [#B] Use getnameinfo(serv=NULL, NI_NUMERICHOST) instead of inet_ntop()
 ** TODO [#B] Prefer /run/tmp over /tmp, if it exists
+** TODO [#C] Make start_mandos_communication() take "struct server".
 
 * splashy
 ** TODO [#B] use scandir(3) instead of readdir(3)

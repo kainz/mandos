@@ -165,9 +165,6 @@ typedef struct {
 
 /* global so signal handler can reach it*/
 AvahiSimplePoll *simple_poll;
-mandos_context mc = { .server = NULL, .dh_bits = 1024,
-		      .priority = "SECURE256:!CTYPE-X.509:"
-		      "+CTYPE-OPENPGP", .current_server = NULL };
 
 sig_atomic_t quit_now = 0;
 int signal_received = 0;
@@ -210,7 +207,7 @@ size_t incbuffer(char **buffer, size_t buffer_length,
 
 /* Add server to set of servers to retry periodically */
 bool add_server(const char *ip, in_port_t port, AvahiIfIndex if_index,
-		int af){
+		int af, server **current_server){
   int ret;
   server *new_server = malloc(sizeof(server));
   if(new_server == NULL){
@@ -226,18 +223,18 @@ bool add_server(const char *ip, in_port_t port, AvahiIfIndex if_index,
     return false;
   }
   /* Special case of first server */
-  if (mc.current_server == NULL){
+  if(*current_server == NULL){
     new_server->next = new_server;
     new_server->prev = new_server;
-    mc.current_server = new_server;
+    *current_server = new_server;
   /* Place the new server last in the list */
   } else {
-    new_server->next = mc.current_server;
-    new_server->prev = mc.current_server->prev;
+    new_server->next = *current_server;
+    new_server->prev = (*current_server)->prev;
     new_server->prev->next = new_server;
-    mc.current_server->prev = new_server;
+    (*current_server)->prev = new_server;
   }
-  ret = clock_gettime(CLOCK_MONOTONIC, &mc.current_server->last_seen);
+  ret = clock_gettime(CLOCK_MONOTONIC, &(*current_server)->last_seen);
   if(ret == -1){
     perror_plus("clock_gettime");
     return false;
@@ -249,7 +246,7 @@ bool add_server(const char *ip, in_port_t port, AvahiIfIndex if_index,
  * Initialize GPGME.
  */
 static bool init_gpgme(const char *seckey, const char *pubkey,
-		       const char *tempdir){
+		       const char *tempdir, mandos_context *mc){
   gpgme_error_t rc;
   gpgme_engine_info_t engine_info;
   
@@ -274,7 +271,7 @@ static bool init_gpgme(const char *seckey, const char *pubkey,
       return false;
     }
     
-    rc = gpgme_op_import(mc.ctx, pgp_data);
+    rc = gpgme_op_import(mc->ctx, pgp_data);
     if(rc != GPG_ERR_NO_ERROR){
       fprintf_plus(stderr, "bad gpgme_op_import: %s: %s\n",
 		   gpgme_strsource(rc), gpgme_strerror(rc));
@@ -324,7 +321,7 @@ static bool init_gpgme(const char *seckey, const char *pubkey,
   }
   
   /* Create new GPGME "context" */
-  rc = gpgme_new(&(mc.ctx));
+  rc = gpgme_new(&(mc->ctx));
   if(rc != GPG_ERR_NO_ERROR){
     fprintf_plus(stderr, "Mandos plugin mandos-client: "
 		 "bad gpgme_new: %s: %s\n", gpgme_strsource(rc),
@@ -345,7 +342,8 @@ static bool init_gpgme(const char *seckey, const char *pubkey,
  */
 static ssize_t pgp_packet_decrypt(const char *cryptotext,
 				  size_t crypto_size,
-				  char **plaintext){
+				  char **plaintext,
+				  mandos_context *mc){
   gpgme_data_t dh_crypto, dh_plain;
   gpgme_error_t rc;
   ssize_t ret;
@@ -377,14 +375,14 @@ static ssize_t pgp_packet_decrypt(const char *cryptotext,
   
   /* Decrypt data from the cryptotext data buffer to the plaintext
      data buffer */
-  rc = gpgme_op_decrypt(mc.ctx, dh_crypto, dh_plain);
+  rc = gpgme_op_decrypt(mc->ctx, dh_crypto, dh_plain);
   if(rc != GPG_ERR_NO_ERROR){
     fprintf_plus(stderr, "bad gpgme_op_decrypt: %s: %s\n",
 		 gpgme_strsource(rc), gpgme_strerror(rc));
     plaintext_length = -1;
     if(debug){
       gpgme_decrypt_result_t result;
-      result = gpgme_op_decrypt_result(mc.ctx);
+      result = gpgme_op_decrypt_result(mc->ctx);
       if(result == NULL){
 	fprintf_plus(stderr, "gpgme_op_decrypt_result failed\n");
       } else {
@@ -481,7 +479,8 @@ static void debuggnutls(__attribute__((unused)) int level,
 }
 
 static int init_gnutls_global(const char *pubkeyfilename,
-			      const char *seckeyfilename){
+			      const char *seckeyfilename,
+			      mandos_context *mc){
   int ret;
   
   if(debug){
@@ -504,7 +503,7 @@ static int init_gnutls_global(const char *pubkeyfilename,
   }
   
   /* OpenPGP credentials */
-  ret = gnutls_certificate_allocate_credentials(&mc.cred);
+  ret = gnutls_certificate_allocate_credentials(&mc->cred);
   if(ret != GNUTLS_E_SUCCESS){
     fprintf_plus(stderr, "GnuTLS memory error: %s\n",
 		 safer_gnutls_strerror(ret));
@@ -520,7 +519,7 @@ static int init_gnutls_global(const char *pubkeyfilename,
   }
   
   ret = gnutls_certificate_set_openpgp_key_file
-    (mc.cred, pubkeyfilename, seckeyfilename,
+    (mc->cred, pubkeyfilename, seckeyfilename,
      GNUTLS_OPENPGP_FMT_BASE64);
   if(ret != GNUTLS_E_SUCCESS){
     fprintf_plus(stderr,
@@ -532,33 +531,34 @@ static int init_gnutls_global(const char *pubkeyfilename,
   }
   
   /* GnuTLS server initialization */
-  ret = gnutls_dh_params_init(&mc.dh_params);
+  ret = gnutls_dh_params_init(&mc->dh_params);
   if(ret != GNUTLS_E_SUCCESS){
     fprintf_plus(stderr, "Error in GnuTLS DH parameter"
 		 " initialization: %s\n",
 		 safer_gnutls_strerror(ret));
     goto globalfail;
   }
-  ret = gnutls_dh_params_generate2(mc.dh_params, mc.dh_bits);
+  ret = gnutls_dh_params_generate2(mc->dh_params, mc->dh_bits);
   if(ret != GNUTLS_E_SUCCESS){
     fprintf_plus(stderr, "Error in GnuTLS prime generation: %s\n",
 		 safer_gnutls_strerror(ret));
     goto globalfail;
   }
   
-  gnutls_certificate_set_dh_params(mc.cred, mc.dh_params);
+  gnutls_certificate_set_dh_params(mc->cred, mc->dh_params);
   
   return 0;
   
  globalfail:
   
-  gnutls_certificate_free_credentials(mc.cred);
+  gnutls_certificate_free_credentials(mc->cred);
   gnutls_global_deinit();
-  gnutls_dh_params_deinit(mc.dh_params);
+  gnutls_dh_params_deinit(mc->dh_params);
   return -1;
 }
 
-static int init_gnutls_session(gnutls_session_t *session){
+static int init_gnutls_session(gnutls_session_t *session,
+			       mandos_context *mc){
   int ret;
   /* GnuTLS session creation */
   do {
@@ -576,7 +576,7 @@ static int init_gnutls_session(gnutls_session_t *session){
   {
     const char *err;
     do {
-      ret = gnutls_priority_set_direct(*session, mc.priority, &err);
+      ret = gnutls_priority_set_direct(*session, mc->priority, &err);
       if(quit_now){
 	gnutls_deinit(*session);
 	return -1;
@@ -593,7 +593,7 @@ static int init_gnutls_session(gnutls_session_t *session){
   
   do {
     ret = gnutls_credentials_set(*session, GNUTLS_CRD_CERTIFICATE,
-				 mc.cred);
+				 mc->cred);
     if(quit_now){
       gnutls_deinit(*session);
       return -1;
@@ -609,7 +609,7 @@ static int init_gnutls_session(gnutls_session_t *session){
   /* ignore client certificate if any. */
   gnutls_certificate_server_set_request(*session, GNUTLS_CERT_IGNORE);
   
-  gnutls_dh_set_prime_bits(*session, mc.dh_bits);
+  gnutls_dh_set_prime_bits(*session, mc->dh_bits);
   
   return 0;
 }
@@ -621,7 +621,7 @@ static void empty_log(__attribute__((unused)) AvahiLogLevel level,
 /* Called when a Mandos server is found */
 static int start_mandos_communication(const char *ip, in_port_t port,
 				      AvahiIfIndex if_index,
-				      int af){
+				      int af, mandos_context *mc){
   int ret, tcp_sd = -1;
   ssize_t sret;
   union {
@@ -657,7 +657,7 @@ static int start_mandos_communication(const char *ip, in_port_t port,
     return -1;
   }
   
-  ret = init_gnutls_session(&session);
+  ret = init_gnutls_session(&session, mc);
   if(ret != 0){
     return -1;
   }
@@ -935,7 +935,7 @@ static int start_mandos_communication(const char *ip, in_port_t port,
   if(buffer_length > 0){
     ssize_t decrypted_buffer_size;
     decrypted_buffer_size = pgp_packet_decrypt(buffer, buffer_length,
-					       &decrypted_buffer);
+					       &decrypted_buffer, mc);
     if(decrypted_buffer_size >= 0){
       
       written = 0;
@@ -1002,7 +1002,7 @@ static void resolve_callback(AvahiSServiceResolver *r,
 			     AVAHI_GCC_UNUSED AvahiStringList *txt,
 			     AVAHI_GCC_UNUSED AvahiLookupResultFlags
 			     flags,
-			     AVAHI_GCC_UNUSED void* userdata){
+			     void* mc){
   if(r == NULL){
     return;
   }
@@ -1020,7 +1020,8 @@ static void resolve_callback(AvahiSServiceResolver *r,
     fprintf_plus(stderr, "(Avahi Resolver) Failed to resolve service "
 		 "'%s' of type '%s' in domain '%s': %s\n", name, type,
 		 domain,
-		 avahi_strerror(avahi_server_errno(mc.server)));
+		 avahi_strerror(avahi_server_errno
+				(((mandos_context*)mc)->server)));
     break;
     
   case AVAHI_RESOLVER_FOUND:
@@ -1034,12 +1035,14 @@ static void resolve_callback(AvahiSServiceResolver *r,
       }
       int ret = start_mandos_communication(ip, (in_port_t)port,
 					   interface,
-					   avahi_proto_to_af(proto));
+					   avahi_proto_to_af(proto),
+					   mc);
       if(ret == 0){
 	avahi_simple_poll_quit(simple_poll);
       } else {
 	if(not add_server(ip, (in_port_t)port, interface,
-			  avahi_proto_to_af(proto))){
+			  avahi_proto_to_af(proto),
+			  &((mandos_context*)mc)->current_server)){
 	  fprintf_plus(stderr, "Failed to add server \"%s\" to server"
 		       " list\n", name);
 	}
@@ -1058,7 +1061,7 @@ static void browse_callback(AvahiSServiceBrowser *b,
 			    const char *domain,
 			    AVAHI_GCC_UNUSED AvahiLookupResultFlags
 			    flags,
-			    AVAHI_GCC_UNUSED void* userdata){
+			    void* mc){
   if(b == NULL){
     return;
   }
@@ -1075,7 +1078,8 @@ static void browse_callback(AvahiSServiceBrowser *b,
   case AVAHI_BROWSER_FAILURE:
     
     fprintf_plus(stderr, "(Avahi browser) %s\n",
-		 avahi_strerror(avahi_server_errno(mc.server)));
+		 avahi_strerror(avahi_server_errno
+				(((mandos_context*)mc)->server)));
     avahi_simple_poll_quit(simple_poll);
     return;
     
@@ -1085,12 +1089,14 @@ static void browse_callback(AvahiSServiceBrowser *b,
        the callback function is called the Avahi server will free the
        resolver for us. */
     
-    if(avahi_s_service_resolver_new(mc.server, interface, protocol,
-				    name, type, domain, protocol, 0,
-				    resolve_callback, NULL) == NULL)
+    if(avahi_s_service_resolver_new(((mandos_context*)mc)->server,
+				    interface, protocol, name, type,
+				    domain, protocol, 0,
+				    resolve_callback, mc) == NULL)
       fprintf_plus(stderr, "Avahi: Failed to resolve service '%s':"
 		   " %s\n", name,
-		   avahi_strerror(avahi_server_errno(mc.server)));
+		   avahi_strerror(avahi_server_errno
+				  (((mandos_context*)mc)->server)));
     break;
     
   case AVAHI_BROWSER_REMOVE:
@@ -1316,14 +1322,15 @@ int runnable_hook(const struct dirent *direntry){
   return 1;
 }
 
-int avahi_loop_with_timeout(AvahiSimplePoll *s, int retry_interval){
+int avahi_loop_with_timeout(AvahiSimplePoll *s, int retry_interval,
+			    mandos_context *mc){
   int ret;
   struct timespec now;
   struct timespec waited_time;
   intmax_t block_time;
   
   while(true){
-    if(mc.current_server == NULL){
+    if(mc->current_server == NULL){
       if (debug){
 	fprintf_plus(stderr, "Wait until first server is found."
 		     " No timeout!\n");
@@ -1343,9 +1350,9 @@ int avahi_loop_with_timeout(AvahiSimplePoll *s, int retry_interval){
       /* Calculating in ms how long time between now and server
 	 who we visted longest time ago. Now - last seen.  */
       waited_time.tv_sec = (now.tv_sec
-			    - mc.current_server->last_seen.tv_sec);
+			    - mc->current_server->last_seen.tv_sec);
       waited_time.tv_nsec = (now.tv_nsec
-			     - mc.current_server->last_seen.tv_nsec);
+			     - mc->current_server->last_seen.tv_nsec);
       /* total time is 10s/10,000ms.
 	 Converting to s from ms by dividing by 1,000,
 	 and ns to ms by dividing by 1,000,000. */
@@ -1359,21 +1366,21 @@ int avahi_loop_with_timeout(AvahiSimplePoll *s, int retry_interval){
       }
       
       if(block_time <= 0){
-	ret = start_mandos_communication(mc.current_server->ip,
-					 mc.current_server->port,
-					 mc.current_server->if_index,
-					 mc.current_server->af);
+	ret = start_mandos_communication(mc->current_server->ip,
+					 mc->current_server->port,
+					 mc->current_server->if_index,
+					 mc->current_server->af, mc);
 	if(ret == 0){
-	  avahi_simple_poll_quit(simple_poll);
+	  avahi_simple_poll_quit(s);
 	  return 0;
 	}
 	ret = clock_gettime(CLOCK_MONOTONIC,
-			    &mc.current_server->last_seen);
+			    &mc->current_server->last_seen);
 	if(ret == -1){
 	  perror_plus("clock_gettime");
 	  return -1;
 	}
-	mc.current_server = mc.current_server->next;
+	mc->current_server = mc->current_server->next;
 	block_time = 0; 	/* Call avahi to find new Mandos
 				   servers, but don't block */
       }
@@ -1746,6 +1753,9 @@ error_t take_down_interface(const char *const interface){
 }
 
 int main(int argc, char *argv[]){
+  mandos_context mc = { .server = NULL, .dh_bits = 1024,
+			.priority = "SECURE256:!CTYPE-X.509:"
+			"+CTYPE-OPENPGP", .current_server = NULL };
   AvahiSServiceBrowser *sb = NULL;
   error_t ret_errno;
   int ret;
@@ -2185,7 +2195,7 @@ int main(int argc, char *argv[]){
     goto end;
   }
   
-  ret = init_gnutls_global(pubkey, seckey);
+  ret = init_gnutls_global(pubkey, seckey, &mc);
   if(ret == -1){
     fprintf_plus(stderr, "init_gnutls_global failed\n");
     exitcode = EX_UNAVAILABLE;
@@ -2208,7 +2218,7 @@ int main(int argc, char *argv[]){
     goto end;
   }
   
-  if(not init_gpgme(pubkey, seckey, tempdir)){
+  if(not init_gpgme(pubkey, seckey, tempdir, &mc)){
     fprintf_plus(stderr, "init_gpgme failed\n");
     exitcode = EX_UNAVAILABLE;
     goto end;
@@ -2271,7 +2281,8 @@ int main(int argc, char *argv[]){
     }
     
     while(not quit_now){
-      ret = start_mandos_communication(address, port, if_index, af);
+      ret = start_mandos_communication(address, port, if_index, af,
+				       &mc);
       if(quit_now or ret == 0){
 	break;
       }
@@ -2325,7 +2336,8 @@ int main(int argc, char *argv[]){
   /* Create the Avahi service browser */
   sb = avahi_s_service_browser_new(mc.server, if_index,
 				   AVAHI_PROTO_UNSPEC, "_mandos._tcp",
-				   NULL, 0, browse_callback, NULL);
+				   NULL, 0, browse_callback,
+				   (void *)&mc);
   if(sb == NULL){
     fprintf_plus(stderr, "Failed to create service browser: %s\n",
 		 avahi_strerror(avahi_server_errno(mc.server)));
@@ -2344,7 +2356,7 @@ int main(int argc, char *argv[]){
   }
 
   ret = avahi_loop_with_timeout(simple_poll,
-				(int)(retry_interval * 1000));
+				(int)(retry_interval * 1000), &mc);
   if(debug){
     fprintf_plus(stderr, "avahi_loop_with_timeout exited %s\n",
 		 (ret == 0) ? "successfully" : "with error");
