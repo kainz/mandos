@@ -32,9 +32,9 @@
 
 * Specifying a Client Network Interface
   
-  At boot time the network interface to use will by default be
-  automatically detected.  If this should result in an incorrect
-  interface, edit the DEVICE setting in the
+  At boot time the network interfaces to use will by default be
+  automatically detected.  If this should result in incorrect
+  interfaces, edit the DEVICE setting in the
   "/etc/initramfs-tools/initramfs.conf" file.  (The default setting is
   empty, meaning it will autodetect the interface.)  *If* the DEVICE
   setting is changed, it will be necessary to update the initrd image
@@ -42,21 +42,21 @@
   
 	update-initramfs -k all -u
   
-  The device can be overridden at boot time on the Linux kernel
+  The device can also be overridden at boot time on the Linux kernel
   command line using the sixth colon-separated field of the "ip="
   option; for exact syntax, read the documentation in the file
   "/usr/share/doc/linux-doc-*/Documentation/filesystems/nfsroot.txt",
   available in the "linux-doc-*" package.
   
-  Note that since this network interface is used in the initial RAM
-  disk environment, the network interface *must* exist at that stage.
-  Thus, the interface can *not* be a pseudo-interface such as "br0" or
-  "tun0"; instead, only real interface (such as "eth0") can be used.
+  Note that since the network interfaces are used in the initial RAM
+  disk environment, the network interfaces *must* exist at that stage.
+  Thus, an interface can *not* be a pseudo-interface such as "br0" or
+  "tun0"; instead, only real interfaces (such as "eth0") can be used.
   This can be overcome by writing a "network hook" program to create
-  the interface (see mandos-client(8mandos)) and placing it in
+  an interface (see mandos-client(8mandos)) and placing it in
   "/etc/mandos/network-hooks.d", from where it will be copied into the
   initial RAM disk.  Example network hook scripts can be found in
-  "/usr/share/doc/mandos-client/network-hooks.d".
+  "/usr/share/doc/mandos-client/examples/network-hooks.d".
 
 * User-Supplied Plugins
   
@@ -90,4 +90,4 @@
   work, "--options-for=mandos-client:--connect=<ADDRESS>:<PORT>" needs
   to be manually added to the file "/etc/mandos/plugin-runner.conf".
 
- -- Teddy Hogeborn <teddy@recompile.se>, Mon, 28 Nov 2011 23:07:22 +0100
+ -- Teddy Hogeborn <teddy@recompile.se>, Sat, 16 Jun 2012 13:09:58 +0200

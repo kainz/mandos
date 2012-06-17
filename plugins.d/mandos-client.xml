@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY COMMANDNAME "mandos-client">
-<!ENTITY TIMESTAMP "2012-05-27">
+<!ENTITY TIMESTAMP "2012-06-17">
 <!ENTITY % common SYSTEM "../common.ent">
 %common;
 ]>
@@ -64,11 +64,13 @@
 	><replaceable>PORT</replaceable></option></arg>
       </group>
       <sbr/>
-      <group>
+      <group rep='repeat'>
 	<arg choice="plain"><option>--interface
-	<replaceable>NAME</replaceable></option></arg>
-	<arg choice="plain"><option>-i
-	<replaceable>NAME</replaceable></option></arg>
+	<replaceable>NAME</replaceable><arg rep='repeat'
+	>,<replaceable>NAME</replaceable></arg></option></arg>
+	<arg choice="plain"><option>-i <replaceable>NAME</replaceable
+	><arg rep='repeat'>,<replaceable>NAME</replaceable></arg
+	></option></arg>
       </group>
       <sbr/>
       <group>
@@ -137,10 +139,10 @@
       communicates with <citerefentry><refentrytitle
       >mandos</refentrytitle><manvolnum>8</manvolnum></citerefentry>
       to get a password.  In slightly more detail, this client program
-      brings up a network interface, uses the interface’s IPv6
-      link-local address to get network connectivity, uses Zeroconf to
-      find servers on the local network, and communicates with servers
-      using TLS with an OpenPGP key to ensure authenticity and
+      brings up network interfaces, uses the interfaces’ IPv6
+      link-local addresses to get network connectivity, uses Zeroconf
+      to find servers on the local network, and communicates with
+      servers using TLS with an OpenPGP key to ensure authenticity and
       confidentiality.  This client program keeps running, trying all
       servers on the network, until it receives a satisfactory reply
       or a TERM signal.  After all servers have been tried, all
@@ -148,23 +150,21 @@
       will wait indefinitely for new servers to appear.
     </para>
     <para>
-      The network interface is selected like this: If an interface is
-      specified using the <option>--interface</option> option, that
-      interface is used.  Otherwise, <command>&COMMANDNAME;</command>
-      will choose any interface that is up and running and is not a
-      loopback interface, is not a point-to-point interface, is
-      capable of broadcasting and does not have the NOARP flag (see
+      The network interfaces are selected like this: If any interfaces
+      are specified using the <option>--interface</option> option,
+      those interface are used.  Otherwise,
+      <command>&COMMANDNAME;</command> will use all interfaces that
+      are not loopback interfaces, are not point-to-point interfaces,
+      are capable of broadcasting and do not have the NOARP flag (see
       <citerefentry><refentrytitle>netdevice</refentrytitle>
       <manvolnum>7</manvolnum></citerefentry>).  (If the
       <option>--connect</option> option is used, point-to-point
-      interfaces and non-broadcast interfaces are accepted.)  If no
-      acceptable interfaces are found, re-run the check but without
-      the <quote>up and running</quote> requirement, and manually take
-      the selected interface up (and later take it down on program
-      exit).
+      interfaces and non-broadcast interfaces are accepted.)  If any
+      used interfaces are not up and running, they are first taken up
+      (and later taken down again on program exit).
     </para>
     <para>
-      Before a network interface is selected, all <quote>network
+      Before network interfaces are selected, all <quote>network
       hooks</quote> are run; see <xref linkend="network-hooks"/>.
     </para>
     <para>
@@ -226,37 +226,42 @@
       
       <varlistentry>
 	<term><option>--interface=<replaceable
-	>NAME</replaceable></option></term>
+	>NAME</replaceable><arg rep='repeat'>,<replaceable
+	>NAME</replaceable></arg></option></term>
 	<term><option>-i
-	<replaceable>NAME</replaceable></option></term>
+	<replaceable>NAME</replaceable><arg rep='repeat'>,<replaceable
+	>NAME</replaceable></arg></option></term>
 	<listitem>
 	  <para>
-	    Network interface that will be brought up and scanned for
-	    Mandos servers to connect to.  The default is the empty
-	    string, which will automatically choose an appropriate
-	    interface.
+	    Comma separated list of network interfaces that will be
+	    brought up and scanned for Mandos servers to connect to.
+	    The default is the empty string, which will automatically
+	    use all appropriate interfaces.
 	  </para>
 	  <para>
-	    If the <option>--connect</option> option is used, this
-	    specifies the interface to use to connect to the address
-	    given.
+	    If the <option>--connect</option> option is used, and
+	    exactly one interface name is specified (except
+	    <quote><literal>none</literal></quote>), this specifies
+	    the interface to use to connect to the address given.
 	  </para>
 	  <para>
 	    Note that since this program will normally run in the
 	    initial RAM disk environment, the interface must be an
 	    interface which exists at that stage.  Thus, the interface
-	    can not be a pseudo-interface such as <quote>br0</quote>
-	    or <quote>tun0</quote>; such interfaces will not exist
-	    until much later in the boot process, and can not be used
-	    by this program, unless created by a <quote>network
-	    hook</quote> — see <xref linkend="network-hooks"/>.
+	    can normally not be a pseudo-interface such as
+	    <quote>br0</quote> or <quote>tun0</quote>; such interfaces
+	    will not exist until much later in the boot process, and
+	    can not be used by this program, unless created by a
+	    <quote>network hook</quote> — see <xref
+	    linkend="network-hooks"/>.
 	  </para>
 	  <para>
 	    <replaceable>NAME</replaceable> can be the string
-	    <quote><literal>none</literal></quote>; this will not use
-	    any specific interface, and will not bring up an interface
-	    on startup.  This is not recommended, and only meant for
-	    advanced users.
+	    <quote><literal>none</literal></quote>; this will make
+	    <command>&COMMANDNAME;</command> not bring up
+	    <emphasis>any</emphasis> interfaces specified
+	    <emphasis>after</emphasis> this string.  This is not
+	    recommended, and only meant for advanced users.
 	  </para>
 	</listitem>
       </varlistentry>
@@ -314,7 +319,7 @@
 	>SECONDS</replaceable></option></term>
 	<listitem>
 	  <para>
-	    After bringing the network interface up, the program waits
+	    After bringing a network interface up, the program waits
 	    for the interface to arrive in a <quote>running</quote>
 	    state before proceeding.  During this time, the kernel log
 	    level will be lowered to reduce clutter on the system
@@ -547,11 +552,12 @@
 	  <term><envar>DEVICE</envar></term>
 	  <listitem>
 	    <para>
-	      The network interface, as specified to
+	      The network interfaces, as specified to
 	      <command>&COMMANDNAME;</command> by the
-	      <option>--interface</option> option.  If this is not the
-	      interface a hook will bring up, there is no reason for a
-	      hook to continue.
+	      <option>--interface</option> option, combined to one
+	      string and separated by commas.  If this is set, and
+	      does not contain the interface a hook will bring up,
+	      there is no reason for a hook to continue.
 	    </para>
 	  </listitem>
 	</varlistentry>

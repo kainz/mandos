@@ -61,7 +61,6 @@
 				 */
 #include <inttypes.h>		/* PRIu16, PRIdMAX, intmax_t,
 				   strtoimax() */
-#include <assert.h>		/* assert() */
 #include <errno.h>		/* perror(), errno,
 				   program_invocation_short_name */
 #include <time.h>		/* nanosleep(), time(), sleep() */
@@ -88,6 +87,10 @@
 #include <sys/wait.h>		/* waitpid(), WIFEXITED(),
 				   WEXITSTATUS(), WTERMSIG() */
 #include <grp.h>		/* setgroups() */
+#include <argz.h>		/* argz_add_sep(), argz_next(),
+				   argz_delete(), argz_append(),
+				   argz_stringify(), argz_add(),
+				   argz_count() */
 
 #ifdef __linux__
 #include <sys/klog.h> 		/* klogctl() */
@@ -135,11 +138,13 @@ const char *argp_program_bug_address = "<mandos@recompile.se>";
 static const char sys_class_net[] = "/sys/class/net";
 char *connect_to = NULL;
 const char *hookdir = HOOKDIR;
+uid_t uid = 65534;
+gid_t gid = 65534;
 
 /* Doubly linked list that need to be circularly linked when used */
 typedef struct server{
   const char *ip;
-  uint16_t port;
+  in_port_t port;
   AvahiIfIndex if_index;
   int af;
   struct timespec last_seen;
@@ -149,7 +154,6 @@ typedef struct server{
 
 /* Used for passing in values through the Avahi callback functions */
 typedef struct {
-  AvahiSimplePoll *simple_poll;
   AvahiServer *server;
   gnutls_certificate_credentials_t cred;
   unsigned int dh_bits;
@@ -157,13 +161,12 @@ typedef struct {
   const char *priority;
   gpgme_ctx_t ctx;
   server *current_server;
+  char *interfaces;
+  size_t interfaces_size;
 } mandos_context;
 
-/* global context so signal handler can reach it*/
-mandos_context mc = { .simple_poll = NULL, .server = NULL,
-		      .dh_bits = 1024, .priority = "SECURE256"
-		      ":!CTYPE-X.509:+CTYPE-OPENPGP",
-		      .current_server = NULL };
+/* global so signal handler can reach it*/
+AvahiSimplePoll *simple_poll;
 
 sig_atomic_t quit_now = 0;
 int signal_received = 0;
@@ -205,8 +208,8 @@ size_t incbuffer(char **buffer, size_t buffer_length,
 }
 
 /* Add server to set of servers to retry periodically */
-bool add_server(const char *ip, uint16_t port, AvahiIfIndex if_index,
-		int af){
+bool add_server(const char *ip, in_port_t port, AvahiIfIndex if_index,
+		int af, server **current_server){
   int ret;
   server *new_server = malloc(sizeof(server));
   if(new_server == NULL){
@@ -222,18 +225,18 @@ bool add_server(const char *ip, uint16_t port, AvahiIfIndex if_index,
     return false;
   }
   /* Special case of first server */
-  if (mc.current_server == NULL){
+  if(*current_server == NULL){
     new_server->next = new_server;
     new_server->prev = new_server;
-    mc.current_server = new_server;
+    *current_server = new_server;
   /* Place the new server last in the list */
   } else {
-    new_server->next = mc.current_server;
-    new_server->prev = mc.current_server->prev;
+    new_server->next = *current_server;
+    new_server->prev = (*current_server)->prev;
     new_server->prev->next = new_server;
-    mc.current_server->prev = new_server;
+    (*current_server)->prev = new_server;
   }
-  ret = clock_gettime(CLOCK_MONOTONIC, &mc.current_server->last_seen);
+  ret = clock_gettime(CLOCK_MONOTONIC, &(*current_server)->last_seen);
   if(ret == -1){
     perror_plus("clock_gettime");
     return false;
@@ -245,10 +248,9 @@ bool add_server(const char *ip, uint16_t port, AvahiIfIndex if_index,
  * Initialize GPGME.
  */
 static bool init_gpgme(const char *seckey, const char *pubkey,
-		       const char *tempdir){
+		       const char *tempdir, mandos_context *mc){
   gpgme_error_t rc;
   gpgme_engine_info_t engine_info;
-  
   
   /*
    * Helper function to insert pub and seckey to the engine keyring.
@@ -271,7 +273,7 @@ static bool init_gpgme(const char *seckey, const char *pubkey,
       return false;
     }
     
-    rc = gpgme_op_import(mc.ctx, pgp_data);
+    rc = gpgme_op_import(mc->ctx, pgp_data);
     if(rc != GPG_ERR_NO_ERROR){
       fprintf_plus(stderr, "bad gpgme_op_import: %s: %s\n",
 		   gpgme_strsource(rc), gpgme_strerror(rc));
@@ -321,7 +323,7 @@ static bool init_gpgme(const char *seckey, const char *pubkey,
   }
   
   /* Create new GPGME "context" */
-  rc = gpgme_new(&(mc.ctx));
+  rc = gpgme_new(&(mc->ctx));
   if(rc != GPG_ERR_NO_ERROR){
     fprintf_plus(stderr, "Mandos plugin mandos-client: "
 		 "bad gpgme_new: %s: %s\n", gpgme_strsource(rc),
@@ -342,7 +344,8 @@ static bool init_gpgme(const char *seckey, const char *pubkey,
  */
 static ssize_t pgp_packet_decrypt(const char *cryptotext,
 				  size_t crypto_size,
-				  char **plaintext){
+				  char **plaintext,
+				  mandos_context *mc){
   gpgme_data_t dh_crypto, dh_plain;
   gpgme_error_t rc;
   ssize_t ret;
@@ -374,14 +377,14 @@ static ssize_t pgp_packet_decrypt(const char *cryptotext,
   
   /* Decrypt data from the cryptotext data buffer to the plaintext
      data buffer */
-  rc = gpgme_op_decrypt(mc.ctx, dh_crypto, dh_plain);
+  rc = gpgme_op_decrypt(mc->ctx, dh_crypto, dh_plain);
   if(rc != GPG_ERR_NO_ERROR){
     fprintf_plus(stderr, "bad gpgme_op_decrypt: %s: %s\n",
 		 gpgme_strsource(rc), gpgme_strerror(rc));
     plaintext_length = -1;
     if(debug){
       gpgme_decrypt_result_t result;
-      result = gpgme_op_decrypt_result(mc.ctx);
+      result = gpgme_op_decrypt_result(mc->ctx);
       if(result == NULL){
 	fprintf_plus(stderr, "gpgme_op_decrypt_result failed\n");
       } else {
@@ -465,8 +468,7 @@ static ssize_t pgp_packet_decrypt(const char *cryptotext,
 }
 
 static const char * safer_gnutls_strerror(int value){
-  const char *ret = gnutls_strerror(value); /* Spurious warning from
-					       -Wunreachable-code */
+  const char *ret = gnutls_strerror(value);
   if(ret == NULL)
     ret = "(unknown)";
   return ret;
@@ -479,7 +481,8 @@ static void debuggnutls(__attribute__((unused)) int level,
 }
 
 static int init_gnutls_global(const char *pubkeyfilename,
-			      const char *seckeyfilename){
+			      const char *seckeyfilename,
+			      mandos_context *mc){
   int ret;
   
   if(debug){
@@ -502,7 +505,7 @@ static int init_gnutls_global(const char *pubkeyfilename,
   }
   
   /* OpenPGP credentials */
-  ret = gnutls_certificate_allocate_credentials(&mc.cred);
+  ret = gnutls_certificate_allocate_credentials(&mc->cred);
   if(ret != GNUTLS_E_SUCCESS){
     fprintf_plus(stderr, "GnuTLS memory error: %s\n",
 		 safer_gnutls_strerror(ret));
@@ -518,7 +521,7 @@ static int init_gnutls_global(const char *pubkeyfilename,
   }
   
   ret = gnutls_certificate_set_openpgp_key_file
-    (mc.cred, pubkeyfilename, seckeyfilename,
+    (mc->cred, pubkeyfilename, seckeyfilename,
      GNUTLS_OPENPGP_FMT_BASE64);
   if(ret != GNUTLS_E_SUCCESS){
     fprintf_plus(stderr,
@@ -530,33 +533,34 @@ static int init_gnutls_global(const char *pubkeyfilename,
   }
   
   /* GnuTLS server initialization */
-  ret = gnutls_dh_params_init(&mc.dh_params);
+  ret = gnutls_dh_params_init(&mc->dh_params);
   if(ret != GNUTLS_E_SUCCESS){
     fprintf_plus(stderr, "Error in GnuTLS DH parameter"
 		 " initialization: %s\n",
 		 safer_gnutls_strerror(ret));
     goto globalfail;
   }
-  ret = gnutls_dh_params_generate2(mc.dh_params, mc.dh_bits);
+  ret = gnutls_dh_params_generate2(mc->dh_params, mc->dh_bits);
   if(ret != GNUTLS_E_SUCCESS){
     fprintf_plus(stderr, "Error in GnuTLS prime generation: %s\n",
 		 safer_gnutls_strerror(ret));
     goto globalfail;
   }
   
-  gnutls_certificate_set_dh_params(mc.cred, mc.dh_params);
+  gnutls_certificate_set_dh_params(mc->cred, mc->dh_params);
   
   return 0;
   
  globalfail:
   
-  gnutls_certificate_free_credentials(mc.cred);
+  gnutls_certificate_free_credentials(mc->cred);
   gnutls_global_deinit();
-  gnutls_dh_params_deinit(mc.dh_params);
+  gnutls_dh_params_deinit(mc->dh_params);
   return -1;
 }
 
-static int init_gnutls_session(gnutls_session_t *session){
+static int init_gnutls_session(gnutls_session_t *session,
+			       mandos_context *mc){
   int ret;
   /* GnuTLS session creation */
   do {
@@ -574,7 +578,7 @@ static int init_gnutls_session(gnutls_session_t *session){
   {
     const char *err;
     do {
-      ret = gnutls_priority_set_direct(*session, mc.priority, &err);
+      ret = gnutls_priority_set_direct(*session, mc->priority, &err);
       if(quit_now){
 	gnutls_deinit(*session);
 	return -1;
@@ -591,7 +595,7 @@ static int init_gnutls_session(gnutls_session_t *session){
   
   do {
     ret = gnutls_credentials_set(*session, GNUTLS_CRD_CERTIFICATE,
-				 mc.cred);
+				 mc->cred);
     if(quit_now){
       gnutls_deinit(*session);
       return -1;
@@ -607,7 +611,7 @@ static int init_gnutls_session(gnutls_session_t *session){
   /* ignore client certificate if any. */
   gnutls_certificate_server_set_request(*session, GNUTLS_CERT_IGNORE);
   
-  gnutls_dh_set_prime_bits(*session, mc.dh_bits);
+  gnutls_dh_set_prime_bits(*session, mc->dh_bits);
   
   return 0;
 }
@@ -617,9 +621,9 @@ static void empty_log(__attribute__((unused)) AvahiLogLevel level,
 		      __attribute__((unused)) const char *txt){}
 
 /* Called when a Mandos server is found */
-static int start_mandos_communication(const char *ip, uint16_t port,
+static int start_mandos_communication(const char *ip, in_port_t port,
 				      AvahiIfIndex if_index,
-				      int af){
+				      int af, mandos_context *mc){
   int ret, tcp_sd = -1;
   ssize_t sret;
   union {
@@ -655,14 +659,46 @@ static int start_mandos_communication(const char *ip, uint16_t port,
     return -1;
   }
   
-  ret = init_gnutls_session(&session);
+  /* If the interface is specified and we have a list of interfaces */
+  if(if_index != AVAHI_IF_UNSPEC and mc->interfaces != NULL){
+    /* Check if the interface is one of the interfaces we are using */
+    bool match = false;
+    {
+      char *interface = NULL;
+      while((interface=argz_next(mc->interfaces, mc->interfaces_size,
+				 interface))){
+	if(if_nametoindex(interface) == (unsigned int)if_index){
+	  match = true;
+	  break;
+	}
+      }
+    }
+    if(not match){
+      /* This interface does not match any in the list, so we don't
+	 connect to the server */
+      if(debug){
+	char interface[IF_NAMESIZE];
+	if(if_indextoname((unsigned int)if_index, interface) == NULL){
+	  perror_plus("if_indextoname");
+	} else {
+	  fprintf_plus(stderr, "Skipping server on non-used interface"
+		       " \"%s\"\n",
+		       if_indextoname((unsigned int)if_index,
+				      interface));
+	}
+      }
+      return -1;
+    }
+  }
+  
+  ret = init_gnutls_session(&session, mc);
   if(ret != 0){
     return -1;
   }
   
   if(debug){
     fprintf_plus(stderr, "Setting up a TCP connection to %s, port %"
-		 PRIu16 "\n", ip, port);
+		 PRIuMAX "\n", ip, (uintmax_t)port);
   }
   
   tcp_sd = socket(pf, SOCK_STREAM, 0);
@@ -699,10 +735,7 @@ static int start_mandos_communication(const char *ip, uint16_t port,
     goto mandos_end;
   }
   if(af == AF_INET6){
-    to.in6.sin6_port = htons(port); /* Spurious warnings from
-				       -Wconversion and
-				       -Wunreachable-code */
-    
+    to.in6.sin6_port = htons(port);    
     if(IN6_IS_ADDR_LINKLOCAL /* Spurious warnings from */
        (&to.in6.sin6_addr)){ /* -Wstrict-aliasing=2 or lower and
 				-Wunreachable-code*/
@@ -732,12 +765,12 @@ static int start_mandos_communication(const char *ip, uint16_t port,
       if(if_indextoname((unsigned int)if_index, interface) == NULL){
 	perror_plus("if_indextoname");
       } else {
-	fprintf_plus(stderr, "Connection to: %s%%%s, port %" PRIu16
-		     "\n", ip, interface, port);
+	fprintf_plus(stderr, "Connection to: %s%%%s, port %" PRIuMAX
+		     "\n", ip, interface, (uintmax_t)port);
       }
     } else {
-      fprintf_plus(stderr, "Connection to: %s, port %" PRIu16 "\n",
-		   ip, port);
+      fprintf_plus(stderr, "Connection to: %s, port %" PRIuMAX "\n",
+		   ip, (uintmax_t)port);
     }
     char addrstr[(INET_ADDRSTRLEN > INET6_ADDRSTRLEN) ?
 		 INET_ADDRSTRLEN : INET6_ADDRSTRLEN] = "";
@@ -936,7 +969,7 @@ static int start_mandos_communication(const char *ip, uint16_t port,
   if(buffer_length > 0){
     ssize_t decrypted_buffer_size;
     decrypted_buffer_size = pgp_packet_decrypt(buffer, buffer_length,
-					       &decrypted_buffer);
+					       &decrypted_buffer, mc);
     if(decrypted_buffer_size >= 0){
       
       written = 0;
@@ -1003,8 +1036,10 @@ static void resolve_callback(AvahiSServiceResolver *r,
 			     AVAHI_GCC_UNUSED AvahiStringList *txt,
 			     AVAHI_GCC_UNUSED AvahiLookupResultFlags
 			     flags,
-			     AVAHI_GCC_UNUSED void* userdata){
-  assert(r);
+			     void* mc){
+  if(r == NULL){
+    return;
+  }
   
   /* Called whenever a service has been resolved successfully or
      timed out */
@@ -1019,7 +1054,8 @@ static void resolve_callback(AvahiSServiceResolver *r,
     fprintf_plus(stderr, "(Avahi Resolver) Failed to resolve service "
 		 "'%s' of type '%s' in domain '%s': %s\n", name, type,
 		 domain,
-		 avahi_strerror(avahi_server_errno(mc.server)));
+		 avahi_strerror(avahi_server_errno
+				(((mandos_context*)mc)->server)));
     break;
     
   case AVAHI_RESOLVER_FOUND:
@@ -1031,13 +1067,16 @@ static void resolve_callback(AvahiSServiceResolver *r,
 		     PRIdMAX ") on port %" PRIu16 "\n", name,
 		     host_name, ip, (intmax_t)interface, port);
       }
-      int ret = start_mandos_communication(ip, port, interface,
-					   avahi_proto_to_af(proto));
+      int ret = start_mandos_communication(ip, (in_port_t)port,
+					   interface,
+					   avahi_proto_to_af(proto),
+					   mc);
       if(ret == 0){
-	avahi_simple_poll_quit(mc.simple_poll);
+	avahi_simple_poll_quit(simple_poll);
       } else {
-	if(not add_server(ip, port, interface,
-			  avahi_proto_to_af(proto))){
+	if(not add_server(ip, (in_port_t)port, interface,
+			  avahi_proto_to_af(proto),
+			  &((mandos_context*)mc)->current_server)){
 	  fprintf_plus(stderr, "Failed to add server \"%s\" to server"
 		       " list\n", name);
 	}
@@ -1056,8 +1095,10 @@ static void browse_callback(AvahiSServiceBrowser *b,
 			    const char *domain,
 			    AVAHI_GCC_UNUSED AvahiLookupResultFlags
 			    flags,
-			    AVAHI_GCC_UNUSED void* userdata){
-  assert(b);
+			    void* mc){
+  if(b == NULL){
+    return;
+  }
   
   /* Called whenever a new services becomes available on the LAN or
      is removed from the LAN */
@@ -1071,8 +1112,9 @@ static void browse_callback(AvahiSServiceBrowser *b,
   case AVAHI_BROWSER_FAILURE:
     
     fprintf_plus(stderr, "(Avahi browser) %s\n",
-		 avahi_strerror(avahi_server_errno(mc.server)));
-    avahi_simple_poll_quit(mc.simple_poll);
+		 avahi_strerror(avahi_server_errno
+				(((mandos_context*)mc)->server)));
+    avahi_simple_poll_quit(simple_poll);
     return;
     
   case AVAHI_BROWSER_NEW:
@@ -1081,12 +1123,14 @@ static void browse_callback(AvahiSServiceBrowser *b,
        the callback function is called the Avahi server will free the
        resolver for us. */
     
-    if(avahi_s_service_resolver_new(mc.server, interface, protocol,
-				    name, type, domain, protocol, 0,
-				    resolve_callback, NULL) == NULL)
+    if(avahi_s_service_resolver_new(((mandos_context*)mc)->server,
+				    interface, protocol, name, type,
+				    domain, protocol, 0,
+				    resolve_callback, mc) == NULL)
       fprintf_plus(stderr, "Avahi: Failed to resolve service '%s':"
 		   " %s\n", name,
-		   avahi_strerror(avahi_server_errno(mc.server)));
+		   avahi_strerror(avahi_server_errno
+				  (((mandos_context*)mc)->server)));
     break;
     
   case AVAHI_BROWSER_REMOVE:
@@ -1111,25 +1155,30 @@ static void handle_sigterm(int sig){
   signal_received = sig;
   int old_errno = errno;
   /* set main loop to exit */
-  if(mc.simple_poll != NULL){
-    avahi_simple_poll_quit(mc.simple_poll);
+  if(simple_poll != NULL){
+    avahi_simple_poll_quit(simple_poll);
   }
   errno = old_errno;
 }
 
 bool get_flags(const char *ifname, struct ifreq *ifr){
   int ret;
+  error_t ret_errno;
   
   int s = socket(PF_INET6, SOCK_DGRAM, IPPROTO_IP);
   if(s < 0){
+    ret_errno = errno;
     perror_plus("socket");
+    errno = ret_errno;
     return false;
   }
   strcpy(ifr->ifr_name, ifname);
   ret = ioctl(s, SIOCGIFFLAGS, ifr);
   if(ret == -1){
     if(debug){
+      ret_errno = errno;
       perror_plus("ioctl SIOCGIFFLAGS");
+      errno = ret_errno;
     }
     return false;
   }
@@ -1204,46 +1253,35 @@ int good_interface(const struct dirent *if_entry){
 }
 
 /* 
- * This function determines if a directory entry in /sys/class/net
- * corresponds to an acceptable network device which is up.
- * (This function is passed to scandir(3) as a filter function.)
+ * This function determines if a network interface is up.
  */
-int up_interface(const struct dirent *if_entry){
-  if(if_entry->d_name[0] == '.'){
-    return 0;
-  }
-  
+bool interface_is_up(const char *interface){
   struct ifreq ifr;
-  if(not get_flags(if_entry->d_name, &ifr)){
+  if(not get_flags(interface, &ifr)){
     if(debug){
       fprintf_plus(stderr, "Failed to get flags for interface "
-		   "\"%s\"\n", if_entry->d_name);
+		   "\"%s\"\n", interface);
     }
-    return 0;
+    return false;
   }
   
-  /* Reject down interfaces */
-  if(not (ifr.ifr_flags & IFF_UP)){
+  return (bool)(ifr.ifr_flags & IFF_UP);
+}
+
+/* 
+ * This function determines if a network interface is running
+ */
+bool interface_is_running(const char *interface){
+  struct ifreq ifr;
+  if(not get_flags(interface, &ifr)){
     if(debug){
-      fprintf_plus(stderr, "Rejecting down interface \"%s\"\n",
-		   if_entry->d_name);
+      fprintf_plus(stderr, "Failed to get flags for interface "
+		   "\"%s\"\n", interface);
     }
-    return 0;
+    return false;
   }
   
-  /* Reject non-running interfaces */
-  if(not (ifr.ifr_flags & IFF_RUNNING)){
-    if(debug){
-      fprintf_plus(stderr, "Rejecting non-running interface \"%s\"\n",
-		   if_entry->d_name);
-    }
-    return 0;
-  }
-  
-  if(not good_flags(if_entry->d_name, &ifr)){
-    return 0;
-  }
-  return 1;
+  return (bool)(ifr.ifr_flags & IFF_RUNNING);
 }
 
 int notdotentries(const struct dirent *direntry){
@@ -1318,14 +1356,15 @@ int runnable_hook(const struct dirent *direntry){
   return 1;
 }
 
-int avahi_loop_with_timeout(AvahiSimplePoll *s, int retry_interval){
+int avahi_loop_with_timeout(AvahiSimplePoll *s, int retry_interval,
+			    mandos_context *mc){
   int ret;
   struct timespec now;
   struct timespec waited_time;
   intmax_t block_time;
   
   while(true){
-    if(mc.current_server == NULL){
+    if(mc->current_server == NULL){
       if (debug){
 	fprintf_plus(stderr, "Wait until first server is found."
 		     " No timeout!\n");
@@ -1345,9 +1384,9 @@ int avahi_loop_with_timeout(AvahiSimplePoll *s, int retry_interval){
       /* Calculating in ms how long time between now and server
 	 who we visted longest time ago. Now - last seen.  */
       waited_time.tv_sec = (now.tv_sec
-			    - mc.current_server->last_seen.tv_sec);
+			    - mc->current_server->last_seen.tv_sec);
       waited_time.tv_nsec = (now.tv_nsec
-			     - mc.current_server->last_seen.tv_nsec);
+			     - mc->current_server->last_seen.tv_nsec);
       /* total time is 10s/10,000ms.
 	 Converting to s from ms by dividing by 1,000,
 	 and ns to ms by dividing by 1,000,000. */
@@ -1361,21 +1400,21 @@ int avahi_loop_with_timeout(AvahiSimplePoll *s, int retry_interval){
       }
       
       if(block_time <= 0){
-	ret = start_mandos_communication(mc.current_server->ip,
-					 mc.current_server->port,
-					 mc.current_server->if_index,
-					 mc.current_server->af);
+	ret = start_mandos_communication(mc->current_server->ip,
+					 mc->current_server->port,
+					 mc->current_server->if_index,
+					 mc->current_server->af, mc);
 	if(ret == 0){
-	  avahi_simple_poll_quit(mc.simple_poll);
+	  avahi_simple_poll_quit(s);
 	  return 0;
 	}
 	ret = clock_gettime(CLOCK_MONOTONIC,
-			    &mc.current_server->last_seen);
+			    &mc->current_server->last_seen);
 	if(ret == -1){
 	  perror_plus("clock_gettime");
 	  return -1;
 	}
-	mc.current_server = mc.current_server->next;
+	mc->current_server = mc->current_server->next;
 	block_time = 0; 	/* Call avahi to find new Mandos
 				   servers, but don't block */
       }
@@ -1390,6 +1429,58 @@ int avahi_loop_with_timeout(AvahiSimplePoll *s, int retry_interval){
   }
 }
 
+/* Set effective uid to 0, return errno */
+error_t raise_privileges(void){
+  error_t old_errno = errno;
+  error_t ret_errno = 0;
+  if(seteuid(0) == -1){
+    ret_errno = errno;
+    perror_plus("seteuid");
+  }
+  errno = old_errno;
+  return ret_errno;
+}
+
+/* Set effective and real user ID to 0.  Return errno. */
+error_t raise_privileges_permanently(void){
+  error_t old_errno = errno;
+  error_t ret_errno = raise_privileges();
+  if(ret_errno != 0){
+    errno = old_errno;
+    return ret_errno;
+  }
+  if(setuid(0) == -1){
+    ret_errno = errno;
+    perror_plus("seteuid");
+  }
+  errno = old_errno;
+  return ret_errno;
+}
+
+/* Set effective user ID to unprivileged saved user ID */
+error_t lower_privileges(void){
+  error_t old_errno = errno;
+  error_t ret_errno = 0;
+  if(seteuid(uid) == -1){
+    ret_errno = errno;
+    perror_plus("seteuid");
+  }
+  errno = old_errno;
+  return ret_errno;
+}
+
+/* Lower privileges permanently */
+error_t lower_privileges_permanently(void){
+  error_t old_errno = errno;
+  error_t ret_errno = 0;
+  if(setuid(uid) == -1){
+    ret_errno = errno;
+    perror_plus("setuid");
+  }
+  errno = old_errno;
+  return ret_errno;
+}
+
 bool run_network_hooks(const char *mode, const char *interface,
 		       const float delay){
   struct dirent **direntries;
@@ -1398,7 +1489,14 @@ bool run_network_hooks(const char *mode, const char *interface,
   int numhooks = scandir(hookdir, &direntries, runnable_hook,
 			 alphasort);
   if(numhooks == -1){
-    perror_plus("scandir");
+    if(errno == ENOENT){
+      if(debug){
+	fprintf_plus(stderr, "Network hook directory \"%s\" not"
+		     " found\n", hookdir);
+      }
+    } else {
+      perror_plus("scandir");
+    }
   } else {
     int devnull = open("/dev/null", O_RDONLY);
     for(int i = 0; i < numhooks; i++){
@@ -1417,17 +1515,7 @@ bool run_network_hooks(const char *mode, const char *interface,
       if(hook_pid == 0){
 	/* Child */
 	/* Raise privileges */
-	errno = 0;
-	ret = seteuid(0);
-	if(ret == -1){
-	  perror_plus("seteuid");
-	}
-	/* Raise privileges even more */
-	errno = 0;
-	ret = setuid(0);
-	if(ret == -1){
-	  perror_plus("setuid");
-	}
+	raise_privileges_permanently();
 	/* Set group */
 	errno = 0;
 	ret = setgid(0);
@@ -1526,24 +1614,198 @@ bool run_network_hooks(const char *mode, const char *interface,
   return true;
 }
 
+error_t bring_up_interface(const char *const interface,
+			   const float delay){
+  int sd = -1;
+  error_t old_errno = errno;
+  error_t ret_errno = 0;
+  int ret, ret_setflags;
+  struct ifreq network;
+  unsigned int if_index = if_nametoindex(interface);
+  if(if_index == 0){
+    fprintf_plus(stderr, "No such interface: \"%s\"\n", interface);
+    errno = old_errno;
+    return ENXIO;
+  }
+  
+  if(quit_now){
+    errno = old_errno;
+    return EINTR;
+  }
+  
+  if(not interface_is_up(interface)){
+    if(not get_flags(interface, &network) and debug){
+      ret_errno = errno;
+      fprintf_plus(stderr, "Failed to get flags for interface "
+		   "\"%s\"\n", interface);
+      return ret_errno;
+    }
+    network.ifr_flags |= IFF_UP;
+    
+    sd = socket(PF_INET6, SOCK_DGRAM, IPPROTO_IP);
+    if(sd < 0){
+      ret_errno = errno;
+      perror_plus("socket");
+      errno = old_errno;
+      return ret_errno;
+    }
+  
+    if(quit_now){
+      close(sd);
+      errno = old_errno;
+      return EINTR;
+    }
+    
+    if(debug){
+      fprintf_plus(stderr, "Bringing up interface \"%s\"\n",
+		   interface);
+    }
+    
+    /* Raise priviliges */
+    raise_privileges();
+    
+#ifdef __linux__
+    /* Lower kernel loglevel to KERN_NOTICE to avoid KERN_INFO
+       messages about the network interface to mess up the prompt */
+    int ret_linux = klogctl(8, NULL, 5);
+    bool restore_loglevel = true;
+    if(ret_linux == -1){
+      restore_loglevel = false;
+      perror_plus("klogctl");
+    }
+#endif	/* __linux__ */
+    ret_setflags = ioctl(sd, SIOCSIFFLAGS, &network);
+    ret_errno = errno;
+#ifdef __linux__
+    if(restore_loglevel){
+      ret_linux = klogctl(7, NULL, 0);
+      if(ret_linux == -1){
+	perror_plus("klogctl");
+      }
+    }
+#endif	/* __linux__ */
+    
+    /* Lower privileges */
+    lower_privileges();
+    
+    /* Close the socket */
+    ret = (int)TEMP_FAILURE_RETRY(close(sd));
+    if(ret == -1){
+      perror_plus("close");
+    }
+    
+    if(ret_setflags == -1){
+      errno = ret_errno;
+      perror_plus("ioctl SIOCSIFFLAGS +IFF_UP");
+      errno = old_errno;
+      return ret_errno;
+    }
+  } else if(debug){
+    fprintf_plus(stderr, "Interface \"%s\" is already up; good\n",
+		 interface);
+  }
+  
+  /* Sleep checking until interface is running.
+     Check every 0.25s, up to total time of delay */
+  for(int i=0; i < delay * 4; i++){
+    if(interface_is_running(interface)){
+      break;
+    }
+    struct timespec sleeptime = { .tv_nsec = 250000000 };
+    ret = nanosleep(&sleeptime, NULL);
+    if(ret == -1 and errno != EINTR){
+      perror_plus("nanosleep");
+    }
+  }
+  
+  errno = old_errno;
+  return 0;
+}
+
+error_t take_down_interface(const char *const interface){
+  int sd = -1;
+  error_t old_errno = errno;
+  error_t ret_errno = 0;
+  int ret, ret_setflags;
+  struct ifreq network;
+  unsigned int if_index = if_nametoindex(interface);
+  if(if_index == 0){
+    fprintf_plus(stderr, "No such interface: \"%s\"\n", interface);
+    errno = old_errno;
+    return ENXIO;
+  }
+  if(interface_is_up(interface)){
+    if(not get_flags(interface, &network) and debug){
+      ret_errno = errno;
+      fprintf_plus(stderr, "Failed to get flags for interface "
+		   "\"%s\"\n", interface);
+      return ret_errno;
+    }
+    network.ifr_flags &= ~(short)IFF_UP; /* clear flag */
+    
+    sd = socket(PF_INET6, SOCK_DGRAM, IPPROTO_IP);
+    if(sd < 0){
+      ret_errno = errno;
+      perror_plus("socket");
+      errno = old_errno;
+      return ret_errno;
+    }
+    
+    if(debug){
+      fprintf_plus(stderr, "Taking down interface \"%s\"\n",
+		   interface);
+    }
+    
+    /* Raise priviliges */
+    raise_privileges();
+    
+    ret_setflags = ioctl(sd, SIOCSIFFLAGS, &network);
+    ret_errno = errno;
+    
+    /* Lower privileges */
+    lower_privileges();
+    
+    /* Close the socket */
+    ret = (int)TEMP_FAILURE_RETRY(close(sd));
+    if(ret == -1){
+      perror_plus("close");
+    }
+    
+    if(ret_setflags == -1){
+      errno = ret_errno;
+      perror_plus("ioctl SIOCSIFFLAGS -IFF_UP");
+      errno = old_errno;
+      return ret_errno;
+    }
+  } else if(debug){
+    fprintf_plus(stderr, "Interface \"%s\" is already down; odd\n",
+		 interface);
+  }
+  
+  errno = old_errno;
+  return 0;
+}
+
 int main(int argc, char *argv[]){
+  mandos_context mc = { .server = NULL, .dh_bits = 1024,
+			.priority = "SECURE256:!CTYPE-X.509:"
+			"+CTYPE-OPENPGP", .current_server = NULL, 
+			.interfaces = NULL, .interfaces_size = 0 };
   AvahiSServiceBrowser *sb = NULL;
-  int error;
+  error_t ret_errno;
   int ret;
   intmax_t tmpmax;
   char *tmp;
   int exitcode = EXIT_SUCCESS;
-  const char *interface = "";
-  struct ifreq network;
-  int sd = -1;
-  bool take_down_interface = false;
-  uid_t uid;
-  gid_t gid;
+  char *interfaces_to_take_down = NULL;
+  size_t interfaces_to_take_down_size = 0;
   char tempdir[] = "/tmp/mandosXXXXXX";
   bool tempdir_created = false;
   AvahiIfIndex if_index = AVAHI_IF_UNSPEC;
   const char *seckey = PATHDIR "/" SECKEY;
   const char *pubkey = PATHDIR "/" PUBKEY;
+  char *interfaces_hooks = NULL;
+  size_t interfaces_hooks_size = 0;
   
   bool gnutls_initialized = false;
   bool gpgme_initialized = false;
@@ -1640,7 +1902,11 @@ int main(int argc, char *argv[]){
 	connect_to = arg;
 	break;
       case 'i':			/* --interface */
-	interface = arg;
+	ret_errno = argz_add_sep(&mc.interfaces, &mc.interfaces_size,
+				 arg, (int)',');
+	if(ret_errno != 0){
+	  argp_error(state, "%s", strerror(ret_errno));
+	}
 	break;
       case 's':			/* --seckey */
 	seckey = arg;
@@ -1724,11 +1990,7 @@ int main(int argc, char *argv[]){
        <http://bugs.debian.org/633582> */
     
     /* Re-raise priviliges */
-    errno = 0;
-    ret = seteuid(0);
-    if(ret == -1){
-      perror_plus("seteuid");
-    } else {
+    if(raise_privileges() == 0){
       struct stat st;
       
       if(strcmp(seckey, PATHDIR "/" SECKEY) == 0){
@@ -1774,61 +2036,56 @@ int main(int argc, char *argv[]){
       }
     
       /* Lower privileges */
-      errno = 0;
-      ret = seteuid(uid);
-      if(ret == -1){
-	perror_plus("seteuid");
+      lower_privileges();
+    }
+  }
+  
+  /* Remove invalid interface names (except "none") */
+  {
+    char *interface = NULL;
+    while((interface = argz_next(mc.interfaces, mc.interfaces_size,
+				 interface))){
+      if(strcmp(interface, "none") != 0
+	 and if_nametoindex(interface) == 0){
+	if(interface[0] != '\0'){
+	  fprintf_plus(stderr, "Not using nonexisting interface"
+		       " \"%s\"\n", interface);
+	}
+	argz_delete(&mc.interfaces, &mc.interfaces_size, interface);
+	interface = NULL;
       }
     }
   }
   
   /* Run network hooks */
-  if(not run_network_hooks("start", interface, delay)){
-    goto end;
+  {
+    if(mc.interfaces != NULL){
+      interfaces_hooks = malloc(mc.interfaces_size);
+      if(interfaces_hooks == NULL){
+	perror_plus("malloc");
+	goto end;
+      }
+      memcpy(interfaces_hooks, mc.interfaces, mc.interfaces_size);
+      interfaces_hooks_size = mc.interfaces_size;
+      argz_stringify(interfaces_hooks, interfaces_hooks_size,
+		     (int)',');
+    }
+    if(not run_network_hooks("start", interfaces_hooks != NULL ?
+			     interfaces_hooks : "", delay)){
+      goto end;
+    }
   }
   
   if(not debug){
     avahi_set_log_function(empty_log);
   }
   
-  if(interface[0] == '\0'){
-    struct dirent **direntries;
-    /* First look for interfaces that are up */
-    ret = scandir(sys_class_net, &direntries, up_interface,
-		  alphasort);
-    if(ret == 0){
-      /* No up interfaces, look for any good interfaces */
-      free(direntries);
-      ret = scandir(sys_class_net, &direntries, good_interface,
-		    alphasort);
-    }
-    if(ret >= 1){
-      /* Pick the first interface returned */
-      interface = strdup(direntries[0]->d_name);
-      if(debug){
-	fprintf_plus(stderr, "Using interface \"%s\"\n", interface);
-      }
-      if(interface == NULL){
-	perror_plus("malloc");
-	free(direntries);
-	exitcode = EXIT_FAILURE;
-	goto end;
-      }
-      free(direntries);
-    } else {
-      free(direntries);
-      fprintf_plus(stderr, "Could not find a network interface\n");
-      exitcode = EXIT_FAILURE;
-      goto end;
-    }
-  }
-  
   /* Initialize Avahi early so avahi_simple_poll_quit() can be called
      from the signal handler */
   /* Initialize the pseudo-RNG for Avahi */
   srand((unsigned int) time(NULL));
-  mc.simple_poll = avahi_simple_poll_new();
-  if(mc.simple_poll == NULL){
+  simple_poll = avahi_simple_poll_new();
+  if(simple_poll == NULL){
     fprintf_plus(stderr,
 		 "Avahi: Failed to create simple poll object.\n");
     exitcode = EX_UNAVAILABLE;
@@ -1898,148 +2155,88 @@ int main(int argc, char *argv[]){
     }
   }
   
-  /* If the interface is down, bring it up */
-  if(strcmp(interface, "none") != 0){
-    if_index = (AvahiIfIndex) if_nametoindex(interface);
-    if(if_index == 0){
-      fprintf_plus(stderr, "No such interface: \"%s\"\n", interface);
-      exitcode = EX_UNAVAILABLE;
-      goto end;
-    }
-    
-    if(quit_now){
-      goto end;
-    }
-    
-    /* Re-raise priviliges */
-    errno = 0;
-    ret = seteuid(0);
-    if(ret == -1){
-      perror_plus("seteuid");
-    }
-    
-#ifdef __linux__
-    /* Lower kernel loglevel to KERN_NOTICE to avoid KERN_INFO
-       messages about the network interface to mess up the prompt */
-    ret = klogctl(8, NULL, 5);
-    bool restore_loglevel = true;
-    if(ret == -1){
-      restore_loglevel = false;
-      perror_plus("klogctl");
-    }
-#endif	/* __linux__ */
-    
-    sd = socket(PF_INET6, SOCK_DGRAM, IPPROTO_IP);
-    if(sd < 0){
-      perror_plus("socket");
-      exitcode = EX_OSERR;
-#ifdef __linux__
-      if(restore_loglevel){
-	ret = klogctl(7, NULL, 0);
-	if(ret == -1){
-	  perror_plus("klogctl");
+  /* If no interfaces were specified, make a list */
+  if(mc.interfaces == NULL){
+    struct dirent **direntries;
+    /* Look for any good interfaces */
+    ret = scandir(sys_class_net, &direntries, good_interface,
+		  alphasort);
+    if(ret >= 1){
+      /* Add all found interfaces to interfaces list */
+      for(int i = 0; i < ret; ++i){
+	ret_errno = argz_add(&mc.interfaces, &mc.interfaces_size,
+			     direntries[i]->d_name);
+	if(ret_errno != 0){
+	  perror_plus("argz_add");
+	  continue;
+	}
+	if(debug){
+	  fprintf_plus(stderr, "Will use interface \"%s\"\n",
+		       direntries[i]->d_name);
 	}
       }
-#endif	/* __linux__ */
-      /* Lower privileges */
-      errno = 0;
-      ret = seteuid(uid);
-      if(ret == -1){
-	perror_plus("seteuid");
-      }
+      free(direntries);
+    } else {
+      free(direntries);
+      fprintf_plus(stderr, "Could not find a network interface\n");
+      exitcode = EXIT_FAILURE;
       goto end;
     }
-    strcpy(network.ifr_name, interface);
-    ret = ioctl(sd, SIOCGIFFLAGS, &network);
-    if(ret == -1){
-      perror_plus("ioctl SIOCGIFFLAGS");
-#ifdef __linux__
-      if(restore_loglevel){
-	ret = klogctl(7, NULL, 0);
-	if(ret == -1){
-	  perror_plus("klogctl");
-	}
-      }
-#endif	/* __linux__ */
-      exitcode = EX_OSERR;
-      /* Lower privileges */
-      errno = 0;
-      ret = seteuid(uid);
-      if(ret == -1){
-	perror_plus("seteuid");
-      }
-      goto end;
-    }
-    if((network.ifr_flags & IFF_UP) == 0){
-      network.ifr_flags |= IFF_UP;
-      take_down_interface = true;
-      ret = ioctl(sd, SIOCSIFFLAGS, &network);
-      if(ret == -1){
-	take_down_interface = false;
-	perror_plus("ioctl SIOCSIFFLAGS +IFF_UP");
-	exitcode = EX_OSERR;
-#ifdef __linux__
-	if(restore_loglevel){
-	  ret = klogctl(7, NULL, 0);
-	  if(ret == -1){
-	    perror_plus("klogctl");
+  }
+  
+  /* Bring up interfaces which are down, and remove any "none"s */
+  {
+    char *interface = NULL;
+    while((interface = argz_next(mc.interfaces, mc.interfaces_size,
+				 interface))){
+      /* If interface name is "none", stop bringing up interfaces.
+	 Also remove all instances of "none" from the list */
+      if(strcmp(interface, "none") == 0){
+	argz_delete(&mc.interfaces, &mc.interfaces_size,
+		    interface);
+	interface = NULL;
+	while((interface = argz_next(mc.interfaces,
+				     mc.interfaces_size, interface))){
+	  if(strcmp(interface, "none") == 0){
+	    argz_delete(&mc.interfaces, &mc.interfaces_size,
+			interface);
+	    interface = NULL;
 	  }
 	}
-#endif	/* __linux__ */
-	/* Lower privileges */
-	errno = 0;
-	ret = seteuid(uid);
-	if(ret == -1){
-	  perror_plus("seteuid");
-	}
-	goto end;
-      }
-    }
-    /* Sleep checking until interface is running.
-       Check every 0.25s, up to total time of delay */
-    for(int i=0; i < delay * 4; i++){
-      ret = ioctl(sd, SIOCGIFFLAGS, &network);
-      if(ret == -1){
-	perror_plus("ioctl SIOCGIFFLAGS");
-      } else if(network.ifr_flags & IFF_RUNNING){
 	break;
       }
-      struct timespec sleeptime = { .tv_nsec = 250000000 };
-      ret = nanosleep(&sleeptime, NULL);
-      if(ret == -1 and errno != EINTR){
-	perror_plus("nanosleep");
+      bool interface_was_up = interface_is_up(interface);
+      ret = bring_up_interface(interface, delay);
+      if(not interface_was_up){
+	if(ret != 0){
+	  errno = ret;
+	  perror_plus("Failed to bring up interface");
+	} else {
+	  ret_errno = argz_add(&interfaces_to_take_down,
+			       &interfaces_to_take_down_size,
+			       interface);
+	}
       }
     }
-    if(not take_down_interface){
-      /* We won't need the socket anymore */
-      ret = (int)TEMP_FAILURE_RETRY(close(sd));
-      if(ret == -1){
-	perror_plus("close");
-      }
+    if(debug and (interfaces_to_take_down == NULL)){
+      fprintf_plus(stderr, "No interfaces were brought up\n");
     }
-#ifdef __linux__
-    if(restore_loglevel){
-      /* Restores kernel loglevel to default */
-      ret = klogctl(7, NULL, 0);
-      if(ret == -1){
-	perror_plus("klogctl");
-      }
+  }
+  
+  /* If we only got one interface, explicitly use only that one */
+  if(argz_count(mc.interfaces, mc.interfaces_size) == 1){
+    if(debug){
+      fprintf_plus(stderr, "Using only interface \"%s\"\n",
+		   mc.interfaces);
     }
-#endif	/* __linux__ */
-    /* Lower privileges */
-    errno = 0;
-    /* Lower privileges */
-    ret = seteuid(uid);
-    if(ret == -1){
-      perror_plus("seteuid");
-    }
+    if_index = (AvahiIfIndex)if_nametoindex(mc.interfaces);
   }
   
   if(quit_now){
     goto end;
   }
   
-  ret = init_gnutls_global(pubkey, seckey);
+  ret = init_gnutls_global(pubkey, seckey, &mc);
   if(ret == -1){
     fprintf_plus(stderr, "init_gnutls_global failed\n");
     exitcode = EX_UNAVAILABLE;
@@ -2062,7 +2259,7 @@ int main(int argc, char *argv[]){
     goto end;
   }
   
-  if(not init_gpgme(pubkey, seckey, tempdir)){
+  if(not init_gpgme(pubkey, seckey, tempdir, &mc)){
     fprintf_plus(stderr, "init_gpgme failed\n");
     exitcode = EX_UNAVAILABLE;
     goto end;
@@ -2078,6 +2275,7 @@ int main(int argc, char *argv[]){
     /* Connect directly, do not use Zeroconf */
     /* (Mainly meant for debugging) */
     char *address = strrchr(connect_to, ':');
+    
     if(address == NULL){
       fprintf_plus(stderr, "No colon in address\n");
       exitcode = EX_USAGE;
@@ -2088,21 +2286,21 @@ int main(int argc, char *argv[]){
       goto end;
     }
     
-    uint16_t port;
+    in_port_t port;
     errno = 0;
     tmpmax = strtoimax(address+1, &tmp, 10);
     if(errno != 0 or tmp == address+1 or *tmp != '\0'
-       or tmpmax != (uint16_t)tmpmax){
+       or tmpmax != (in_port_t)tmpmax){
       fprintf_plus(stderr, "Bad port number\n");
       exitcode = EX_USAGE;
       goto end;
     }
-  
+    
     if(quit_now){
       goto end;
     }
     
-    port = (uint16_t)tmpmax;
+    port = (in_port_t)tmpmax;
     *address = '\0';
     /* Colon in address indicates IPv6 */
     int af;
@@ -2124,7 +2322,8 @@ int main(int argc, char *argv[]){
     }
     
     while(not quit_now){
-      ret = start_mandos_communication(address, port, if_index, af);
+      ret = start_mandos_communication(address, port, if_index, af,
+				       &mc);
       if(quit_now or ret == 0){
 	break;
       }
@@ -2156,9 +2355,8 @@ int main(int argc, char *argv[]){
     config.publish_domain = 0;
     
     /* Allocate a new server */
-    mc.server = avahi_server_new(avahi_simple_poll_get
-				 (mc.simple_poll), &config, NULL,
-				 NULL, &error);
+    mc.server = avahi_server_new(avahi_simple_poll_get(simple_poll),
+				 &config, NULL, NULL, &ret_errno);
     
     /* Free the Avahi configuration data */
     avahi_server_config_free(&config);
@@ -2167,7 +2365,7 @@ int main(int argc, char *argv[]){
   /* Check if creating the Avahi server object succeeded */
   if(mc.server == NULL){
     fprintf_plus(stderr, "Failed to create Avahi server: %s\n",
-		 avahi_strerror(error));
+		 avahi_strerror(ret_errno));
     exitcode = EX_UNAVAILABLE;
     goto end;
   }
@@ -2179,7 +2377,8 @@ int main(int argc, char *argv[]){
   /* Create the Avahi service browser */
   sb = avahi_s_service_browser_new(mc.server, if_index,
 				   AVAHI_PROTO_UNSPEC, "_mandos._tcp",
-				   NULL, 0, browse_callback, NULL);
+				   NULL, 0, browse_callback,
+				   (void *)&mc);
   if(sb == NULL){
     fprintf_plus(stderr, "Failed to create service browser: %s\n",
 		 avahi_strerror(avahi_server_errno(mc.server)));
@@ -2197,8 +2396,8 @@ int main(int argc, char *argv[]){
     fprintf_plus(stderr, "Starting Avahi loop search\n");
   }
 
-  ret = avahi_loop_with_timeout(mc.simple_poll,
-				(int)(retry_interval * 1000));
+  ret = avahi_loop_with_timeout(simple_poll,
+				(int)(retry_interval * 1000), &mc);
   if(debug){
     fprintf_plus(stderr, "avahi_loop_with_timeout exited %s\n",
 		 (ret == 0) ? "successfully" : "with error");
@@ -2211,14 +2410,16 @@ int main(int argc, char *argv[]){
   }
   
   /* Cleanup things */
+  free(mc.interfaces);
+  
   if(sb != NULL)
     avahi_s_service_browser_free(sb);
   
   if(mc.server != NULL)
     avahi_server_free(mc.server);
   
-  if(mc.simple_poll != NULL)
-    avahi_simple_poll_free(mc.simple_poll);
+  if(simple_poll != NULL)
+    avahi_simple_poll_free(simple_poll);
   
   if(gnutls_initialized){
     gnutls_certificate_free_credentials(mc.cred);
@@ -2241,41 +2442,37 @@ int main(int argc, char *argv[]){
     }
   }
   
-  /* Run network hooks */
-  run_network_hooks("stop", interface, delay);
-  
   /* Re-raise priviliges */
   {
-    errno = 0;
-    ret = seteuid(0);
-    if(ret == -1){
-      perror_plus("seteuid");
-    }
+    raise_privileges();
     
-    /* Take down the network interface */
-    if(take_down_interface and geteuid() == 0){
-      ret = ioctl(sd, SIOCGIFFLAGS, &network);
-      if(ret == -1){
-	perror_plus("ioctl SIOCGIFFLAGS");
-      } else if(network.ifr_flags & IFF_UP){
-	network.ifr_flags &= ~(short)IFF_UP; /* clear flag */
-	ret = ioctl(sd, SIOCSIFFLAGS, &network);
-	if(ret == -1){
-	  perror_plus("ioctl SIOCSIFFLAGS -IFF_UP");
+    /* Run network hooks */
+    run_network_hooks("stop", interfaces_hooks != NULL ?
+		      interfaces_hooks : "", delay);
+    
+    /* Take down the network interfaces which were brought up */
+    {
+      char *interface = NULL;
+      while((interface=argz_next(interfaces_to_take_down,
+				 interfaces_to_take_down_size,
+				 interface))){
+	ret_errno = take_down_interface(interface);
+	if(ret_errno != 0){
+	  errno = ret_errno;
+	  perror_plus("Failed to take down interface");
 	}
       }
-      ret = (int)TEMP_FAILURE_RETRY(close(sd));
-      if(ret == -1){
-	perror_plus("close");
+      if(debug and (interfaces_to_take_down == NULL)){
+	fprintf_plus(stderr, "No interfaces needed to be taken"
+		     " down\n");
       }
     }
+    
+    lower_privileges_permanently();
   }
-  /* Lower privileges permanently */
-  errno = 0;
-  ret = setuid(uid);
-  if(ret == -1){
-    perror_plus("setuid");
-  }
+  
+  free(interfaces_to_take_down);
+  free(interfaces_hooks);
   
   /* Removes the GPGME temp directory and all files inside */
   if(tempdir_created){

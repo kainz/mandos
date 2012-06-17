@@ -79,6 +79,7 @@ binary-common:
 	dh_testroot
 	dh_installchangelogs
 	dh_installdocs
+	dh_installexamples
 	dh_link
 	dh_strip
 	dh_compress
@@ -86,7 +87,7 @@ binary-common:
 		--exclude etc/mandos/clients.conf \
 		--exclude etc/mandos/plugins.d \
 		--exclude usr/lib/mandos/plugins.d \
-		--exclude usr/share/doc/mandos-client/network-hooks.d
+		--exclude usr/share/doc/mandos-client/examples/network-hooks.d
 	dh_installdeb
 	dh_shlibdeps
 	dh_gencontrol
