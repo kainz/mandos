@@ -5,13 +5,12 @@
 * mandos-applet
 
 * mandos-client
-** TODO [#A] Wireless network hook
 ** TODO [#B] Use capabilities instead of seteuid().
 ** TODO [#B] Use struct sockaddr_storage instead of a union
 ** TODO [#B] Use getaddrinfo(hints=AI_NUMERICHOST) instead of inet_pton()
 ** TODO [#B] Use getnameinfo(serv=NULL, NI_NUMERICHOST) instead of inet_ntop()
 ** TODO [#B] Prefer /run/tmp over /tmp, if it exists
-** TODO [#B] Use in_port_t instead of uint16_t for port numbers.
+** TODO [#C] Make start_mandos_communication() take "struct server".
 
 * splashy
 ** TODO [#B] use scandir(3) instead of readdir(3)
@@ -19,7 +18,6 @@
 * usplash (Deprecated)
 ** TODO [#A] Make it work again
 ** TODO [#B] use scandir(3) instead of readdir(3)
-** TODO Use [[info:libc:Argz%20Functions][argz_extract]]
 
 * askpass-fifo
 ** TODO [#B] Drop privileges after opening FIFO.
@@ -33,7 +31,7 @@
 
 * plugin-runner
 ** TODO handle printing for errors for plugins
-*** Hook up stderr of plugins, buffer them, and prepend mandos pluig [plugin name]
+*** Hook up stderr of plugins, buffer them, and prepend "Mandos Plugin [plugin name]"
 ** TODO [#B] use scandir(3) instead of readdir(3)
 ** TODO [#C] use same file name rules as run-parts(8)
 ** kernel command line option for debug info
@@ -46,8 +44,6 @@
 ** TODO [#C] config for TXT record
 ** TODO Log level dbus option
    SetLogLevel D-Bus call
-** TODO Implement --foreground						  :BUGS:
-   [[info:standards:Option%20Table][Table of Long Options]]
 ** TODO [#C] DBusServiceObjectUsingSuper
 ** TODO [#B] Global enable/disable flag
 ** TODO [#B] By-client countdown on number of secrets given

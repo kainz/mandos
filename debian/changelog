@@ -1,3 +1,18 @@
+mandos (1.6.0-1) unstable; urgency=low
+
+  * New upstream release.
+  * debian/copyright (Copyright): Join the two lines to a single line.
+  * debian/mandos-client.README.Debian: Update to refer to the new
+    location of the example network hooks, and the new feature of using
+    all network interfaces.
+  * debian/mandos-client.docs (network-hooks.d): Removed.
+  * debian/mandos-client.examples (network-hooks.d): New.
+  * debian/rules (binary-common): Added "dh_installexamples".
+    (binary-common/dh_fixperms): Exclude new location of
+    "network-hooks.d".
+
+ -- Teddy Hogeborn <teddy@recompile.se>  Mon, 18 Jun 2012 00:15:23 +0200
+
 mandos (1.5.5-1) unstable; urgency=low
 
   * New upstream release.
