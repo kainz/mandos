@@ -149,6 +149,9 @@ case "$1" in
 		;;
 	esac
 	;;
+  status)
+	status_of_proc "$DAEMON" "$NAME" -p "$PIDFILE"
+	;;
   *)
 	#echo "Usage: $SCRIPTNAME {start|stop|restart|reload|force-reload}" >&2
 	echo "Usage: $SCRIPTNAME {start|stop|restart|force-reload}" >&2
