@@ -33,8 +33,11 @@ if [ -z "$BRIDGE" -o -z "$PORT_ADDRESSES" ]; then
     exit
 fi
 
-if [ -n "$DEVICE" -a "$DEVICE" != "$BRIDGE" ]; then
-    exit
+if [ -n "$DEVICE" ]; then
+    case "$DEVICE" in
+	*,"$BRIDGE"|*,"$BRIDGE",*|"$BRIDGE",*|"$BRIDGE") :;;
+	*) exit;;
+    esac
 fi
 
 brctl="/sbin/brctl"
