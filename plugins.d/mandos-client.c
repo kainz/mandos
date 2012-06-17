@@ -659,6 +659,7 @@ static int start_mandos_communication(const char *ip, in_port_t port,
     return -1;
   }
   
+  /* If the interface is specified and we have a list of interfaces */
   if(if_index != AVAHI_IF_UNSPEC and mc->interfaces != NULL){
     /* Check if the interface is one of the interfaces we are using */
     bool match = false;
@@ -673,6 +674,8 @@ static int start_mandos_communication(const char *ip, in_port_t port,
       }
     }
     if(not match){
+      /* This interface does not match any in the list, so we don't
+	 connect to the server */
       if(debug){
 	char interface[IF_NAMESIZE];
 	if(if_indextoname((unsigned int)if_index, interface) == NULL){
@@ -2181,7 +2184,7 @@ int main(int argc, char *argv[]){
     }
   }
   
-  /* Bring up interfaces which are down */
+  /* Bring up interfaces which are down, and remove any "none"s */
   {
     char *interface = NULL;
     while((interface = argz_next(mc.interfaces, mc.interfaces_size,
