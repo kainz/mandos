@@ -659,6 +659,35 @@ static int start_mandos_communication(const char *ip, in_port_t port,
     return -1;
   }
   
+  if(if_index != AVAHI_IF_UNSPEC and mc->interfaces != NULL){
+    /* Check if the interface is one of the interfaces we are using */
+    bool match = false;
+    {
+      char *interface = NULL;
+      while((interface=argz_next(mc->interfaces, mc->interfaces_size,
+				 interface))){
+	if(if_nametoindex(interface) == (unsigned int)if_index){
+	  match = true;
+	  break;
+	}
+      }
+    }
+    if(not match){
+      if(debug){
+	char interface[IF_NAMESIZE];
+	if(if_indextoname((unsigned int)if_index, interface) == NULL){
+	  perror_plus("if_indextoname");
+	} else {
+	  fprintf_plus(stderr, "Skipping server on non-used interface"
+		       " \"%s\"\n",
+		       if_indextoname((unsigned int)if_index,
+				      interface));
+	}
+      }
+      return -1;
+    }
+  }
+  
   ret = init_gnutls_session(&session, mc);
   if(ret != 0){
     return -1;
@@ -2004,21 +2033,18 @@ int main(int argc, char *argv[]){
       }
     
       /* Lower privileges */
-      errno = 0;
-      ret = seteuid(uid);
-      if(ret == -1){
-	perror_plus("seteuid");
-      }
+      lower_privileges();
     }
   }
   
-  /* Remove empty interface names */
+  /* Remove invalid interface names (except "none") */
   {
     char *interface = NULL;
     while((interface = argz_next(mc.interfaces, mc.interfaces_size,
 				 interface))){
-      if(if_nametoindex(interface) == 0){
-	if(interface[0] != '\0' and strcmp(interface, "none") != 0){
+      if(strcmp(interface, "none") != 0
+	 and if_nametoindex(interface) == 0){
+	if(interface[0] != '\0'){
 	  fprintf_plus(stderr, "Not using nonexisting interface"
 		       " \"%s\"\n", interface);
 	}
@@ -2030,7 +2056,6 @@ int main(int argc, char *argv[]){
   
   /* Run network hooks */
   {
-    
     if(mc.interfaces != NULL){
       interfaces_hooks = malloc(mc.interfaces_size);
       if(interfaces_hooks == NULL){
@@ -2156,21 +2181,27 @@ int main(int argc, char *argv[]){
     }
   }
   
-  /* If we only got one interface, explicitly use only that one */
-  if(argz_count(mc.interfaces, mc.interfaces_size) == 1){
-    if(debug){
-      fprintf_plus(stderr, "Using only interface \"%s\"\n",
-		   mc.interfaces);
-    }
-    if_index = (AvahiIfIndex)if_nametoindex(mc.interfaces);
-  }
-  
   /* Bring up interfaces which are down */
-  if(not (argz_count(mc.interfaces, mc.interfaces_size) == 1
-	  and strcmp(mc.interfaces, "none") == 0)){
+  {
     char *interface = NULL;
     while((interface = argz_next(mc.interfaces, mc.interfaces_size,
 				 interface))){
+      /* If interface name is "none", stop bringing up interfaces.
+	 Also remove all instances of "none" from the list */
+      if(strcmp(interface, "none") == 0){
+	argz_delete(&mc.interfaces, &mc.interfaces_size,
+		    interface);
+	interface = NULL;
+	while((interface = argz_next(mc.interfaces,
+				     mc.interfaces_size, interface))){
+	  if(strcmp(interface, "none") == 0){
+	    argz_delete(&mc.interfaces, &mc.interfaces_size,
+			interface);
+	    interface = NULL;
+	  }
+	}
+	break;
+      }
       bool interface_was_up = interface_is_up(interface);
       ret = bring_up_interface(interface, delay);
       if(not interface_was_up){
@@ -2184,12 +2215,18 @@ int main(int argc, char *argv[]){
 	}
       }
     }
-    free(mc.interfaces);
-    mc.interfaces = NULL;
-    mc.interfaces_size = 0;
     if(debug and (interfaces_to_take_down == NULL)){
       fprintf_plus(stderr, "No interfaces were brought up\n");
     }
+  }
+  
+  /* If we only got one interface, explicitly use only that one */
+  if(argz_count(mc.interfaces, mc.interfaces_size) == 1){
+    if(debug){
+      fprintf_plus(stderr, "Using only interface \"%s\"\n",
+		   mc.interfaces);
+    }
+    if_index = (AvahiIfIndex)if_nametoindex(mc.interfaces);
   }
   
   if(quit_now){
@@ -2255,7 +2292,7 @@ int main(int argc, char *argv[]){
       exitcode = EX_USAGE;
       goto end;
     }
-  
+    
     if(quit_now){
       goto end;
     }
@@ -2370,6 +2407,8 @@ int main(int argc, char *argv[]){
   }
   
   /* Cleanup things */
+  free(mc.interfaces);
+  
   if(sb != NULL)
     avahi_s_service_browser_free(sb);
   
