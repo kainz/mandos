@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY COMMANDNAME "mandos">
-<!ENTITY TIMESTAMP "2012-05-26">
+<!ENTITY TIMESTAMP "2012-06-17">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -103,6 +103,8 @@
       <sbr/>
       <arg><option>--socket
       <replaceable>FD</replaceable></option></arg>
+      <sbr/>
+      <arg><option>--foreground</option></arg>
     </cmdsynopsis>
     <cmdsynopsis>
       <command>&COMMANDNAME;</command>
@@ -308,6 +310,14 @@
 	<replaceable>FD</replaceable></option></term>
 	<listitem>
 	  <xi:include href="mandos-options.xml" xpointer="socket"/>
+	</listitem>
+      </varlistentry>
+      
+      <varlistentry>
+	<term><option>--foreground</option></term>
+	<listitem>
+	  <xi:include href="mandos-options.xml"
+		      xpointer="foreground"/>
 	</listitem>
       </varlistentry>
       
@@ -559,9 +569,6 @@
     </para>
     <para>
       There is no fine-grained control over logging and debug output.
-    </para>
-    <para>
-      Debug mode is conflated with running in the foreground.
     </para>
     <para>
       This server does not check the expire time of clients’ OpenPGP

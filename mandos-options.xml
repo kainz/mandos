@@ -103,4 +103,11 @@ It is also used for some texts by mandos-client(8mandos).
     default, the server will create a new network socket.
   </para>
   
+  <para id="foreground">
+    This option will make the server run in the foreground and not
+    write a PID file.  The default is to <emphasis>not</emphasis> run
+    in the foreground, except in <option>debug</option> mode, which
+    implies this option.
+  </para>
+  
 </section>

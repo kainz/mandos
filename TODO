@@ -31,7 +31,7 @@
 
 * plugin-runner
 ** TODO handle printing for errors for plugins
-*** Hook up stderr of plugins, buffer them, and prepend mandos pluig [plugin name]
+*** Hook up stderr of plugins, buffer them, and prepend "Mandos Plugin [plugin name]"
 ** TODO [#B] use scandir(3) instead of readdir(3)
 ** TODO [#C] use same file name rules as run-parts(8)
 ** kernel command line option for debug info
@@ -44,8 +44,6 @@
 ** TODO [#C] config for TXT record
 ** TODO Log level dbus option
    SetLogLevel D-Bus call
-** TODO Implement --foreground						  :BUGS:
-   [[info:standards:Option%20Table][Table of Long Options]]
 ** TODO [#C] DBusServiceObjectUsingSuper
 ** TODO [#B] Global enable/disable flag
 ** TODO [#B] By-client countdown on number of secrets given
