@@ -88,7 +88,7 @@ except AttributeError:
     except ImportError:
         SO_BINDTODEVICE = None
 
-version = "1.5.5"
+version = "1.6.0"
 stored_state_file = "clients.pickle"
 
 logger = logging.getLogger()
@@ -1948,21 +1948,18 @@ class IPv6_TCPServer(MultiprocessingMixInWithPipe,
                 try:
                     self.socket.setsockopt(socket.SOL_SOCKET,
                                            SO_BINDTODEVICE,
-                                           str(self.interface
-                                               + '\0'))
+                                           str(self.interface + '\0'))
                 except socket.error as error:
                     if error.errno == errno.EPERM:
-                        logger.error("No permission to"
-                                     " bind to interface %s",
-                                     self.interface)
+                        logger.error("No permission to bind to"
+                                     " interface %s", self.interface)
                     elif error.errno == errno.ENOPROTOOPT:
                         logger.error("SO_BINDTODEVICE not available;"
                                      " cannot bind to interface %s",
                                      self.interface)
                     elif error.errno == errno.ENODEV:
-                        logger.error("Interface %s does not"
-                                     " exist, cannot bind",
-                                     self.interface)
+                        logger.error("Interface %s does not exist,"
+                                     " cannot bind", self.interface)
                     else:
                         raise
         # Only bind(2) the socket if we really need to.
@@ -2201,6 +2198,8 @@ def main():
                         " socket to use instead of creating one")
     parser.add_argument("--statedir", metavar="DIR",
                         help="Directory to save/restore state in")
+    parser.add_argument("--foreground", action="store_true",
+                        help="Run in foreground")
     
     options = parser.parse_args()
     
@@ -2222,7 +2221,8 @@ def main():
                         "debuglevel": "",
                         "restore": "True",
                         "socket": "",
-                        "statedir": "/var/lib/mandos"
+                        "statedir": "/var/lib/mandos",
+                        "foreground": "False",
                         }
     
     # Parse config file for server-global settings
@@ -2233,7 +2233,7 @@ def main():
     # Convert the SafeConfigParser object to a dict
     server_settings = server_config.defaults()
     # Use the appropriate methods on the non-string config options
-    for option in ("debug", "use_dbus", "use_ipv6"):
+    for option in ("debug", "use_dbus", "use_ipv6", "foreground"):
         server_settings[option] = server_config.getboolean("DEFAULT",
                                                            option)
     if server_settings["port"]:
@@ -2255,7 +2255,7 @@ def main():
     for option in ("interface", "address", "port", "debug",
                    "priority", "servicename", "configdir",
                    "use_dbus", "use_ipv6", "debuglevel", "restore",
-                   "statedir", "socket"):
+                   "statedir", "socket", "foreground"):
         value = getattr(options, option)
         if value is not None:
             server_settings[option] = value
@@ -2264,6 +2264,9 @@ def main():
     for option in server_settings.keys():
         if type(server_settings[option]) is str:
             server_settings[option] = unicode(server_settings[option])
+    # Debug implies foreground
+    if server_settings["debug"]:
+        server_settings["foreground"] = True
     # Now we have our good server settings in "server_settings"
     
     ##################################################################
@@ -2275,6 +2278,7 @@ def main():
     use_ipv6 = server_settings["use_ipv6"]
     stored_state_path = os.path.join(server_settings["statedir"],
                                      stored_state_file)
+    foreground = server_settings["foreground"]
     
     if debug:
         initlogger(debug, logging.DEBUG)
@@ -2312,8 +2316,9 @@ def main():
                               use_dbus=use_dbus,
                               socketfd=(server_settings["socket"]
                                         or None))
-    if not debug:
+    if not foreground:
         pidfilename = "/var/run/mandos.pid"
+        pidfile = None
         try:
             pidfile = open(pidfilename, "w")
         except IOError as e:
@@ -2358,7 +2363,7 @@ def main():
             os.close(null)
     
     # Need to fork before connecting to D-Bus
-    if not debug:
+    if not foreground:
         # Close all input and output, do double fork, etc.
         daemon()
     
@@ -2497,18 +2502,16 @@ def main():
     if not tcp_server.clients:
         logger.warning("No clients defined")
     
-    if not debug:
-        try:
-            with pidfile:
-                pid = os.getpid()
-                pidfile.write(str(pid) + "\n".encode("utf-8"))
-            del pidfile
-        except IOError:
-            logger.error("Could not write to file %r with PID %d",
-                         pidfilename, pid)
-        except NameError:
-            # "pidfile" was never created
-            pass
+    if not foreground:
+        if pidfile is not None:
+            try:
+                with pidfile:
+                    pid = os.getpid()
+                    pidfile.write(str(pid) + "\n".encode("utf-8"))
+            except IOError:
+                logger.error("Could not write to file %r with PID %d",
+                             pidfilename, pid)
+        del pidfile
         del pidfilename
     
     signal.signal(signal.SIGHUP, lambda signum, frame: sys.exit())
