@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY COMMANDNAME "mandos-client">
-<!ENTITY TIMESTAMP "2012-06-13">
+<!ENTITY TIMESTAMP "2012-06-17">
 <!ENTITY % common SYSTEM "../common.ent">
 %common;
 ]>
@@ -226,9 +226,11 @@
       
       <varlistentry>
 	<term><option>--interface=<replaceable
-	>NAME</replaceable></option></term>
+	>NAME</replaceable><arg rep='repeat'>,<replaceable
+	>NAME</replaceable></arg></option></term>
 	<term><option>-i
-	<replaceable>NAME</replaceable></option></term>
+	<replaceable>NAME</replaceable><arg rep='repeat'>,<replaceable
+	>NAME</replaceable></arg></option></term>
 	<listitem>
 	  <para>
 	    Comma separated list of network interfaces that will be
@@ -237,9 +239,10 @@
 	    use all appropriate interfaces.
 	  </para>
 	  <para>
-	    If the <option>--connect</option> option is used, this
-	    specifies the interface to use to connect to the address
-	    given.
+	    If the <option>--connect</option> option is used, and
+	    exactly one interface name is specified (except
+	    <quote><literal>none</literal></quote>), this specifies
+	    the interface to use to connect to the address given.
 	  </para>
 	  <para>
 	    Note that since this program will normally run in the
@@ -254,10 +257,11 @@
 	  </para>
 	  <para>
 	    <replaceable>NAME</replaceable> can be the string
-	    <quote><literal>none</literal></quote>; this will not use
-	    any specific interface, and will not bring up an interface
-	    on startup.  This is not recommended, and only meant for
-	    advanced users.
+	    <quote><literal>none</literal></quote>; this will make
+	    <command>&COMMANDNAME;</command> not bring up
+	    <emphasis>any</emphasis> interfaces specified
+	    <emphasis>after</emphasis> this string.  This is not
+	    recommended, and only meant for advanced users.
 	  </para>
 	</listitem>
       </varlistentry>
