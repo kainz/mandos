@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY COMMANDNAME "mandos-ctl">
-<!ENTITY TIMESTAMP "2012-01-01">
+<!ENTITY TIMESTAMP "2012-06-22">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -194,6 +194,10 @@
 	<arg choice="plain"><option>--version</option></arg>
 	<arg choice="plain"><option>-v</option></arg>
       </group>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>&COMMANDNAME;</command>
+      <arg choice="plain"><option>--check</option></arg>
     </cmdsynopsis>
   </refsynopsisdiv>
   
@@ -472,6 +476,15 @@
 	  <para>
 	    Check if a single client is enabled or not, and exit with
 	    a successful exit status only if the client is enabled.
+	  </para>
+	</listitem>
+      </varlistentry>
+      
+      <varlistentry>
+	<term><option>--check</option></term>
+	<listitem>
+	  <para>
+	    Run self-tests.  This includes any unit tests, etc.
 	  </para>
 	</listitem>
       </varlistentry>
