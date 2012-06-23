@@ -47,7 +47,6 @@
 ** TODO [#C] DBusServiceObjectUsingSuper
 ** TODO [#B] Global enable/disable flag
 ** TODO [#B] By-client countdown on number of secrets given
-** TODO [#B] Support RFC 3339 time duration syntax
 ** D-Bus Client method NeedsPassword(50) - Timeout, default disapprove
     + SetPass(u"gazonk", True) -> Approval, persistent
     + Approve(False) -> Close client connection immediately
@@ -80,7 +79,6 @@
 * mandos-ctl
 *** Handle "no D-Bus server" and/or "no Mandos server found" better
 *** [#B] --dump option
-** TODO Support RFC 3339 time duration syntax
 
 * TODO mandos-dispatch
   Listens for specified D-Bus signals and spawns shell commands with
