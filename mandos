@@ -717,13 +717,20 @@ class Client(object):
             except OSError as error:
                 logger.error("Failed to start subprocess",
                              exc_info=error)
+                return True
             self.checker_callback_tag = (gobject.child_watch_add
                                          (self.checker.pid,
                                           self.checker_callback,
                                           data=command))
             # The checker may have completed before the gobject
             # watch was added.  Check for this.
-            pid, status = os.waitpid(self.checker.pid, os.WNOHANG)
+            try:
+                pid, status = os.waitpid(self.checker.pid, os.WNOHANG)
+            except OSError as error:
+                if error.errno == errno.ECHILD:
+                    logger.error("Child process vanished", exc_info=error)
+                    return True
+                raise
             if pid:
                 gobject.source_remove(self.checker_callback_tag)
                 self.checker_callback(pid, status, command)
