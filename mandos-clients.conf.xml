@@ -3,7 +3,7 @@
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY CONFNAME "mandos-clients.conf">
 <!ENTITY CONFPATH "<filename>/etc/mandos/clients.conf</filename>">
-<!ENTITY TIMESTAMP "2012-05-27">
+<!ENTITY TIMESTAMP "2012-06-23">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -335,17 +335,12 @@
 	    <option>extended_timeout</option> option.
 	  </para>
 	  <para>
-	    The <replaceable>TIME</replaceable> is specified as a
-	    space-separated number of values, each of which is a
-	    number and a one-character suffix.  The suffix must be one
-	    of <quote>d</quote>, <quote>s</quote>, <quote>m</quote>,
-	    <quote>h</quote>, and <quote>w</quote> for days, seconds,
-	    minutes, hours, and weeks, respectively.  The values are
-	    added together to give the total time value, so all of
-	    <quote><literal>330s</literal></quote>,
-	    <quote><literal>110s 110s 110s</literal></quote>, and
-	    <quote><literal>5m 30s</literal></quote> will give a value
-	    of five minutes and thirty seconds.
+	    The <replaceable>TIME</replaceable> is specified as an RFC
+	    3339 duration; for example
+	    <quote><literal>P1Y2M3DT4H5M6S</literal></quote> meaning
+	    one year, two months, three days, four hours, five
+	    minutes, and six seconds.  Some values can be omitted, see
+	    RFC 3339 Appendix A for details.
 	  </para>
 	</listitem>
       </varlistentry>
@@ -465,8 +460,8 @@
     <informalexample>
       <programlisting>
 [DEFAULT]
-timeout = 5m
-interval = 2m
+timeout = PT5M
+interval = PT2M
 checker = fping -q -- %%(host)s
 
 # Client "foo"
@@ -489,15 +484,15 @@ secret =
         4T2zw4dxS5NswXWU0sVEXxjs6PYxuIiCTL7vdpx8QjBkrPWDrAbcMyBr2O
         QlnHIvPzEArRQLo=
 host = foo.example.org
-interval = 1m
+interval = PT1M
 
 # Client "bar"
 [bar]
 fingerprint = 3e393aeaefb84c7e89e2f547b3a107558fca3a27
 secfile = /etc/mandos/bar-secret
-timeout = 15m
+timeout = PT15M
 approved_by_default = False
-approval_delay = 30s
+approval_delay = PT30S
       </programlisting>
     </informalexample>
   </refsect1>
@@ -516,6 +511,20 @@ approval_delay = 30s
       <citerefentry><refentrytitle>fping</refentrytitle>
       <manvolnum>8</manvolnum></citerefentry>
     </para>
+    <variablelist>
+      <varlistentry>
+	<term>
+	  RFC 3339: <citetitle>Date and Time on the Internet:
+	  Timestamps</citetitle>
+	</term>
+      <listitem>
+	<para>
+	  The time intervals are in the "duration" format, as
+	  specified in ABNF in Appendix A of RFC 3339.
+	</para>
+      </listitem>
+      </varlistentry>
+    </variablelist>
   </refsect1>
 </refentry>
 <!-- Local Variables: -->

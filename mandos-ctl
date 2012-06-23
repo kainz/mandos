@@ -85,7 +85,7 @@ def milliseconds_to_string(ms):
 
 
 def rfc3339_duration_to_delta(duration):
-    """Parse a RFC 3339 "duration" and return a datetime.timedelta
+    """Parse an RFC 3339 "duration" and return a datetime.timedelta
     
     >>> rfc3339_duration_to_delta("P7D")
     datetime.timedelta(7)
@@ -103,10 +103,10 @@ def rfc3339_duration_to_delta(duration):
     datetime.timedelta(1, 200)
     """
     
-    # Parsing a RFC 3339 duration with regular expressions is not
+    # Parsing an RFC 3339 duration with regular expressions is not
     # possible - there would have to be multiple places for the same
-    # values, like seconds.  This, while more esoteric, is cleaner
-    # without depending on a parsing library.  If Python had a
+    # values, like seconds.  The current code, while more esoteric, is
+    # cleaner without depending on a parsing library.  If Python had a
     # built-in library for parsing we would use it, but we'd like to
     # avoid excessive use of external libraries.
     
