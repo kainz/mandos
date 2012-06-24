@@ -61,17 +61,19 @@
 ** TODO Allow %%(checker)s as a runtime expansion
 ** TODO Use python-tlslite?
 ** TODO D-Bus AddClient() method on server object
-** TODO Use org.freedesktop.DBus.Method.NoReply annotation on async methods.
-** TODO Emit [[http://dbus.freedesktop.org/doc/dbus-specification.html#standard-interfaces-properties][org.freedesktop.DBus.Properties.PropertiesChanged]] signal
+** TODO Use org.freedesktop.DBus.Method.NoReply annotation on async methods. :2:
+** TODO Emit [[http://dbus.freedesktop.org/doc/dbus-specification.html#standard-interfaces-properties][org.freedesktop.DBus.Properties.PropertiesChanged]] signal	  :2:
    TODO Deprecate se.recompile.Mandos.Client.PropertyChanged - annotate!
    TODO Can use "invalidates" annotation to also emit on changed secret.
-** TODO Support [[http://dbus.freedesktop.org/doc/dbus-specification.html#standard-interfaces-objectmanager][org.freedesktop.DBus.ObjectManager]] interface on server object
+** TODO Support [[http://dbus.freedesktop.org/doc/dbus-specification.html#standard-interfaces-objectmanager][org.freedesktop.DBus.ObjectManager]] interface on server object :2:
    Deprecate methods GetAllClients(), GetAllClientsWithProperties()
    and signals ClientAdded and ClientRemoved.
 ** TODO Save state periodically to recover better from hard shutdowns
 ** TODO CheckerCompleted method, deprecate CheckedOK
 ** TODO Secret Service API?
    http://standards.freedesktop.org/secret-service/
+** TODO Remove D-Bus interfaces with old domain name			  :2:
+** TODO Remove old string_to_delta format				  :2:
 
 * mandos.xml
 ** Add mandos contact info in manual pages
@@ -79,6 +81,7 @@
 * mandos-ctl
 *** Handle "no D-Bus server" and/or "no Mandos server found" better
 *** [#B] --dump option
+** TODO Remove old string_to_delta format				  :2:
 
 * TODO mandos-dispatch
   Listens for specified D-Bus signals and spawns shell commands with
@@ -90,7 +93,6 @@
    Better view of client data in the listing
 *** Properties popup
 ** Print a nice "We are sorry" message, save stack trace to log.
-** Show timeout countdown for approval
 
 * mandos-keygen
 ** TODO "--secfile" option
