@@ -728,7 +728,9 @@ class Client(object):
                 pid, status = os.waitpid(self.checker.pid, os.WNOHANG)
             except OSError as error:
                 if error.errno == errno.ECHILD:
-                    logger.error("Child process vanished", exc_info=error)
+                    # This should never happen
+                    logger.error("Child process vanished",
+                                 exc_info=error)
                     return True
                 raise
             if pid:
