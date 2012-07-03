@@ -489,6 +489,7 @@ class UserInterface(object):
         self.topwidget = urwid.Pile(self.uilist)
     
     def log_message(self, message):
+        """Log message formatted with timestamp"""
         timestamp = datetime.datetime.now().isoformat()
         self.log_message_raw(timestamp + ": " + message)
     
@@ -584,7 +585,10 @@ class UserInterface(object):
         try:
             mandos_clients = (self.mandos_serv
                               .GetAllClientsWithProperties())
+            if not mandos_clients:
+                self.log_message_raw(("bold", "Note: Server has no clients."))
         except dbus.exceptions.DBusException:
+            self.log_message_raw(("bold", "Note: No Mandos servers running."))
             mandos_clients = dbus.Dictionary()
         
         (self.mandos_serv
