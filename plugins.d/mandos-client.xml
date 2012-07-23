@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY COMMANDNAME "mandos-client">
-<!ENTITY TIMESTAMP "2012-06-17">
+<!ENTITY TIMESTAMP "2012-07-23">
 <!ENTITY % common SYSTEM "../common.ent">
 %common;
 ]>
@@ -512,7 +512,7 @@
 	      It is not necessary to print any non-executable files
 	      already in the network hook directory, these will be
 	      copied implicitly if they otherwise satisfy the name
-	      requirement.
+	      requirements.
 	    </para>
 	  </listitem>
 	</varlistentry>
@@ -846,7 +846,7 @@
 	      <para>
 		This client uses IPv6 link-local addresses, which are
 		immediately usable since a link-local addresses is
-		automatically assigned to a network interfaces when it
+		automatically assigned to a network interface when it
 		is brought up.
 	      </para>
 	    </listitem>
