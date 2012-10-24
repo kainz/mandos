@@ -234,7 +234,7 @@ class AvahiService(object):
                Used to optionally bind to the specified interface.
     name: string; Example: 'Mandos'
     type: string; Example: '_mandos._tcp'.
-                  See <http://www.dns-sd.org/ServiceTypes.html>
+     See <https://www.iana.org/assignments/service-names-port-numbers>
     port: integer; what port to announce
     TXT: list of strings; TXT record for the service
     domain: string; Domain to publish on, default to .local if empty.
@@ -1078,8 +1078,8 @@ def alternate_dbus_interfaces(alt_interface_names, deprecate=True):
                 interface_names.add(alt_interface)
                 # Is this a D-Bus signal?
                 if getattr(attribute, "_dbus_is_signal", False):
-                    # Extract the original non-method function by
-                    # black magic
+                    # Extract the original non-method undecorated
+                    # function by black magic
                     nonmethod_func = (dict(
                             zip(attribute.func_code.co_freevars,
                                 attribute.__closure__))["func"]
