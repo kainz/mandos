@@ -79,7 +79,6 @@ import ctypes
 import ctypes.util
 import xml.dom.minidom
 import inspect
-import GnuPGInterface
 
 try:
     SO_BINDTODEVICE = socket.SO_BINDTODEVICE
@@ -140,14 +139,12 @@ class PGPError(Exception):
 class PGPEngine(object):
     """A simple class for OpenPGP symmetric encryption & decryption"""
     def __init__(self):
-        self.gnupg = GnuPGInterface.GnuPG()
         self.tempdir = tempfile.mkdtemp(prefix="mandos-")
-        self.gnupg = GnuPGInterface.GnuPG()
-        self.gnupg.options.meta_interactive = False
-        self.gnupg.options.homedir = self.tempdir
-        self.gnupg.options.extra_args.extend(['--force-mdc',
-                                              '--quiet',
-                                              '--no-use-agent'])
+        self.gnupgargs = ['--batch',
+                          '--home', self.tempdir,
+                          '--force-mdc',
+                          '--quiet',
+                          '--no-use-agent']
     
     def __enter__(self):
         return self
@@ -178,37 +175,40 @@ class PGPEngine(object):
         return b"mandos" + binascii.hexlify(password)
     
     def encrypt(self, data, password):
-        self.gnupg.passphrase = self.password_encode(password)
-        with open(os.devnull, "w") as devnull:
-            try:
-                proc = self.gnupg.run(['--symmetric'],
-                                      create_fhs=['stdin', 'stdout'],
-                                      attach_fhs={'stderr': devnull})
-                with contextlib.closing(proc.handles['stdin']) as f:
-                    f.write(data)
-                with contextlib.closing(proc.handles['stdout']) as f:
-                    ciphertext = f.read()
-                proc.wait()
-            except IOError as e:
-                raise PGPError(e)
-        self.gnupg.passphrase = None
+        passphrase = self.password_encode(password)
+        with tempfile.NamedTemporaryFile(dir=self.tempdir
+                                         ) as passfile:
+            passfile.write(passphrase)
+            passfile.flush()
+            proc = subprocess.Popen(['gpg', '--symmetric',
+                                     '--passphrase-file',
+                                     passfile.name]
+                                    + self.gnupgargs,
+                                    stdin = subprocess.PIPE,
+                                    stdout = subprocess.PIPE,
+                                    stderr = subprocess.PIPE)
+            ciphertext, err = proc.communicate(input = data)
+        if proc.returncode != 0:
+            raise PGPError(err)
         return ciphertext
     
     def decrypt(self, data, password):
-        self.gnupg.passphrase = self.password_encode(password)
-        with open(os.devnull, "w") as devnull:
-            try:
-                proc = self.gnupg.run(['--decrypt'],
-                                      create_fhs=['stdin', 'stdout'],
-                                      attach_fhs={'stderr': devnull})
-                with contextlib.closing(proc.handles['stdin']) as f:
-                    f.write(data)
-                with contextlib.closing(proc.handles['stdout']) as f:
-                    decrypted_plaintext = f.read()
-                proc.wait()
-            except IOError as e:
-                raise PGPError(e)
-        self.gnupg.passphrase = None
+        passphrase = self.password_encode(password)
+        with tempfile.NamedTemporaryFile(dir = self.tempdir
+                                         ) as passfile:
+            passfile.write(passphrase)
+            passfile.flush()
+            proc = subprocess.Popen(['gpg', '--decrypt',
+                                     '--passphrase-file',
+                                     passfile.name]
+                                    + self.gnupgargs,
+                                    stdin = subprocess.PIPE,
+                                    stdout = subprocess.PIPE,
+                                    stderr = subprocess.PIPE)
+            decrypted_plaintext, err = proc.communicate(input
+                                                        = data)
+        if proc.returncode != 0:
+            raise PGPError(err)
         return decrypted_plaintext
 
 
