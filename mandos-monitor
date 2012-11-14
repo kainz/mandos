@@ -588,7 +588,7 @@ class UserInterface(object):
             if not mandos_clients:
                 self.log_message_raw(("bold", "Note: Server has no clients."))
         except dbus.exceptions.DBusException:
-            self.log_message_raw(("bold", "Note: No Mandos servers running."))
+            self.log_message_raw(("bold", "Note: No Mandos server running."))
             mandos_clients = dbus.Dictionary()
         
         (self.mandos_serv

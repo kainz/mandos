@@ -199,13 +199,14 @@ def string_to_delta(interval):
     >>> string_to_delta("5m 30s")
     datetime.timedelta(0, 330)
     """
-    value = datetime.timedelta(0)
-    regexp = re.compile(r"(\d+)([dsmhw]?)")
     
     try:
         return rfc3339_duration_to_delta(interval)
     except ValueError:
         pass
+    
+    value = datetime.timedelta(0)
+    regexp = re.compile(r"(\d+)([dsmhw]?)")
     
     for num, suffix in regexp.findall(interval):
         if suffix == "d":
