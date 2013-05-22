@@ -25,8 +25,10 @@
 
 from __future__ import (division, absolute_import, print_function,
                         unicode_literals)
-
-from future_builtins import *
+try:
+    from future_builtins import *
+except ImportError:
+    pass
 
 import sys
 import os
@@ -38,13 +40,17 @@ import urwid.curses_display
 import urwid
 
 from dbus.mainloop.glib import DBusGMainLoop
-import gobject
+try:
+    import gobject
+except ImportError:
+    from gi.repository import GObject as gobject
 
 import dbus
 
-import UserList
-
 import locale
+
+if sys.version_info[0] == 2:
+    str = unicode
 
 locale.setlocale(locale.LC_ALL, '')
 
@@ -56,14 +62,6 @@ domain = 'se.recompile'
 server_interface = domain + '.Mandos'
 client_interface = domain + '.Mandos.Client'
 version = "1.6.0"
-
-# Always run in monochrome mode
-urwid.curses_display.curses.has_colors = lambda : False
-
-# Urwid doesn't support blinking, but we want it.  Since we have no
-# use for underline on its own, we make underline also always blink.
-urwid.curses_display.curses.A_UNDERLINE |= (
-    urwid.curses_display.curses.A_BLINK)
 
 def isoformat_to_datetime(iso):
     "Parse an ISO 8601 date string to a datetime.datetime()"
@@ -210,7 +208,7 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
            to log in the future. """
         #self.logger('Client {0} started checker "{1}"'
         #            .format(self.properties["Name"],
-        #                    unicode(command)))
+        #                    str(command)))
         pass
     
     def got_secret(self):
@@ -279,7 +277,7 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
                 message = "Approval in {0}. (d)eny?"
             else:
                 message = "Denial in {0}. (a)pprove?"
-            message = message.format(unicode(timer).rsplit(".", 1)[0])
+            message = message.format(str(timer).rsplit(".", 1)[0])
             self.using_timer(True)
         elif self.properties["LastCheckerStatus"] != 0:
             # When checker has failed, show timer until client expires
@@ -293,7 +291,7 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
                             datetime.timedelta())
             message = ('A checker has failed! Time until client'
                        ' gets disabled: {0}'
-                       .format(unicode(timer).rsplit(".", 1)[0]))
+                       .format(str(timer).rsplit(".", 1)[0]))
             self.using_timer(True)
         else:
             message = "enabled"
@@ -382,7 +380,7 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
     def property_changed(self, property=None, **kwargs):
         """Call self.update() if old value is not new value.
         This overrides the method from MandosClientPropertyCache"""
-        property_name = unicode(property)
+        property_name = str(property)
         old_value = self.properties.get(property_name)
         super(MandosClientWidget, self).property_changed(
             property=property, **kwargs)
@@ -415,20 +413,21 @@ class UserInterface(object):
                 ("normal",
                  "default", "default", None),
                 ("bold",
-                 "default", "default", "bold"),
+                 "bold", "default", "bold"),
                 ("underline-blink",
-                 "default", "default", "underline"),
+                 "underline,blink", "default", "underline,blink"),
                 ("standout",
-                 "default", "default", "standout"),
+                 "standout", "default", "standout"),
                 ("bold-underline-blink",
-                 "default", "default", ("bold", "underline")),
+                 "bold,underline,blink", "default", "bold,underline,blink"),
                 ("bold-standout",
-                 "default", "default", ("bold", "standout")),
+                 "bold,standout", "default", "bold,standout"),
                 ("underline-blink-standout",
-                 "default", "default", ("underline", "standout")),
+                 "underline,blink,standout", "default",
+                 "underline,blink,standout"),
                 ("bold-underline-blink-standout",
-                 "default", "default", ("bold", "underline",
-                                          "standout")),
+                 "bold,underline,blink,standout", "default",
+                 "bold,underline,blink,standout"),
                 ))
         
         if urwid.supports_unicode():
@@ -508,7 +507,7 @@ class UserInterface(object):
         self.log_visible = not self.log_visible
         self.rebuild()
         #self.log_message("Log visibility changed to: "
-        #                 + unicode(self.log_visible))
+        #                 + str(self.log_visible))
     
     def change_log_display(self):
         """Change type of log display.
@@ -554,7 +553,7 @@ class UserInterface(object):
         if path is None:
             path = client.proxy.object_path
         self.clients_dict[path] = client
-        self.clients.sort(None, lambda c: c.properties["Name"])
+        self.clients.sort(key=lambda c: c.properties["Name"])
         self.refresh()
     
     def remove_client(self, client, path=None):
@@ -562,11 +561,6 @@ class UserInterface(object):
         if path is None:
             path = client.proxy.object_path
         del self.clients_dict[path]
-        if not self.clients_dict:
-            # Work around bug in Urwid 0.9.8.3 - if a SimpleListWalker
-            # is completely emptied, we need to recreate it.
-            self.clients = urwid.SimpleListWalker([])
-            self.rebuild()
         self.refresh()
     
     def refresh(self):
@@ -606,7 +600,7 @@ class UserInterface(object):
                             self.client_not_found,
                             dbus_interface=server_interface,
                             byte_arrays=True))
-        for path, client in mandos_clients.iteritems():
+        for path, client in mandos_clients.items():
             client_proxy_object = self.bus.get_object(self.busname,
                                                       path)
             self.add_client(MandosClientWidget(server_proxy_object
@@ -724,7 +718,7 @@ try:
     ui.run()
 except KeyboardInterrupt:
     ui.screen.stop()
-except Exception, e:
-    ui.log_message(unicode(e))
+except Exception as e:
+    ui.log_message(str(e))
     ui.screen.stop()
     raise

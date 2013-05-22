@@ -440,6 +440,7 @@ class Client(object):
     runtime_expansions: Allowed attributes for runtime expansion.
     expires:    datetime.datetime(); time (UTC) when a client will be
                 disabled, or None
+    server_settings: The server_settings dict from main()
     """
     
     runtime_expansions = ("approval_delay", "approval_duration",
@@ -520,8 +521,11 @@ class Client(object):
         
         return settings
     
-    def __init__(self, settings, name = None):
+    def __init__(self, settings, name = None, server_settings=None):
         self.name = name
+        if server_settings is None:
+            server_settings = {}
+        self.server_settings = server_settings
         # adding all client settings
         for setting, value in settings.iteritems():
             setattr(self, setting, value)
@@ -711,9 +715,18 @@ class Client(object):
                 # in normal mode, that is already done by daemon(),
                 # and in debug mode we don't want to.  (Stdin is
                 # always replaced by /dev/null.)
+                # The exception is when not debugging but nevertheless
+                # running in the foreground; use the previously
+                # created wnull.
+                popen_args = {}
+                if (not self.server_settings["debug"]
+                    and self.server_settings["foreground"]):
+                    popen_args.update({"stdout": wnull,
+                                       "stderr": wnull })
                 self.checker = subprocess.Popen(command,
                                                 close_fds=True,
-                                                shell=True, cwd="/")
+                                                shell=True, cwd="/",
+                                                **popen_args)
             except OSError as error:
                 logger.error("Failed to start subprocess",
                              exc_info=error)
@@ -2524,6 +2537,14 @@ def main():
     old_client_settings = {}
     clients_data = {}
     
+    # This is used to redirect stdout and stderr for checker processes
+    global wnull
+    wnull = open(os.devnull, "w") # A writable /dev/null
+    # Only used if server is running in foreground but not in debug
+    # mode
+    if debug or not foreground:
+        wnull.close()
+    
     # Get client data and settings from last running state.
     if server_settings["restore"]:
         try:
@@ -2545,6 +2566,10 @@ def main():
     
     with PGPEngine() as pgp:
         for client_name, client in clients_data.iteritems():
+            # Skip removed clients
+            if client_name not in client_settings:
+                continue
+            
             # Decide which value to use after restoring saved state.
             # We have three different values: Old config file,
             # new config file, and saved state.
@@ -2612,7 +2637,8 @@ def main():
     # Create all client objects
     for client_name, client in clients_data.iteritems():
         tcp_server.clients[client_name] = client_class(
-            name = client_name, settings = client)
+            name = client_name, settings = client,
+            server_settings = server_settings)
     
     if not tcp_server.clients:
         logger.warning("No clients defined")
@@ -2701,6 +2727,7 @@ def main():
         service.cleanup()
         
         multiprocessing.active_children()
+        wnull.close()
         if not (tcp_server.clients or client_settings):
             return
         
@@ -2718,7 +2745,7 @@ def main():
                 # A list of attributes that can not be pickled
                 # + secret.
                 exclude = set(("bus", "changedstate", "secret",
-                               "checker"))
+                               "checker", "server_settings"))
                 for name, typ in (inspect.getmembers
                                   (dbus.service.Object)):
                     exclude.add(name)
