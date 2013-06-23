@@ -77,6 +77,7 @@
    http://standards.freedesktop.org/secret-service/
 ** TODO Remove D-Bus interfaces with old domain name			  :2:
 ** TODO Remove old string_to_delta format				  :2:
+** TODO --no-zeroconf (only valid if port or socket is set)
 
 * mandos.xml
 ** Add mandos contact info in manual pages
