@@ -96,6 +96,7 @@
    Better view of client data in the listing
 *** Properties popup
 ** Print a nice "We are sorry" message, save stack trace to log.
+** Rename module "gobject" to "GObject".
 
 * mandos-keygen
 ** TODO "--secfile" option

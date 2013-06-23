@@ -12,7 +12,7 @@
    server and client programs themselves *could* be run in other
    distributions, but they *are* specific to GNU/Linux systems, and
    are not written with portabillity to other Unixes in mind.
-  
+   
 ** Libraries
    
    The following libraries and packages are needed.  (It is possible
@@ -35,7 +35,7 @@
     To build just the documentation, run the command "make doc".  Then
     the manual page "mandos.8", for example, can be read by running
     "man -l mandos.8".
-   
+    
 *** Mandos Server
     + GnuTLS 2.4          http://www.gnu.org/software/gnutls/
     + Avahi 0.6.16        http://www.avahi.org/
@@ -51,7 +51,7 @@
     Package names:
     python-gnutls avahi-daemon python python-avahi python-dbus
     python-gobject python-urwid
-   
+    
 *** Mandos Client
     + initramfs-tools 0.85i
                   http://packages.qa.debian.org/i/initramfs-tools.html
