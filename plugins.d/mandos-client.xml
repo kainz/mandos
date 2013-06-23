@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY COMMANDNAME "mandos-client">
-<!ENTITY TIMESTAMP "2012-07-23">
+<!ENTITY TIMESTAMP "2013-06-21">
 <!ENTITY % common SYSTEM "../common.ent">
 %common;
 ]>
@@ -666,7 +666,7 @@
     </para>
     <informalexample>
       <para>
-	Normal invocation needs no options, if the network interface
+	Normal invocation needs no options, if the network interfaces
 	can be automatically determined:
       </para>
       <para>
@@ -675,8 +675,8 @@
     </informalexample>
     <informalexample>
       <para>
-	Search for Mandos servers (and connect to them) using another
-	interface:
+	Search for Mandos servers (and connect to them) using one
+	specific interface:
       </para>
       <para>
 	<!-- do not wrap this line -->

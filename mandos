@@ -1991,7 +1991,7 @@ class IPv6_TCPServer(MultiprocessingMixInWithPipe,
                 if self.address_family == socket.AF_INET6:
                     any_address = "::" # in6addr_any
                 else:
-                    any_address = socket.INADDR_ANY
+                    any_address = "0.0.0.0" # INADDR_ANY
                 self.server_address = (any_address,
                                        self.server_address[1])
             elif not self.server_address[1]:
@@ -2302,7 +2302,7 @@ def main():
                         help="Run self-test")
     parser.add_argument("--debug", action="store_true",
                         help="Debug mode; run in foreground and log"
-                        " to terminal")
+                        " to terminal", default=None)
     parser.add_argument("--debuglevel", metavar="LEVEL",
                         help="Debug level for stdout output")
     parser.add_argument("--priority", help="GnuTLS"
@@ -2315,19 +2315,20 @@ def main():
                         " files")
     parser.add_argument("--no-dbus", action="store_false",
                         dest="use_dbus", help="Do not provide D-Bus"
-                        " system bus interface")
+                        " system bus interface", default=None)
     parser.add_argument("--no-ipv6", action="store_false",
-                        dest="use_ipv6", help="Do not use IPv6")
+                        dest="use_ipv6", help="Do not use IPv6",
+                        default=None)
     parser.add_argument("--no-restore", action="store_false",
                         dest="restore", help="Do not restore stored"
-                        " state")
+                        " state", default=None)
     parser.add_argument("--socket", type=int,
                         help="Specify a file descriptor to a network"
                         " socket to use instead of creating one")
     parser.add_argument("--statedir", metavar="DIR",
                         help="Directory to save/restore state in")
     parser.add_argument("--foreground", action="store_true",
-                        help="Run in foreground")
+                        help="Run in foreground", default=None)
     
     options = parser.parse_args()
     
@@ -2342,7 +2343,7 @@ def main():
                         "port": "",
                         "debug": "False",
                         "priority":
-                        "SECURE256:!CTYPE-X.509:+CTYPE-OPENPGP",
+                        "SECURE256:!CTYPE-X.509:+CTYPE-OPENPGP:+SIGN-RSA-SHA224",
                         "servicename": "Mandos",
                         "use_dbus": "True",
                         "use_ipv6": "True",
@@ -2392,6 +2393,10 @@ def main():
     for option in server_settings.keys():
         if type(server_settings[option]) is str:
             server_settings[option] = unicode(server_settings[option])
+    # Force all boolean options to be boolean
+    for option in ("debug", "use_dbus", "use_ipv6", "restore",
+                   "foreground"):
+        server_settings[option] = bool(server_settings[option])
     # Debug implies foreground
     if server_settings["debug"]:
         server_settings["foreground"] = True
