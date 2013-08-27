@@ -156,7 +156,7 @@ bool become_a_daemon(void){
 
 __attribute__((nonnull (2, 3)))
 bool exec_and_wait(pid_t *pid_return, const char *path,
-		   const char **argv, bool interruptable,
+		   const char * const *argv, bool interruptable,
 		   bool daemonize){
   int status;
   int ret;
@@ -312,7 +312,7 @@ pid_t get_pid(void){
   return 0;
 }
 
-const char **getargv(pid_t pid){
+const char * const * getargv(pid_t pid){
   int cl_fd;
   char *cmdline_filename;
   ssize_t sret;
@@ -379,7 +379,7 @@ const char **getargv(pid_t pid){
     return NULL;
   }
   argz_extract(cmdline, cmdline_len, argv); /* Create argv */
-  return (const char **)argv;
+  return (const char * const *)argv;
 }
 
 int main(__attribute__((unused))int argc,
@@ -460,7 +460,7 @@ int main(__attribute__((unused))int argc,
   }
   kill_and_wait(plymouth_command_pid);
   
-  const char **plymouthd_argv;
+  const char * const *plymouthd_argv;
   pid_t pid = get_pid();
   if(pid == 0){
     error_plus(0, 0, "plymouthd pid not found");

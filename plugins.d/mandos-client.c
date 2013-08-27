@@ -2331,7 +2331,7 @@ int main(int argc, char *argv[]){
 	fprintf_plus(stderr, "Retrying in %d seconds\n",
 		     (int)retry_interval);
       }
-      sleep((int)retry_interval);
+      sleep((unsigned int)retry_interval);
     }
     
     if (not quit_now){

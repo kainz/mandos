@@ -771,7 +771,7 @@ int main(int argc, char *argv[]){
   }
   
   /* Lower permissions */
-  setgid(gid);
+  ret = setgid(gid);
   if(ret == -1){
     error(0, errno, "setgid");
   }
