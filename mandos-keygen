@@ -24,10 +24,10 @@
 VERSION="1.6.0"
 
 KEYDIR="/etc/keys/mandos"
-KEYTYPE=DSA
-KEYLENGTH=2048
-SUBKEYTYPE=ELG-E
-SUBKEYLENGTH=2048
+KEYTYPE=RSA
+KEYLENGTH=4096
+SUBKEYTYPE=RSA
+SUBKEYLENGTH=4096
 KEYNAME="`hostname --fqdn 2>/dev/null || hostname`"
 KEYEMAIL=""
 KEYCOMMENT="Mandos client key"
@@ -60,13 +60,13 @@ Key creation options:
   -v, --version         Show program's version number and exit
   -h, --help            Show this help message and exit
   -d DIR, --dir DIR     Target directory for key files
-  -t TYPE, --type TYPE  Key type.  Default is DSA.
+  -t TYPE, --type TYPE  Key type.  Default is RSA.
   -l BITS, --length BITS
-                        Key length in bits.  Default is 2048.
+                        Key length in bits.  Default is 4096.
   -s TYPE, --subtype TYPE
                         Subkey type.  Default is ELG-E.
   -L BITS, --sublength BITS
-                        Subkey length in bits.  Default is 2048.
+                        Subkey length in bits.  Default is 4096.
   -n NAME, --name NAME  Name of key.  Default is the FQDN.
   -e ADDRESS, --email ADDRESS
                         Email address of key.  Default is empty.
