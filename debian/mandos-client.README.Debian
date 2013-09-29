@@ -45,7 +45,7 @@
   The device can also be overridden at boot time on the Linux kernel
   command line using the sixth colon-separated field of the "ip="
   option; for exact syntax, read the documentation in the file
-  "/usr/share/doc/linux-doc-*/Documentation/filesystems/nfsroot.txt",
+  "/usr/share/doc/linux-doc-*/Documentation/filesystems/nfs/nfsroot.txt",
   available in the "linux-doc-*" package.
   
   Note that since the network interfaces are used in the initial RAM
@@ -90,4 +90,4 @@
   work, "--options-for=mandos-client:--connect=<ADDRESS>:<PORT>" needs
   to be manually added to the file "/etc/mandos/plugin-runner.conf".
 
- -- Teddy Hogeborn <teddy@recompile.se>, Sat, 16 Jun 2012 13:09:58 +0200
+ -- Teddy Hogeborn <teddy@recompile.se>, Sun, 23 Jun 2013 17:31:53 +0200
