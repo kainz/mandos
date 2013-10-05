@@ -4,7 +4,7 @@ Priority: extra
 Maintainer: Mandos Maintainers <mandos@recompile.se>
 Uploaders: Teddy Hogeborn <teddy@recompile.se>,
 	   Björn Påhlsson <belorn@recompile.se>
-Build-Depends: debhelper (>= 7), docbook-xml, docbook-xsl,
+Build-Depends: debhelper (>= 8.9.7), docbook-xml, docbook-xsl,
 	libavahi-core-dev, libgpgme11-dev, libgnutls-dev, xsltproc,
 	pkg-config
 Standards-Version: 3.9.3

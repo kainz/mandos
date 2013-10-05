@@ -1,108 +1,29 @@
 #!/usr/bin/make -f
-# Sample debian/rules that uses debhelper.
-#
-# This file was originally written by Joey Hess and Craig Small.
-# As a special exception, when this file is copied by dh-make into a
-# dh-make output file, you may use that output file without restriction.
-# This special exception was added by Craig Small in version 0.37 of dh-make.
-#
-# Modified to make a template file for a multi-binary package with separated
-# build-arch and build-indep targets  by Bill Allombert 2001
+%:
+	dh $@
 
-# Uncomment this to turn on verbose mode.
-#export DH_VERBOSE=1
-
-# This has to be exported to make some magic below work.
-export DH_OPTIONS
-
-# -pie was broken briefly on the mips and mipsel architectures, see
-# <http://bugs.debian.org/526961>
-BINUTILS_V := $(shell dpkg-query --showformat='$${Version}' \
-			--show binutils)
-ifeq (yes,$(shell dpkg --compare-versions $(BINUTILS_V) lt 2.20-3 \
-		&& dpkg --compare-versions $(BINUTILS_V) ge 2.19.1-1 \
-		&& echo yes))
-  ifneq (,$(strip $(findstring :$(DEB_HOST_ARCH):,:mips:mipsel:) \
-		$(findstring :$(DEB_BUILD_ARCH):,:mips:mipsel:)))
-    BROKEN_PIE := yes
-    export BROKEN_PIE
-  endif
-endif
-
-configure: configure-stamp
-configure-stamp:
-	dh_testdir
-	touch configure-stamp
-
-build: build-arch build-indep
-
-build-arch: build-arch-stamp
-build-arch-stamp: configure-stamp
+override_dh_auto_build-arch:
 	LC_ALL=en_US.utf8 dh_auto_build -- all doc
-	touch $@
 
-build-indep: build-indep-stamp
-build-indep-stamp: configure-stamp
-	LC_ALL=en_US.UTF-8 dh_auto_build -- doc
-	touch $@
+override_dh_auto_build-indep:
+	LC_ALL=en_US.utf8 dh_auto_build -- doc
 
-clean:
-	dh_testdir
-	dh_testroot
-	rm -f build-arch-stamp build-indep-stamp configure-stamp
-	dh_auto_clean
-	dh_clean
-
-install: install-indep install-arch
-install-indep:
-	dh_testdir
-	dh_testroot
-	dh_prep
-	dh_installdirs --indep
-	$(MAKE) DESTDIR=$(CURDIR)/debian/mandos install-server
-	dh_lintian
+override_dh_installinit-indep:
 	dh_installinit --onlyscripts \
 		--update-rcd-params="defaults 25 15"
-	dh_install --indep
 
-install-arch:
-	dh_testdir
-	dh_testroot
-	dh_prep
-	dh_installdirs --same-arch
-	$(MAKE) DESTDIR=$(CURDIR)/debian/mandos-client install-client-nokey
-	dh_lintian
-	dh_install --same-arch
+override_dh_auto_install-indep:
+	$(MAKE) DESTDIR=$(CURDIR)/debian/mandos install-server
 
-binary-common:
-	dh_testdir
-	dh_testroot
-	dh_installchangelogs
-	dh_installdocs
-	dh_installexamples
-	dh_link
-	dh_strip
-	dh_compress
+override_dh_auto_install-arch:
+	$(MAKE) DESTDIR=$(CURDIR)/debian/mandos-client \
+		install-client-nokey
+
+override_dh_fixperms:
 	dh_fixperms --exclude etc/keys/mandos \
 		--exclude etc/mandos/clients.conf \
 		--exclude etc/mandos/plugins.d \
 		--exclude usr/lib/mandos/plugins.d \
 		--exclude usr/share/doc/mandos-client/examples/network-hooks.d
-	dh_installdeb
-	dh_shlibdeps
-	dh_gencontrol
-	dh_md5sums
-	dh_builddeb
-
-# Build architecture independant packages using the common target.
-binary-indep: build-indep install-indep
-	$(MAKE) -f debian/rules DH_OPTIONS=--indep binary-common
-
-# Build architecture dependant packages using the common target.
-binary-arch: build-arch install-arch
-	$(MAKE) -f debian/rules DH_OPTIONS=--same-arch binary-common
-
-binary: binary-arch binary-indep
-
-.PHONY: build clean binary-indep binary-arch binary install \
-		install-indep install-arch configure
+	chmod --recursive g-w -- \
+	"$(CURDIR)/debian/mandos-client/usr/share/doc/mandos-client/examples/network-hooks.d"
