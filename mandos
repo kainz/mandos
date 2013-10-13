@@ -68,6 +68,7 @@ import types
 import binascii
 import tempfile
 import itertools
+import collections
 
 import dbus
 import dbus.service
@@ -78,7 +79,6 @@ import ctypes
 import ctypes.util
 import xml.dom.minidom
 import inspect
-import GnuPGInterface
 
 try:
     SO_BINDTODEVICE = socket.SO_BINDTODEVICE
@@ -139,14 +139,12 @@ class PGPError(Exception):
 class PGPEngine(object):
     """A simple class for OpenPGP symmetric encryption & decryption"""
     def __init__(self):
-        self.gnupg = GnuPGInterface.GnuPG()
         self.tempdir = tempfile.mkdtemp(prefix="mandos-")
-        self.gnupg = GnuPGInterface.GnuPG()
-        self.gnupg.options.meta_interactive = False
-        self.gnupg.options.homedir = self.tempdir
-        self.gnupg.options.extra_args.extend(['--force-mdc',
-                                              '--quiet',
-                                              '--no-use-agent'])
+        self.gnupgargs = ['--batch',
+                          '--home', self.tempdir,
+                          '--force-mdc',
+                          '--quiet',
+                          '--no-use-agent']
     
     def __enter__(self):
         return self
@@ -177,37 +175,40 @@ class PGPEngine(object):
         return b"mandos" + binascii.hexlify(password)
     
     def encrypt(self, data, password):
-        self.gnupg.passphrase = self.password_encode(password)
-        with open(os.devnull, "w") as devnull:
-            try:
-                proc = self.gnupg.run(['--symmetric'],
-                                      create_fhs=['stdin', 'stdout'],
-                                      attach_fhs={'stderr': devnull})
-                with contextlib.closing(proc.handles['stdin']) as f:
-                    f.write(data)
-                with contextlib.closing(proc.handles['stdout']) as f:
-                    ciphertext = f.read()
-                proc.wait()
-            except IOError as e:
-                raise PGPError(e)
-        self.gnupg.passphrase = None
+        passphrase = self.password_encode(password)
+        with tempfile.NamedTemporaryFile(dir=self.tempdir
+                                         ) as passfile:
+            passfile.write(passphrase)
+            passfile.flush()
+            proc = subprocess.Popen(['gpg', '--symmetric',
+                                     '--passphrase-file',
+                                     passfile.name]
+                                    + self.gnupgargs,
+                                    stdin = subprocess.PIPE,
+                                    stdout = subprocess.PIPE,
+                                    stderr = subprocess.PIPE)
+            ciphertext, err = proc.communicate(input = data)
+        if proc.returncode != 0:
+            raise PGPError(err)
         return ciphertext
     
     def decrypt(self, data, password):
-        self.gnupg.passphrase = self.password_encode(password)
-        with open(os.devnull, "w") as devnull:
-            try:
-                proc = self.gnupg.run(['--decrypt'],
-                                      create_fhs=['stdin', 'stdout'],
-                                      attach_fhs={'stderr': devnull})
-                with contextlib.closing(proc.handles['stdin']) as f:
-                    f.write(data)
-                with contextlib.closing(proc.handles['stdout']) as f:
-                    decrypted_plaintext = f.read()
-                proc.wait()
-            except IOError as e:
-                raise PGPError(e)
-        self.gnupg.passphrase = None
+        passphrase = self.password_encode(password)
+        with tempfile.NamedTemporaryFile(dir = self.tempdir
+                                         ) as passfile:
+            passfile.write(passphrase)
+            passfile.flush()
+            proc = subprocess.Popen(['gpg', '--decrypt',
+                                     '--passphrase-file',
+                                     passfile.name]
+                                    + self.gnupgargs,
+                                    stdin = subprocess.PIPE,
+                                    stdout = subprocess.PIPE,
+                                    stderr = subprocess.PIPE)
+            decrypted_plaintext, err = proc.communicate(input
+                                                        = data)
+        if proc.returncode != 0:
+            raise PGPError(err)
         return decrypted_plaintext
 
 
@@ -233,7 +234,7 @@ class AvahiService(object):
                Used to optionally bind to the specified interface.
     name: string; Example: 'Mandos'
     type: string; Example: '_mandos._tcp'.
-                  See <http://www.dns-sd.org/ServiceTypes.html>
+     See <https://www.iana.org/assignments/service-names-port-numbers>
     port: integer; what port to announce
     TXT: list of strings; TXT record for the service
     domain: string; Domain to publish on, default to .local if empty.
@@ -439,6 +440,7 @@ class Client(object):
     runtime_expansions: Allowed attributes for runtime expansion.
     expires:    datetime.datetime(); time (UTC) when a client will be
                 disabled, or None
+    server_settings: The server_settings dict from main()
     """
     
     runtime_expansions = ("approval_delay", "approval_duration",
@@ -446,13 +448,13 @@ class Client(object):
                           "fingerprint", "host", "interval",
                           "last_approval_request", "last_checked_ok",
                           "last_enabled", "name", "timeout")
-    client_defaults = { "timeout": "5m",
-                        "extended_timeout": "15m",
-                        "interval": "2m",
+    client_defaults = { "timeout": "PT5M",
+                        "extended_timeout": "PT15M",
+                        "interval": "PT2M",
                         "checker": "fping -q -- %%(host)s",
                         "host": "",
-                        "approval_delay": "0s",
-                        "approval_duration": "1s",
+                        "approval_delay": "PT0S",
+                        "approval_duration": "PT1S",
                         "approved_by_default": "True",
                         "enabled": "True",
                         }
@@ -519,8 +521,11 @@ class Client(object):
         
         return settings
     
-    def __init__(self, settings, name = None):
+    def __init__(self, settings, name = None, server_settings=None):
         self.name = name
+        if server_settings is None:
+            server_settings = {}
+        self.server_settings = server_settings
         # adding all client settings
         for setting, value in settings.iteritems():
             setattr(self, setting, value)
@@ -710,19 +715,37 @@ class Client(object):
                 # in normal mode, that is already done by daemon(),
                 # and in debug mode we don't want to.  (Stdin is
                 # always replaced by /dev/null.)
+                # The exception is when not debugging but nevertheless
+                # running in the foreground; use the previously
+                # created wnull.
+                popen_args = {}
+                if (not self.server_settings["debug"]
+                    and self.server_settings["foreground"]):
+                    popen_args.update({"stdout": wnull,
+                                       "stderr": wnull })
                 self.checker = subprocess.Popen(command,
                                                 close_fds=True,
-                                                shell=True, cwd="/")
+                                                shell=True, cwd="/",
+                                                **popen_args)
             except OSError as error:
                 logger.error("Failed to start subprocess",
                              exc_info=error)
+                return True
             self.checker_callback_tag = (gobject.child_watch_add
                                          (self.checker.pid,
                                           self.checker_callback,
                                           data=command))
             # The checker may have completed before the gobject
             # watch was added.  Check for this.
-            pid, status = os.waitpid(self.checker.pid, os.WNOHANG)
+            try:
+                pid, status = os.waitpid(self.checker.pid, os.WNOHANG)
+            except OSError as error:
+                if error.errno == errno.ECHILD:
+                    # This should never happen
+                    logger.error("Child process vanished",
+                                 exc_info=error)
+                    return True
+                raise
             if pid:
                 gobject.source_remove(self.checker_callback_tag)
                 self.checker_callback(pid, status, command)
@@ -1068,8 +1091,8 @@ def alternate_dbus_interfaces(alt_interface_names, deprecate=True):
                 interface_names.add(alt_interface)
                 # Is this a D-Bus signal?
                 if getattr(attribute, "_dbus_is_signal", False):
-                    # Extract the original non-method function by
-                    # black magic
+                    # Extract the original non-method undecorated
+                    # function by black magic
                     nonmethod_func = (dict(
                             zip(attribute.func_code.co_freevars,
                                 attribute.__closure__))["func"]
@@ -1968,7 +1991,7 @@ class IPv6_TCPServer(MultiprocessingMixInWithPipe,
                 if self.address_family == socket.AF_INET6:
                     any_address = "::" # in6addr_any
                 else:
-                    any_address = socket.INADDR_ANY
+                    any_address = "0.0.0.0" # INADDR_ANY
                 self.server_address = (any_address,
                                        self.server_address[1])
             elif not self.server_address[1]:
@@ -2090,6 +2113,105 @@ class MandosServer(IPv6_TCPServer):
         return True
 
 
+def rfc3339_duration_to_delta(duration):
+    """Parse an RFC 3339 "duration" and return a datetime.timedelta
+    
+    >>> rfc3339_duration_to_delta("P7D")
+    datetime.timedelta(7)
+    >>> rfc3339_duration_to_delta("PT60S")
+    datetime.timedelta(0, 60)
+    >>> rfc3339_duration_to_delta("PT60M")
+    datetime.timedelta(0, 3600)
+    >>> rfc3339_duration_to_delta("PT24H")
+    datetime.timedelta(1)
+    >>> rfc3339_duration_to_delta("P1W")
+    datetime.timedelta(7)
+    >>> rfc3339_duration_to_delta("PT5M30S")
+    datetime.timedelta(0, 330)
+    >>> rfc3339_duration_to_delta("P1DT3M20S")
+    datetime.timedelta(1, 200)
+    """
+    
+    # Parsing an RFC 3339 duration with regular expressions is not
+    # possible - there would have to be multiple places for the same
+    # values, like seconds.  The current code, while more esoteric, is
+    # cleaner without depending on a parsing library.  If Python had a
+    # built-in library for parsing we would use it, but we'd like to
+    # avoid excessive use of external libraries.
+    
+    # New type for defining tokens, syntax, and semantics all-in-one
+    Token = collections.namedtuple("Token",
+                                   ("regexp", # To match token; if
+                                              # "value" is not None,
+                                              # must have a "group"
+                                              # containing digits
+                                    "value",  # datetime.timedelta or
+                                              # None
+                                    "followers")) # Tokens valid after
+                                                  # this token
+    # RFC 3339 "duration" tokens, syntax, and semantics; taken from
+    # the "duration" ABNF definition in RFC 3339, Appendix A.
+    token_end = Token(re.compile(r"$"), None, frozenset())
+    token_second = Token(re.compile(r"(\d+)S"),
+                         datetime.timedelta(seconds=1),
+                         frozenset((token_end,)))
+    token_minute = Token(re.compile(r"(\d+)M"),
+                         datetime.timedelta(minutes=1),
+                         frozenset((token_second, token_end)))
+    token_hour = Token(re.compile(r"(\d+)H"),
+                       datetime.timedelta(hours=1),
+                       frozenset((token_minute, token_end)))
+    token_time = Token(re.compile(r"T"),
+                       None,
+                       frozenset((token_hour, token_minute,
+                                  token_second)))
+    token_day = Token(re.compile(r"(\d+)D"),
+                      datetime.timedelta(days=1),
+                      frozenset((token_time, token_end)))
+    token_month = Token(re.compile(r"(\d+)M"),
+                        datetime.timedelta(weeks=4),
+                        frozenset((token_day, token_end)))
+    token_year = Token(re.compile(r"(\d+)Y"),
+                       datetime.timedelta(weeks=52),
+                       frozenset((token_month, token_end)))
+    token_week = Token(re.compile(r"(\d+)W"),
+                       datetime.timedelta(weeks=1),
+                       frozenset((token_end,)))
+    token_duration = Token(re.compile(r"P"), None,
+                           frozenset((token_year, token_month,
+                                      token_day, token_time,
+                                      token_week))),
+    # Define starting values
+    value = datetime.timedelta() # Value so far
+    found_token = None
+    followers = frozenset(token_duration,) # Following valid tokens
+    s = duration                # String left to parse
+    # Loop until end token is found
+    while found_token is not token_end:
+        # Search for any currently valid tokens
+        for token in followers:
+            match = token.regexp.match(s)
+            if match is not None:
+                # Token found
+                if token.value is not None:
+                    # Value found, parse digits
+                    factor = int(match.group(1), 10)
+                    # Add to value so far
+                    value += factor * token.value
+                # Strip token from string
+                s = token.regexp.sub("", s, 1)
+                # Go to found token
+                found_token = token
+                # Set valid next tokens
+                followers = found_token.followers
+                break
+        else:
+            # No currently valid tokens were found
+            raise ValueError("Invalid RFC 3339 duration")
+    # End token found
+    return value
+
+
 def string_to_delta(interval):
     """Parse a string and return a datetime.timedelta
     
@@ -2106,6 +2228,12 @@ def string_to_delta(interval):
     >>> string_to_delta('5m 30s')
     datetime.timedelta(0, 330)
     """
+    
+    try:
+        return rfc3339_duration_to_delta(interval)
+    except ValueError:
+        pass
+    
     timevalue = datetime.timedelta(0)
     for s in interval.split():
         try:
@@ -2174,7 +2302,7 @@ def main():
                         help="Run self-test")
     parser.add_argument("--debug", action="store_true",
                         help="Debug mode; run in foreground and log"
-                        " to terminal")
+                        " to terminal", default=None)
     parser.add_argument("--debuglevel", metavar="LEVEL",
                         help="Debug level for stdout output")
     parser.add_argument("--priority", help="GnuTLS"
@@ -2187,19 +2315,20 @@ def main():
                         " files")
     parser.add_argument("--no-dbus", action="store_false",
                         dest="use_dbus", help="Do not provide D-Bus"
-                        " system bus interface")
+                        " system bus interface", default=None)
     parser.add_argument("--no-ipv6", action="store_false",
-                        dest="use_ipv6", help="Do not use IPv6")
+                        dest="use_ipv6", help="Do not use IPv6",
+                        default=None)
     parser.add_argument("--no-restore", action="store_false",
                         dest="restore", help="Do not restore stored"
-                        " state")
+                        " state", default=None)
     parser.add_argument("--socket", type=int,
                         help="Specify a file descriptor to a network"
                         " socket to use instead of creating one")
     parser.add_argument("--statedir", metavar="DIR",
                         help="Directory to save/restore state in")
     parser.add_argument("--foreground", action="store_true",
-                        help="Run in foreground")
+                        help="Run in foreground", default=None)
     
     options = parser.parse_args()
     
@@ -2214,7 +2343,7 @@ def main():
                         "port": "",
                         "debug": "False",
                         "priority":
-                        "SECURE256:!CTYPE-X.509:+CTYPE-OPENPGP",
+                        "SECURE256:!CTYPE-X.509:+CTYPE-OPENPGP:+SIGN-RSA-SHA224",
                         "servicename": "Mandos",
                         "use_dbus": "True",
                         "use_ipv6": "True",
@@ -2264,6 +2393,10 @@ def main():
     for option in server_settings.keys():
         if type(server_settings[option]) is str:
             server_settings[option] = unicode(server_settings[option])
+    # Force all boolean options to be boolean
+    for option in ("debug", "use_dbus", "use_ipv6", "restore",
+                   "foreground"):
+        server_settings[option] = bool(server_settings[option])
     # Debug implies foreground
     if server_settings["debug"]:
         server_settings["foreground"] = True
@@ -2409,6 +2542,14 @@ def main():
     old_client_settings = {}
     clients_data = {}
     
+    # This is used to redirect stdout and stderr for checker processes
+    global wnull
+    wnull = open(os.devnull, "w") # A writable /dev/null
+    # Only used if server is running in foreground but not in debug
+    # mode
+    if debug or not foreground:
+        wnull.close()
+    
     # Get client data and settings from last running state.
     if server_settings["restore"]:
         try:
@@ -2430,6 +2571,10 @@ def main():
     
     with PGPEngine() as pgp:
         for client_name, client in clients_data.iteritems():
+            # Skip removed clients
+            if client_name not in client_settings:
+                continue
+            
             # Decide which value to use after restoring saved state.
             # We have three different values: Old config file,
             # new config file, and saved state.
@@ -2497,7 +2642,8 @@ def main():
     # Create all client objects
     for client_name, client in clients_data.iteritems():
         tcp_server.clients[client_name] = client_class(
-            name = client_name, settings = client)
+            name = client_name, settings = client,
+            server_settings = server_settings)
     
     if not tcp_server.clients:
         logger.warning("No clients defined")
@@ -2586,6 +2732,7 @@ def main():
         service.cleanup()
         
         multiprocessing.active_children()
+        wnull.close()
         if not (tcp_server.clients or client_settings):
             return
         
@@ -2603,7 +2750,7 @@ def main():
                 # A list of attributes that can not be pickled
                 # + secret.
                 exclude = set(("bus", "changedstate", "secret",
-                               "checker"))
+                               "checker", "server_settings"))
                 for name, typ in (inspect.getmembers
                                   (dbus.service.Object)):
                     exclude.add(name)

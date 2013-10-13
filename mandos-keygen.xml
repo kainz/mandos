@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY COMMANDNAME "mandos-keygen">
-<!ENTITY TIMESTAMP "2012-01-01">
+<!ENTITY TIMESTAMP "2013-08-27">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -227,7 +227,7 @@
 	<replaceable>TYPE</replaceable></option></term>
 	<listitem>
 	  <para>
-	    Key type.  Default is <quote>DSA</quote>.
+	    Key type.  Default is <quote>RSA</quote>.
 	  </para>
 	</listitem>
       </varlistentry>
@@ -239,7 +239,7 @@
 	<replaceable>BITS</replaceable></option></term>
 	<listitem>
 	  <para>
-	    Key length in bits.  Default is 2048.
+	    Key length in bits.  Default is 4096.
 	  </para>
 	</listitem>
       </varlistentry>
@@ -251,7 +251,7 @@
 	<replaceable>KEYTYPE</replaceable></option></term>
 	<listitem>
 	  <para>
-	    Subkey type.  Default is <quote>ELG-E</quote> (Elgamal
+	    Subkey type.  Default is <quote>RSA</quote> (Elgamal
 	    encryption-only).
 	  </para>
 	</listitem>
@@ -264,7 +264,7 @@
 	<replaceable>BITS</replaceable></option></term>
 	<listitem>
 	  <para>
-	    Subkey length in bits.  Default is 2048.
+	    Subkey length in bits.  Default is 4096.
 	  </para>
 	</listitem>
       </varlistentry>
