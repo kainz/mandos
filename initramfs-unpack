@@ -1,0 +1,67 @@
+#!/bin/bash
+# 
+# Initramfs unpacker - unpacks initramfs images into /tmp
+# 
+# Copyright © 2013 Teddy Hogeborn
+# Copyright © 2013 Björn Påhlsson
+# 
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+#     This program is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see
+# <http://www.gnu.org/licenses/>.
+# 
+# Contact the authors at <mandos@recompile.se>.
+
+cpio="cpio --extract --make-directories --unconditional --preserve-modification-time"
+
+if [ -z "$*" ]; then
+    set -- /boot/initrd.img-*
+fi
+
+for imgfile in "$@"; do
+    if ! [ -f "$imgfile" ]; then
+	echo "Error: Not an existing file: $imgfile" >&2
+	continue
+    fi
+    imgdir="${TMPDIR:-/tmp}/${imgfile##*/}"
+    if [ -d "$imgdir" ]; then
+	rm --recursive -- "$imgdir"
+    fi
+    mkdir --parents "$imgdir"
+    # Does this image contain microcode?
+    if $cpio --quiet --list --file="$imgfile" >/dev/null 2>&1; then
+	# Number of bytes to skip to get to the compressed archive
+	skip=$(($(LANG=C $cpio --io-size=1 --list --file="$imgfile" 2>&1 \
+	    | sed --quiet --expression='s/^\([0-9]\+\) blocks$/\1/p')+8))
+	catimg="dd if=$imgfile bs=$skip skip=1 status=noxfer"
+    else
+	catimg="cat -- $imgfile"
+    fi
+    # Determine the compression method
+    if { $catimg 2>/dev/null | zcat --test >/dev/null 2>&1;
+	    [ ${PIPESTATUS[-1]} -eq 0 ]; }; then
+	decomp="zcat"
+    elif { $catimg 2>/dev/null | bzip2 --test >/dev/null 2>&1;
+	    [ ${PIPESTATUS[-1]} -eq 0 ]; }; then
+	decomp="bzip2 --stdout --decompress"
+    elif { $catimg 2>/dev/null | lzop --test >/dev/null 2>&1;
+	    [ ${PIPESTATUS[-1]} -eq 0 ]; }; then
+	decomp="lzop --stdout --decompress"
+    else
+	echo "Error: Could not determine type of $imgfile" >&2
+	continue
+    fi
+    $catimg 2>/dev/null | $decomp | ( cd -- "$imgdir" && $cpio --quiet )
+    if [ ${PIPESTATUS[-1]} -eq 0 ]; then
+	echo "$imgfile unpacked into $imgdir"
+    fi
+done
