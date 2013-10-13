@@ -3,7 +3,7 @@
 # This script will be run by 'mkinitramfs' when it creates the image.
 # Its job is to decide which files to install, then install them into
 # the staging area, where the initramfs is being created.  This
-# happens when a new 'linux-image' package is installed, or when the
+# happens when a new 'linux-image' package is installed, or when an
 # administrator runs 'update-initramfs' by hand to update an initramfs
 # image.
 
@@ -147,12 +147,18 @@ for hook in /etc/mandos/network-hooks.d/*; do
     fi
 done
 
-# GPGME needs /usr/bin/gpg
-if [ ! -e "${DESTDIR}/usr/bin/gpg" \
-    -a -n "`ls \"${DESTDIR}\"/usr/lib/libgpgme.so* \
-		2>/dev/null`" ]; then
-    copy_exec /usr/bin/gpg
+# GPGME needs GnuPG
+libgpgme11_version="`dpkg-query --showformat='${Version}' --show libgpgme11`"
+if dpkg --compare-versions "$libgpgme11_version" ge 1.4.1-0.1; then
+    gpg=/usr/bin/gpg2
+else
+    gpg=/usr/bin/gpg
 fi
+if [ ! -e "${DESTDIR}$gpg" ]; then
+    copy_exec "$gpg"
+fi
+unset gpg
+unset libgpgme11_version
 
 # Config files
 for file in /etc/mandos/plugin-runner.conf; do

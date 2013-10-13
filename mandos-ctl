@@ -29,12 +29,15 @@ from __future__ import (division, absolute_import, print_function,
 from future_builtins import *
 
 import sys
-import dbus
 import argparse
 import locale
 import datetime
 import re
 import os
+import collections
+import doctest
+
+import dbus
 
 locale.setlocale(locale.LC_ALL, "")
 
@@ -80,6 +83,106 @@ def milliseconds_to_string(ms):
                     seconds = td.seconds % 60,
                     ))
 
+
+def rfc3339_duration_to_delta(duration):
+    """Parse an RFC 3339 "duration" and return a datetime.timedelta
+    
+    >>> rfc3339_duration_to_delta("P7D")
+    datetime.timedelta(7)
+    >>> rfc3339_duration_to_delta("PT60S")
+    datetime.timedelta(0, 60)
+    >>> rfc3339_duration_to_delta("PT60M")
+    datetime.timedelta(0, 3600)
+    >>> rfc3339_duration_to_delta("PT24H")
+    datetime.timedelta(1)
+    >>> rfc3339_duration_to_delta("P1W")
+    datetime.timedelta(7)
+    >>> rfc3339_duration_to_delta("PT5M30S")
+    datetime.timedelta(0, 330)
+    >>> rfc3339_duration_to_delta("P1DT3M20S")
+    datetime.timedelta(1, 200)
+    """
+    
+    # Parsing an RFC 3339 duration with regular expressions is not
+    # possible - there would have to be multiple places for the same
+    # values, like seconds.  The current code, while more esoteric, is
+    # cleaner without depending on a parsing library.  If Python had a
+    # built-in library for parsing we would use it, but we'd like to
+    # avoid excessive use of external libraries.
+    
+    # New type for defining tokens, syntax, and semantics all-in-one
+    Token = collections.namedtuple("Token",
+                                   ("regexp", # To match token; if
+                                              # "value" is not None,
+                                              # must have a "group"
+                                              # containing digits
+                                    "value",  # datetime.timedelta or
+                                              # None
+                                    "followers")) # Tokens valid after
+                                                  # this token
+    # RFC 3339 "duration" tokens, syntax, and semantics; taken from
+    # the "duration" ABNF definition in RFC 3339, Appendix A.
+    token_end = Token(re.compile(r"$"), None, frozenset())
+    token_second = Token(re.compile(r"(\d+)S"),
+                         datetime.timedelta(seconds=1),
+                         frozenset((token_end,)))
+    token_minute = Token(re.compile(r"(\d+)M"),
+                         datetime.timedelta(minutes=1),
+                         frozenset((token_second, token_end)))
+    token_hour = Token(re.compile(r"(\d+)H"),
+                       datetime.timedelta(hours=1),
+                       frozenset((token_minute, token_end)))
+    token_time = Token(re.compile(r"T"),
+                       None,
+                       frozenset((token_hour, token_minute,
+                                  token_second)))
+    token_day = Token(re.compile(r"(\d+)D"),
+                      datetime.timedelta(days=1),
+                      frozenset((token_time, token_end)))
+    token_month = Token(re.compile(r"(\d+)M"),
+                        datetime.timedelta(weeks=4),
+                        frozenset((token_day, token_end)))
+    token_year = Token(re.compile(r"(\d+)Y"),
+                       datetime.timedelta(weeks=52),
+                       frozenset((token_month, token_end)))
+    token_week = Token(re.compile(r"(\d+)W"),
+                       datetime.timedelta(weeks=1),
+                       frozenset((token_end,)))
+    token_duration = Token(re.compile(r"P"), None,
+                           frozenset((token_year, token_month,
+                                      token_day, token_time,
+                                      token_week))),
+    # Define starting values
+    value = datetime.timedelta() # Value so far
+    found_token = None
+    followers = frozenset(token_duration,) # Following valid tokens
+    s = duration                # String left to parse
+    # Loop until end token is found
+    while found_token is not token_end:
+        # Search for any currently valid tokens
+        for token in followers:
+            match = token.regexp.match(s)
+            if match is not None:
+                # Token found
+                if token.value is not None:
+                    # Value found, parse digits
+                    factor = int(match.group(1), 10)
+                    # Add to value so far
+                    value += factor * token.value
+                # Strip token from string
+                s = token.regexp.sub("", s, 1)
+                # Go to found token
+                found_token = token
+                # Set valid next tokens
+                followers = found_token.followers
+                break
+        else:
+            # No currently valid tokens were found
+            raise ValueError("Invalid RFC 3339 duration")
+    # End token found
+    return value
+
+
 def string_to_delta(interval):
     """Parse a string and return a datetime.timedelta
     
@@ -96,8 +199,14 @@ def string_to_delta(interval):
     >>> string_to_delta("5m 30s")
     datetime.timedelta(0, 330)
     """
+    
+    try:
+        return rfc3339_duration_to_delta(interval)
+    except ValueError:
+        pass
+    
     value = datetime.timedelta(0)
-    regexp = re.compile("(\d+)([dsmhw]?)")
+    regexp = re.compile(r"(\d+)([dsmhw]?)")
     
     for num, suffix in regexp.findall(interval):
         if suffix == "d":
@@ -207,6 +316,8 @@ def main():
                         help="Approve any current client request")
     parser.add_argument("-D", "--deny", action="store_true",
                         help="Deny any current client request")
+    parser.add_argument("--check", action="store_true",
+                        help="Run self-test")
     parser.add_argument("client", nargs="*", help="Client name")
     options = parser.parse_args()
     
@@ -217,6 +328,10 @@ def main():
                      " --all.")
     if options.all and not has_actions(options):
         parser.error("--all requires an action.")
+
+    if options.check:
+        fail_count, test_count = doctest.testmod()
+        sys.exit(0 if fail_count == 0 else 1)
     
     try:
         bus = dbus.SystemBus()

@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY COMMANDNAME "mandos-client">
-<!ENTITY TIMESTAMP "2012-06-17">
+<!ENTITY TIMESTAMP "2013-06-21">
 <!ENTITY % common SYSTEM "../common.ent">
 %common;
 ]>
@@ -512,7 +512,7 @@
 	      It is not necessary to print any non-executable files
 	      already in the network hook directory, these will be
 	      copied implicitly if they otherwise satisfy the name
-	      requirement.
+	      requirements.
 	    </para>
 	  </listitem>
 	</varlistentry>
@@ -666,7 +666,7 @@
     </para>
     <informalexample>
       <para>
-	Normal invocation needs no options, if the network interface
+	Normal invocation needs no options, if the network interfaces
 	can be automatically determined:
       </para>
       <para>
@@ -675,8 +675,8 @@
     </informalexample>
     <informalexample>
       <para>
-	Search for Mandos servers (and connect to them) using another
-	interface:
+	Search for Mandos servers (and connect to them) using one
+	specific interface:
       </para>
       <para>
 	<!-- do not wrap this line -->
@@ -846,7 +846,7 @@
 	      <para>
 		This client uses IPv6 link-local addresses, which are
 		immediately usable since a link-local addresses is
-		automatically assigned to a network interfaces when it
+		automatically assigned to a network interface when it
 		is brought up.
 	      </para>
 	    </listitem>

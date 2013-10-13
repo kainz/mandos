@@ -241,6 +241,7 @@ maintainer-clean: clean
 
 check:	all
 	./mandos --check
+	./mandos-ctl --check
 
 # Run the client with a local config and key
 run-client: all keydir/seckey.txt keydir/pubkey.txt
