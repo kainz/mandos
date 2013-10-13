@@ -1,3 +1,23 @@
+mandos (1.6.1-1) unstable; urgency=low
+
+  * New upstream release.
+  * debian/control (mandos/Depends): No longer depends on
+                                     python-gnupginterface, but does
+                                     depend on gnupg (<< 2).
+    (Build-Depends): Depend on debhelper 8.9.7 for using "override-*-arch"
+                     and "override-*-indep" targets in debian/rules.
+  * debian/mandos-client.README: Update Linux documentation link.
+  * debian/rules: Completely rewritten to use debhelper v7.
+  * initramfs-tools-hook: Bug fix: Make sure the right version of GnuPG is
+    copied into the initramfs image.  Always assume that GPGME is used to
+    avoid searching for it since the path might not be /usr/lib.  Thanks
+    to Félix Sipma <felix+debian@gueux.org> for the initial bug report,
+    and also thanks to Dick Middleton <dick@lingbrae.com> for some more
+    debugging. (Closes:  #721903)
+  * Fix "bashism in /bin/sh script" fixed by upstream. (Closes: #690639)
+
+ -- Teddy Hogeborn <teddy@recompile.se>  Sun, 13 Oct 2013 19:03:23 +0200
+
 mandos (1.6.0-1) unstable; urgency=low
 
   * New upstream release.
