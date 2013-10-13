@@ -1,6 +1,26 @@
 This NEWS file records noteworthy changes, very tersely.
 See the manual for detailed information.
 
+Version 1.6.1 (2013-10-13)
+* Server
+** All client options for time intervals now also take an RFC 3339
+   duration.  The same for all options to mandos-ctl.
+** Bug fix: Handle fast checkers (like ":") correctly.
+** Bug fix: Don't print output from checkers when running in
+   foreground.
+** Bug fix: Do not fail when client is removed from clients.conf but
+   saved settings remain.
+** Bug fix: mandos-monitor now displays standout (reverse video) again
+   using new version of Urwid.
+** Bug fix: Make boolean options work from the config file again.
+** Bug fix: Make --no-ipv6 work again.
+** New default priority string to be slightly more compatible with
+   older versions of GnuTLS.
+* Client
+** Bug fix: Fix bashism in mandos-keygen.
+** Default key and subkey types are now RSA and RSA, respectively.
+   Also, new default key size is 4096 bits.
+
 Version 1.6.0 (2012-06-18)
 * Server
 ** Takes new --foreground option
