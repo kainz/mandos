@@ -187,7 +187,7 @@ int fprintf_plus(FILE *stream, const char *format, ...){
   
   TEMP_FAILURE_RETRY(fprintf(stream, "Mandos plugin %s: ",
 			     program_invocation_short_name));
-  return TEMP_FAILURE_RETRY(vfprintf(stream, format, ap));
+  return (int)TEMP_FAILURE_RETRY(vfprintf(stream, format, ap));
 }
 
 /*
@@ -2331,7 +2331,7 @@ int main(int argc, char *argv[]){
 	fprintf_plus(stderr, "Retrying in %d seconds\n",
 		     (int)retry_interval);
       }
-      sleep((int)retry_interval);
+      sleep((unsigned int)retry_interval);
     }
     
     if (not quit_now){

@@ -49,8 +49,9 @@ It is also used for some texts by mandos-client(8mandos).
   <para id="priority">
     GnuTLS priority string for the <acronym>TLS</acronym> handshake.
     The default is <quote><literal
-    >SECURE256:!CTYPE-X.509:+CTYPE-OPENPGP</literal></quote>.  See
-    <citerefentry><refentrytitle>gnutls_priority_init</refentrytitle>
+    >SECURE256:!CTYPE-X.509:+CTYPE-OPENPGP:+SIGN-RSA-SHA224</literal></quote>.
+    See <citerefentry><refentrytitle
+    >gnutls_priority_init</refentrytitle>
     <manvolnum>3</manvolnum></citerefentry> for the syntax.
     <emphasis>Warning</emphasis>: changing this may make the
     <acronym>TLS</acronym> handshake fail, making server-client
