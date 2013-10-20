@@ -64,7 +64,7 @@ Key creation options:
   -l BITS, --length BITS
                         Key length in bits.  Default is 4096.
   -s TYPE, --subtype TYPE
-                        Subkey type.  Default is ELG-E.
+                        Subkey type.  Default is RSA.
   -L BITS, --sublength BITS
                         Subkey length in bits.  Default is 4096.
   -n NAME, --name NAME  Name of key.  Default is the FQDN.
@@ -204,10 +204,10 @@ if [ "$mode" = keygen ]; then
     cat >"$BATCHFILE" <<-EOF
 	Key-Type: $KEYTYPE
 	Key-Length: $KEYLENGTH
-	#Key-Usage: encrypt,sign,auth
+	Key-Usage: sign,auth
 	Subkey-Type: $SUBKEYTYPE
 	Subkey-Length: $SUBKEYLENGTH
-	#Subkey-Usage: encrypt,sign,auth
+	Subkey-Usage: encrypt
 	Name-Real: $KEYNAME
 	$KEYCOMMENTLINE
 	$KEYEMAILLINE
