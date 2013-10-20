@@ -172,7 +172,13 @@ class PGPEngine(object):
     def password_encode(self, password):
         # Passphrase can not be empty and can not contain newlines or
         # NUL bytes.  So we prefix it and hex encode it.
-        return b"mandos" + binascii.hexlify(password)
+        encoded = b"mandos" + binascii.hexlify(password)
+        if len(encoded) > 2048:
+            # GnuPG can't handle long passwords, so encode differently
+            encoded = (b"mandos" + password.replace(b"\\", b"\\\\")
+                       .replace(b"\n", b"\\n")
+                       .replace(b"\0", b"\\x00"))
+        return encoded
     
     def encrypt(self, data, password):
         passphrase = self.password_encode(password)
