@@ -37,6 +37,6 @@ fi
     --pubkey=/etc/keys/mandos/pubkey.txt \
     --seckey=/etc/keys/mandos/seckey.txt > "$PASSFILE"
 
-./mandos-keygen --force "$@"
+mandos-keygen --force "$@"
 
-./mandos-keygen --passfile "$PASSFILE"
+mandos-keygen --passfile "$PASSFILE"
