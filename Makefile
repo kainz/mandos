@@ -56,10 +56,10 @@ GPGME_LIBS=$(shell gpgme-config --libs; getconf LFS_LIBS; \
 	getconf LFS_LDFLAGS)
 
 # Do not change these two
-CFLAGS=$(WARN) $(DEBUG) $(FORTIFY) $(COVERAGE) $(OPTIMIZE) \
+CFLAGS+=$(WARN) $(DEBUG) $(FORTIFY) $(COVERAGE) $(OPTIMIZE) \
 	$(LANGUAGE) $(GNUTLS_CFLAGS) $(AVAHI_CFLAGS) $(GPGME_CFLAGS) \
 	-DVERSION='"$(version)"'
-LDFLAGS=-Xlinker --as-needed $(COVERAGE) $(LINK_FORTIFY) $(foreach flag,$(LINK_FORTIFY_LD),-Xlinker $(flag))
+LDFLAGS+=-Xlinker --as-needed $(COVERAGE) $(LINK_FORTIFY) $(foreach flag,$(LINK_FORTIFY_LD),-Xlinker $(flag))
 
 # Commands to format a DocBook <refentry> document into a manual page
 DOCBOOKTOMAN=$(strip cd $(dir $<); xsltproc --nonet --xinclude \
@@ -436,7 +436,7 @@ purge-server: uninstall-server
 		$(DESTDIR)/etc/dbus-1/system.d/mandos.conf
 		$(DESTDIR)/etc/default/mandos \
 		$(DESTDIR)/etc/init.d/mandos \
-		$(DESTDIR)/var/run/mandos.pid
+		$(DESTDIR)/run/mandos.pid
 	-rmdir $(CONFDIR)
 
 purge-client: uninstall-client

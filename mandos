@@ -11,8 +11,8 @@
 # "AvahiService" class, and some lines in "main".
 # 
 # Everything else is
-# Copyright © 2008-2012 Teddy Hogeborn
-# Copyright © 2008-2012 Björn Påhlsson
+# Copyright © 2008-2013 Teddy Hogeborn
+# Copyright © 2008-2013 Björn Påhlsson
 # 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -2450,7 +2450,7 @@ def main():
                               socketfd=(server_settings["socket"]
                                         or None))
     if not foreground:
-        pidfilename = "/var/run/mandos.pid"
+        pidfilename = "/run/mandos.pid"
         pidfile = None
         try:
             pidfile = open(pidfilename, "w")
