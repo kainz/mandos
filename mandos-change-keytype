@@ -1,0 +1,42 @@
+#!/bin/sh -e
+# 
+# Mandos key regenerator - create a new OpenPGP key for a Mandos client
+# 
+# Copyright © 2013 Teddy Hogeborn
+# Copyright © 2013 Björn Påhlsson
+# 
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+#     This program is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+# 
+# Contact the authors at <mandos@recompile.se>.
+# 
+
+PASSFILE="`mktemp -t mandos-change-keytype-key.XXXXXXXXXX`"
+
+# Remove temporary files on exit
+trap "
+set +e; \
+test -n \"$PASSFILE\" && shred --remove \"$PASSFILE\"; \
+" EXIT
+
+if [ -z "$PASSFILE" ]; then
+    exit 1
+fi
+
+/usr/lib/mandos/plugins.d/mandos-client \
+    --pubkey=/etc/keys/mandos/pubkey.txt \
+    --seckey=/etc/keys/mandos/seckey.txt > "$PASSFILE"
+
+./mandos-keygen --force "$@"
+
+./mandos-keygen --passfile "$PASSFILE"

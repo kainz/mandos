@@ -294,10 +294,10 @@ if [ "$mode" = password ]; then
 	    cat "$PASSFILE"
 	else
 	    tty --quiet && stty -echo
-	    echo -n "Enter passphrase: "
+	    echo -n "Enter passphrase: " >&2
 	    read first
 	    tty --quiet && echo >&2
-	    echo -n "Repeat passphrase: "
+	    echo -n "Repeat passphrase: " >&2
 	    read second
 	    if tty --quiet; then
 		echo >&2
