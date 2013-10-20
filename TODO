@@ -1,5 +1,9 @@
 -*- org -*-
 
+* TODO [#A] mandos-change-keytype.xml
+* TODO [#A] Note about the necessity to change key type on upgrade
+  Possibly using mandos-change-keytype
+
 * [[http://www.undeadly.org/cgi?action=article&sid=20110530221728][OpenBSD]]
 
 * Testing

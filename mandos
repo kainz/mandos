@@ -2343,7 +2343,7 @@ def main():
                         "port": "",
                         "debug": "False",
                         "priority":
-                        "SECURE256:!CTYPE-X.509:+CTYPE-OPENPGP:+SIGN-RSA-SHA224",
+                        "SECURE256:!CTYPE-X.509:+CTYPE-OPENPGP",
                         "servicename": "Mandos",
                         "use_dbus": "True",
                         "use_ipv6": "True",
