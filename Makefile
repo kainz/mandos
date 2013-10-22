@@ -339,8 +339,6 @@ install-client-nokey: all doc
 		--target-directory=$(PREFIX)/lib/mandos plugin-runner
 	install --mode=u=rwx,go=rx --target-directory=$(PREFIX)/sbin \
 		mandos-keygen
-	install --mode=u=rwx,go=rx --target-directory=$(PREFIX)/sbin \
-		mandos-change-keytype
 	install --mode=u=rwx,go=rx \
 		--target-directory=$(PREFIX)/lib/mandos/plugins.d \
 		plugins.d/password-prompt
@@ -409,7 +407,6 @@ uninstall-client:
 	! grep --regexp='^ *[^ #].*keyscript=[^,=]*/mandos/' \
 		$(DESTDIR)/etc/crypttab
 	-rm --force $(PREFIX)/sbin/mandos-keygen \
-		$(PREFIX)/sbin/mandos-change-keytype \
 		$(PREFIX)/lib/mandos/plugin-runner \
 		$(PREFIX)/lib/mandos/plugins.d/password-prompt \
 		$(PREFIX)/lib/mandos/plugins.d/mandos-client \
