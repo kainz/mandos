@@ -30,7 +30,7 @@ SUBKEYTYPE=RSA
 SUBKEYLENGTH=4096
 KEYNAME="`hostname --fqdn 2>/dev/null || hostname`"
 KEYEMAIL=""
-KEYCOMMENT="Mandos client key"
+KEYCOMMENT=""
 KEYEXPIRE=0
 FORCE=no
 KEYCOMMENT_ORIG="$KEYCOMMENT"
@@ -71,8 +71,7 @@ Key creation options:
   -e ADDRESS, --email ADDRESS
                         Email address of key.  Default is empty.
   -c TEXT, --comment TEXT
-                        Comment field for key.  The default value is
-                        "Mandos client key".
+                        Comment field for key.  The default is empty.
   -x TIME, --expire TIME
                         Key expire time.  Default is no expiration.
                         See gpg(1) for syntax.
