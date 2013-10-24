@@ -23,7 +23,7 @@ DESC="Mandos root file system password server"
 NAME=mandos
 DAEMON=/usr/sbin/$NAME
 DAEMON_ARGS=""
-PIDFILE=/var/run/$NAME.pid
+PIDFILE=/run/$NAME.pid
 SCRIPTNAME=/etc/init.d/$NAME
 
 # Exit if the package is not installed
