@@ -1,3 +1,18 @@
+mandos (1.6.2-1) unstable; urgency=low
+
+  * New upstream release.
+  * debian/compat: Changed to "9".
+  * debian/control (Build-Depends): Changed debhelper version to (>= 9).
+    (Standards-Version): Updated to "3.9.4".
+    (DM-Upload-Allowed): Removed.
+    (mandos/Depends): Add "initscripts (>= 2.88dsf-13.3)" to be able to
+                      use the "/run" directory (for mandos.pid).
+  * debian/copyright (Copyright): Update year.
+  * Fix "Mandos/gnutls fails to establish connection, "an algorithm that
+    is not enabled was negotiated"" fixed by upstream. (Closes: #702120)
+
+ -- Teddy Hogeborn <teddy@recompile.se>  Thu, 24 Oct 2013 22:33:40 +0200
+
 mandos (1.6.1-1) unstable; urgency=low
 
   * New upstream release.
