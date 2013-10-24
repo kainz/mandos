@@ -2,8 +2,8 @@
 # 
 # Mandos key generator - create a new OpenPGP key for a Mandos client
 # 
-# Copyright © 2008-2012 Teddy Hogeborn
-# Copyright © 2008-2012 Björn Påhlsson
+# Copyright © 2008-2013 Teddy Hogeborn
+# Copyright © 2008-2013 Björn Påhlsson
 # 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -30,7 +30,7 @@ SUBKEYTYPE=RSA
 SUBKEYLENGTH=4096
 KEYNAME="`hostname --fqdn 2>/dev/null || hostname`"
 KEYEMAIL=""
-KEYCOMMENT="Mandos client key"
+KEYCOMMENT=""
 KEYEXPIRE=0
 FORCE=no
 KEYCOMMENT_ORIG="$KEYCOMMENT"
@@ -64,15 +64,14 @@ Key creation options:
   -l BITS, --length BITS
                         Key length in bits.  Default is 4096.
   -s TYPE, --subtype TYPE
-                        Subkey type.  Default is ELG-E.
+                        Subkey type.  Default is RSA.
   -L BITS, --sublength BITS
                         Subkey length in bits.  Default is 4096.
   -n NAME, --name NAME  Name of key.  Default is the FQDN.
   -e ADDRESS, --email ADDRESS
                         Email address of key.  Default is empty.
   -c TEXT, --comment TEXT
-                        Comment field for key.  The default value is
-                        "Mandos client key".
+                        Comment field for key.  The default is empty.
   -x TIME, --expire TIME
                         Key expire time.  Default is no expiration.
                         See gpg(1) for syntax.
@@ -204,10 +203,10 @@ if [ "$mode" = keygen ]; then
     cat >"$BATCHFILE" <<-EOF
 	Key-Type: $KEYTYPE
 	Key-Length: $KEYLENGTH
-	#Key-Usage: encrypt,sign,auth
+	Key-Usage: sign,auth
 	Subkey-Type: $SUBKEYTYPE
 	Subkey-Length: $SUBKEYLENGTH
-	#Subkey-Usage: encrypt,sign,auth
+	Subkey-Usage: encrypt
 	Name-Real: $KEYNAME
 	$KEYCOMMENTLINE
 	$KEYEMAILLINE
@@ -294,10 +293,10 @@ if [ "$mode" = password ]; then
 	    cat "$PASSFILE"
 	else
 	    tty --quiet && stty -echo
-	    echo -n "Enter passphrase: "
+	    echo -n "Enter passphrase: " >&2
 	    read first
 	    tty --quiet && echo >&2
-	    echo -n "Repeat passphrase: "
+	    echo -n "Repeat passphrase: " >&2
 	    read second
 	    if tty --quiet; then
 		echo >&2

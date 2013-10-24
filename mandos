@@ -11,8 +11,8 @@
 # "AvahiService" class, and some lines in "main".
 # 
 # Everything else is
-# Copyright © 2008-2012 Teddy Hogeborn
-# Copyright © 2008-2012 Björn Påhlsson
+# Copyright © 2008-2013 Teddy Hogeborn
+# Copyright © 2008-2013 Björn Påhlsson
 # 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -172,7 +172,13 @@ class PGPEngine(object):
     def password_encode(self, password):
         # Passphrase can not be empty and can not contain newlines or
         # NUL bytes.  So we prefix it and hex encode it.
-        return b"mandos" + binascii.hexlify(password)
+        encoded = b"mandos" + binascii.hexlify(password)
+        if len(encoded) > 2048:
+            # GnuPG can't handle long passwords, so encode differently
+            encoded = (b"mandos" + password.replace(b"\\", b"\\\\")
+                       .replace(b"\n", b"\\n")
+                       .replace(b"\0", b"\\x00"))
+        return encoded
     
     def encrypt(self, data, password):
         passphrase = self.password_encode(password)
@@ -2343,7 +2349,7 @@ def main():
                         "port": "",
                         "debug": "False",
                         "priority":
-                        "SECURE256:!CTYPE-X.509:+CTYPE-OPENPGP:+SIGN-RSA-SHA224",
+                        "SECURE256:!CTYPE-X.509:+CTYPE-OPENPGP:+SIGN-RSA-SHA224:+SIGN-RSA-RMD160",
                         "servicename": "Mandos",
                         "use_dbus": "True",
                         "use_ipv6": "True",
@@ -2450,7 +2456,7 @@ def main():
                               socketfd=(server_settings["socket"]
                                         or None))
     if not foreground:
-        pidfilename = "/var/run/mandos.pid"
+        pidfilename = "/run/mandos.pid"
         pidfile = None
         try:
             pidfile = open(pidfilename, "w")

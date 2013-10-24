@@ -4,20 +4,20 @@ Priority: extra
 Maintainer: Mandos Maintainers <mandos@recompile.se>
 Uploaders: Teddy Hogeborn <teddy@recompile.se>,
 	   Björn Påhlsson <belorn@recompile.se>
-Build-Depends: debhelper (>= 8.9.7), docbook-xml, docbook-xsl,
+Build-Depends: debhelper (>= 9), docbook-xml, docbook-xsl,
 	libavahi-core-dev, libgpgme11-dev, libgnutls-dev, xsltproc,
 	pkg-config
-Standards-Version: 3.9.3
+Standards-Version: 3.9.4
 Vcs-Bzr: http://ftp.recompile.se/pub/mandos/trunk
 Vcs-Browser: http://bzr.recompile.se/loggerhead/mandos/trunk/files
 Homepage: http://www.recompile.se/mandos
-DM-Upload-Allowed: yes
 
 Package: mandos
 Architecture: all
 Depends: ${misc:Depends}, python (>=2.6), python-gnutls, python-dbus,
 	python-avahi, python-gobject, avahi-daemon, adduser,
-	python-urwid, python (>=2.7) | python-argparse, gnupg (<< 2)
+	python-urwid, python (>=2.7) | python-argparse, gnupg (<< 2),
+	initscripts (>= 2.88dsf-13.3)
 Recommends: fping
 Description: server giving encrypted passwords to Mandos clients
  This is the server part of the Mandos system, which allows
