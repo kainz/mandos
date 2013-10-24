@@ -1,6 +1,17 @@
 This NEWS file records noteworthy changes, very tersely.
 See the manual for detailed information.
 
+Version 1.6.2 (2013-10-24)
+* Server
+** PID file moved from /var/run to /run.
+** Bug fix: Handle long secrets when saving client state.
+** Bug fix: Use more magic in the GnuTLS priority string to handle
+   both old DSA/ELG 2048-bit keys and new RSA/RSA 4096-bit keys.
+* Client
+** mandos-keygen: Bug fix: now generate RSA keys which GnuTLS can use.
+   		  Bug fix: Output passphrase prompts even when
+   		  redirecting standard output.
+
 Version 1.6.1 (2013-10-13)
 * Server
 ** All client options for time intervals now also take an RFC 3339
