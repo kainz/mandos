@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY COMMANDNAME "mandos-keygen">
-<!ENTITY TIMESTAMP "2013-08-27">
+<!ENTITY TIMESTAMP "2013-10-22">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -288,8 +288,7 @@
 	<replaceable>TEXT</replaceable></option></term>
 	<listitem>
 	  <para>
-	    Comment field for key.  The default value is
-	    <quote><literal>Mandos client key</literal></quote>.
+	    Comment field for key.  Default is empty.
 	  </para>
 	</listitem>
       </varlistentry>

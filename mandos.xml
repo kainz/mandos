@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY COMMANDNAME "mandos">
-<!ENTITY TIMESTAMP "2012-06-17">
+<!ENTITY TIMESTAMP "2013-10-23">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -36,6 +36,7 @@
       <year>2010</year>
       <year>2011</year>
       <year>2012</year>
+      <year>2013</year>
       <holder>Teddy Hogeborn</holder>
       <holder>Björn Påhlsson</holder>
     </copyright>
@@ -233,7 +234,8 @@
 	<term><option>--priority <replaceable>
 	PRIORITY</replaceable></option></term>
 	<listitem>
-	  <xi:include href="mandos-options.xml" xpointer="priority"/>
+	  <xi:include href="mandos-options.xml"
+                      xpointer="priority_compat"/>
 	</listitem>
       </varlistentry>
       
@@ -516,7 +518,7 @@
 	</listitem>
       </varlistentry>
       <varlistentry>
-	<term><filename>/var/run/mandos.pid</filename></term>
+	<term><filename>/run/mandos.pid</filename></term>
 	<listitem>
 	  <para>
 	    The file containing the process id of the

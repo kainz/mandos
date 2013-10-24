@@ -3,7 +3,7 @@
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY CONFNAME "mandos.conf">
 <!ENTITY CONFPATH "<filename>/etc/mandos/mandos.conf</filename>">
-<!ENTITY TIMESTAMP "2012-05-26">
+<!ENTITY TIMESTAMP "2013-10-23">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -36,6 +36,7 @@
       <year>2009</year>
       <year>2011</year>
       <year>2012</year>
+      <year>2013</year>
       <holder>Teddy Hogeborn</holder>
       <holder>Björn Påhlsson</holder>
     </copyright>
@@ -120,7 +121,8 @@
 	<term><option>priority<literal> = </literal><replaceable
 	>STRING</replaceable></option></term>
 	<listitem>
-	  <xi:include href="mandos-options.xml" xpointer="priority"/>
+	  <xi:include href="mandos-options.xml"
+                      xpointer="priority_compat"/>
 	</listitem>
       </varlistentry>
       
