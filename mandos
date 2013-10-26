@@ -2457,6 +2457,8 @@ def main():
                                         or None))
     if not foreground:
         pidfilename = "/run/mandos.pid"
+        if not os.path.isdir("/run/."):
+            pidfilename = "/var/run/mandos.pid"
         pidfile = None
         try:
             pidfile = open(pidfilename, "w")
