@@ -436,7 +436,8 @@ purge-server: uninstall-server
 		$(DESTDIR)/etc/dbus-1/system.d/mandos.conf
 		$(DESTDIR)/etc/default/mandos \
 		$(DESTDIR)/etc/init.d/mandos \
-		$(DESTDIR)/run/mandos.pid
+		$(DESTDIR)/run/mandos.pid \
+		$(DESTDIR)/var/run/mandos.pid
 	-rmdir $(CONFDIR)
 
 purge-client: uninstall-client
