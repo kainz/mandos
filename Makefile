@@ -310,7 +310,7 @@ install-server: doc
 	install --mode=u=rwx,go=rx init.d-mandos \
 		$(DESTDIR)/etc/init.d/mandos
 	if [ "$(SYSTEMD)" != "$(DESTDIR)" -a -d "$(SYSTEMD)" ]; then \
-		install --mode=u=rw,go=r mandos.service $(SYSTEMD) \
+		install --mode=u=rw,go=r mandos.service $(SYSTEMD); \
 	fi
 	install --mode=u=rw,go=r default-mandos \
 		$(DESTDIR)/etc/default/mandos
