@@ -47,6 +47,8 @@ INITRAMFSTOOLS=$(DESTDIR)/usr/share/initramfs-tools
 STATEDIR=$(DESTDIR)/var/lib/mandos
 ##
 
+SYSTEMD=$(DESTDIR)$(shell pkg-config systemd --variable=systemdsystemunitdir)
+
 GNUTLS_CFLAGS=$(shell pkg-config --cflags-only-I gnutls)
 GNUTLS_LIBS=$(shell pkg-config --libs gnutls)
 AVAHI_CFLAGS=$(shell pkg-config --cflags-only-I avahi-core)
@@ -307,6 +309,9 @@ install-server: doc
 		$(DESTDIR)/etc/dbus-1/system.d/mandos.conf
 	install --mode=u=rwx,go=rx init.d-mandos \
 		$(DESTDIR)/etc/init.d/mandos
+	if [ "$(SYSTEMD)" != "$(DESTDIR)" -a -d "$(SYSTEMD)" ]; then \
+		install --mode=u=rw,go=r mandos.service $(SYSTEMD) \
+	fi
 	install --mode=u=rw,go=r default-mandos \
 		$(DESTDIR)/etc/default/mandos
 	if [ -z $(DESTDIR) ]; then \
@@ -436,6 +441,7 @@ purge-server: uninstall-server
 		$(DESTDIR)/etc/dbus-1/system.d/mandos.conf
 		$(DESTDIR)/etc/default/mandos \
 		$(DESTDIR)/etc/init.d/mandos \
+		$(SYSTEMD)/mandos.service \
 		$(DESTDIR)/run/mandos.pid \
 		$(DESTDIR)/var/run/mandos.pid
 	-rmdir $(CONFDIR)
