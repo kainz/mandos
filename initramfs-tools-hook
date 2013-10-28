@@ -29,13 +29,15 @@ esac
 
 . /usr/share/initramfs-tools/hook-functions
 
-for d in /usr /usr/local; do
-    if [ -d "$d"/lib/mandos ]; then
-	prefix="$d"
+for d in /usr/lib \
+    "/usr/lib/`dpkg-architecture -qDEB_HOST_MULTIARCH 2>/dev/null`" \
+    "`rpm --eval='%{_libdir}' 2>/dev/null`" /usr/local/lib; do
+    if [ -d "$d"/mandos ]; then
+	libdir="$d"
 	break
     fi
 done
-if [ -z "$prefix" ]; then
+if [ -z "$libdir" ]; then
     # Mandos not found
     exit 1
 fi
@@ -77,12 +79,12 @@ install --owner=${mandos_user} --group=${mandos_group} --directory \
     --mode=u=rwx "${DESTDIR}${PLUGINDIR}"
 
 # Copy the Mandos plugin runner
-copy_exec "$prefix"/lib/mandos/plugin-runner "${MANDOSDIR}"
+copy_exec "$libdir"/mandos/plugin-runner "${MANDOSDIR}"
 
 # Copy the plugins
 
 # Copy the packaged plugins
-for file in "$prefix"/lib/mandos/plugins.d/*; do
+for file in "$libdir"/mandos/plugins.d/*; do
     base="`basename \"$file\"`"
     # Is this plugin overridden?
     if [ -e "/etc/mandos/plugins.d/$base" ]; then
