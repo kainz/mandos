@@ -690,10 +690,11 @@ class Client(object):
         # If a checker exists, make sure it is not a zombie
         try:
             pid, status = os.waitpid(self.checker.pid, os.WNOHANG)
-        except (AttributeError, OSError) as error:
-            if (isinstance(error, OSError)
-                and error.errno != errno.ECHILD):
-                raise error
+        except AttributeError:
+            pass
+        except OSError as error:
+            if error.errno != errno.ECHILD:
+                raise
         else:
             if pid:
                 logger.warning("Checker was a zombie")
@@ -1702,7 +1703,7 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
             logger.debug("Protocol version: %r", line)
             try:
                 if int(line.strip().split()[0]) > 1:
-                    raise RuntimeError
+                    raise RuntimeError(line)
             except (ValueError, IndexError, RuntimeError) as error:
                 logger.error("Unknown protocol version: %s", error)
                 return
@@ -1915,7 +1916,7 @@ class MultiprocessingMixInWithPipe(MultiprocessingMixIn, object):
     
     def add_pipe(self, parent_pipe, proc):
         """Dummy function; override as necessary"""
-        raise NotImplementedError
+        raise NotImplementedError()
 
 
 class IPv6_TCPServer(MultiprocessingMixInWithPipe,
@@ -2258,7 +2259,7 @@ def string_to_delta(interval):
             else:
                 raise ValueError("Unknown suffix {0!r}"
                                  .format(suffix))
-        except (ValueError, IndexError) as e:
+        except IndexError as e:
             raise ValueError(*(e.args))
         timevalue += delta
     return timevalue
@@ -2481,7 +2482,7 @@ def main():
         os.setuid(uid)
     except OSError as error:
         if error.errno != errno.EPERM:
-            raise error
+            raise
     
     if debug:
         # Enable all possible GnuTLS debugging
@@ -2792,7 +2793,7 @@ def main():
             else:
                 logger.warning("Could not save persistent state:",
                                exc_info=e)
-                raise e
+                raise
         
         # Delete all clients, and settings from config
         while tcp_server.clients:
