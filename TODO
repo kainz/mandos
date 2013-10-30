@@ -1,6 +1,7 @@
 -*- org -*-
 
 * GIT
+** General: [[https://www.atlassian.com/git/workflows][Git Workflows]], [[http://gitimmersion.com/][Git Immersion]]
 ** Intro: [[http://www.eyrie.org/~eagle/notes/debian/git.html][Using Git for Debian Packaging]]
 ** Use: [[https://honk.sigxcpu.org/piki/projects/git-buildpackage/][git-buildpackage]]
 ** Migration
