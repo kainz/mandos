@@ -304,8 +304,12 @@ install-html: html
 
 install-server: doc
 	install --directory $(CONFDIR)
-	install --directory --mode=u=rwx --owner=$(USER) \
-		--group=$(GROUP) $(STATEDIR)
+	if install --directory --mode=u=rwx --owner=$(USER) \
+		--group=$(GROUP) $(STATEDIR); then \
+		:; \
+	elif install --directory --mode=u=rwx $(STATEDIR); then \
+		chown -- $(USER):$(GROUP) $(STATEDIR) || :; \
+	fi
 	install --mode=u=rwx,go=rx mandos $(PREFIX)/sbin/mandos
 	install --mode=u=rwx,go=rx --target-directory=$(PREFIX)/sbin \
 		mandos-ctl
