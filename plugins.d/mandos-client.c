@@ -736,9 +736,15 @@ static int start_mandos_communication(const char *ip, in_port_t port,
   }
   if(af == AF_INET6){
     to.in6.sin6_port = htons(port);    
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wstrict-aliasing"
+#endif
     if(IN6_IS_ADDR_LINKLOCAL /* Spurious warnings from */
-       (&to.in6.sin6_addr)){ /* -Wstrict-aliasing=2 or lower and
-				-Wunreachable-code*/
+       (&to.in6.sin6_addr)){ /* -Wstrict-aliasing=2 or lower */
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif
       if(if_index == AVAHI_IF_UNSPEC){
 	fprintf_plus(stderr, "An IPv6 link-local address is"
 		     " incomplete without a network interface\n");
@@ -749,9 +755,7 @@ static int start_mandos_communication(const char *ip, in_port_t port,
       to.in6.sin6_scope_id = (uint32_t)if_index;
     }
   } else {
-    to.in.sin_port = htons(port); /* Spurious warnings from
-				     -Wconversion and
-				     -Wunreachable-code */
+    to.in.sin_port = htons(port);
   }
   
   if(quit_now){
