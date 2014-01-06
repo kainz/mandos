@@ -44,7 +44,8 @@ fi
 . /lib/init/vars.sh
 
 # Define LSB log_* functions.
-# Depend on lsb-base (>= 3.2-14) to ensure that this file is present.
+# Depend on lsb-base (>= 3.2-14) to ensure that this file is present
+# and status_of_proc is working.
 . /lib/lsb/init-functions
 
 #
@@ -122,6 +123,9 @@ case "$1" in
 		2) [ "$VERBOSE" != no ] && log_end_msg 1 ;;
 	esac
 	;;
+  status)
+	status_of_proc "$DAEMON" "$NAME" -p "$PIDFILE" && exit 0 || exit $?
+	;;
   #reload|force-reload)
 	#
 	# If do_reload() is not implemented then leave this commented out
@@ -148,17 +152,14 @@ case "$1" in
 		esac
 		;;
 	  *)
-	  	# Failed to stop
+		# Failed to stop
 		log_end_msg 1
 		;;
 	esac
 	;;
-  status)
-	status_of_proc "$DAEMON" "$NAME" -p "$PIDFILE"
-	;;
   *)
 	#echo "Usage: $SCRIPTNAME {start|stop|restart|reload|force-reload}" >&2
-	echo "Usage: $SCRIPTNAME {start|stop|restart|force-reload}" >&2
+	echo "Usage: $SCRIPTNAME {start|stop|status|restart|force-reload}" >&2
 	exit 3
 	;;
 esac
