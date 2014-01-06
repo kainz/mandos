@@ -11,8 +11,8 @@
 # "AvahiService" class, and some lines in "main".
 # 
 # Everything else is
-# Copyright © 2008-2013 Teddy Hogeborn
-# Copyright © 2008-2013 Björn Påhlsson
+# Copyright © 2008-2014 Teddy Hogeborn
+# Copyright © 2008-2014 Björn Påhlsson
 # 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -934,7 +934,9 @@ class DBusObjectWithProperties(dbus.service.Object):
             # The byte_arrays option is not supported yet on
             # signatures other than "ay".
             if prop._dbus_signature != "ay":
-                raise ValueError
+                raise ValueError("Byte arrays not supported for non-"
+                                 "'ay' signature {0!r}"
+                                 .format(prop._dbus_signature))
             value = dbus.ByteArray(b''.join(chr(byte)
                                             for byte in value))
         prop(value)
