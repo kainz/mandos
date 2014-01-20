@@ -1,14 +1,16 @@
 -*- org -*-
 
 * GIT
-** General: [[https://www.atlassian.com/git/workflows][Git Workflows]], [[http://gitimmersion.com/][Git Immersion]]
-** Intro: [[http://www.eyrie.org/~eagle/notes/debian/git.html][Using Git for Debian Packaging]]
+** General: [[https://www.atlassian.com/git/workflows][Git Workflows]], [[http://gitimmersion.com/][Git Immersion]], [[https://news.ycombinator.com/item?id=7036628][Simple git workflow is simple]]
+** Intro: [[http://www.eyrie.org/~eagle/notes/debian/git.html#combine][Using Git for Debian Packaging]]
 ** Use: [[https://honk.sigxcpu.org/piki/projects/git-buildpackage/][git-buildpackage]]
 ** Migration
    tailor?
    Using bzr-fastimport: [[http://www.fusonic.net/en/blog/2013/03/26/migrating-from-bazaar-to-git/][Migrating from Bazaar to Git]]
 ** Unresolved: [[http://jameswestby.net/bzr/builddeb/user_manual/split.html][bzr builddeb split mode]]
-   Maybe: [[http://honk.sigxcpu.org/projects/git-buildpackage/manual-html/gbp.import.html#GBP.IMPORT.UPSTREAM.GIT.NOTARBALL>][git-buildpackage - No upstream tarballs]]
+   Maybe: [[http://honk.sigxcpu.org/projects/git-buildpackage/manual-html/gbp.import.html#GBP.IMPORT.UPSTREAM.GIT.NOTARBALL][git-buildpackage - No upstream tarballs]]
+   [[http://www.python.org/dev/peps/pep-0374/][PEP 374 - Choosing a distributed VCS for the Python project]]
+   [[http://www.emacswiki.org/emacs/GitForEmacsDevs][Git For Emacs Devs]]
 
 * [[http://www.undeadly.org/cgi?action=article&sid=20110530221728][OpenBSD]]
 
