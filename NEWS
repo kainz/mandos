@@ -1,6 +1,15 @@
 This NEWS file records noteworthy changes, very tersely.
 See the manual for detailed information.
 
+Version 1.6.3 (2014-01-21)
+* Server
+** Add systemd support.
+** For PID file, fall back to /var/run if /run does not exist.
+* Client
+** Moved files from /usr/lib/mandos to whatever the architecture
+   specifies, like /usr/lib/x86_64-linux-gnu/mandos or
+   /usr/lib64/mandos.
+
 Version 1.6.2 (2013-10-24)
 * Server
 ** PID file moved from /var/run to /run.
