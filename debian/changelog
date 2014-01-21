@@ -1,3 +1,20 @@
+mandos (1.6.3-1) unstable; urgency=low
+
+  * New upstream release.
+  * debian/control (Build-Depends): Added "systemd".
+  * debian/mandos.dirs (lib/systemd/system): New.
+  * debian/mandos-client.README.Debian: Refer to architecture libdir.
+  * debian/control (mandos/Depends): Add "avahi-daemon (>= 0.6.31-3) |
+                                     systemd-sysv".
+  * debian/mandos.postinst: If avahi-daemon is version 0.6.31-2 or older,
+                            edit /etc/init.d script headers Required-Start
+  			    and Required-Stop to have "avahi" instead of
+  			    "avahi-daemon", before insserv(8) sees it.
+  * debian/mandos-client.lintian-overrides: Libdir changes.
+  * debian/rules (override_dh_fixperms): - '' -
+
+ -- Teddy Hogeborn <teddy@recompile.se>  Tue, 21 Jan 2014 22:01:30 +0100
+
 mandos (1.6.2-1) unstable; urgency=low
 
   * New upstream release.
