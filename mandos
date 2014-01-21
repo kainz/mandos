@@ -11,8 +11,8 @@
 # "AvahiService" class, and some lines in "main".
 # 
 # Everything else is
-# Copyright © 2008-2013 Teddy Hogeborn
-# Copyright © 2008-2013 Björn Påhlsson
+# Copyright © 2008-2014 Teddy Hogeborn
+# Copyright © 2008-2014 Björn Påhlsson
 # 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -690,10 +690,11 @@ class Client(object):
         # If a checker exists, make sure it is not a zombie
         try:
             pid, status = os.waitpid(self.checker.pid, os.WNOHANG)
-        except (AttributeError, OSError) as error:
-            if (isinstance(error, OSError)
-                and error.errno != errno.ECHILD):
-                raise error
+        except AttributeError:
+            pass
+        except OSError as error:
+            if error.errno != errno.ECHILD:
+                raise
         else:
             if pid:
                 logger.warning("Checker was a zombie")
@@ -933,7 +934,9 @@ class DBusObjectWithProperties(dbus.service.Object):
             # The byte_arrays option is not supported yet on
             # signatures other than "ay".
             if prop._dbus_signature != "ay":
-                raise ValueError
+                raise ValueError("Byte arrays not supported for non-"
+                                 "'ay' signature {0!r}"
+                                 .format(prop._dbus_signature))
             value = dbus.ByteArray(b''.join(chr(byte)
                                             for byte in value))
         prop(value)
@@ -1702,7 +1705,7 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
             logger.debug("Protocol version: %r", line)
             try:
                 if int(line.strip().split()[0]) > 1:
-                    raise RuntimeError
+                    raise RuntimeError(line)
             except (ValueError, IndexError, RuntimeError) as error:
                 logger.error("Unknown protocol version: %s", error)
                 return
@@ -1915,7 +1918,7 @@ class MultiprocessingMixInWithPipe(MultiprocessingMixIn, object):
     
     def add_pipe(self, parent_pipe, proc):
         """Dummy function; override as necessary"""
-        raise NotImplementedError
+        raise NotImplementedError()
 
 
 class IPv6_TCPServer(MultiprocessingMixInWithPipe,
@@ -2258,7 +2261,7 @@ def string_to_delta(interval):
             else:
                 raise ValueError("Unknown suffix {0!r}"
                                  .format(suffix))
-        except (ValueError, IndexError) as e:
+        except IndexError as e:
             raise ValueError(*(e.args))
         timevalue += delta
     return timevalue
@@ -2457,6 +2460,8 @@ def main():
                                         or None))
     if not foreground:
         pidfilename = "/run/mandos.pid"
+        if not os.path.isdir("/run/."):
+            pidfilename = "/var/run/mandos.pid"
         pidfile = None
         try:
             pidfile = open(pidfilename, "w")
@@ -2479,7 +2484,7 @@ def main():
         os.setuid(uid)
     except OSError as error:
         if error.errno != errno.EPERM:
-            raise error
+            raise
     
     if debug:
         # Enable all possible GnuTLS debugging
@@ -2790,7 +2795,7 @@ def main():
             else:
                 logger.warning("Could not save persistent state:",
                                exc_info=e)
-                raise e
+                raise
         
         # Delete all clients, and settings from config
         while tcp_server.clients:

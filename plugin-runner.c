@@ -1071,8 +1071,20 @@ int main(int argc, char *argv[]){
       goto fallback;
     }
     
+#if defined (__GNUC__) and defined (__GLIBC__)
+#if not __GLIBC_PREREQ(2, 16)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wsign-conversion"
+#endif
+#endif
     FD_SET(new_plugin->fd, &rfds_all); /* Spurious warning from
-					  -Wconversion */
+					  -Wconversion in GNU libc
+					  before 2.16 */
+#if defined (__GNUC__) and defined (__GLIBC__)
+#if not __GLIBC_PREREQ(2, 16)
+#pragma GCC diagnostic pop
+#endif
+#endif
     
     if(maxfd < new_plugin->fd){
       maxfd = new_plugin->fd;
@@ -1132,8 +1144,20 @@ int main(int argc, char *argv[]){
 	  }
 	  
 	  /* Remove the plugin */
+#if defined (__GNUC__) and defined (__GLIBC__)
+#if not __GLIBC_PREREQ(2, 16)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wsign-conversion"
+#endif
+#endif
 	  FD_CLR(proc->fd, &rfds_all); /* Spurious warning from
-					  -Wconversion */
+					  -Wconversion in GNU libc
+					  before 2.16 */
+#if defined (__GNUC__) and defined (__GLIBC__)
+#if not __GLIBC_PREREQ(2, 16)
+#pragma GCC diagnostic pop
+#endif
+#endif
 	  
 	  /* Block signal while modifying process_list */
 	  ret = (int)TEMP_FAILURE_RETRY(sigprocmask
@@ -1179,9 +1203,23 @@ int main(int argc, char *argv[]){
       }
       
       /* This process has not completed.  Does it have any output? */
+#if defined (__GNUC__) and defined (__GLIBC__)
+#if not __GLIBC_PREREQ(2, 16)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wsign-conversion"
+#endif
+#endif
       if(proc->eof or not FD_ISSET(proc->fd, &rfds)){ /* Spurious
 							 warning from
-							 -Wconversion */
+							 -Wconversion
+							 in GNU libc
+							 before
+							 2.16 */
+#if defined (__GNUC__) and defined (__GLIBC__)
+#if not __GLIBC_PREREQ(2, 16)
+#pragma GCC diagnostic pop
+#endif
+#endif
 	/* This process had nothing to say at this time */
 	proc = proc->next;
 	continue;

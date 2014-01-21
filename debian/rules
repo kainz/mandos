@@ -23,7 +23,7 @@ override_dh_fixperms:
 	dh_fixperms --exclude etc/keys/mandos \
 		--exclude etc/mandos/clients.conf \
 		--exclude etc/mandos/plugins.d \
-		--exclude usr/lib/mandos/plugins.d \
+		--exclude usr/lib/$(shell dpkg-architecture -qDEB_HOST_MULTIARCH 2>/dev/null)/mandos/plugins.d \
 		--exclude usr/share/doc/mandos-client/examples/network-hooks.d
 	chmod --recursive g-w -- \
 	"$(CURDIR)/debian/mandos-client/usr/share/doc/mandos-client/examples/network-hooks.d"

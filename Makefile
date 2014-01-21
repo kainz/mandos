@@ -36,6 +36,7 @@ GROUP=$(firstword $(subst :, ,$(shell getent group _mandos || getent group nobod
 # MANDIR=$(PREFIX)/man
 # INITRAMFSTOOLS=$(DESTDIR)/etc/initramfs-tools
 # STATEDIR=$(DESTDIR)/var/lib/mandos
+# LIBDIR=$(PREFIX)/lib
 ##
 
 ## These settings are for a package-type install
@@ -45,7 +46,18 @@ KEYDIR=$(DESTDIR)/etc/keys/mandos
 MANDIR=$(PREFIX)/share/man
 INITRAMFSTOOLS=$(DESTDIR)/usr/share/initramfs-tools
 STATEDIR=$(DESTDIR)/var/lib/mandos
+LIBDIR=$(shell \
+	for d in \
+	"/usr/lib/`dpkg-architecture -qDEB_HOST_MULTIARCH 2>/dev/null`" \
+	"`rpm --eval='%{_libdir}' 2>/dev/null`" /usr/lib; do \
+		if [ -d "$$d" -a "$$d" = "$${d%/}" ]; then \
+			echo "$(DESTDIR)$$d"; \
+			break; \
+		fi; \
+	done)
 ##
+
+SYSTEMD=$(DESTDIR)$(shell pkg-config systemd --variable=systemdsystemunitdir)
 
 GNUTLS_CFLAGS=$(shell pkg-config --cflags-only-I gnutls)
 GNUTLS_LIBS=$(shell pkg-config --libs gnutls)
@@ -292,8 +304,12 @@ install-html: html
 
 install-server: doc
 	install --directory $(CONFDIR)
-	install --directory --mode=u=rwx --owner=$(USER) \
-		--group=$(GROUP) $(STATEDIR)
+	if install --directory --mode=u=rwx --owner=$(USER) \
+		--group=$(GROUP) $(STATEDIR); then \
+		:; \
+	elif install --directory --mode=u=rwx $(STATEDIR); then \
+		chown -- $(USER):$(GROUP) $(STATEDIR) || :; \
+	fi
 	install --mode=u=rwx,go=rx mandos $(PREFIX)/sbin/mandos
 	install --mode=u=rwx,go=rx --target-directory=$(PREFIX)/sbin \
 		mandos-ctl
@@ -307,6 +323,9 @@ install-server: doc
 		$(DESTDIR)/etc/dbus-1/system.d/mandos.conf
 	install --mode=u=rwx,go=rx init.d-mandos \
 		$(DESTDIR)/etc/init.d/mandos
+	if [ "$(SYSTEMD)" != "$(DESTDIR)" -a -d "$(SYSTEMD)" ]; then \
+		install --mode=u=rw,go=r mandos.service $(SYSTEMD); \
+	fi
 	install --mode=u=rw,go=r default-mandos \
 		$(DESTDIR)/etc/default/mandos
 	if [ -z $(DESTDIR) ]; then \
@@ -326,36 +345,36 @@ install-server: doc
 		> $(MANDIR)/man8/intro.8mandos.gz
 
 install-client-nokey: all doc
-	install --directory $(PREFIX)/lib/mandos $(CONFDIR)
+	install --directory $(LIBDIR)/mandos $(CONFDIR)
 	install --directory --mode=u=rwx $(KEYDIR) \
-		$(PREFIX)/lib/mandos/plugins.d
-	if [ "$(CONFDIR)" != "$(PREFIX)/lib/mandos" ]; then \
+		$(LIBDIR)/mandos/plugins.d
+	if [ "$(CONFDIR)" != "$(LIBDIR)/mandos" ]; then \
 		install --mode=u=rwx \
 			--directory "$(CONFDIR)/plugins.d"; \
 	fi
 	install --mode=u=rwx,go=rx --directory \
 		"$(CONFDIR)/network-hooks.d"
 	install --mode=u=rwx,go=rx \
-		--target-directory=$(PREFIX)/lib/mandos plugin-runner
+		--target-directory=$(LIBDIR)/mandos plugin-runner
 	install --mode=u=rwx,go=rx --target-directory=$(PREFIX)/sbin \
 		mandos-keygen
 	install --mode=u=rwx,go=rx \
-		--target-directory=$(PREFIX)/lib/mandos/plugins.d \
+		--target-directory=$(LIBDIR)/mandos/plugins.d \
 		plugins.d/password-prompt
 	install --mode=u=rwxs,go=rx \
-		--target-directory=$(PREFIX)/lib/mandos/plugins.d \
+		--target-directory=$(LIBDIR)/mandos/plugins.d \
 		plugins.d/mandos-client
 	install --mode=u=rwxs,go=rx \
-		--target-directory=$(PREFIX)/lib/mandos/plugins.d \
+		--target-directory=$(LIBDIR)/mandos/plugins.d \
 		plugins.d/usplash
 	install --mode=u=rwxs,go=rx \
-		--target-directory=$(PREFIX)/lib/mandos/plugins.d \
+		--target-directory=$(LIBDIR)/mandos/plugins.d \
 		plugins.d/splashy
 	install --mode=u=rwxs,go=rx \
-		--target-directory=$(PREFIX)/lib/mandos/plugins.d \
+		--target-directory=$(LIBDIR)/mandos/plugins.d \
 		plugins.d/askpass-fifo
 	install --mode=u=rwxs,go=rx \
-		--target-directory=$(PREFIX)/lib/mandos/plugins.d \
+		--target-directory=$(LIBDIR)/mandos/plugins.d \
 		plugins.d/plymouth
 	install initramfs-tools-hook \
 		$(INITRAMFSTOOLS)/hooks/mandos
@@ -407,13 +426,13 @@ uninstall-client:
 	! grep --regexp='^ *[^ #].*keyscript=[^,=]*/mandos/' \
 		$(DESTDIR)/etc/crypttab
 	-rm --force $(PREFIX)/sbin/mandos-keygen \
-		$(PREFIX)/lib/mandos/plugin-runner \
-		$(PREFIX)/lib/mandos/plugins.d/password-prompt \
-		$(PREFIX)/lib/mandos/plugins.d/mandos-client \
-		$(PREFIX)/lib/mandos/plugins.d/usplash \
-		$(PREFIX)/lib/mandos/plugins.d/splashy \
-		$(PREFIX)/lib/mandos/plugins.d/askpass-fifo \
-		$(PREFIX)/lib/mandos/plugins.d/plymouth \
+		$(LIBDIR)/mandos/plugin-runner \
+		$(LIBDIR)/mandos/plugins.d/password-prompt \
+		$(LIBDIR)/mandos/plugins.d/mandos-client \
+		$(LIBDIR)/mandos/plugins.d/usplash \
+		$(LIBDIR)/mandos/plugins.d/splashy \
+		$(LIBDIR)/mandos/plugins.d/askpass-fifo \
+		$(LIBDIR)/mandos/plugins.d/plymouth \
 		$(INITRAMFSTOOLS)/hooks/mandos \
 		$(INITRAMFSTOOLS)/conf-hooks.d/mandos \
 		$(INITRAMFSTOOLS)/scripts/init-premount/mandos \
@@ -425,8 +444,8 @@ uninstall-client:
 		$(MANDIR)/man8/splashy.8mandos.gz \
 		$(MANDIR)/man8/askpass-fifo.8mandos.gz \
 		$(MANDIR)/man8/plymouth.8mandos.gz \
-	-rmdir $(PREFIX)/lib/mandos/plugins.d $(CONFDIR)/plugins.d \
-		 $(PREFIX)/lib/mandos $(CONFDIR) $(KEYDIR)
+	-rmdir $(LIBDIR)/mandos/plugins.d $(CONFDIR)/plugins.d \
+		 $(LIBDIR)/mandos $(CONFDIR) $(KEYDIR)
 	update-initramfs -k all -u
 
 purge: purge-server purge-client
@@ -436,7 +455,9 @@ purge-server: uninstall-server
 		$(DESTDIR)/etc/dbus-1/system.d/mandos.conf
 		$(DESTDIR)/etc/default/mandos \
 		$(DESTDIR)/etc/init.d/mandos \
-		$(DESTDIR)/run/mandos.pid
+		$(SYSTEMD)/mandos.service \
+		$(DESTDIR)/run/mandos.pid \
+		$(DESTDIR)/var/run/mandos.pid
 	-rmdir $(CONFDIR)
 
 purge-client: uninstall-client
