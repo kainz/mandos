@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY COMMANDNAME "mandos-client">
-<!ENTITY TIMESTAMP "2013-10-20">
+<!ENTITY TIMESTAMP "2014-01-20">
 <!ENTITY % common SYSTEM "../common.ent">
 %common;
 ]>
@@ -219,8 +219,9 @@
 	    assumed to separate the address from the port number.
 	  </para>
 	  <para>
-	    This option is normally only useful for testing and
-	    debugging.
+	    Normally, Zeroconf would be used to locate Mandos servers,
+	    in which case this option would only be used when testing
+	    and debugging.
 	  </para>
 	</listitem>
       </varlistentry>

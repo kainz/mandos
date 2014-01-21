@@ -1,0 +1,21 @@
+[Unit]
+Description=Server of encrypted passwords to Mandos clients
+
+[Service]
+Type=simple
+## Type=dbus is not appropriate, because Mandos also needs to announce
+## its ZeroConf service and be reachable on the network.
+#Type=dbus
+BusName=se.recompile.Mandos
+# If you add --no-dbus, also comment out BusName above, and vice versa
+ExecStart=/usr/sbin/mandos --foreground
+Restart=always
+KillMode=process
+## Using socket activation won't work either, because systemd always
+## does bind() on the socket, and also won't announce the ZeroConf
+## service.
+#ExecStart=/usr/sbin/mandos --foreground --socket=0
+#StandardInput=socket
+
+[Install]
+WantedBy=multi-user.target
