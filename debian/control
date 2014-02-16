@@ -6,7 +6,8 @@ Uploaders: Teddy Hogeborn <teddy@recompile.se>,
 	   Björn Påhlsson <belorn@recompile.se>
 Build-Depends: debhelper (>= 9), docbook-xml, docbook-xsl,
 	libavahi-core-dev, libgpgme11-dev, libgnutls-dev, xsltproc,
-	pkg-config, systemd
+	pkg-config, systemd, python (>=2.6), python-gnutls, python-dbus,
+	python-avahi, python-gobject, python (>=2.7) | python-argparse
 Standards-Version: 3.9.4
 Vcs-Bzr: http://ftp.recompile.se/pub/mandos/trunk
 Vcs-Browser: http://bzr.recompile.se/loggerhead/mandos/trunk/files

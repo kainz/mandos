@@ -331,7 +331,7 @@ def main():
 
     if options.check:
         fail_count, test_count = doctest.testmod()
-        sys.exit(0 if fail_count == 0 else 1)
+        sys.exit(os.EX_OK if fail_count == 0 else 1)
     
     try:
         bus = dbus.SystemBus()
