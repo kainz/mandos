@@ -92,9 +92,7 @@ version = "1.6.3"
 stored_state_file = "clients.pickle"
 
 logger = logging.getLogger()
-syslogger = (logging.handlers.SysLogHandler
-             (facility = logging.handlers.SysLogHandler.LOG_DAEMON,
-              address = str("/dev/log")))
+syslogger = None
 
 try:
     if_nametoindex = (ctypes.cdll.LoadLibrary
@@ -116,6 +114,10 @@ except (OSError, AttributeError):
 def initlogger(debug, level=logging.WARNING):
     """init logger and add loglevel"""
     
+    syslogger = (logging.handlers.SysLogHandler
+                 (facility =
+                  logging.handlers.SysLogHandler.LOG_DAEMON,
+                  address = str("/dev/log")))
     syslogger.setFormatter(logging.Formatter
                            ('Mandos [%(process)d]: %(levelname)s:'
                             ' %(message)s'))
@@ -2343,8 +2345,8 @@ def main():
     
     if options.check:
         import doctest
-        doctest.testmod()
-        sys.exit()
+        fail_count, test_count = doctest.testmod()
+        sys.exit(os.EX_OK if fail_count == 0 else 1)
     
     # Default values for config file for server-global settings
     server_defaults = { "interface": "",
