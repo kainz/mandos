@@ -3,10 +3,10 @@ Title:		Mandos
 Version:	1.6.4
 Entered-date:	2014-02-16
 Description:	The Mandos system allows computers to have encrypted
-root file systems and at the same time be capable of remote and/or
-unattended reboots.
+		root file systems and at the same time be capable of
+		remote and/or unattended reboots.
 Keywords:	boot, encryption, luks, cryptsetup, network, openpgp,
-tls, dm-crypt
+		tls, dm-crypt
 Author:		teddy@recompile.se (Teddy Hogeborn),
 		belorn@recompile.se (Björn Påhlsson)
 Maintained-by:	teddy@recompile.se (Teddy Hogeborn),
@@ -16,7 +16,8 @@ Primary-site: http://www.recompile.se/mandos
 Alternate-site: ftp://ftp.recompile.se/pub/mandos
 		158K mandos_1.6.4.orig.tar.gz
 Platforms:	Requires GCC, GNU libC, Avahi, GnuPG, Python 2.6, and
-various other libraries.  While made for Debian GNU/Linux, it is
-probably portable to other distributions, but not other Unixes.
+		various other libraries.  While made for Debian
+		GNU/Linux, it is probably portable to other
+		distributions, but not other Unixes. 
 Copying-policy: GNU General Public License version 3.0 or later
 End
