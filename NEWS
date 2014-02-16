@@ -1,6 +1,10 @@
 This NEWS file records noteworthy changes, very tersely.
 See the manual for detailed information.
 
+Version 1.6.4 (2014-02-16)
+* Server
+** Very minor fix to self-test code.
+
 Version 1.6.3 (2014-01-21)
 * Server
 ** Add systemd support.
