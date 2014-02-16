@@ -2343,8 +2343,8 @@ def main():
     
     if options.check:
         import doctest
-        doctest.testmod()
-        sys.exit()
+        fail_count, test_count = doctest.testmod()
+        sys.exit(os.EX_OK if fail_count == 0 else 1)
     
     # Default values for config file for server-global settings
     server_defaults = { "interface": "",
