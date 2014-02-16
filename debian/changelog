@@ -1,3 +1,13 @@
+mandos (1.6.4-1) unstable; urgency=medium
+
+  * New upstream release.
+  * debian/control (Build-Depends): Add Python dependencies to
+                                    successfully run self-tests.
+  * debian/copyright: GPLv3 now has its own license file - use it.
+  * debian/watch: Set PGP signature URL.
+
+ -- Teddy Hogeborn <teddy@recompile.se>  Sun, 16 Feb 2014 14:09:25 +0100
+
 mandos (1.6.3-1) unstable; urgency=low
 
   * New upstream release.
@@ -8,8 +18,8 @@ mandos (1.6.3-1) unstable; urgency=low
                                      systemd-sysv".
   * debian/mandos.postinst: If avahi-daemon is version 0.6.31-2 or older,
                             edit /etc/init.d script headers Required-Start
-  			    and Required-Stop to have "avahi" instead of
-  			    "avahi-daemon", before insserv(8) sees it.
+                            and Required-Stop to have "avahi" instead of
+                            "avahi-daemon", before insserv(8) sees it.
   * debian/mandos-client.lintian-overrides: Libdir changes.
   * debian/rules (override_dh_fixperms): - '' -
 
