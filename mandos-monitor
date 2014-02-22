@@ -32,7 +32,6 @@ except ImportError:
 
 import sys
 import os
-import signal
 
 import datetime
 
