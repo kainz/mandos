@@ -850,13 +850,17 @@ int main(int argc, char *argv[]){
     {
       bool bad_name = false;
       
-      const char const *bad_prefixes[] = { ".", "#", NULL };
+      const char * const bad_prefixes[] = { ".", "#", NULL };
       
-      const char const *bad_suffixes[] = { "~", "#", ".dpkg-new",
+      const char * const bad_suffixes[] = { "~", "#", ".dpkg-new",
 					   ".dpkg-old",
 					   ".dpkg-bak",
 					   ".dpkg-divert", NULL };
-      for(const char **pre = bad_prefixes; *pre != NULL; pre++){
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-qual"
+      for(const char **pre = (const char **)bad_prefixes;
+	  *pre != NULL; pre++){
+#pragma GCC diagnostic pop
 	size_t pre_len = strlen(*pre);
 	if((d_name_len >= pre_len)
 	   and strncmp((dirst->d_name), *pre, pre_len) == 0){
@@ -871,7 +875,11 @@ int main(int argc, char *argv[]){
       if(bad_name){
 	continue;
       }
-      for(const char **suf = bad_suffixes; *suf != NULL; suf++){
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-qual"
+      for(const char **suf = (const char **)bad_suffixes;
+	  *suf != NULL; suf++){
+#pragma GCC diagnostic pop
 	size_t suf_len = strlen(*suf);
 	if((d_name_len >= suf_len)
 	   and (strcmp((dirst->d_name) + d_name_len-suf_len, *suf)
