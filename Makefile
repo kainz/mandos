@@ -4,11 +4,10 @@ WARN=-O -Wall -Wformat=2 -Winit-self -Wmissing-include-dirs \
 	-Wunsafe-loop-optimizations -Wpointer-arith \
 	-Wbad-function-cast -Wcast-qual -Wcast-align -Wwrite-strings \
 	-Wconversion -Wstrict-prototypes -Wold-style-definition \
-	-Wpacked -Wnested-externs -Winline -Wvolatile-register-var
-#	-Wunreachable-code
+	-Wpacked -Wnested-externs -Winline -Wvolatile-register-var \
+	-Wunreachable-code
 #DEBUG=-ggdb3
-# For info about _FORTIFY_SOURCE, see
-# <http://www.kernel.org/doc/man-pages/online/pages/man7/feature_test_macros.7.html>
+# For info about _FORTIFY_SOURCE, see feature_test_macros(7)
 # and <http://gcc.gnu.org/ml/gcc-patches/2004-09/msg02055.html>.
 FORTIFY=-D_FORTIFY_SOURCE=2 -fstack-protector-all -fPIC
 LINK_FORTIFY_LD=-z relro -z now
@@ -239,9 +238,11 @@ plugins.d/mandos-client: plugins.d/mandos-client.c
 	$(LINK.c) $^ -lrt $(GNUTLS_LIBS) $(AVAHI_LIBS) $(strip\
 		) $(GPGME_LIBS) $(LOADLIBES) $(LDLIBS) -o $@
 
-.PHONY : all doc html clean distclean run-client run-server install \
-	install-server install-client uninstall uninstall-server \
-	uninstall-client purge purge-server purge-client
+.PHONY : all doc html clean distclean mostlyclean maintainer-clean \
+	check run-client run-server install install-html \
+	install-server install-client-nokey install-client uninstall \
+	uninstall-server uninstall-client purge purge-server \
+	purge-client
 
 clean:
 	-rm --force $(CPROGS) $(objects) $(htmldocs) $(DOCS) core
