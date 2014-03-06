@@ -72,16 +72,6 @@ const char *argp_program_bug_address = "<mandos@recompile.se>";
 /* Needed for conflict resolution */
 const char plymouth_name[] = "plymouthd";
 
-__attribute__((format (gnu_printf, 2, 3), nonnull(1)))
-int fprintf_plus(FILE *stream, const char *format, ...){
-  va_list ap;
-  va_start (ap, format);
-  
-  TEMP_FAILURE_RETRY(fprintf(stream, "Mandos plugin %s: ",
-			     program_invocation_short_name));
-  return (int)TEMP_FAILURE_RETRY(vfprintf(stream, format, ap));
-}
-
 /* Function to use when printing errors */
 __attribute__((format (gnu_printf, 3, 4)))
 void error_plus(int status, int errnum, const char *formatstring,

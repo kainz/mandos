@@ -175,14 +175,16 @@ __attribute__((nonnull))
 static bool add_to_char_array(const char *new, char ***array,
 			      int *len){
   /* Resize the pointed-to array to hold one more pointer */
+  char **new_array = NULL;
   do {
-    *array = realloc(*array, sizeof(char *)
-		     * (size_t) ((*len) + 2));
-  } while(*array == NULL and errno == EINTR);
+    new_array = realloc(*array, sizeof(char *)
+			* (size_t) ((*len) + 2));
+  } while(new_array == NULL and errno == EINTR);
   /* Malloc check */
-  if(*array == NULL){
+  if(new_array == NULL){
     return false;
   }
+  *array = new_array;
   /* Make a copy of the new string */
   char *copy;
   do {
@@ -217,19 +219,19 @@ static bool add_environment(plugin *p, const char *def, bool replace){
   /* namelen = length of name of environment variable */
   size_t namelen = (size_t)(strchrnul(def, '=') - def);
   /* Search for this environment variable */
-  for(char **e = p->environ; *e != NULL; e++){
-    if(strncmp(*e, def, namelen + 1) == 0){
+  for(char **envdef = p->environ; *envdef != NULL; envdef++){
+    if(strncmp(*envdef, def, namelen + 1) == 0){
       /* It already exists */
       if(replace){
-	char *new;
+	char *new_envdef;
 	do {
-	  new = realloc(*e, strlen(def) + 1);
-	} while(new == NULL and errno == EINTR);
-	if(new == NULL){
+	  new_envdef = realloc(*envdef, strlen(def) + 1);
+	} while(new_envdef == NULL and errno == EINTR);
+	if(new_envdef == NULL){
 	  return false;
 	}
-	*e = new;
-	strcpy(*e, def);
+	*envdef = new_envdef;
+	strcpy(*envdef, def);
       }
       return true;
     }
@@ -664,13 +666,19 @@ int main(int argc, char *argv[]){
 	}
 	
 	custom_argc += 1;
-	custom_argv = realloc(custom_argv, sizeof(char *)
-			      * ((unsigned int) custom_argc + 1));
-	if(custom_argv == NULL){
-	  error(0, errno, "realloc");
-	  exitstatus = EX_OSERR;
-	  free(org_line);
-	  goto fallback;
+	{
+	  char **new_argv = realloc(custom_argv, sizeof(char *)
+				    * ((unsigned int)
+				       custom_argc + 1));
+	  if(new_argv == NULL){
+	    error(0, errno, "realloc");
+	    exitstatus = EX_OSERR;
+	    free(new_arg);
+	    free(org_line);
+	    goto fallback;
+	  } else {
+	    custom_argv = new_argv;
+	  }
 	}
 	custom_argv[custom_argc-1] = new_arg;
 	custom_argv[custom_argc] = NULL;
@@ -856,11 +864,15 @@ int main(int argc, char *argv[]){
 					   ".dpkg-old",
 					   ".dpkg-bak",
 					   ".dpkg-divert", NULL };
+#ifdef __GNUC__
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wcast-qual"
+#endif
       for(const char **pre = (const char **)bad_prefixes;
 	  *pre != NULL; pre++){
+#ifdef __GNUC__
 #pragma GCC diagnostic pop
+#endif
 	size_t pre_len = strlen(*pre);
 	if((d_name_len >= pre_len)
 	   and strncmp((dirst->d_name), *pre, pre_len) == 0){
@@ -875,11 +887,15 @@ int main(int argc, char *argv[]){
       if(bad_name){
 	continue;
       }
+#ifdef __GNUC__
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wcast-qual"
+#endif
       for(const char **suf = (const char **)bad_suffixes;
 	  *suf != NULL; suf++){
+#ifdef __GNUC__
 #pragma GCC diagnostic pop
+#endif
 	size_t suf_len = strlen(*suf);
 	if((d_name_len >= suf_len)
 	   and (strcmp((dirst->d_name) + d_name_len-suf_len, *suf)
@@ -1234,13 +1250,14 @@ int main(int argc, char *argv[]){
       }
       /* Before reading, make the process' data buffer large enough */
       if(proc->buffer_length + BUFFER_SIZE > proc->buffer_size){
-	proc->buffer = realloc(proc->buffer, proc->buffer_size
-			       + (size_t) BUFFER_SIZE);
-	if(proc->buffer == NULL){
+	char *new_buffer = realloc(proc->buffer, proc->buffer_size
+				   + (size_t) BUFFER_SIZE);
+	if(new_buffer == NULL){
 	  error(0, errno, "malloc");
 	  exitstatus = EX_OSERR;
 	  goto fallback;
 	}
+	proc->buffer = new_buffer;
 	proc->buffer_size += BUFFER_SIZE;
       }
       /* Read from the process */
