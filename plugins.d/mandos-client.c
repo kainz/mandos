@@ -198,10 +198,15 @@ int fprintf_plus(FILE *stream, const char *format, ...){
 size_t incbuffer(char **buffer, size_t buffer_length,
 		 size_t buffer_capacity){
   if(buffer_length + BUFFER_SIZE > buffer_capacity){
-    *buffer = realloc(*buffer, buffer_capacity + BUFFER_SIZE);
-    if(buffer == NULL){
+    char *new_buf = realloc(*buffer, buffer_capacity + BUFFER_SIZE);
+    if(new_buf == NULL){
+      int old_errno = errno;
+      free(*buffer);
+      errno = old_errno;
+      *buffer = NULL;
       return 0;
     }
+    *buffer = new_buf;
     buffer_capacity += BUFFER_SIZE;
   }
   return buffer_capacity;
@@ -1488,8 +1493,6 @@ error_t lower_privileges_permanently(void){
 bool run_network_hooks(const char *mode, const char *interface,
 		       const float delay){
   struct dirent **direntries;
-  struct dirent *direntry;
-  int ret;
   int numhooks = scandir(hookdir, &direntries, runnable_hook,
 			 alphasort);
   if(numhooks == -1){
@@ -1502,6 +1505,8 @@ bool run_network_hooks(const char *mode, const char *interface,
       perror_plus("scandir");
     }
   } else {
+    struct dirent *direntry;
+    int ret;
     int devnull = open("/dev/null", O_RDONLY);
     for(int i = 0; i < numhooks; i++){
       direntry = direntries[i];
@@ -1727,10 +1732,7 @@ error_t bring_up_interface(const char *const interface,
 }
 
 error_t take_down_interface(const char *const interface){
-  int sd = -1;
   error_t old_errno = errno;
-  error_t ret_errno = 0;
-  int ret, ret_setflags;
   struct ifreq network;
   unsigned int if_index = if_nametoindex(interface);
   if(if_index == 0){
@@ -1739,6 +1741,7 @@ error_t take_down_interface(const char *const interface){
     return ENXIO;
   }
   if(interface_is_up(interface)){
+    error_t ret_errno = 0;
     if(not get_flags(interface, &network) and debug){
       ret_errno = errno;
       fprintf_plus(stderr, "Failed to get flags for interface "
@@ -1747,7 +1750,7 @@ error_t take_down_interface(const char *const interface){
     }
     network.ifr_flags &= ~(short)IFF_UP; /* clear flag */
     
-    sd = socket(PF_INET6, SOCK_DGRAM, IPPROTO_IP);
+    int sd = socket(PF_INET6, SOCK_DGRAM, IPPROTO_IP);
     if(sd < 0){
       ret_errno = errno;
       perror_plus("socket");
@@ -1763,14 +1766,14 @@ error_t take_down_interface(const char *const interface){
     /* Raise priviliges */
     raise_privileges();
     
-    ret_setflags = ioctl(sd, SIOCSIFFLAGS, &network);
+    int ret_setflags = ioctl(sd, SIOCSIFFLAGS, &network);
     ret_errno = errno;
     
     /* Lower privileges */
     lower_privileges();
     
     /* Close the socket */
-    ret = (int)TEMP_FAILURE_RETRY(close(sd));
+    int ret = (int)TEMP_FAILURE_RETRY(close(sd));
     if(ret == -1){
       perror_plus("close");
     }
@@ -1809,7 +1812,6 @@ int main(int argc, char *argv[]){
   const char *seckey = PATHDIR "/" SECKEY;
   const char *pubkey = PATHDIR "/" PUBKEY;
   char *interfaces_hooks = NULL;
-  size_t interfaces_hooks_size = 0;
   
   bool gnutls_initialized = false;
   bool gpgme_initialized = false;
@@ -2070,9 +2072,7 @@ int main(int argc, char *argv[]){
 	goto end;
       }
       memcpy(interfaces_hooks, mc.interfaces, mc.interfaces_size);
-      interfaces_hooks_size = mc.interfaces_size;
-      argz_stringify(interfaces_hooks, interfaces_hooks_size,
-		     (int)',');
+      argz_stringify(interfaces_hooks, mc.interfaces_size, (int)',');
     }
     if(not run_network_hooks("start", interfaces_hooks != NULL ?
 			     interfaces_hooks : "", delay)){
@@ -2171,6 +2171,7 @@ int main(int argc, char *argv[]){
 	ret_errno = argz_add(&mc.interfaces, &mc.interfaces_size,
 			     direntries[i]->d_name);
 	if(ret_errno != 0){
+	  errno = ret_errno;
 	  perror_plus("argz_add");
 	  continue;
 	}
@@ -2219,6 +2220,10 @@ int main(int argc, char *argv[]){
 	  ret_errno = argz_add(&interfaces_to_take_down,
 			       &interfaces_to_take_down_size,
 			       interface);
+	  if(ret_errno != 0){
+	    errno = ret_errno;
+	    perror_plus("argz_add");
+	  }
 	}
       }
     }
