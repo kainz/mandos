@@ -55,7 +55,8 @@
 				   opendir(), DIR */
 #include <sys/stat.h>		/* open(), S_ISREG */
 #include <sys/socket.h>		/* socket(), struct sockaddr_in6,
-				   inet_pton(), connect() */
+				   inet_pton(), connect(),
+				   getnameinfo() */
 #include <fcntl.h>		/* open() */
 #include <dirent.h>		/* opendir(), struct dirent, readdir()
 				 */
@@ -73,7 +74,7 @@
 #include <unistd.h>		/* close(), SEEK_SET, off_t, write(),
 				   getuid(), getgid(), seteuid(),
 				   setgid(), pause(), _exit() */
-#include <arpa/inet.h>		/* inet_pton(), htons, inet_ntop() */
+#include <arpa/inet.h>		/* inet_pton(), htons() */
 #include <iso646.h>		/* not, or, and */
 #include <argp.h>		/* struct argp_option, error_t, struct
 				   argp_state, struct argp,
@@ -91,6 +92,8 @@
 				   argz_delete(), argz_append(),
 				   argz_stringify(), argz_add(),
 				   argz_count() */
+#include <netdb.h>		/* getnameinfo(), NI_NUMERICHOST,
+				   EAI_SYSTEM, gai_strerror() */
 
 #ifdef __linux__
 #include <sys/klog.h> 		/* klogctl() */
@@ -783,20 +786,21 @@ static int start_mandos_communication(const char *ip, in_port_t port,
     }
     char addrstr[(INET_ADDRSTRLEN > INET6_ADDRSTRLEN) ?
 		 INET_ADDRSTRLEN : INET6_ADDRSTRLEN] = "";
-    const char *pcret;
     if(af == AF_INET6){
-      pcret = inet_ntop(af, &(to.in6.sin6_addr), addrstr,
-			sizeof(addrstr));
+      ret = getnameinfo((struct sockaddr *)&(to.in6), sizeof(to.in6),
+			addrstr, sizeof(addrstr), NULL, 0,
+			NI_NUMERICHOST);
     } else {
-      pcret = inet_ntop(af, &(to.in.sin_addr), addrstr,
-			sizeof(addrstr));
+      ret = getnameinfo((struct sockaddr *)&(to.in), sizeof(to.in),
+			addrstr, sizeof(addrstr), NULL, 0,
+			NI_NUMERICHOST);
     }
-    if(pcret == NULL){
-      perror_plus("inet_ntop");
-    } else {
-      if(strcmp(addrstr, ip) != 0){
-	fprintf_plus(stderr, "Canonical address form: %s\n", addrstr);
-      }
+    if(ret == EAI_SYSTEM){
+      perror_plus("getnameinfo");
+    } else if(ret != 0) {
+      fprintf_plus(stderr, "getnameinfo: %s", gai_strerror(ret));
+    } else if(strcmp(addrstr, ip) != 0){
+      fprintf_plus(stderr, "Canonical address form: %s\n", addrstr);
     }
   }
   
