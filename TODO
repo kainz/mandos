@@ -23,7 +23,6 @@
 ** TODO [#B] Use capabilities instead of seteuid().
 ** TODO [#B] Use struct sockaddr_storage instead of a union
 ** TODO [#B] Use getaddrinfo(hints=AI_NUMERICHOST) instead of inet_pton()
-** TODO [#B] Use getnameinfo(serv=NULL, NI_NUMERICHOST) instead of inet_ntop()
 ** TODO [#B] Prefer /run/tmp over /tmp, if it exists
 ** TODO [#C] Make start_mandos_communication() take "struct server".
 
