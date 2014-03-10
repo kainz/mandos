@@ -232,6 +232,11 @@ bool add_server(const char *ip, in_port_t port, AvahiIfIndex if_index,
     perror_plus("strdup");
     return false;
   }
+  ret = clock_gettime(CLOCK_MONOTONIC, &(new_server->last_seen));
+  if(ret == -1){
+    perror_plus("clock_gettime");
+    return false;
+  }
   /* Special case of first server */
   if(*current_server == NULL){
     new_server->next = new_server;
@@ -243,11 +248,6 @@ bool add_server(const char *ip, in_port_t port, AvahiIfIndex if_index,
     new_server->prev = (*current_server)->prev;
     new_server->prev->next = new_server;
     (*current_server)->prev = new_server;
-  }
-  ret = clock_gettime(CLOCK_MONOTONIC, &(*current_server)->last_seen);
-  if(ret == -1){
-    perror_plus("clock_gettime");
-    return false;
   }
   return true;
 }
