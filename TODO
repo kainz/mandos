@@ -50,6 +50,7 @@
 ** TODO [#C] use same file name rules as run-parts(8)
 ** kernel command line option for debug info
 ** TODO [#B] Use openat()
+** TODO [#C] Use fnmatch() to look for bad prefixes and suffixes
 
 * mandos (server)
 ** TODO [#B] Log level							  :BUGS:
