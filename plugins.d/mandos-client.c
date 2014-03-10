@@ -809,7 +809,7 @@ static int start_mandos_communication(const char *ip, in_port_t port,
 		  sizeof(struct sockaddr_in));
   }
   if(ret < 0){
-    if ((errno != ECONNREFUSED and errno != ENETUNREACH) or debug){
+    if((errno != ECONNREFUSED and errno != ENETUNREACH) or debug){
       int e = errno;
       perror_plus("connect");
       errno = e;
@@ -1372,13 +1372,13 @@ int avahi_loop_with_timeout(AvahiSimplePoll *s, int retry_interval,
   
   while(true){
     if(mc->current_server == NULL){
-      if (debug){
+      if(debug){
 	fprintf_plus(stderr, "Wait until first server is found."
 		     " No timeout!\n");
       }
       ret = avahi_simple_poll_iterate(s, -1);
     } else {
-      if (debug){
+      if(debug){
 	fprintf_plus(stderr, "Check current_server if we should run"
 		     " it, or wait\n");
       }
@@ -1401,7 +1401,7 @@ int avahi_loop_with_timeout(AvahiSimplePoll *s, int retry_interval,
 		     - ((intmax_t)waited_time.tv_sec * 1000))
 		    - ((intmax_t)waited_time.tv_nsec / 1000000));
       
-      if (debug){
+      if(debug){
 	fprintf_plus(stderr, "Blocking for %" PRIdMAX " ms\n",
 		     block_time);
       }
@@ -1429,7 +1429,7 @@ int avahi_loop_with_timeout(AvahiSimplePoll *s, int retry_interval,
       ret = avahi_simple_poll_iterate(s, (int)block_time);
     }
     if(ret != 0){
-      if (ret > 0 or errno != EINTR){
+      if(ret > 0 or errno != EINTR){
 	return (ret != 1) ? ret : 0;
       }
     }
@@ -2341,7 +2341,7 @@ int main(int argc, char *argv[]){
       sleep((unsigned int)retry_interval);
     }
     
-    if (not quit_now){
+    if(not quit_now){
       exitcode = EXIT_SUCCESS;
     }
     
@@ -2487,7 +2487,7 @@ int main(int argc, char *argv[]){
     struct dirent *direntry = NULL;
     int numentries = scandir(tempdir, &direntries, notdotentries,
 			     alphasort);
-    if (numentries > 0){
+    if(numentries > 0){
       for(int i = 0; i < numentries; i++){
 	direntry = direntries[i];
 	char *fullname = NULL;
@@ -2508,7 +2508,7 @@ int main(int argc, char *argv[]){
 
     /* need to clean even if 0 because man page doesn't specify */
     free(direntries);
-    if (numentries == -1){
+    if(numentries == -1){
       perror_plus("scandir");
     }
     ret = rmdir(tempdir);
