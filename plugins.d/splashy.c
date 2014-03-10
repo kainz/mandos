@@ -70,7 +70,7 @@ void error_plus(int status, int errnum, const char *formatstring,
   
   va_start(ap, formatstring);
   ret = vasprintf(&text, formatstring, ap);
-  if (ret == -1){
+  if(ret == -1){
     fprintf(stderr, "Mandos plugin %s: ",
 	    program_invocation_short_name);
     vfprintf(stderr, formatstring, ap);
