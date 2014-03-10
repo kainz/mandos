@@ -82,7 +82,7 @@ void error_plus(int status, int errnum, const char *formatstring,
   
   va_start(ap, formatstring);
   ret = vasprintf(&text, formatstring, ap);
-  if (ret == -1){
+  if(ret == -1){
     fprintf(stderr, "Mandos plugin %s: ",
 	    program_invocation_short_name);
     vfprintf(stderr, formatstring, ap);
@@ -212,7 +212,7 @@ bool conflict_detection(void){
   struct dirent **direntries = NULL;
   int ret;
   ret = scandir("/proc", &direntries, is_plymouth, alphasort);
-  if (ret == -1){
+  if(ret == -1){
     error_plus(1, errno, "scandir");
   }
   free(direntries);
@@ -303,7 +303,7 @@ int main(int argc, char **argv){
     fprintf(stderr, "Starting %s\n", argv[0]);
   }
 
-  if (conflict_detection()){
+  if(conflict_detection()){
     if(debug){
       fprintf(stderr, "Stopping %s because of conflict\n", argv[0]);
     }
