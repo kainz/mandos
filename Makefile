@@ -19,7 +19,7 @@ FORTIFY += -fPIE
 LINK_FORTIFY += -pie
 endif
 #COVERAGE=--coverage
-OPTIMIZE=-Os
+OPTIMIZE=-Os -fno-strict-aliasing
 LANGUAGE=-std=gnu99
 htmldir=man
 version=1.6.4

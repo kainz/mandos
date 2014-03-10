@@ -634,10 +634,7 @@ static int start_mandos_communication(const char *ip, in_port_t port,
 				      int af, mandos_context *mc){
   int ret, tcp_sd = -1;
   ssize_t sret;
-  union {
-    struct sockaddr_in in;
-    struct sockaddr_in6 in6;
-  } to;
+  struct sockaddr_storage to;
   char *buffer = NULL;
   char *decrypted_buffer = NULL;
   size_t buffer_length = 0;
@@ -724,11 +721,11 @@ static int start_mandos_communication(const char *ip, in_port_t port,
   
   memset(&to, 0, sizeof(to));
   if(af == AF_INET6){
-    to.in6.sin6_family = (sa_family_t)af;
-    ret = inet_pton(af, ip, &to.in6.sin6_addr);
+    ((struct sockaddr_in6 *)&to)->sin6_family = (sa_family_t)af;
+    ret = inet_pton(af, ip, &((struct sockaddr_in6 *)&to)->sin6_addr);
   } else {			/* IPv4 */
-    to.in.sin_family = (sa_family_t)af;
-    ret = inet_pton(af, ip, &to.in.sin_addr);
+    ((struct sockaddr_in *)&to)->sin_family = (sa_family_t)af;
+    ret = inet_pton(af, ip, &((struct sockaddr_in *)&to)->sin_addr);
   }
   if(ret < 0 ){
     int e = errno;
@@ -743,16 +740,9 @@ static int start_mandos_communication(const char *ip, in_port_t port,
     goto mandos_end;
   }
   if(af == AF_INET6){
-    to.in6.sin6_port = htons(port);    
-#ifdef __GNUC__
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wstrict-aliasing"
-#endif
-    if(IN6_IS_ADDR_LINKLOCAL /* Spurious warnings from */
-       (&to.in6.sin6_addr)){ /* -Wstrict-aliasing=2 or lower */
-#ifdef __GNUC__
-#pragma GCC diagnostic pop
-#endif
+    ((struct sockaddr_in6 *)&to)->sin6_port = htons(port);    
+    if(IN6_IS_ADDR_LINKLOCAL
+       (&((struct sockaddr_in6 *)&to)->sin6_addr)){
       if(if_index == AVAHI_IF_UNSPEC){
 	fprintf_plus(stderr, "An IPv6 link-local address is"
 		     " incomplete without a network interface\n");
@@ -760,10 +750,10 @@ static int start_mandos_communication(const char *ip, in_port_t port,
 	goto mandos_end;
       }
       /* Set the network interface number as scope */
-      to.in6.sin6_scope_id = (uint32_t)if_index;
+      ((struct sockaddr_in6 *)&to)->sin6_scope_id = (uint32_t)if_index;
     }
   } else {
-    to.in.sin_port = htons(port);
+    ((struct sockaddr_in *)&to)->sin_port = htons(port);
   }
   
   if(quit_now){
@@ -787,11 +777,13 @@ static int start_mandos_communication(const char *ip, in_port_t port,
     char addrstr[(INET_ADDRSTRLEN > INET6_ADDRSTRLEN) ?
 		 INET_ADDRSTRLEN : INET6_ADDRSTRLEN] = "";
     if(af == AF_INET6){
-      ret = getnameinfo((struct sockaddr *)&(to.in6), sizeof(to.in6),
+      ret = getnameinfo((struct sockaddr *)&to,
+			sizeof(struct sockaddr_in6),
 			addrstr, sizeof(addrstr), NULL, 0,
 			NI_NUMERICHOST);
     } else {
-      ret = getnameinfo((struct sockaddr *)&(to.in), sizeof(to.in),
+      ret = getnameinfo((struct sockaddr *)&to,
+			sizeof(struct sockaddr_in),
 			addrstr, sizeof(addrstr), NULL, 0,
 			NI_NUMERICHOST);
     }
@@ -810,9 +802,11 @@ static int start_mandos_communication(const char *ip, in_port_t port,
   }
   
   if(af == AF_INET6){
-    ret = connect(tcp_sd, &to.in6, sizeof(to));
+    ret = connect(tcp_sd, (struct sockaddr *)&to,
+		  sizeof(struct sockaddr_in6));
   } else {
-    ret = connect(tcp_sd, &to.in, sizeof(to)); /* IPv4 */
+    ret = connect(tcp_sd, (struct sockaddr *)&to, /* IPv4 */
+		  sizeof(struct sockaddr_in));
   }
   if(ret < 0){
     if ((errno != ECONNREFUSED and errno != ENETUNREACH) or debug){
