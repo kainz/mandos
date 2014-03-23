@@ -49,7 +49,7 @@
 				   F_GETFD, F_SETFD, FD_CLOEXEC,
 				   access(), pipe(), fork(), close()
 				   dup2(), STDOUT_FILENO, _exit(),
-				   execv(), write(), read(),
+				   execve(), write(), read(),
 				   close() */
 #include <fcntl.h>		/* fcntl(), F_GETFD, F_SETFD,
 				   FD_CLOEXEC */
@@ -779,7 +779,7 @@ int main(int argc, char *argv[]){
        <http://bugs.debian.org/633582> */
     int plugindir_fd = open(/* plugindir or */ PDIR, O_RDONLY);
     if(plugindir_fd == -1){
-      error(0, errno, "open");
+      error(0, errno, "open(\"" PDIR "\")");
     } else {
       ret = (int)TEMP_FAILURE_RETRY(fstat(plugindir_fd, &st));
       if(ret == -1){
@@ -1069,16 +1069,10 @@ int main(int argc, char *argv[]){
 	   above and must now close it manually here. */
 	closedir(dir);
       }
-      if(p->environ[0] == NULL){
-	if(execv(filename, p->argv) < 0){
-	  error(0, errno, "execv for %s", filename);
-	  _exit(EX_OSERR);
-	}
-      } else {
-	if(execve(filename, p->argv, p->environ) < 0){
-	  error(0, errno, "execve for %s", filename);
-	  _exit(EX_OSERR);
-	}
+      if(execve(filename, p->argv,
+		(p->environ[0] != NULL) ? p->environ : environ) < 0){
+	error(0, errno, "execve for %s", filename);
+	_exit(EX_OSERR);
       }
       /* no return */
     }
