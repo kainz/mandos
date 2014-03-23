@@ -105,6 +105,7 @@ static plugin *plugin_list = NULL;
 
 /* Gets an existing plugin based on name,
    or if none is found, creates a new one */
+__attribute__((warn_unused_result))
 static plugin *getplugin(char *name){
   /* Check for existing plugin with that name */
   for(plugin *p = plugin_list; p != NULL; p = p->next){
@@ -171,7 +172,7 @@ static plugin *getplugin(char *name){
 }
 
 /* Helper function for add_argument and add_environment */
-__attribute__((nonnull))
+__attribute__((nonnull, warn_unused_result))
 static bool add_to_char_array(const char *new, char ***array,
 			      int *len){
   /* Resize the pointed-to array to hold one more pointer */
@@ -202,7 +203,7 @@ static bool add_to_char_array(const char *new, char ***array,
 }
 
 /* Add to a plugin's argument vector */
-__attribute__((nonnull(2)))
+__attribute__((nonnull(2), warn_unused_result))
 static bool add_argument(plugin *p, const char *arg){
   if(p == NULL){
     return false;
@@ -211,7 +212,7 @@ static bool add_argument(plugin *p, const char *arg){
 }
 
 /* Add to a plugin's environment */
-__attribute__((nonnull(2)))
+__attribute__((nonnull(2), warn_unused_result))
 static bool add_environment(plugin *p, const char *def, bool replace){
   if(p == NULL){
     return false;
@@ -244,6 +245,7 @@ static bool add_environment(plugin *p, const char *def, bool replace){
  * Descriptor Flags".
  | [[info:libc:Descriptor%20Flags][File Descriptor Flags]] |
  */
+__attribute__((warn_unused_result))
 static int set_cloexec_flag(int fd){
   int ret = (int)TEMP_FAILURE_RETRY(fcntl(fd, F_GETFD, 0));
   /* If reading the flags failed, return error indication now. */
@@ -291,7 +293,7 @@ static void handle_sigchld(__attribute__((unused)) int sig){
 }
 
 /* Prints out a password to stdout */
-__attribute__((nonnull))
+__attribute__((nonnull, warn_unused_result))
 static bool print_out_password(const char *buffer, size_t length){
   ssize_t ret;
   for(size_t written = 0; written < length; written += (size_t)ret){
@@ -437,10 +439,13 @@ int main(int argc, char *argv[]){
 	    break;
 	  }
 	}
+	errno = 0;
       }
       break;
     case 'G':			/* --global-env */
-      add_environment(getplugin(NULL), arg, true);
+      if(add_environment(getplugin(NULL), arg, true)){
+	errno = 0;
+      }
       break;
     case 'o':			/* --options-for */
       {
@@ -463,6 +468,7 @@ int main(int argc, char *argv[]){
 	    break;
 	  }
 	}
+	errno = 0;
       }
       break;
     case 'E':			/* --env-for */
@@ -480,7 +486,9 @@ int main(int argc, char *argv[]){
 	  errno = EINVAL;
 	  break;
 	}
-	add_environment(getplugin(arg), envdef, true);
+	if(add_environment(getplugin(arg), envdef, true)){
+	  errno = 0;
+	}
       }
       break;
     case 'd':			/* --disable */
@@ -488,6 +496,7 @@ int main(int argc, char *argv[]){
 	plugin *p = getplugin(arg);
 	if(p != NULL){
 	  p->disabled = true;
+	  errno = 0;
 	}
       }
       break;
@@ -496,12 +505,16 @@ int main(int argc, char *argv[]){
 	plugin *p = getplugin(arg);
 	if(p != NULL){
 	  p->disabled = false;
+	  errno = 0;
 	}
       }
       break;
     case 128:			/* --plugin-dir */
       free(plugindir);
       plugindir = strdup(arg);
+      if(plugindir != NULL){
+	errno = 0;
+      }
       break;
     case 129:			/* --config-file */
       /* This is already done by parse_opt_config_file() */
@@ -515,6 +528,7 @@ int main(int argc, char *argv[]){
 	break;
       }
       uid = (uid_t)tmp_id;
+      errno = 0;
       break;
     case 131:			/* --groupid */
       tmp_id = strtoimax(arg, &tmp, 10);
@@ -525,6 +539,7 @@ int main(int argc, char *argv[]){
 	break;
       }
       gid = (gid_t)tmp_id;
+      errno = 0;
       break;
     case 132:			/* --debug */
       debug = true;
@@ -578,6 +593,9 @@ int main(int argc, char *argv[]){
     case 129:			/* --config-file */
       free(argfile);
       argfile = strdup(arg);
+      if(argfile != NULL){
+	errno = 0;
+      }
       break;
     case 130:			/* --userid */
     case 131:			/* --groupid */

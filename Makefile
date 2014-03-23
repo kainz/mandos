@@ -1,11 +1,15 @@
-WARN=-O -Wall -Wformat=2 -Winit-self -Wmissing-include-dirs \
-	-Wswitch-default -Wswitch-enum -Wunused-parameter \
-	-Wstrict-aliasing=1 -Wextra -Wfloat-equal -Wundef -Wshadow \
+WARN=-O -Wall -Wextra -Wdouble-promotion -Wformat=2 -Winit-self \
+	-Wmissing-include-dirs -Wswitch-default -Wswitch-enum \
+	-Wunused -Wuninitialized -Wstrict-overflow=5 \
+	-Wsuggest-attribute=pure -Wsuggest-attribute=const \
+	-Wsuggest-attribute=noreturn -Wfloat-equal -Wundef -Wshadow \
 	-Wunsafe-loop-optimizations -Wpointer-arith \
 	-Wbad-function-cast -Wcast-qual -Wcast-align -Wwrite-strings \
-	-Wconversion -Wstrict-prototypes -Wold-style-definition \
-	-Wpacked -Wnested-externs -Winline -Wvolatile-register-var \
-	-Wunreachable-code
+	-Wconversion -Wlogical-op -Waggregate-return \
+	-Wstrict-prototypes -Wold-style-definition \
+	-Wmissing-format-attribute -Wnormalized=nfc -Wpacked \
+	-Wredundant-decls -Wnested-externs -Winline -Wvla \
+	-Wvolatile-register-var -Woverlength-strings
 #DEBUG=-ggdb3
 # For info about _FORTIFY_SOURCE, see feature_test_macros(7)
 # and <http://gcc.gnu.org/ml/gcc-patches/2004-09/msg02055.html>.
