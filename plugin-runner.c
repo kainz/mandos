@@ -23,14 +23,14 @@
  */
 
 #define _GNU_SOURCE		/* TEMP_FAILURE_RETRY(), getline(),
-				   asprintf(), O_CLOEXEC */
+				   O_CLOEXEC */
 #include <stddef.h>		/* size_t, NULL */
 #include <stdlib.h>		/* malloc(), exit(), EXIT_SUCCESS,
 				   realloc() */
 #include <stdbool.h>		/* bool, true, false */
 #include <stdio.h>		/* fileno(), fprintf(),
-				   stderr, STDOUT_FILENO */
-#include <sys/types.h>	        /* DIR, fdopendir(), stat(), struct
+				   stderr, STDOUT_FILENO, fclose() */
+#include <sys/types.h>	        /* DIR, fdopendir(), fstat(), struct
 				   stat, waitpid(), WIFEXITED(),
 				   WEXITSTATUS(), wait(), pid_t,
 				   uid_t, gid_t, getuid(), getgid(),
@@ -40,21 +40,21 @@
 #include <sys/wait.h>		/* wait(), waitpid(), WIFEXITED(),
 				   WEXITSTATUS(), WTERMSIG(),
 				   WCOREDUMP() */
-#include <sys/stat.h>		/* struct stat, stat(), S_ISREG() */
+#include <sys/stat.h>		/* struct stat, fstat(), S_ISREG() */
 #include <iso646.h>		/* and, or, not */
 #include <dirent.h>		/* DIR, struct dirent, fdopendir(),
 				   readdir(), closedir(), dirfd() */
-#include <unistd.h>		/* struct stat, stat(), S_ISREG(),
-				   fcntl(), setuid(), setgid(),
-				   F_GETFD, F_SETFD, FD_CLOEXEC,
-				   access(), pipe(), fork(), close()
-				   dup2(), STDOUT_FILENO, _exit(),
-				   execve(), write(), read(),
-				   close() */
+#include <unistd.h>		/* fcntl(), F_GETFD, F_SETFD,
+				   FD_CLOEXEC, write(), STDOUT_FILENO,
+				   struct stat, fstat(), close(),
+				   setgid(), setuid(), S_ISREG(),
+				   faccessat() pipe(), fork(),
+				   _exit(), dup2(), fexecve(), read()
+				*/
 #include <fcntl.h>		/* fcntl(), F_GETFD, F_SETFD,
-				   FD_CLOEXEC */
-#include <string.h>		/* strsep, strlen(), asprintf(),
-				   strsignal(), strcmp(), strncmp() */
+				   FD_CLOEXEC, openat() */
+#include <string.h>		/* strsep, strlen(), strsignal(),
+				   strcmp(), strncmp() */
 #include <errno.h>		/* errno */
 #include <argp.h>		/* struct argp_option, struct
 				   argp_state, struct argp,
@@ -363,6 +363,7 @@ int main(int argc, char *argv[]){
 				      .sa_flags = SA_NOCLDSTOP };
   char **custom_argv = NULL;
   int custom_argc = 0;
+  int dir_fd;
   
   /* Establish a signal handler */
   sigemptyset(&sigchld_action.sa_mask);
@@ -779,7 +780,9 @@ int main(int argc, char *argv[]){
        <http://bugs.debian.org/633582> */
     int plugindir_fd = open(/* plugindir or */ PDIR, O_RDONLY);
     if(plugindir_fd == -1){
-      error(0, errno, "open(\"" PDIR "\")");
+      if(errno != ENOENT){
+	error(0, errno, "open(\"" PDIR "\")");
+      }
     } else {
       ret = (int)TEMP_FAILURE_RETRY(fstat(plugindir_fd, &st));
       if(ret == -1){
@@ -808,24 +811,13 @@ int main(int argc, char *argv[]){
   
   /* Open plugin directory with close_on_exec flag */
   {
-    int dir_fd = -1;
-    if(plugindir == NULL){
-      dir_fd = open(PDIR, O_RDONLY |
+    dir_fd = open(plugindir != NULL ? plugindir : PDIR, O_RDONLY |
 #ifdef O_CLOEXEC
-		    O_CLOEXEC
+		  O_CLOEXEC
 #else  /* not O_CLOEXEC */
-		    0
+		  0
 #endif	/* not O_CLOEXEC */
-		    );
-    } else {
-      dir_fd = open(plugindir, O_RDONLY |
-#ifdef O_CLOEXEC
-		    O_CLOEXEC
-#else  /* not O_CLOEXEC */
-		    0
-#endif	/* not O_CLOEXEC */
-		    );
-    }
+		  );
     if(dir_fd == -1){
       error(0, errno, "Could not open plugin dir");
       exitstatus = EX_UNAVAILABLE;
@@ -932,42 +924,50 @@ int main(int argc, char *argv[]){
       }
     }
     
-    char *filename;
-    if(plugindir == NULL){
-      ret = (int)TEMP_FAILURE_RETRY(asprintf(&filename, PDIR "/%s",
-					     dirst->d_name));
-    } else {
-      ret = (int)TEMP_FAILURE_RETRY(asprintf(&filename, "%s/%s",
-					     plugindir,
-					     dirst->d_name));
-    }
-    if(ret < 0){
-      error(0, errno, "asprintf");
+    int plugin_fd = openat(dir_fd, dirst->d_name, O_RDONLY |
+#ifdef O_CLOEXEC
+			    O_CLOEXEC
+#else  /* not O_CLOEXEC */
+			    0
+#endif	/* not O_CLOEXEC */
+			    );
+    if(plugin_fd == -1){
+      error(0, errno, "Could not open plugin");
       continue;
     }
-    
-    ret = (int)TEMP_FAILURE_RETRY(stat(filename, &st));
+#ifndef O_CLOEXEC
+  /* Set the FD_CLOEXEC flag on the plugin FD */
+    ret = set_cloexec_flag(plugin_fd);
+    if(ret < 0){
+      error(0, errno, "set_cloexec_flag");
+      TEMP_FAILURE_RETRY(close(plugin_fd));
+      continue;
+    }
+#endif	/* O_CLOEXEC */
+    ret = (int)TEMP_FAILURE_RETRY(fstat(plugin_fd, &st));
     if(ret == -1){
       error(0, errno, "stat");
-      free(filename);
+      TEMP_FAILURE_RETRY(close(plugin_fd));
       continue;
     }
     
     /* Ignore non-executable files */
     if(not S_ISREG(st.st_mode)
-       or (TEMP_FAILURE_RETRY(access(filename, X_OK)) != 0)){
+       or (TEMP_FAILURE_RETRY(faccessat(dir_fd, dirst->d_name, X_OK,
+					0)) != 0)){
       if(debug){
-	fprintf(stderr, "Ignoring plugin dir entry \"%s\""
-		" with bad type or mode\n", filename);
+	fprintf(stderr, "Ignoring plugin dir entry \"%s/%s\""
+		" with bad type or mode\n",
+		plugindir != NULL ? plugindir : PDIR, dirst->d_name);
       }
-      free(filename);
+      TEMP_FAILURE_RETRY(close(plugin_fd));
       continue;
     }
     
     plugin *p = getplugin(dirst->d_name);
     if(p == NULL){
       error(0, errno, "getplugin");
-      free(filename);
+      TEMP_FAILURE_RETRY(close(plugin_fd));
       continue;
     }
     if(p->disabled){
@@ -975,7 +975,7 @@ int main(int argc, char *argv[]){
 	fprintf(stderr, "Ignoring disabled plugin \"%s\"\n",
 		dirst->d_name);
       }
-      free(filename);
+      TEMP_FAILURE_RETRY(close(plugin_fd));
       continue;
     }
     {
@@ -995,9 +995,8 @@ int main(int argc, char *argv[]){
 	}
       }
     }
-    /* If this plugin has any environment variables, we will call
-       using execve and need to duplicate the environment from this
-       process, too. */
+    /* If this plugin has any environment variables, we need to
+       duplicate the environment from this process, too. */
     if(p->environ[0] != NULL){
       for(char **e = environ; *e != NULL; e++){
 	if(not add_environment(p, *e, false)){
@@ -1069,9 +1068,10 @@ int main(int argc, char *argv[]){
 	   above and must now close it manually here. */
 	closedir(dir);
       }
-      if(execve(filename, p->argv,
+      if(fexecve(plugin_fd, p->argv,
 		(p->environ[0] != NULL) ? p->environ : environ) < 0){
-	error(0, errno, "execve for %s", filename);
+	error(0, errno, "fexecve for %s/%s",
+	      plugindir != NULL ? plugindir : PDIR, dirst->d_name);
 	_exit(EX_OSERR);
       }
       /* no return */
@@ -1079,7 +1079,7 @@ int main(int argc, char *argv[]){
     /* Parent process */
     TEMP_FAILURE_RETRY(close(pipefd[1])); /* Close unused write end of
 					     pipe */
-    free(filename);
+    TEMP_FAILURE_RETRY(close(plugin_fd));
     plugin *new_plugin = getplugin(dirst->d_name);
     if(new_plugin == NULL){
       error(0, errno, "getplugin");
