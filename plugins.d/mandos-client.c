@@ -136,8 +136,8 @@
 
 bool debug = false;
 static const char mandos_protocol_version[] = "1";
-const char *argp_program_version = "mandos-client " VERSION;
-const char *argp_program_bug_address = "<mandos@recompile.se>";
+const char * argp_program_version = "mandos-client " VERSION;
+const char * argp_program_bug_address = "<mandos@recompile.se>";
 static const char sys_class_net[] = "/sys/class/net";
 char *connect_to = NULL;
 const char *hookdir = HOOKDIR;
@@ -258,15 +258,17 @@ bool add_server(const char *ip, in_port_t port, AvahiIfIndex if_index,
  * Initialize GPGME.
  */
 __attribute__((nonnull, warn_unused_result))
-static bool init_gpgme(const char *seckey, const char *pubkey,
-		       const char *tempdir, mandos_context *mc){
+static bool init_gpgme(const char * const seckey,
+		       const char * const pubkey,
+		       const char * const tempdir,
+		       mandos_context *mc){
   gpgme_error_t rc;
   gpgme_engine_info_t engine_info;
   
   /*
    * Helper function to insert pub and seckey to the engine keyring.
    */
-  bool import_key(const char *filename){
+  bool import_key(const char * const filename){
     int ret;
     int fd;
     gpgme_data_t pgp_data;
@@ -1871,8 +1873,9 @@ int main(int argc, char *argv[]){
   int exitcode = EXIT_SUCCESS;
   char *interfaces_to_take_down = NULL;
   size_t interfaces_to_take_down_size = 0;
-  char tempdir[] = "/tmp/mandosXXXXXX";
-  bool tempdir_created = false;
+  char run_tempdir[] = "/run/tmp/mandosXXXXXX";
+  char old_tempdir[] = "/tmp/mandosXXXXXX";
+  char *tempdir = NULL;
   AvahiIfIndex if_index = AVAHI_IF_UNSPEC;
   const char *seckey = PATHDIR "/" SECKEY;
   const char *pubkey = PATHDIR "/" PUBKEY;
@@ -2327,11 +2330,19 @@ int main(int argc, char *argv[]){
     goto end;
   }
   
-  if(mkdtemp(tempdir) == NULL){
+  /* Try /run/tmp before /tmp */
+  tempdir = mkdtemp(run_tempdir);
+  if(tempdir == NULL and errno == ENOENT){
+      if(debug){
+	fprintf_plus(stderr, "Tempdir %s did not work, trying %s\n",
+		     run_tempdir, old_tempdir);
+      }
+      tempdir = mkdtemp(old_tempdir);
+  }
+  if(tempdir == NULL){
     perror_plus("mkdtemp");
     goto end;
   }
-  tempdir_created = true;
   
   if(quit_now){
     goto end;
@@ -2559,7 +2570,7 @@ int main(int argc, char *argv[]){
   free(interfaces_hooks);
   
   /* Removes the GPGME temp directory and all files inside */
-  if(tempdir_created){
+  if(tempdir != NULL){
     struct dirent **direntries = NULL;
     struct dirent *direntry = NULL;
     int numentries = scandir(tempdir, &direntries, notdotentries,
