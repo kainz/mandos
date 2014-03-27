@@ -44,10 +44,10 @@
 * plugin-runner
 ** TODO handle printing for errors for plugins
 *** Hook up stderr of plugins, buffer them, and prepend "Mandos Plugin [plugin name]"
-** TODO [#B] use scandir(3) instead of readdir(3)
+** TODO [#B] use scandirat(3) instead of readdir(3)
+*** Must wait until GNU libc 2.15
 ** TODO [#C] use same file name rules as run-parts(8)
 ** kernel command line option for debug info
-** TODO [#C] Use fnmatch() to look for bad prefixes and suffixes
 
 * mandos (server)
 ** TODO [#B] Log level							  :BUGS:
