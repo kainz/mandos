@@ -72,6 +72,7 @@
 				   EX_CONFIG, EX_UNAVAILABLE, EX_OK */
 #include <errno.h> 		/* errno */
 #include <error.h>		/* error() */
+#include <fnmatch.h>		/* fnmatch() */
 
 #define BUFFER_SIZE 256
 
@@ -347,7 +348,6 @@ int main(int argc, char *argv[]){
   char *plugindir = NULL;
   char *argfile = NULL;
   FILE *conffp;
-  size_t d_name_len;
   DIR *dir = NULL;
   struct dirent *dirst;
   struct stat st;
@@ -862,63 +862,32 @@ int main(int argc, char *argv[]){
       break;
     }
     
-    d_name_len = strlen(dirst->d_name);
-    
     /* Ignore dotfiles, backup files and other junk */
     {
       bool bad_name = false;
-      
-      const char * const bad_prefixes[] = { ".", "#", NULL };
-      
-      const char * const bad_suffixes[] = { "~", "#", ".dpkg-new",
-					   ".dpkg-old",
-					   ".dpkg-bak",
-					   ".dpkg-divert", NULL };
+      const char * const patterns[] = { ".*", "#*#", "*~",
+					"*.dpkg-new", "*.dpkg-old",
+					"*.dpkg-bak", "*.dpkg-divert",
+					NULL };
 #ifdef __GNUC__
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wcast-qual"
 #endif
-      for(const char **pre = (const char **)bad_prefixes;
-	  *pre != NULL; pre++){
+      for(const char **pat = (const char **)patterns;
+	  *pat != NULL; pat++){
 #ifdef __GNUC__
 #pragma GCC diagnostic pop
 #endif
-	size_t pre_len = strlen(*pre);
-	if((d_name_len >= pre_len)
-	   and strncmp((dirst->d_name), *pre, pre_len) == 0){
+	if(fnmatch(*pat, dirst->d_name,
+		   FNM_FILE_NAME | FNM_PERIOD) != FNM_NOMATCH){
 	  if(debug){
 	    fprintf(stderr, "Ignoring plugin dir entry \"%s\""
-		    " with bad prefix %s\n", dirst->d_name, *pre);
+		    " matching pattern %s\n", dirst->d_name, *pat);
 	  }
 	  bad_name = true;
 	  break;
 	}
       }
-      if(bad_name){
-	continue;
-      }
-#ifdef __GNUC__
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wcast-qual"
-#endif
-      for(const char **suf = (const char **)bad_suffixes;
-	  *suf != NULL; suf++){
-#ifdef __GNUC__
-#pragma GCC diagnostic pop
-#endif
-	size_t suf_len = strlen(*suf);
-	if((d_name_len >= suf_len)
-	   and (strcmp((dirst->d_name) + d_name_len-suf_len, *suf)
-		== 0)){
-	  if(debug){
-	    fprintf(stderr, "Ignoring plugin dir entry \"%s\""
-		    " with bad suffix %s\n", dirst->d_name, *suf);
-	  }
-	  bad_name = true;
-	  break;
-	}
-      }
-      
       if(bad_name){
 	continue;
       }
