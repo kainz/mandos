@@ -9,8 +9,8 @@
  * "browse_callback", and parts of "main".
  * 
  * Everything else is
- * Copyright © 2008-2013 Teddy Hogeborn
- * Copyright © 2008-2013 Björn Påhlsson
+ * Copyright © 2008-2014 Teddy Hogeborn
+ * Copyright © 2008-2014 Björn Påhlsson
  * 
  * This program is free software: you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as

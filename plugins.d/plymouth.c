@@ -2,8 +2,8 @@
 /*
  * Plymouth - Read a password from Plymouth and output it
  * 
- * Copyright © 2010-2013 Teddy Hogeborn
- * Copyright © 2010-2013 Björn Påhlsson
+ * Copyright © 2010-2014 Teddy Hogeborn
+ * Copyright © 2010-2014 Björn Påhlsson
  * 
  * This program is free software: you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
