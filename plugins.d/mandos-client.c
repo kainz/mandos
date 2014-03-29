@@ -136,8 +136,8 @@
 
 bool debug = false;
 static const char mandos_protocol_version[] = "1";
-const char * argp_program_version = "mandos-client " VERSION;
-const char * argp_program_bug_address = "<mandos@recompile.se>";
+const char *argp_program_version = "mandos-client " VERSION;
+const char *argp_program_bug_address = "<mandos@recompile.se>";
 static const char sys_class_net[] = "/sys/class/net";
 char *connect_to = NULL;
 const char *hookdir = HOOKDIR;
@@ -1715,12 +1715,13 @@ error_t bring_up_interface(const char *const interface,
     
     /* Raise privileges */
     ret_errno = raise_privileges();
-    bool restore_loglevel = false;
     if(ret_errno != 0){
       perror_plus("Failed to raise privileges");
     }
+    
 #ifdef __linux__
     int ret_linux;
+    bool restore_loglevel = false;
     if(ret_errno == 0){
       /* Lower kernel loglevel to KERN_NOTICE to avoid KERN_INFO
 	 messages about the network interface to mess up the prompt */
@@ -1826,6 +1827,7 @@ error_t take_down_interface(const char *const interface){
     if(ret_errno != 0){
       perror_plus("Failed to raise privileges");
     }
+    
     int ret_setflags = ioctl(sd, SIOCSIFFLAGS, &network);
     ioctl_errno = errno;
     
@@ -2560,6 +2562,7 @@ int main(int argc, char *argv[]){
 	}
       }
     }
+    
     ret_errno = lower_privileges_permanently();
     if(ret_errno != 0){
       perror_plus("Failed to lower privileges permanently");
