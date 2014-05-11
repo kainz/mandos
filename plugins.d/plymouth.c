@@ -2,8 +2,8 @@
 /*
  * Plymouth - Read a password from Plymouth and output it
  * 
- * Copyright © 2010-2013 Teddy Hogeborn
- * Copyright © 2010-2013 Björn Påhlsson
+ * Copyright © 2010-2014 Teddy Hogeborn
+ * Copyright © 2010-2014 Björn Påhlsson
  * 
  * This program is free software: you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -84,7 +84,7 @@ void error_plus(int status, int errnum, const char *formatstring,
   
   va_start(ap, formatstring);
   ret = vasprintf(&text, formatstring, ap);
-  if (ret == -1){
+  if(ret == -1){
     fprintf(stderr, "Mandos plugin %s: ",
 	    program_invocation_short_name);
     vfprintf(stderr, formatstring, ap);
@@ -179,7 +179,7 @@ bool exec_and_wait(pid_t *pid_return, const char *path,
     int i = 0;
     for (; argv[i]!=NULL; i++){
       tmp = realloc(new_argv, sizeof(const char *) * ((size_t)i + 1));
-      if (tmp == NULL){
+      if(tmp == NULL){
 	error_plus(0, errno, "realloc");
 	free(new_argv);
 	_exit(EX_OSERR);
@@ -290,12 +290,12 @@ pid_t get_pid(void){
   if(proc_id == 0){
     struct dirent **direntries = NULL;
     ret = scandir("/proc", &direntries, is_plymouth, alphasort);
-    if (ret == -1){
+    if(ret == -1){
       error_plus(0, errno, "scandir");
     }
-    if (ret > 0){
+    if(ret > 0){
       ret = sscanf(direntries[0]->d_name, "%" SCNuMAX, &proc_id);
-      if (ret < 0){
+      if(ret < 0){
 	error_plus(0, errno, "sscanf");
       }
     }
