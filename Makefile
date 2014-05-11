@@ -1,14 +1,17 @@
-WARN=-O -Wall -Wformat=2 -Winit-self -Wmissing-include-dirs \
-	-Wswitch-default -Wswitch-enum -Wunused-parameter \
-	-Wstrict-aliasing=1 -Wextra -Wfloat-equal -Wundef -Wshadow \
+WARN=-O -Wall -Wextra -Wdouble-promotion -Wformat=2 -Winit-self \
+	-Wmissing-include-dirs -Wswitch-default -Wswitch-enum \
+	-Wunused -Wuninitialized -Wstrict-overflow=5 \
+	-Wsuggest-attribute=pure -Wsuggest-attribute=const \
+	-Wsuggest-attribute=noreturn -Wfloat-equal -Wundef -Wshadow \
 	-Wunsafe-loop-optimizations -Wpointer-arith \
 	-Wbad-function-cast -Wcast-qual -Wcast-align -Wwrite-strings \
-	-Wconversion -Wstrict-prototypes -Wold-style-definition \
-	-Wpacked -Wnested-externs -Winline -Wvolatile-register-var
-#	-Wunreachable-code
+	-Wconversion -Wlogical-op -Waggregate-return \
+	-Wstrict-prototypes -Wold-style-definition \
+	-Wmissing-format-attribute -Wnormalized=nfc -Wpacked \
+	-Wredundant-decls -Wnested-externs -Winline -Wvla \
+	-Wvolatile-register-var -Woverlength-strings
 #DEBUG=-ggdb3
-# For info about _FORTIFY_SOURCE, see
-# <http://www.kernel.org/doc/man-pages/online/pages/man7/feature_test_macros.7.html>
+# For info about _FORTIFY_SOURCE, see feature_test_macros(7)
 # and <http://gcc.gnu.org/ml/gcc-patches/2004-09/msg02055.html>.
 FORTIFY=-D_FORTIFY_SOURCE=2 -fstack-protector-all -fPIC
 LINK_FORTIFY_LD=-z relro -z now
@@ -20,7 +23,7 @@ FORTIFY += -fPIE
 LINK_FORTIFY += -pie
 endif
 #COVERAGE=--coverage
-OPTIMIZE=-Os
+OPTIMIZE=-Os -fno-strict-aliasing
 LANGUAGE=-std=gnu99
 htmldir=man
 version=1.6.4
@@ -82,13 +85,10 @@ DOCBOOKTOMAN=$(strip cd $(dir $<); xsltproc --nonet --xinclude \
 	--param man.authors.section.enabled	0 \
 	/usr/share/xml/docbook/stylesheet/nwalsh/manpages/docbook.xsl \
 	$(notdir $<); \
-	$(MANPOST) $(notdir $@);\
 	if locale --all 2>/dev/null | grep --regexp='^en_US\.utf8$$' \
 	&& type man 2>/dev/null; then LANG=en_US.UTF-8 MANWIDTH=80 \
 	man --warnings --encoding=UTF-8 --local-file $(notdir $@); \
 	fi >/dev/null)
-# DocBook-to-man post-processing to fix a '\n' escape bug
-MANPOST=$(SED) --in-place --expression='s,\\\\en,\\en,g;s,\\n,\\en,g'
 
 DOCBOOKTOHTML=$(strip xsltproc --nonet --xinclude \
 	--param make.year.ranges		1 \
@@ -239,9 +239,11 @@ plugins.d/mandos-client: plugins.d/mandos-client.c
 	$(LINK.c) $^ -lrt $(GNUTLS_LIBS) $(AVAHI_LIBS) $(strip\
 		) $(GPGME_LIBS) $(LOADLIBES) $(LDLIBS) -o $@
 
-.PHONY : all doc html clean distclean run-client run-server install \
-	install-server install-client uninstall uninstall-server \
-	uninstall-client purge purge-server purge-client
+.PHONY : all doc html clean distclean mostlyclean maintainer-clean \
+	check run-client run-server install install-html \
+	install-server install-client-nokey install-client uninstall \
+	uninstall-server uninstall-client purge purge-server \
+	purge-client
 
 clean:
 	-rm --force $(CPROGS) $(objects) $(htmldocs) $(DOCS) core
