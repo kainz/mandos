@@ -1,3 +1,17 @@
+mandos (1.6.5-1) unstable; urgency=medium
+
+  * New upstream release.
+  * debian/copyright: Change year to "2014".
+  * debian/control (Build-Depends, Build-Depends-Indep): Moved build
+    dependencies of "mandos" package to "Build-Depends-Indep".
+  * debian/upstream/signing-key.asc: New; upstream source public key.
+  * debian/control (Standards-Version): Updated to "3.9.5".
+  * debian/control (mandos/Depends): Remove the dependency on
+    "avahi-daemon (>= 0.6.31-3) | systemd-sysv".  It is unnecessary
+    since we have a workaround in debian/mandos.postinst anyway.
+
+ -- Teddy Hogeborn <teddy@recompile.se>  Sun, 11 May 2014 22:16:33 +0200
+
 mandos (1.6.4-1) unstable; urgency=medium
 
   * New upstream release.
