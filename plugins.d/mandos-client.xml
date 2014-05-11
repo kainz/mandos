@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY COMMANDNAME "mandos-client">
-<!ENTITY TIMESTAMP "2014-01-20">
+<!ENTITY TIMESTAMP "2014-03-05">
 <!ENTITY % common SYSTEM "../common.ent">
 %common;
 ]>
@@ -35,6 +35,7 @@
       <year>2009</year>
       <year>2012</year>
       <year>2013</year>
+      <year>2014</year>
       <holder>Teddy Hogeborn</holder>
       <holder>Björn Påhlsson</holder>
     </copyright>
@@ -260,10 +261,9 @@
 	  <para>
 	    <replaceable>NAME</replaceable> can be the string
 	    <quote><literal>none</literal></quote>; this will make
-	    <command>&COMMANDNAME;</command> not bring up
-	    <emphasis>any</emphasis> interfaces specified
-	    <emphasis>after</emphasis> this string.  This is not
-	    recommended, and only meant for advanced users.
+	    <command>&COMMANDNAME;</command> only bring up interfaces
+	    specified <emphasis>before</emphasis> this string.  This
+	    is not recommended, and only meant for advanced users.
 	  </para>
 	</listitem>
       </varlistentry>

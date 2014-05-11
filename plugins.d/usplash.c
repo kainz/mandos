@@ -2,8 +2,8 @@
 /*
  * Usplash - Read a password from usplash and output it
  * 
- * Copyright © 2008-2012 Teddy Hogeborn
- * Copyright © 2008-2012 Björn Påhlsson
+ * Copyright © 2008-2014 Teddy Hogeborn
+ * Copyright © 2008-2014 Björn Påhlsson
  * 
  * This program is free software: you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -67,7 +67,7 @@ void error_plus(int status, int errnum, const char *formatstring,
   
   va_start(ap, formatstring);
   ret = vasprintf(&text, formatstring, ap);
-  if (ret == -1){
+  if(ret == -1){
     fprintf(stderr, "Mandos plugin %s: ",
 	    program_invocation_short_name);
     vfprintf(stderr, formatstring, ap);

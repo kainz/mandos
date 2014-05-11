@@ -9,8 +9,8 @@
  * "browse_callback", and parts of "main".
  * 
  * Everything else is
- * Copyright © 2008-2013 Teddy Hogeborn
- * Copyright © 2008-2013 Björn Påhlsson
+ * Copyright © 2008-2014 Teddy Hogeborn
+ * Copyright © 2008-2014 Björn Påhlsson
  * 
  * This program is free software: you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -55,7 +55,8 @@
 				   opendir(), DIR */
 #include <sys/stat.h>		/* open(), S_ISREG */
 #include <sys/socket.h>		/* socket(), struct sockaddr_in6,
-				   inet_pton(), connect() */
+				   inet_pton(), connect(),
+				   getnameinfo() */
 #include <fcntl.h>		/* open() */
 #include <dirent.h>		/* opendir(), struct dirent, readdir()
 				 */
@@ -73,7 +74,7 @@
 #include <unistd.h>		/* close(), SEEK_SET, off_t, write(),
 				   getuid(), getgid(), seteuid(),
 				   setgid(), pause(), _exit() */
-#include <arpa/inet.h>		/* inet_pton(), htons, inet_ntop() */
+#include <arpa/inet.h>		/* inet_pton(), htons() */
 #include <iso646.h>		/* not, or, and */
 #include <argp.h>		/* struct argp_option, error_t, struct
 				   argp_state, struct argp,
@@ -91,6 +92,8 @@
 				   argz_delete(), argz_append(),
 				   argz_stringify(), argz_add(),
 				   argz_count() */
+#include <netdb.h>		/* getnameinfo(), NI_NUMERICHOST,
+				   EAI_SYSTEM, gai_strerror() */
 
 #ifdef __linux__
 #include <sys/klog.h> 		/* klogctl() */
@@ -180,7 +183,7 @@ void perror_plus(const char *print_text){
   perror(print_text);
 }
 
-__attribute__((format (gnu_printf, 2, 3)))
+__attribute__((format (gnu_printf, 2, 3), nonnull))
 int fprintf_plus(FILE *stream, const char *format, ...){
   va_list ap;
   va_start (ap, format);
@@ -195,19 +198,26 @@ int fprintf_plus(FILE *stream, const char *format, ...){
  * bytes. "buffer_capacity" is how much is currently allocated,
  * "buffer_length" is how much is already used.
  */
+__attribute__((nonnull, warn_unused_result))
 size_t incbuffer(char **buffer, size_t buffer_length,
 		 size_t buffer_capacity){
   if(buffer_length + BUFFER_SIZE > buffer_capacity){
-    *buffer = realloc(*buffer, buffer_capacity + BUFFER_SIZE);
-    if(buffer == NULL){
+    char *new_buf = realloc(*buffer, buffer_capacity + BUFFER_SIZE);
+    if(new_buf == NULL){
+      int old_errno = errno;
+      free(*buffer);
+      errno = old_errno;
+      *buffer = NULL;
       return 0;
     }
+    *buffer = new_buf;
     buffer_capacity += BUFFER_SIZE;
   }
   return buffer_capacity;
 }
 
 /* Add server to set of servers to retry periodically */
+__attribute__((nonnull, warn_unused_result))
 bool add_server(const char *ip, in_port_t port, AvahiIfIndex if_index,
 		int af, server **current_server){
   int ret;
@@ -224,22 +234,22 @@ bool add_server(const char *ip, in_port_t port, AvahiIfIndex if_index,
     perror_plus("strdup");
     return false;
   }
+  ret = clock_gettime(CLOCK_MONOTONIC, &(new_server->last_seen));
+  if(ret == -1){
+    perror_plus("clock_gettime");
+    return false;
+  }
   /* Special case of first server */
   if(*current_server == NULL){
     new_server->next = new_server;
     new_server->prev = new_server;
     *current_server = new_server;
-  /* Place the new server last in the list */
   } else {
+    /* Place the new server last in the list */
     new_server->next = *current_server;
     new_server->prev = (*current_server)->prev;
     new_server->prev->next = new_server;
     (*current_server)->prev = new_server;
-  }
-  ret = clock_gettime(CLOCK_MONOTONIC, &(*current_server)->last_seen);
-  if(ret == -1){
-    perror_plus("clock_gettime");
-    return false;
   }
   return true;
 }
@@ -247,15 +257,18 @@ bool add_server(const char *ip, in_port_t port, AvahiIfIndex if_index,
 /* 
  * Initialize GPGME.
  */
-static bool init_gpgme(const char *seckey, const char *pubkey,
-		       const char *tempdir, mandos_context *mc){
+__attribute__((nonnull, warn_unused_result))
+static bool init_gpgme(const char * const seckey,
+		       const char * const pubkey,
+		       const char * const tempdir,
+		       mandos_context *mc){
   gpgme_error_t rc;
   gpgme_engine_info_t engine_info;
   
   /*
    * Helper function to insert pub and seckey to the engine keyring.
    */
-  bool import_key(const char *filename){
+  bool import_key(const char * const filename){
     int ret;
     int fd;
     gpgme_data_t pgp_data;
@@ -342,6 +355,7 @@ static bool init_gpgme(const char *seckey, const char *pubkey,
  * Decrypt OpenPGP data.
  * Returns -1 on error
  */
+__attribute__((nonnull, warn_unused_result))
 static ssize_t pgp_packet_decrypt(const char *cryptotext,
 				  size_t crypto_size,
 				  char **plaintext,
@@ -467,7 +481,8 @@ static ssize_t pgp_packet_decrypt(const char *cryptotext,
   return plaintext_length;
 }
 
-static const char * safer_gnutls_strerror(int value){
+__attribute__((warn_unused_result))
+static const char *safer_gnutls_strerror(int value){
   const char *ret = gnutls_strerror(value);
   if(ret == NULL)
     ret = "(unknown)";
@@ -475,11 +490,13 @@ static const char * safer_gnutls_strerror(int value){
 }
 
 /* GnuTLS log function callback */
+__attribute__((nonnull))
 static void debuggnutls(__attribute__((unused)) int level,
 			const char* string){
   fprintf_plus(stderr, "GnuTLS: %s", string);
 }
 
+__attribute__((nonnull, warn_unused_result))
 static int init_gnutls_global(const char *pubkeyfilename,
 			      const char *seckeyfilename,
 			      mandos_context *mc){
@@ -559,6 +576,7 @@ static int init_gnutls_global(const char *pubkeyfilename,
   return -1;
 }
 
+__attribute__((nonnull, warn_unused_result))
 static int init_gnutls_session(gnutls_session_t *session,
 			       mandos_context *mc){
   int ret;
@@ -621,15 +639,13 @@ static void empty_log(__attribute__((unused)) AvahiLogLevel level,
 		      __attribute__((unused)) const char *txt){}
 
 /* Called when a Mandos server is found */
+__attribute__((nonnull, warn_unused_result))
 static int start_mandos_communication(const char *ip, in_port_t port,
 				      AvahiIfIndex if_index,
 				      int af, mandos_context *mc){
   int ret, tcp_sd = -1;
   ssize_t sret;
-  union {
-    struct sockaddr_in in;
-    struct sockaddr_in6 in6;
-  } to;
+  struct sockaddr_storage to;
   char *buffer = NULL;
   char *decrypted_buffer = NULL;
   size_t buffer_length = 0;
@@ -716,11 +732,11 @@ static int start_mandos_communication(const char *ip, in_port_t port,
   
   memset(&to, 0, sizeof(to));
   if(af == AF_INET6){
-    to.in6.sin6_family = (sa_family_t)af;
-    ret = inet_pton(af, ip, &to.in6.sin6_addr);
+    ((struct sockaddr_in6 *)&to)->sin6_family = (sa_family_t)af;
+    ret = inet_pton(af, ip, &((struct sockaddr_in6 *)&to)->sin6_addr);
   } else {			/* IPv4 */
-    to.in.sin_family = (sa_family_t)af;
-    ret = inet_pton(af, ip, &to.in.sin_addr);
+    ((struct sockaddr_in *)&to)->sin_family = (sa_family_t)af;
+    ret = inet_pton(af, ip, &((struct sockaddr_in *)&to)->sin_addr);
   }
   if(ret < 0 ){
     int e = errno;
@@ -735,16 +751,9 @@ static int start_mandos_communication(const char *ip, in_port_t port,
     goto mandos_end;
   }
   if(af == AF_INET6){
-    to.in6.sin6_port = htons(port);    
-#ifdef __GNUC__
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wstrict-aliasing"
-#endif
-    if(IN6_IS_ADDR_LINKLOCAL /* Spurious warnings from */
-       (&to.in6.sin6_addr)){ /* -Wstrict-aliasing=2 or lower */
-#ifdef __GNUC__
-#pragma GCC diagnostic pop
-#endif
+    ((struct sockaddr_in6 *)&to)->sin6_port = htons(port);
+    if(IN6_IS_ADDR_LINKLOCAL
+       (&((struct sockaddr_in6 *)&to)->sin6_addr)){
       if(if_index == AVAHI_IF_UNSPEC){
 	fprintf_plus(stderr, "An IPv6 link-local address is"
 		     " incomplete without a network interface\n");
@@ -752,10 +761,10 @@ static int start_mandos_communication(const char *ip, in_port_t port,
 	goto mandos_end;
       }
       /* Set the network interface number as scope */
-      to.in6.sin6_scope_id = (uint32_t)if_index;
+      ((struct sockaddr_in6 *)&to)->sin6_scope_id = (uint32_t)if_index;
     }
   } else {
-    to.in.sin_port = htons(port);
+    ((struct sockaddr_in *)&to)->sin_port = htons(port);
   }
   
   if(quit_now){
@@ -778,20 +787,23 @@ static int start_mandos_communication(const char *ip, in_port_t port,
     }
     char addrstr[(INET_ADDRSTRLEN > INET6_ADDRSTRLEN) ?
 		 INET_ADDRSTRLEN : INET6_ADDRSTRLEN] = "";
-    const char *pcret;
     if(af == AF_INET6){
-      pcret = inet_ntop(af, &(to.in6.sin6_addr), addrstr,
-			sizeof(addrstr));
+      ret = getnameinfo((struct sockaddr *)&to,
+			sizeof(struct sockaddr_in6),
+			addrstr, sizeof(addrstr), NULL, 0,
+			NI_NUMERICHOST);
     } else {
-      pcret = inet_ntop(af, &(to.in.sin_addr), addrstr,
-			sizeof(addrstr));
+      ret = getnameinfo((struct sockaddr *)&to,
+			sizeof(struct sockaddr_in),
+			addrstr, sizeof(addrstr), NULL, 0,
+			NI_NUMERICHOST);
     }
-    if(pcret == NULL){
-      perror_plus("inet_ntop");
-    } else {
-      if(strcmp(addrstr, ip) != 0){
-	fprintf_plus(stderr, "Canonical address form: %s\n", addrstr);
-      }
+    if(ret == EAI_SYSTEM){
+      perror_plus("getnameinfo");
+    } else if(ret != 0) {
+      fprintf_plus(stderr, "getnameinfo: %s", gai_strerror(ret));
+    } else if(strcmp(addrstr, ip) != 0){
+      fprintf_plus(stderr, "Canonical address form: %s\n", addrstr);
     }
   }
   
@@ -801,12 +813,14 @@ static int start_mandos_communication(const char *ip, in_port_t port,
   }
   
   if(af == AF_INET6){
-    ret = connect(tcp_sd, &to.in6, sizeof(to));
+    ret = connect(tcp_sd, (struct sockaddr *)&to,
+		  sizeof(struct sockaddr_in6));
   } else {
-    ret = connect(tcp_sd, &to.in, sizeof(to)); /* IPv4 */
+    ret = connect(tcp_sd, (struct sockaddr *)&to, /* IPv4 */
+		  sizeof(struct sockaddr_in));
   }
   if(ret < 0){
-    if ((errno != ECONNREFUSED and errno != ENETUNREACH) or debug){
+    if((errno != ECONNREFUSED and errno != ENETUNREACH) or debug){
       int e = errno;
       perror_plus("connect");
       errno = e;
@@ -1027,6 +1041,7 @@ static int start_mandos_communication(const char *ip, in_port_t port,
   return retval;
 }
 
+__attribute__((nonnull))
 static void resolve_callback(AvahiSServiceResolver *r,
 			     AvahiIfIndex interface,
 			     AvahiProtocol proto,
@@ -1040,7 +1055,7 @@ static void resolve_callback(AvahiSServiceResolver *r,
 			     AVAHI_GCC_UNUSED AvahiStringList *txt,
 			     AVAHI_GCC_UNUSED AvahiLookupResultFlags
 			     flags,
-			     void* mc){
+			     void *mc){
   if(r == NULL){
     return;
   }
@@ -1099,7 +1114,7 @@ static void browse_callback(AvahiSServiceBrowser *b,
 			    const char *domain,
 			    AVAHI_GCC_UNUSED AvahiLookupResultFlags
 			    flags,
-			    void* mc){
+			    void *mc){
   if(b == NULL){
     return;
   }
@@ -1165,6 +1180,7 @@ static void handle_sigterm(int sig){
   errno = old_errno;
 }
 
+__attribute__((nonnull, warn_unused_result))
 bool get_flags(const char *ifname, struct ifreq *ifr){
   int ret;
   error_t ret_errno;
@@ -1189,6 +1205,7 @@ bool get_flags(const char *ifname, struct ifreq *ifr){
   return true;
 }
 
+__attribute__((nonnull, warn_unused_result))
 bool good_flags(const char *ifname, const struct ifreq *ifr){
   
   /* Reject the loopback device */
@@ -1236,6 +1253,7 @@ bool good_flags(const char *ifname, const struct ifreq *ifr){
  * corresponds to an acceptable network device.
  * (This function is passed to scandir(3) as a filter function.)
  */
+__attribute__((nonnull, warn_unused_result))
 int good_interface(const struct dirent *if_entry){
   if(if_entry->d_name[0] == '.'){
     return 0;
@@ -1259,6 +1277,7 @@ int good_interface(const struct dirent *if_entry){
 /* 
  * This function determines if a network interface is up.
  */
+__attribute__((nonnull, warn_unused_result))
 bool interface_is_up(const char *interface){
   struct ifreq ifr;
   if(not get_flags(interface, &ifr)){
@@ -1275,6 +1294,7 @@ bool interface_is_up(const char *interface){
 /* 
  * This function determines if a network interface is running
  */
+__attribute__((nonnull, warn_unused_result))
 bool interface_is_running(const char *interface){
   struct ifreq ifr;
   if(not get_flags(interface, &ifr)){
@@ -1288,6 +1308,7 @@ bool interface_is_running(const char *interface){
   return (bool)(ifr.ifr_flags & IFF_RUNNING);
 }
 
+__attribute__((nonnull, pure, warn_unused_result))
 int notdotentries(const struct dirent *direntry){
   /* Skip "." and ".." */
   if(direntry->d_name[0] == '.'
@@ -1300,6 +1321,7 @@ int notdotentries(const struct dirent *direntry){
 }
 
 /* Is this directory entry a runnable program? */
+__attribute__((nonnull, warn_unused_result))
 int runnable_hook(const struct dirent *direntry){
   int ret;
   size_t sret;
@@ -1360,6 +1382,7 @@ int runnable_hook(const struct dirent *direntry){
   return 1;
 }
 
+__attribute__((nonnull, warn_unused_result))
 int avahi_loop_with_timeout(AvahiSimplePoll *s, int retry_interval,
 			    mandos_context *mc){
   int ret;
@@ -1369,13 +1392,13 @@ int avahi_loop_with_timeout(AvahiSimplePoll *s, int retry_interval,
   
   while(true){
     if(mc->current_server == NULL){
-      if (debug){
+      if(debug){
 	fprintf_plus(stderr, "Wait until first server is found."
 		     " No timeout!\n");
       }
       ret = avahi_simple_poll_iterate(s, -1);
     } else {
-      if (debug){
+      if(debug){
 	fprintf_plus(stderr, "Check current_server if we should run"
 		     " it, or wait\n");
       }
@@ -1398,7 +1421,7 @@ int avahi_loop_with_timeout(AvahiSimplePoll *s, int retry_interval,
 		     - ((intmax_t)waited_time.tv_sec * 1000))
 		    - ((intmax_t)waited_time.tv_nsec / 1000000));
       
-      if (debug){
+      if(debug){
 	fprintf_plus(stderr, "Blocking for %" PRIdMAX " ms\n",
 		     block_time);
       }
@@ -1426,7 +1449,7 @@ int avahi_loop_with_timeout(AvahiSimplePoll *s, int retry_interval,
       ret = avahi_simple_poll_iterate(s, (int)block_time);
     }
     if(ret != 0){
-      if (ret > 0 or errno != EINTR){
+      if(ret > 0 or errno != EINTR){
 	return (ret != 1) ? ret : 0;
       }
     }
@@ -1434,6 +1457,7 @@ int avahi_loop_with_timeout(AvahiSimplePoll *s, int retry_interval,
 }
 
 /* Set effective uid to 0, return errno */
+__attribute__((warn_unused_result))
 error_t raise_privileges(void){
   error_t old_errno = errno;
   error_t ret_errno = 0;
@@ -1446,6 +1470,7 @@ error_t raise_privileges(void){
 }
 
 /* Set effective and real user ID to 0.  Return errno. */
+__attribute__((warn_unused_result))
 error_t raise_privileges_permanently(void){
   error_t old_errno = errno;
   error_t ret_errno = raise_privileges();
@@ -1462,6 +1487,7 @@ error_t raise_privileges_permanently(void){
 }
 
 /* Set effective user ID to unprivileged saved user ID */
+__attribute__((warn_unused_result))
 error_t lower_privileges(void){
   error_t old_errno = errno;
   error_t ret_errno = 0;
@@ -1474,6 +1500,7 @@ error_t lower_privileges(void){
 }
 
 /* Lower privileges permanently */
+__attribute__((warn_unused_result))
 error_t lower_privileges_permanently(void){
   error_t old_errno = errno;
   error_t ret_errno = 0;
@@ -1485,11 +1512,10 @@ error_t lower_privileges_permanently(void){
   return ret_errno;
 }
 
-bool run_network_hooks(const char *mode, const char *interface,
+__attribute__((nonnull))
+void run_network_hooks(const char *mode, const char *interface,
 		       const float delay){
   struct dirent **direntries;
-  struct dirent *direntry;
-  int ret;
   int numhooks = scandir(hookdir, &direntries, runnable_hook,
 			 alphasort);
   if(numhooks == -1){
@@ -1502,6 +1528,8 @@ bool run_network_hooks(const char *mode, const char *interface,
       perror_plus("scandir");
     }
   } else {
+    struct dirent *direntry;
+    int ret;
     int devnull = open("/dev/null", O_RDONLY);
     for(int i = 0; i < numhooks; i++){
       direntry = direntries[i];
@@ -1519,22 +1547,39 @@ bool run_network_hooks(const char *mode, const char *interface,
       if(hook_pid == 0){
 	/* Child */
 	/* Raise privileges */
-	raise_privileges_permanently();
+	if(raise_privileges_permanently() != 0){
+	  perror_plus("Failed to raise privileges");
+	  _exit(EX_NOPERM);
+	}
 	/* Set group */
 	errno = 0;
 	ret = setgid(0);
 	if(ret == -1){
 	  perror_plus("setgid");
+	  _exit(EX_NOPERM);
 	}
 	/* Reset supplementary groups */
 	errno = 0;
 	ret = setgroups(0, NULL);
 	if(ret == -1){
 	  perror_plus("setgroups");
+	  _exit(EX_NOPERM);
 	}
-	dup2(devnull, STDIN_FILENO);
-	close(devnull);
-	dup2(STDERR_FILENO, STDOUT_FILENO);
+	ret = dup2(devnull, STDIN_FILENO);
+	if(ret == -1){
+	  perror_plus("dup2(devnull, STDIN_FILENO)");
+	  _exit(EX_OSERR);
+	}
+	ret = close(devnull);
+	if(ret == -1){
+	  perror_plus("close");
+	  _exit(EX_OSERR);
+	}
+	ret = dup2(STDERR_FILENO, STDOUT_FILENO);
+	if(ret == -1){
+	  perror_plus("dup2(STDERR_FILENO, STDOUT_FILENO)");
+	  _exit(EX_OSERR);
+	}
 	ret = setenv("MANDOSNETHOOKDIR", hookdir, 1);
 	if(ret == -1){
 	  perror_plus("setenv");
@@ -1556,7 +1601,7 @@ bool run_network_hooks(const char *mode, const char *interface,
 	  _exit(EX_OSERR);
 	}
 	char *delaystring;
-	ret = asprintf(&delaystring, "%f", delay);
+	ret = asprintf(&delaystring, "%f", (double)delay);
 	if(ret == -1){
 	  perror_plus("asprintf");
 	  _exit(EX_OSERR);
@@ -1615,15 +1660,13 @@ bool run_network_hooks(const char *mode, const char *interface,
     }
     close(devnull);
   }
-  return true;
 }
 
+__attribute__((nonnull, warn_unused_result))
 error_t bring_up_interface(const char *const interface,
 			   const float delay){
-  int sd = -1;
   error_t old_errno = errno;
-  error_t ret_errno = 0;
-  int ret, ret_setflags;
+  int ret;
   struct ifreq network;
   unsigned int if_index = if_nametoindex(interface);
   if(if_index == 0){
@@ -1638,24 +1681,29 @@ error_t bring_up_interface(const char *const interface,
   }
   
   if(not interface_is_up(interface)){
-    if(not get_flags(interface, &network) and debug){
+    error_t ret_errno = 0, ioctl_errno = 0;
+    if(not get_flags(interface, &network)){
       ret_errno = errno;
       fprintf_plus(stderr, "Failed to get flags for interface "
 		   "\"%s\"\n", interface);
+      errno = old_errno;
       return ret_errno;
     }
-    network.ifr_flags |= IFF_UP;
+    network.ifr_flags |= IFF_UP; /* set flag */
     
-    sd = socket(PF_INET6, SOCK_DGRAM, IPPROTO_IP);
-    if(sd < 0){
+    int sd = socket(PF_INET6, SOCK_DGRAM, IPPROTO_IP);
+    if(sd == -1){
       ret_errno = errno;
       perror_plus("socket");
       errno = old_errno;
       return ret_errno;
     }
-  
+    
     if(quit_now){
-      close(sd);
+      ret = (int)TEMP_FAILURE_RETRY(close(sd));
+      if(ret == -1){
+	perror_plus("close");
+      }
       errno = old_errno;
       return EINTR;
     }
@@ -1665,21 +1713,28 @@ error_t bring_up_interface(const char *const interface,
 		   interface);
     }
     
-    /* Raise priviliges */
-    raise_privileges();
+    /* Raise privileges */
+    ret_errno = raise_privileges();
+    if(ret_errno != 0){
+      perror_plus("Failed to raise privileges");
+    }
     
 #ifdef __linux__
-    /* Lower kernel loglevel to KERN_NOTICE to avoid KERN_INFO
-       messages about the network interface to mess up the prompt */
-    int ret_linux = klogctl(8, NULL, 5);
-    bool restore_loglevel = true;
-    if(ret_linux == -1){
-      restore_loglevel = false;
-      perror_plus("klogctl");
+    int ret_linux;
+    bool restore_loglevel = false;
+    if(ret_errno == 0){
+      /* Lower kernel loglevel to KERN_NOTICE to avoid KERN_INFO
+	 messages about the network interface to mess up the prompt */
+      ret_linux = klogctl(8, NULL, 5);
+      if(ret_linux == -1){
+	perror_plus("klogctl");
+      } else {
+	restore_loglevel = true;
+      }
     }
 #endif	/* __linux__ */
-    ret_setflags = ioctl(sd, SIOCSIFFLAGS, &network);
-    ret_errno = errno;
+    int ret_setflags = ioctl(sd, SIOCSIFFLAGS, &network);
+    ioctl_errno = errno;
 #ifdef __linux__
     if(restore_loglevel){
       ret_linux = klogctl(7, NULL, 0);
@@ -1689,8 +1744,15 @@ error_t bring_up_interface(const char *const interface,
     }
 #endif	/* __linux__ */
     
-    /* Lower privileges */
-    lower_privileges();
+    /* If raise_privileges() succeeded above */
+    if(ret_errno == 0){
+      /* Lower privileges */
+      ret_errno = lower_privileges();
+      if(ret_errno != 0){
+	errno = ret_errno;
+	perror_plus("Failed to lower privileges");
+      }
+    }
     
     /* Close the socket */
     ret = (int)TEMP_FAILURE_RETRY(close(sd));
@@ -1699,10 +1761,10 @@ error_t bring_up_interface(const char *const interface,
     }
     
     if(ret_setflags == -1){
-      errno = ret_errno;
+      errno = ioctl_errno;
       perror_plus("ioctl SIOCSIFFLAGS +IFF_UP");
       errno = old_errno;
-      return ret_errno;
+      return ioctl_errno;
     }
   } else if(debug){
     fprintf_plus(stderr, "Interface \"%s\" is already up; good\n",
@@ -1726,11 +1788,9 @@ error_t bring_up_interface(const char *const interface,
   return 0;
 }
 
+__attribute__((nonnull, warn_unused_result))
 error_t take_down_interface(const char *const interface){
-  int sd = -1;
   error_t old_errno = errno;
-  error_t ret_errno = 0;
-  int ret, ret_setflags;
   struct ifreq network;
   unsigned int if_index = if_nametoindex(interface);
   if(if_index == 0){
@@ -1739,16 +1799,18 @@ error_t take_down_interface(const char *const interface){
     return ENXIO;
   }
   if(interface_is_up(interface)){
+    error_t ret_errno = 0, ioctl_errno = 0;
     if(not get_flags(interface, &network) and debug){
       ret_errno = errno;
       fprintf_plus(stderr, "Failed to get flags for interface "
 		   "\"%s\"\n", interface);
+      errno = old_errno;
       return ret_errno;
     }
     network.ifr_flags &= ~(short)IFF_UP; /* clear flag */
     
-    sd = socket(PF_INET6, SOCK_DGRAM, IPPROTO_IP);
-    if(sd < 0){
+    int sd = socket(PF_INET6, SOCK_DGRAM, IPPROTO_IP);
+    if(sd == -1){
       ret_errno = errno;
       perror_plus("socket");
       errno = old_errno;
@@ -1760,26 +1822,36 @@ error_t take_down_interface(const char *const interface){
 		   interface);
     }
     
-    /* Raise priviliges */
-    raise_privileges();
+    /* Raise privileges */
+    ret_errno = raise_privileges();
+    if(ret_errno != 0){
+      perror_plus("Failed to raise privileges");
+    }
     
-    ret_setflags = ioctl(sd, SIOCSIFFLAGS, &network);
-    ret_errno = errno;
+    int ret_setflags = ioctl(sd, SIOCSIFFLAGS, &network);
+    ioctl_errno = errno;
     
-    /* Lower privileges */
-    lower_privileges();
+    /* If raise_privileges() succeeded above */
+    if(ret_errno == 0){
+      /* Lower privileges */
+      ret_errno = lower_privileges();
+      if(ret_errno != 0){
+	errno = ret_errno;
+	perror_plus("Failed to lower privileges");
+      }
+    }
     
     /* Close the socket */
-    ret = (int)TEMP_FAILURE_RETRY(close(sd));
+    int ret = (int)TEMP_FAILURE_RETRY(close(sd));
     if(ret == -1){
       perror_plus("close");
     }
     
     if(ret_setflags == -1){
-      errno = ret_errno;
+      errno = ioctl_errno;
       perror_plus("ioctl SIOCSIFFLAGS -IFF_UP");
       errno = old_errno;
-      return ret_errno;
+      return ioctl_errno;
     }
   } else if(debug){
     fprintf_plus(stderr, "Interface \"%s\" is already down; odd\n",
@@ -1793,7 +1865,7 @@ error_t take_down_interface(const char *const interface){
 int main(int argc, char *argv[]){
   mandos_context mc = { .server = NULL, .dh_bits = 1024,
 			.priority = "SECURE256:!CTYPE-X.509:"
-			"+CTYPE-OPENPGP", .current_server = NULL, 
+			"+CTYPE-OPENPGP", .current_server = NULL,
 			.interfaces = NULL, .interfaces_size = 0 };
   AvahiSServiceBrowser *sb = NULL;
   error_t ret_errno;
@@ -1803,13 +1875,13 @@ int main(int argc, char *argv[]){
   int exitcode = EXIT_SUCCESS;
   char *interfaces_to_take_down = NULL;
   size_t interfaces_to_take_down_size = 0;
-  char tempdir[] = "/tmp/mandosXXXXXX";
-  bool tempdir_created = false;
+  char run_tempdir[] = "/run/tmp/mandosXXXXXX";
+  char old_tempdir[] = "/tmp/mandosXXXXXX";
+  char *tempdir = NULL;
   AvahiIfIndex if_index = AVAHI_IF_UNSPEC;
   const char *seckey = PATHDIR "/" SECKEY;
   const char *pubkey = PATHDIR "/" PUBKEY;
   char *interfaces_hooks = NULL;
-  size_t interfaces_hooks_size = 0;
   
   bool gnutls_initialized = false;
   bool gpgme_initialized = false;
@@ -1993,8 +2065,12 @@ int main(int argc, char *argv[]){
     /* Work around Debian bug #633582:
        <http://bugs.debian.org/633582> */
     
-    /* Re-raise priviliges */
-    if(raise_privileges() == 0){
+    /* Re-raise privileges */
+    ret_errno = raise_privileges();
+    if(ret_errno != 0){
+      errno = ret_errno;
+      perror_plus("Failed to raise privileges");
+    } else {
       struct stat st;
       
       if(strcmp(seckey, PATHDIR "/" SECKEY) == 0){
@@ -2040,7 +2116,11 @@ int main(int argc, char *argv[]){
       }
     
       /* Lower privileges */
-      lower_privileges();
+      ret_errno = lower_privileges();
+      if(ret_errno != 0){
+	errno = ret_errno;
+	perror_plus("Failed to lower privileges");
+      }
     }
   }
   
@@ -2070,14 +2150,10 @@ int main(int argc, char *argv[]){
 	goto end;
       }
       memcpy(interfaces_hooks, mc.interfaces, mc.interfaces_size);
-      interfaces_hooks_size = mc.interfaces_size;
-      argz_stringify(interfaces_hooks, interfaces_hooks_size,
-		     (int)',');
+      argz_stringify(interfaces_hooks, mc.interfaces_size, (int)',');
     }
-    if(not run_network_hooks("start", interfaces_hooks != NULL ?
-			     interfaces_hooks : "", delay)){
-      goto end;
-    }
+    run_network_hooks("start", interfaces_hooks != NULL ?
+		      interfaces_hooks : "", delay);
   }
   
   if(not debug){
@@ -2171,6 +2247,7 @@ int main(int argc, char *argv[]){
 	ret_errno = argz_add(&mc.interfaces, &mc.interfaces_size,
 			     direntries[i]->d_name);
 	if(ret_errno != 0){
+	  errno = ret_errno;
 	  perror_plus("argz_add");
 	  continue;
 	}
@@ -2210,15 +2287,17 @@ int main(int argc, char *argv[]){
 	break;
       }
       bool interface_was_up = interface_is_up(interface);
-      ret = bring_up_interface(interface, delay);
+      errno = bring_up_interface(interface, delay);
       if(not interface_was_up){
-	if(ret != 0){
-	  errno = ret;
+	if(errno != 0){
 	  perror_plus("Failed to bring up interface");
 	} else {
-	  ret_errno = argz_add(&interfaces_to_take_down,
-			       &interfaces_to_take_down_size,
-			       interface);
+	  errno = argz_add(&interfaces_to_take_down,
+			   &interfaces_to_take_down_size,
+			   interface);
+	  if(errno != 0){
+	    perror_plus("argz_add");
+	  }
 	}
       }
     }
@@ -2253,11 +2332,19 @@ int main(int argc, char *argv[]){
     goto end;
   }
   
-  if(mkdtemp(tempdir) == NULL){
+  /* Try /run/tmp before /tmp */
+  tempdir = mkdtemp(run_tempdir);
+  if(tempdir == NULL and errno == ENOENT){
+      if(debug){
+	fprintf_plus(stderr, "Tempdir %s did not work, trying %s\n",
+		     run_tempdir, old_tempdir);
+      }
+      tempdir = mkdtemp(old_tempdir);
+  }
+  if(tempdir == NULL){
     perror_plus("mkdtemp");
     goto end;
   }
-  tempdir_created = true;
   
   if(quit_now){
     goto end;
@@ -2338,7 +2425,7 @@ int main(int argc, char *argv[]){
       sleep((unsigned int)retry_interval);
     }
     
-    if (not quit_now){
+    if(not quit_now){
       exitcode = EXIT_SUCCESS;
     }
     
@@ -2446,45 +2533,52 @@ int main(int argc, char *argv[]){
     }
   }
   
-  /* Re-raise priviliges */
+  /* Re-raise privileges */
   {
-    raise_privileges();
-    
-    /* Run network hooks */
-    run_network_hooks("stop", interfaces_hooks != NULL ?
-		      interfaces_hooks : "", delay);
-    
-    /* Take down the network interfaces which were brought up */
-    {
-      char *interface = NULL;
-      while((interface=argz_next(interfaces_to_take_down,
-				 interfaces_to_take_down_size,
-				 interface))){
-	ret_errno = take_down_interface(interface);
-	if(ret_errno != 0){
-	  errno = ret_errno;
-	  perror_plus("Failed to take down interface");
+    ret_errno = raise_privileges();
+    if(ret_errno != 0){
+      perror_plus("Failed to raise privileges");
+    } else {
+      
+      /* Run network hooks */
+      run_network_hooks("stop", interfaces_hooks != NULL ?
+			interfaces_hooks : "", delay);
+      
+      /* Take down the network interfaces which were brought up */
+      {
+	char *interface = NULL;
+	while((interface=argz_next(interfaces_to_take_down,
+				   interfaces_to_take_down_size,
+				   interface))){
+	  ret_errno = take_down_interface(interface);
+	  if(ret_errno != 0){
+	    errno = ret_errno;
+	    perror_plus("Failed to take down interface");
+	  }
 	}
-      }
-      if(debug and (interfaces_to_take_down == NULL)){
-	fprintf_plus(stderr, "No interfaces needed to be taken"
-		     " down\n");
+	if(debug and (interfaces_to_take_down == NULL)){
+	  fprintf_plus(stderr, "No interfaces needed to be taken"
+		       " down\n");
+	}
       }
     }
     
-    lower_privileges_permanently();
+    ret_errno = lower_privileges_permanently();
+    if(ret_errno != 0){
+      perror_plus("Failed to lower privileges permanently");
+    }
   }
   
   free(interfaces_to_take_down);
   free(interfaces_hooks);
   
   /* Removes the GPGME temp directory and all files inside */
-  if(tempdir_created){
+  if(tempdir != NULL){
     struct dirent **direntries = NULL;
     struct dirent *direntry = NULL;
     int numentries = scandir(tempdir, &direntries, notdotentries,
 			     alphasort);
-    if (numentries > 0){
+    if(numentries > 0){
       for(int i = 0; i < numentries; i++){
 	direntry = direntries[i];
 	char *fullname = NULL;
@@ -2505,7 +2599,7 @@ int main(int argc, char *argv[]){
 
     /* need to clean even if 0 because man page doesn't specify */
     free(direntries);
-    if (numentries == -1){
+    if(numentries == -1){
       perror_plus("scandir");
     }
     ret = rmdir(tempdir);

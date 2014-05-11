@@ -21,10 +21,7 @@
 
 * mandos-client
 ** TODO [#B] Use capabilities instead of seteuid().
-** TODO [#B] Use struct sockaddr_storage instead of a union
 ** TODO [#B] Use getaddrinfo(hints=AI_NUMERICHOST) instead of inet_pton()
-** TODO [#B] Use getnameinfo(serv=NULL, NI_NUMERICHOST) instead of inet_ntop()
-** TODO [#B] Prefer /run/tmp over /tmp, if it exists
 ** TODO [#C] Make start_mandos_communication() take "struct server".
 
 * splashy
@@ -47,10 +44,10 @@
 * plugin-runner
 ** TODO handle printing for errors for plugins
 *** Hook up stderr of plugins, buffer them, and prepend "Mandos Plugin [plugin name]"
-** TODO [#B] use scandir(3) instead of readdir(3)
+** TODO [#B] use scandirat(3) instead of readdir(3)
+*** Must wait until GNU libc 2.15
 ** TODO [#C] use same file name rules as run-parts(8)
 ** kernel command line option for debug info
-** TODO [#B] Use openat()
 
 * mandos (server)
 ** TODO [#B] Log level							  :BUGS:
@@ -113,10 +110,6 @@
    Using the "secfile" option instead of "secret"
 ** TODO [#B] "--test" option
    For testing decryption before rebooting.
-
-* Makefile
-** TODO [#C] Implement DEB_BUILD_OPTIONS
-   http://www.debian.org/doc/debian-policy/ch-source.html#s-debianrules-options
 
 * Package
 ** /usr/share/initramfs-tools/hooks/mandos

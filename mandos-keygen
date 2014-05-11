@@ -2,8 +2,8 @@
 # 
 # Mandos key generator - create a new OpenPGP key for a Mandos client
 # 
-# Copyright © 2008-2013 Teddy Hogeborn
-# Copyright © 2008-2013 Björn Påhlsson
+# Copyright © 2008-2014 Teddy Hogeborn
+# Copyright © 2008-2014 Björn Påhlsson
 # 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -228,6 +228,11 @@ if [ "$mode" = keygen ]; then
 	date
     fi
     
+    # Make sure trustdb.gpg exists;
+    # this is a workaround for Debian bug #737128
+    gpg --quiet --batch --no-tty --no-options --enable-dsa2 \
+	--homedir "$RINGDIR" \
+	--import-ownertrust < /dev/null
     # Generate a new key in the key rings
     gpg --quiet --batch --no-tty --no-options --enable-dsa2 \
 	--homedir "$RINGDIR" --trust-model always \

@@ -2,8 +2,8 @@
 /*
  * Mandos plugin runner - Run Mandos plugins
  *
- * Copyright © 2008-2013 Teddy Hogeborn
- * Copyright © 2008-2013 Björn Påhlsson
+ * Copyright © 2008-2014 Teddy Hogeborn
+ * Copyright © 2008-2014 Björn Påhlsson
  * 
  * This program is free software: you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -23,14 +23,14 @@
  */
 
 #define _GNU_SOURCE		/* TEMP_FAILURE_RETRY(), getline(),
-				   asprintf(), O_CLOEXEC */
+				   O_CLOEXEC */
 #include <stddef.h>		/* size_t, NULL */
 #include <stdlib.h>		/* malloc(), exit(), EXIT_SUCCESS,
 				   realloc() */
 #include <stdbool.h>		/* bool, true, false */
 #include <stdio.h>		/* fileno(), fprintf(),
-				   stderr, STDOUT_FILENO */
-#include <sys/types.h>	        /* DIR, fdopendir(), stat(), struct
+				   stderr, STDOUT_FILENO, fclose() */
+#include <sys/types.h>	        /* DIR, fdopendir(), fstat(), struct
 				   stat, waitpid(), WIFEXITED(),
 				   WEXITSTATUS(), wait(), pid_t,
 				   uid_t, gid_t, getuid(), getgid(),
@@ -40,21 +40,21 @@
 #include <sys/wait.h>		/* wait(), waitpid(), WIFEXITED(),
 				   WEXITSTATUS(), WTERMSIG(),
 				   WCOREDUMP() */
-#include <sys/stat.h>		/* struct stat, stat(), S_ISREG() */
+#include <sys/stat.h>		/* struct stat, fstat(), S_ISREG() */
 #include <iso646.h>		/* and, or, not */
 #include <dirent.h>		/* DIR, struct dirent, fdopendir(),
 				   readdir(), closedir(), dirfd() */
-#include <unistd.h>		/* struct stat, stat(), S_ISREG(),
-				   fcntl(), setuid(), setgid(),
-				   F_GETFD, F_SETFD, FD_CLOEXEC,
-				   access(), pipe(), fork(), close()
-				   dup2(), STDOUT_FILENO, _exit(),
-				   execv(), write(), read(),
-				   close() */
+#include <unistd.h>		/* fcntl(), F_GETFD, F_SETFD,
+				   FD_CLOEXEC, write(), STDOUT_FILENO,
+				   struct stat, fstat(), close(),
+				   setgid(), setuid(), S_ISREG(),
+				   faccessat() pipe(), fork(),
+				   _exit(), dup2(), fexecve(), read()
+				*/
 #include <fcntl.h>		/* fcntl(), F_GETFD, F_SETFD,
-				   FD_CLOEXEC */
-#include <string.h>		/* strsep, strlen(), asprintf(),
-				   strsignal(), strcmp(), strncmp() */
+				   FD_CLOEXEC, openat() */
+#include <string.h>		/* strsep, strlen(), strsignal(),
+				   strcmp(), strncmp() */
 #include <errno.h>		/* errno */
 #include <argp.h>		/* struct argp_option, struct
 				   argp_state, struct argp,
@@ -72,6 +72,7 @@
 				   EX_CONFIG, EX_UNAVAILABLE, EX_OK */
 #include <errno.h> 		/* errno */
 #include <error.h>		/* error() */
+#include <fnmatch.h>		/* fnmatch() */
 
 #define BUFFER_SIZE 256
 
@@ -105,6 +106,7 @@ static plugin *plugin_list = NULL;
 
 /* Gets an existing plugin based on name,
    or if none is found, creates a new one */
+__attribute__((warn_unused_result))
 static plugin *getplugin(char *name){
   /* Check for existing plugin with that name */
   for(plugin *p = plugin_list; p != NULL; p = p->next){
@@ -171,18 +173,20 @@ static plugin *getplugin(char *name){
 }
 
 /* Helper function for add_argument and add_environment */
-__attribute__((nonnull))
+__attribute__((nonnull, warn_unused_result))
 static bool add_to_char_array(const char *new, char ***array,
 			      int *len){
   /* Resize the pointed-to array to hold one more pointer */
+  char **new_array = NULL;
   do {
-    *array = realloc(*array, sizeof(char *)
-		     * (size_t) ((*len) + 2));
-  } while(*array == NULL and errno == EINTR);
+    new_array = realloc(*array, sizeof(char *)
+			* (size_t) ((*len) + 2));
+  } while(new_array == NULL and errno == EINTR);
   /* Malloc check */
-  if(*array == NULL){
+  if(new_array == NULL){
     return false;
   }
+  *array = new_array;
   /* Make a copy of the new string */
   char *copy;
   do {
@@ -200,7 +204,7 @@ static bool add_to_char_array(const char *new, char ***array,
 }
 
 /* Add to a plugin's argument vector */
-__attribute__((nonnull(2)))
+__attribute__((nonnull(2), warn_unused_result))
 static bool add_argument(plugin *p, const char *arg){
   if(p == NULL){
     return false;
@@ -209,7 +213,7 @@ static bool add_argument(plugin *p, const char *arg){
 }
 
 /* Add to a plugin's environment */
-__attribute__((nonnull(2)))
+__attribute__((nonnull(2), warn_unused_result))
 static bool add_environment(plugin *p, const char *def, bool replace){
   if(p == NULL){
     return false;
@@ -217,19 +221,19 @@ static bool add_environment(plugin *p, const char *def, bool replace){
   /* namelen = length of name of environment variable */
   size_t namelen = (size_t)(strchrnul(def, '=') - def);
   /* Search for this environment variable */
-  for(char **e = p->environ; *e != NULL; e++){
-    if(strncmp(*e, def, namelen + 1) == 0){
+  for(char **envdef = p->environ; *envdef != NULL; envdef++){
+    if(strncmp(*envdef, def, namelen + 1) == 0){
       /* It already exists */
       if(replace){
-	char *new;
+	char *new_envdef;
 	do {
-	  new = realloc(*e, strlen(def) + 1);
-	} while(new == NULL and errno == EINTR);
-	if(new == NULL){
+	  new_envdef = realloc(*envdef, strlen(def) + 1);
+	} while(new_envdef == NULL and errno == EINTR);
+	if(new_envdef == NULL){
 	  return false;
 	}
-	*e = new;
-	strcpy(*e, def);
+	*envdef = new_envdef;
+	strcpy(*envdef, def);
       }
       return true;
     }
@@ -242,6 +246,7 @@ static bool add_environment(plugin *p, const char *def, bool replace){
  * Descriptor Flags".
  | [[info:libc:Descriptor%20Flags][File Descriptor Flags]] |
  */
+__attribute__((warn_unused_result))
 static int set_cloexec_flag(int fd){
   int ret = (int)TEMP_FAILURE_RETRY(fcntl(fd, F_GETFD, 0));
   /* If reading the flags failed, return error indication now. */
@@ -289,7 +294,7 @@ static void handle_sigchld(__attribute__((unused)) int sig){
 }
 
 /* Prints out a password to stdout */
-__attribute__((nonnull))
+__attribute__((nonnull, warn_unused_result))
 static bool print_out_password(const char *buffer, size_t length){
   ssize_t ret;
   for(size_t written = 0; written < length; written += (size_t)ret){
@@ -343,7 +348,6 @@ int main(int argc, char *argv[]){
   char *plugindir = NULL;
   char *argfile = NULL;
   FILE *conffp;
-  size_t d_name_len;
   DIR *dir = NULL;
   struct dirent *dirst;
   struct stat st;
@@ -359,6 +363,7 @@ int main(int argc, char *argv[]){
 				      .sa_flags = SA_NOCLDSTOP };
   char **custom_argv = NULL;
   int custom_argc = 0;
+  int dir_fd;
   
   /* Establish a signal handler */
   sigemptyset(&sigchld_action.sa_mask);
@@ -435,10 +440,13 @@ int main(int argc, char *argv[]){
 	    break;
 	  }
 	}
+	errno = 0;
       }
       break;
     case 'G':			/* --global-env */
-      add_environment(getplugin(NULL), arg, true);
+      if(add_environment(getplugin(NULL), arg, true)){
+	errno = 0;
+      }
       break;
     case 'o':			/* --options-for */
       {
@@ -461,6 +469,7 @@ int main(int argc, char *argv[]){
 	    break;
 	  }
 	}
+	errno = 0;
       }
       break;
     case 'E':			/* --env-for */
@@ -478,7 +487,9 @@ int main(int argc, char *argv[]){
 	  errno = EINVAL;
 	  break;
 	}
-	add_environment(getplugin(arg), envdef, true);
+	if(add_environment(getplugin(arg), envdef, true)){
+	  errno = 0;
+	}
       }
       break;
     case 'd':			/* --disable */
@@ -486,6 +497,7 @@ int main(int argc, char *argv[]){
 	plugin *p = getplugin(arg);
 	if(p != NULL){
 	  p->disabled = true;
+	  errno = 0;
 	}
       }
       break;
@@ -494,12 +506,16 @@ int main(int argc, char *argv[]){
 	plugin *p = getplugin(arg);
 	if(p != NULL){
 	  p->disabled = false;
+	  errno = 0;
 	}
       }
       break;
     case 128:			/* --plugin-dir */
       free(plugindir);
       plugindir = strdup(arg);
+      if(plugindir != NULL){
+	errno = 0;
+      }
       break;
     case 129:			/* --config-file */
       /* This is already done by parse_opt_config_file() */
@@ -513,6 +529,7 @@ int main(int argc, char *argv[]){
 	break;
       }
       uid = (uid_t)tmp_id;
+      errno = 0;
       break;
     case 131:			/* --groupid */
       tmp_id = strtoimax(arg, &tmp, 10);
@@ -523,6 +540,7 @@ int main(int argc, char *argv[]){
 	break;
       }
       gid = (gid_t)tmp_id;
+      errno = 0;
       break;
     case 132:			/* --debug */
       debug = true;
@@ -576,6 +594,9 @@ int main(int argc, char *argv[]){
     case 129:			/* --config-file */
       free(argfile);
       argfile = strdup(arg);
+      if(argfile != NULL){
+	errno = 0;
+      }
       break;
     case 130:			/* --userid */
     case 131:			/* --groupid */
@@ -664,13 +685,19 @@ int main(int argc, char *argv[]){
 	}
 	
 	custom_argc += 1;
-	custom_argv = realloc(custom_argv, sizeof(char *)
-			      * ((unsigned int) custom_argc + 1));
-	if(custom_argv == NULL){
-	  error(0, errno, "realloc");
-	  exitstatus = EX_OSERR;
-	  free(org_line);
-	  goto fallback;
+	{
+	  char **new_argv = realloc(custom_argv, sizeof(char *)
+				    * ((unsigned int)
+				       custom_argc + 1));
+	  if(new_argv == NULL){
+	    error(0, errno, "realloc");
+	    exitstatus = EX_OSERR;
+	    free(new_arg);
+	    free(org_line);
+	    goto fallback;
+	  } else {
+	    custom_argv = new_argv;
+	  }
 	}
 	custom_argv[custom_argc-1] = new_arg;
 	custom_argv[custom_argc] = NULL;
@@ -753,7 +780,9 @@ int main(int argc, char *argv[]){
        <http://bugs.debian.org/633582> */
     int plugindir_fd = open(/* plugindir or */ PDIR, O_RDONLY);
     if(plugindir_fd == -1){
-      error(0, errno, "open");
+      if(errno != ENOENT){
+	error(0, errno, "open(\"" PDIR "\")");
+      }
     } else {
       ret = (int)TEMP_FAILURE_RETRY(fstat(plugindir_fd, &st));
       if(ret == -1){
@@ -782,24 +811,13 @@ int main(int argc, char *argv[]){
   
   /* Open plugin directory with close_on_exec flag */
   {
-    int dir_fd = -1;
-    if(plugindir == NULL){
-      dir_fd = open(PDIR, O_RDONLY |
+    dir_fd = open(plugindir != NULL ? plugindir : PDIR, O_RDONLY |
 #ifdef O_CLOEXEC
-		    O_CLOEXEC
+		  O_CLOEXEC
 #else  /* not O_CLOEXEC */
-		    0
+		  0
 #endif	/* not O_CLOEXEC */
-		    );
-    } else {
-      dir_fd = open(plugindir, O_RDONLY |
-#ifdef O_CLOEXEC
-		    O_CLOEXEC
-#else  /* not O_CLOEXEC */
-		    0
-#endif	/* not O_CLOEXEC */
-		    );
-    }
+		  );
     if(dir_fd == -1){
       error(0, errno, "Could not open plugin dir");
       exitstatus = EX_UNAVAILABLE;
@@ -844,88 +862,81 @@ int main(int argc, char *argv[]){
       break;
     }
     
-    d_name_len = strlen(dirst->d_name);
-    
     /* Ignore dotfiles, backup files and other junk */
     {
       bool bad_name = false;
-      
-      const char const *bad_prefixes[] = { ".", "#", NULL };
-      
-      const char const *bad_suffixes[] = { "~", "#", ".dpkg-new",
-					   ".dpkg-old",
-					   ".dpkg-bak",
-					   ".dpkg-divert", NULL };
-      for(const char **pre = bad_prefixes; *pre != NULL; pre++){
-	size_t pre_len = strlen(*pre);
-	if((d_name_len >= pre_len)
-	   and strncmp((dirst->d_name), *pre, pre_len) == 0){
+      const char * const patterns[] = { ".*", "#*#", "*~",
+					"*.dpkg-new", "*.dpkg-old",
+					"*.dpkg-bak", "*.dpkg-divert",
+					NULL };
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-qual"
+#endif
+      for(const char **pat = (const char **)patterns;
+	  *pat != NULL; pat++){
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif
+	if(fnmatch(*pat, dirst->d_name,
+		   FNM_FILE_NAME | FNM_PERIOD) != FNM_NOMATCH){
 	  if(debug){
 	    fprintf(stderr, "Ignoring plugin dir entry \"%s\""
-		    " with bad prefix %s\n", dirst->d_name, *pre);
+		    " matching pattern %s\n", dirst->d_name, *pat);
 	  }
 	  bad_name = true;
 	  break;
 	}
       }
-      if(bad_name){
-	continue;
-      }
-      for(const char **suf = bad_suffixes; *suf != NULL; suf++){
-	size_t suf_len = strlen(*suf);
-	if((d_name_len >= suf_len)
-	   and (strcmp((dirst->d_name) + d_name_len-suf_len, *suf)
-		== 0)){
-	  if(debug){
-	    fprintf(stderr, "Ignoring plugin dir entry \"%s\""
-		    " with bad suffix %s\n", dirst->d_name, *suf);
-	  }
-	  bad_name = true;
-	  break;
-	}
-      }
-      
       if(bad_name){
 	continue;
       }
     }
     
-    char *filename;
-    if(plugindir == NULL){
-      ret = (int)TEMP_FAILURE_RETRY(asprintf(&filename, PDIR "/%s",
-					     dirst->d_name));
-    } else {
-      ret = (int)TEMP_FAILURE_RETRY(asprintf(&filename, "%s/%s",
-					     plugindir,
-					     dirst->d_name));
-    }
-    if(ret < 0){
-      error(0, errno, "asprintf");
+    int plugin_fd = openat(dir_fd, dirst->d_name, O_RDONLY |
+#ifdef O_CLOEXEC
+			    O_CLOEXEC
+#else  /* not O_CLOEXEC */
+			    0
+#endif	/* not O_CLOEXEC */
+			    );
+    if(plugin_fd == -1){
+      error(0, errno, "Could not open plugin");
       continue;
     }
-    
-    ret = (int)TEMP_FAILURE_RETRY(stat(filename, &st));
+#ifndef O_CLOEXEC
+  /* Set the FD_CLOEXEC flag on the plugin FD */
+    ret = set_cloexec_flag(plugin_fd);
+    if(ret < 0){
+      error(0, errno, "set_cloexec_flag");
+      TEMP_FAILURE_RETRY(close(plugin_fd));
+      continue;
+    }
+#endif	/* O_CLOEXEC */
+    ret = (int)TEMP_FAILURE_RETRY(fstat(plugin_fd, &st));
     if(ret == -1){
       error(0, errno, "stat");
-      free(filename);
+      TEMP_FAILURE_RETRY(close(plugin_fd));
       continue;
     }
     
     /* Ignore non-executable files */
     if(not S_ISREG(st.st_mode)
-       or (TEMP_FAILURE_RETRY(access(filename, X_OK)) != 0)){
+       or (TEMP_FAILURE_RETRY(faccessat(dir_fd, dirst->d_name, X_OK,
+					0)) != 0)){
       if(debug){
-	fprintf(stderr, "Ignoring plugin dir entry \"%s\""
-		" with bad type or mode\n", filename);
+	fprintf(stderr, "Ignoring plugin dir entry \"%s/%s\""
+		" with bad type or mode\n",
+		plugindir != NULL ? plugindir : PDIR, dirst->d_name);
       }
-      free(filename);
+      TEMP_FAILURE_RETRY(close(plugin_fd));
       continue;
     }
     
     plugin *p = getplugin(dirst->d_name);
     if(p == NULL){
       error(0, errno, "getplugin");
-      free(filename);
+      TEMP_FAILURE_RETRY(close(plugin_fd));
       continue;
     }
     if(p->disabled){
@@ -933,7 +944,7 @@ int main(int argc, char *argv[]){
 	fprintf(stderr, "Ignoring disabled plugin \"%s\"\n",
 		dirst->d_name);
       }
-      free(filename);
+      TEMP_FAILURE_RETRY(close(plugin_fd));
       continue;
     }
     {
@@ -953,9 +964,8 @@ int main(int argc, char *argv[]){
 	}
       }
     }
-    /* If this plugin has any environment variables, we will call
-       using execve and need to duplicate the environment from this
-       process, too. */
+    /* If this plugin has any environment variables, we need to
+       duplicate the environment from this process, too. */
     if(p->environ[0] != NULL){
       for(char **e = environ; *e != NULL; e++){
 	if(not add_environment(p, *e, false)){
@@ -1027,23 +1037,18 @@ int main(int argc, char *argv[]){
 	   above and must now close it manually here. */
 	closedir(dir);
       }
-      if(p->environ[0] == NULL){
-	if(execv(filename, p->argv) < 0){
-	  error(0, errno, "execv for %s", filename);
-	  _exit(EX_OSERR);
-	}
-      } else {
-	if(execve(filename, p->argv, p->environ) < 0){
-	  error(0, errno, "execve for %s", filename);
-	  _exit(EX_OSERR);
-	}
+      if(fexecve(plugin_fd, p->argv,
+		(p->environ[0] != NULL) ? p->environ : environ) < 0){
+	error(0, errno, "fexecve for %s/%s",
+	      plugindir != NULL ? plugindir : PDIR, dirst->d_name);
+	_exit(EX_OSERR);
       }
       /* no return */
     }
     /* Parent process */
     TEMP_FAILURE_RETRY(close(pipefd[1])); /* Close unused write end of
 					     pipe */
-    free(filename);
+    TEMP_FAILURE_RETRY(close(plugin_fd));
     plugin *new_plugin = getplugin(dirst->d_name);
     if(new_plugin == NULL){
       error(0, errno, "getplugin");
@@ -1226,13 +1231,14 @@ int main(int argc, char *argv[]){
       }
       /* Before reading, make the process' data buffer large enough */
       if(proc->buffer_length + BUFFER_SIZE > proc->buffer_size){
-	proc->buffer = realloc(proc->buffer, proc->buffer_size
-			       + (size_t) BUFFER_SIZE);
-	if(proc->buffer == NULL){
+	char *new_buffer = realloc(proc->buffer, proc->buffer_size
+				   + (size_t) BUFFER_SIZE);
+	if(new_buffer == NULL){
 	  error(0, errno, "malloc");
 	  exitstatus = EX_OSERR;
 	  goto fallback;
 	}
+	proc->buffer = new_buffer;
 	proc->buffer_size += BUFFER_SIZE;
       }
       /* Read from the process */
