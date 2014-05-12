@@ -27,3 +27,5 @@ override_dh_fixperms:
 		--exclude usr/share/doc/mandos-client/examples/network-hooks.d
 	chmod --recursive g-w -- \
 	"$(CURDIR)/debian/mandos-client/usr/share/doc/mandos-client/examples/network-hooks.d"
+
+override_dh_auto_test-arch: ;
