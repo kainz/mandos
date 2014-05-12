@@ -1,6 +1,13 @@
 This NEWS file records noteworthy changes, very tersely.
 See the manual for detailed information.
 
+Version 1.6.5 (2014-05-11)
+* Client
+** Work around bug in GnuPG <http://bugs.g10code.com/gnupg/issue1622>
+** Give better error messages when run without sufficient privileges
+** Only warn if workaround for Debian bug #633582 was necessary and
+   failed, not if it failed and was unnecessary.
+
 Version 1.6.4 (2014-02-16)
 * Server
 ** Very minor fix to self-test code.
