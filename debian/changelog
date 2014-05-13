@@ -1,3 +1,10 @@
+mandos (1.6.5-2) unstable; urgency=medium
+
+  * debian/rules (override_dh_auto_test-arch): New; does nothing.  Fixes
+    FTBFS for build-indep.
+
+ -- Teddy Hogeborn <teddy@recompile.se>  Tue, 13 May 2014 08:08:31 +0200
+
 mandos (1.6.5-1) unstable; urgency=medium
 
   * New upstream release.
