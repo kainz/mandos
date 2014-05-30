@@ -40,7 +40,7 @@ Description: server giving encrypted passwords to Mandos clients
 Package: mandos-client
 Architecture: linux-any
 Depends: ${shlibs:Depends}, ${misc:Depends}, adduser, cryptsetup,
-	gnupg (<< 2), initramfs-tools
+	gnupg (<< 2), initramfs-tools, dpkg-dev (>=1.16.0)
 Breaks: dropbear (<= 0.53.1-1)
 Enhances: cryptsetup
 Description: do unattended reboots with an encrypted root file system
