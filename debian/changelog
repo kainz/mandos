@@ -1,3 +1,11 @@
+mandos (1.6.5-3) unstable; urgency=medium
+
+  * debian/control (mandos-client/Depends): Add "dpkg-dev (>=1.16.0)";
+    initramfs-tools-hook runs "dpkg-architecture -qDEB_HOST_MULTIARCH".
+    (Closes: #750221)
+
+ -- Teddy Hogeborn <teddy@recompile.se>  Fri, 06 Jun 2014 04:27:15 +0200
+
 mandos (1.6.5-2) unstable; urgency=medium
 
   * debian/rules (override_dh_auto_test-arch): New; does nothing.  Fixes
