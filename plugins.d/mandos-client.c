@@ -2486,7 +2486,7 @@ int main(int argc, char *argv[]){
   if(debug){
     fprintf_plus(stderr, "Starting Avahi loop search\n");
   }
-
+  
   ret = avahi_loop_with_timeout(simple_poll,
 				(int)(retry_interval * 1000), &mc);
   if(debug){
@@ -2596,7 +2596,7 @@ int main(int argc, char *argv[]){
 	free(fullname);
       }
     }
-
+    
     /* need to clean even if 0 because man page doesn't specify */
     free(direntries);
     if(numentries == -1){
