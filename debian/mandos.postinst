@@ -51,7 +51,7 @@ esac
 # "avahi-daemon") in its /etc/init.d script header.  To make
 # insserv(8) happy, we edit our /etc/init.d script header to contain
 # the correct string before the code added by dh_installinit calls
-# update.rd-c, which calls insserv.
+# update.rc-d, which calls insserv.
 avahi_version="`dpkg-query --showformat='${Version}' --show avahi-daemon`"
 if dpkg --compare-versions "$avahi_version" le 0.6.31-2; then
     sed --in-place --expression='/^### BEGIN INIT INFO$/,/^### END INIT INFO$/s/^\(# Required-\(Stop\|Start\):.*avahi\)-daemon\>/\1/g' /etc/init.d/mandos
