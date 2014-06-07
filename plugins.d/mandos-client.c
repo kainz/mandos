@@ -1589,12 +1589,6 @@ void run_network_hooks(const char *mode, const char *interface,
   int devnull = open("/dev/null", O_RDONLY);
   for(int i = 0; i < numhooks; i++){
     direntry = direntries[i];
-    char *fullname = NULL;
-    ret = asprintf(&fullname, "%s/%s", hookdir, direntry->d_name);
-    if(ret < 0){
-      perror_plus("asprintf");
-      continue;
-    }
     if(debug){
       fprintf_plus(stderr, "Running network hook \"%s\"\n",
 		   direntry->d_name);
@@ -1676,15 +1670,15 @@ void run_network_hooks(const char *mode, const char *interface,
 	  _exit(EX_OSERR);
 	}
       }
-      if(execl(fullname, direntry->d_name, mode, NULL) == -1){
-	perror_plus("execl");
+      if(fexecve(hookdir_fd, (char *const [])
+		 { direntry->d_name, NULL }, environ) == -1){
+	perror_plus("fexecve");
 	_exit(EXIT_FAILURE);
       }
     } else {
       int status;
       if(TEMP_FAILURE_RETRY(waitpid(hook_pid, &status, 0)) == -1){
 	perror_plus("waitpid");
-	free(fullname);
 	continue;
       }
       if(WIFEXITED(status)){
@@ -1692,23 +1686,19 @@ void run_network_hooks(const char *mode, const char *interface,
 	  fprintf_plus(stderr, "Warning: network hook \"%s\" exited"
 		       " with status %d\n", direntry->d_name,
 		       WEXITSTATUS(status));
-	  free(fullname);
 	  continue;
 	}
       } else if(WIFSIGNALED(status)){
 	fprintf_plus(stderr, "Warning: network hook \"%s\" died by"
 		     " signal %d\n", direntry->d_name,
 		     WTERMSIG(status));
-	free(fullname);
 	continue;
       } else {
 	fprintf_plus(stderr, "Warning: network hook \"%s\""
 		     " crashed\n", direntry->d_name);
-	free(fullname);
 	continue;
       }
     }
-    free(fullname);
     if(debug){
       fprintf_plus(stderr, "Network hook \"%s\" ran successfully\n",
 		   direntry->d_name);
