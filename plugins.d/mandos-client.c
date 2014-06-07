@@ -1335,7 +1335,7 @@ int runnable_hook(const struct dirent *direntry){
   sret = strspn(direntry->d_name, "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 		"abcdefghijklmnopqrstuvwxyz"
 		"0123456789"
-		"_-");
+		"_.-");
   if((direntry->d_name)[sret] != '\0'){
     /* Contains non-allowed characters */
     if(debug){
