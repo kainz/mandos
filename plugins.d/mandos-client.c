@@ -32,10 +32,10 @@
 /* Needed by GPGME, specifically gpgme_data_seek() */
 #ifndef _LARGEFILE_SOURCE
 #define _LARGEFILE_SOURCE
-#endif
+#endif	/* not _LARGEFILE_SOURCE */
 #ifndef _FILE_OFFSET_BITS
 #define _FILE_OFFSET_BITS 64
-#endif
+#endif	/* not _FILE_OFFSET_BITS */
 
 #define _GNU_SOURCE		/* TEMP_FAILURE_RETRY(), asprintf() */
 
@@ -141,6 +141,7 @@ const char *argp_program_bug_address = "<mandos@recompile.se>";
 static const char sys_class_net[] = "/sys/class/net";
 char *connect_to = NULL;
 const char *hookdir = HOOKDIR;
+int hookdir_fd = -1;
 uid_t uid = 65534;
 gid_t gid = 65534;
 
@@ -1513,154 +1514,212 @@ error_t lower_privileges_permanently(void){
   return ret_errno;
 }
 
+#ifndef O_CLOEXEC
+/*
+ * Based on the example in the GNU LibC manual chapter 13.13 "File
+ * Descriptor Flags".
+ | [[info:libc:Descriptor%20Flags][File Descriptor Flags]] |
+ */
+__attribute__((warn_unused_result))
+static int set_cloexec_flag(int fd){
+  int ret = (int)TEMP_FAILURE_RETRY(fcntl(fd, F_GETFD, 0));
+  /* If reading the flags failed, return error indication now. */
+  if(ret < 0){
+    return ret;
+  }
+  /* Store modified flag word in the descriptor. */
+  return (int)TEMP_FAILURE_RETRY(fcntl(fd, F_SETFD,
+				       ret | FD_CLOEXEC));
+}
+#endif	/* not O_CLOEXEC */
+
 __attribute__((nonnull))
 void run_network_hooks(const char *mode, const char *interface,
 		       const float delay){
   struct dirent **direntries;
-  int numhooks = scandir(hookdir, &direntries, runnable_hook,
-			 alphasort);
-  if(numhooks == -1){
-    if(errno == ENOENT){
-      if(debug){
-	fprintf_plus(stderr, "Network hook directory \"%s\" not"
-		     " found\n", hookdir);
-      }
-    } else {
-      perror_plus("scandir");
-    }
-  } else {
-    struct dirent *direntry;
-    int ret;
-    int devnull = open("/dev/null", O_RDONLY);
-    for(int i = 0; i < numhooks; i++){
-      direntry = direntries[i];
-      char *fullname = NULL;
-      ret = asprintf(&fullname, "%s/%s", hookdir, direntry->d_name);
-      if(ret < 0){
-	perror_plus("asprintf");
-	continue;
-      }
-      if(debug){
-	fprintf_plus(stderr, "Running network hook \"%s\"\n",
-		     direntry->d_name);
-      }
-      pid_t hook_pid = fork();
-      if(hook_pid == 0){
-	/* Child */
-	/* Raise privileges */
-	if(raise_privileges_permanently() != 0){
-	  perror_plus("Failed to raise privileges");
-	  _exit(EX_NOPERM);
-	}
-	/* Set group */
-	errno = 0;
-	ret = setgid(0);
-	if(ret == -1){
-	  perror_plus("setgid");
-	  _exit(EX_NOPERM);
-	}
-	/* Reset supplementary groups */
-	errno = 0;
-	ret = setgroups(0, NULL);
-	if(ret == -1){
-	  perror_plus("setgroups");
-	  _exit(EX_NOPERM);
-	}
-	ret = dup2(devnull, STDIN_FILENO);
-	if(ret == -1){
-	  perror_plus("dup2(devnull, STDIN_FILENO)");
-	  _exit(EX_OSERR);
-	}
-	ret = close(devnull);
-	if(ret == -1){
-	  perror_plus("close");
-	  _exit(EX_OSERR);
-	}
-	ret = dup2(STDERR_FILENO, STDOUT_FILENO);
-	if(ret == -1){
-	  perror_plus("dup2(STDERR_FILENO, STDOUT_FILENO)");
-	  _exit(EX_OSERR);
-	}
-	ret = setenv("MANDOSNETHOOKDIR", hookdir, 1);
-	if(ret == -1){
-	  perror_plus("setenv");
-	  _exit(EX_OSERR);
-	}
-	ret = setenv("DEVICE", interface, 1);
-	if(ret == -1){
-	  perror_plus("setenv");
-	  _exit(EX_OSERR);
-	}
-	ret = setenv("VERBOSITY", debug ? "1" : "0", 1);
-	if(ret == -1){
-	  perror_plus("setenv");
-	  _exit(EX_OSERR);
-	}
-	ret = setenv("MODE", mode, 1);
-	if(ret == -1){
-	  perror_plus("setenv");
-	  _exit(EX_OSERR);
-	}
-	char *delaystring;
-	ret = asprintf(&delaystring, "%f", (double)delay);
-	if(ret == -1){
-	  perror_plus("asprintf");
-	  _exit(EX_OSERR);
-	}
-	ret = setenv("DELAY", delaystring, 1);
-	if(ret == -1){
-	  free(delaystring);
-	  perror_plus("setenv");
-	  _exit(EX_OSERR);
-	}
-	free(delaystring);
-	if(connect_to != NULL){
-	  ret = setenv("CONNECT", connect_to, 1);
-	  if(ret == -1){
-	    perror_plus("setenv");
-	    _exit(EX_OSERR);
-	  }
-	}
-	if(execl(fullname, direntry->d_name, mode, NULL) == -1){
-	  perror_plus("execl");
-	  _exit(EXIT_FAILURE);
+  if(hookdir_fd == -1){
+    hookdir_fd = open(hookdir, O_RDONLY |
+#ifdef O_CLOEXEC
+		      O_CLOEXEC
+#else  /* not O_CLOEXEC */
+		      0
+#endif	/* not O_CLOEXEC */
+		      );
+    if(hookdir_fd == -1){
+      if(errno == ENOENT){
+	if(debug){
+	  fprintf_plus(stderr, "Network hook directory \"%s\" not"
+		       " found\n", hookdir);
 	}
       } else {
-	int status;
-	if(TEMP_FAILURE_RETRY(waitpid(hook_pid, &status, 0)) == -1){
-	  perror_plus("waitpid");
-	  free(fullname);
-	  continue;
-	}
-	if(WIFEXITED(status)){
-	  if(WEXITSTATUS(status) != 0){
-	    fprintf_plus(stderr, "Warning: network hook \"%s\" exited"
-			 " with status %d\n", direntry->d_name,
-			 WEXITSTATUS(status));
-	    free(fullname);
-	    continue;
-	  }
-	} else if(WIFSIGNALED(status)){
-	  fprintf_plus(stderr, "Warning: network hook \"%s\" died by"
-		       " signal %d\n", direntry->d_name,
-		       WTERMSIG(status));
-	  free(fullname);
-	  continue;
-	} else {
-	  fprintf_plus(stderr, "Warning: network hook \"%s\""
-		       " crashed\n", direntry->d_name);
-	  free(fullname);
-	  continue;
+	perror_plus("open");
+      }
+      return;
+    }
+#ifndef O_CLOEXEC
+    if(set_cloexec_flag(hookdir_fd) < 0){
+      perror_plus("set_cloexec_flag");
+      if((int)TEMP_FAILURE_RETRY(close(hookdir_fd)) == -1){
+	perror_plus("close");
+      } else {
+	hookdir_fd = -1;
+      }
+      return;
+    }
+#endif	/* not O_CLOEXEC */
+  }
+#ifdef __GLIBC__
+#if __GLIBC_PREREQ(2, 15)
+  int numhooks = scandirat(hookdir_fd, ".", &direntries,
+			   runnable_hook, alphasort);
+#else  /* not __GLIBC_PREREQ(2, 15) */
+  int numhooks = scandir(hookdir, &direntries, runnable_hook,
+			 alphasort);
+#endif	/* not __GLIBC_PREREQ(2, 15) */
+#else	/* not __GLIBC__ */
+  int numhooks = scandir(hookdir, &direntries, runnable_hook,
+			 alphasort);
+#endif	/* not __GLIBC__ */
+  if(numhooks == -1){
+    perror_plus("scandir");
+    return;
+  }
+  struct dirent *direntry;
+  int ret;
+  int devnull = open("/dev/null", O_RDONLY);
+  for(int i = 0; i < numhooks; i++){
+    direntry = direntries[i];
+    char *fullname = NULL;
+    ret = asprintf(&fullname, "%s/%s", hookdir, direntry->d_name);
+    if(ret < 0){
+      perror_plus("asprintf");
+      continue;
+    }
+    if(debug){
+      fprintf_plus(stderr, "Running network hook \"%s\"\n",
+		   direntry->d_name);
+    }
+    pid_t hook_pid = fork();
+    if(hook_pid == 0){
+      /* Child */
+      /* Raise privileges */
+      if(raise_privileges_permanently() != 0){
+	perror_plus("Failed to raise privileges");
+	_exit(EX_NOPERM);
+      }
+      /* Set group */
+      errno = 0;
+      ret = setgid(0);
+      if(ret == -1){
+	perror_plus("setgid");
+	_exit(EX_NOPERM);
+      }
+      /* Reset supplementary groups */
+      errno = 0;
+      ret = setgroups(0, NULL);
+      if(ret == -1){
+	perror_plus("setgroups");
+	_exit(EX_NOPERM);
+      }
+      ret = dup2(devnull, STDIN_FILENO);
+      if(ret == -1){
+	perror_plus("dup2(devnull, STDIN_FILENO)");
+	_exit(EX_OSERR);
+      }
+      ret = close(devnull);
+      if(ret == -1){
+	perror_plus("close");
+	_exit(EX_OSERR);
+      }
+      ret = dup2(STDERR_FILENO, STDOUT_FILENO);
+      if(ret == -1){
+	perror_plus("dup2(STDERR_FILENO, STDOUT_FILENO)");
+	_exit(EX_OSERR);
+      }
+      ret = setenv("MANDOSNETHOOKDIR", hookdir, 1);
+      if(ret == -1){
+	perror_plus("setenv");
+	_exit(EX_OSERR);
+      }
+      ret = setenv("DEVICE", interface, 1);
+      if(ret == -1){
+	perror_plus("setenv");
+	_exit(EX_OSERR);
+      }
+      ret = setenv("VERBOSITY", debug ? "1" : "0", 1);
+      if(ret == -1){
+	perror_plus("setenv");
+	_exit(EX_OSERR);
+      }
+      ret = setenv("MODE", mode, 1);
+      if(ret == -1){
+	perror_plus("setenv");
+	_exit(EX_OSERR);
+      }
+      char *delaystring;
+      ret = asprintf(&delaystring, "%f", (double)delay);
+      if(ret == -1){
+	perror_plus("asprintf");
+	_exit(EX_OSERR);
+      }
+      ret = setenv("DELAY", delaystring, 1);
+      if(ret == -1){
+	free(delaystring);
+	perror_plus("setenv");
+	_exit(EX_OSERR);
+      }
+      free(delaystring);
+      if(connect_to != NULL){
+	ret = setenv("CONNECT", connect_to, 1);
+	if(ret == -1){
+	  perror_plus("setenv");
+	  _exit(EX_OSERR);
 	}
       }
-      free(fullname);
-      if(debug){
-	fprintf_plus(stderr, "Network hook \"%s\" ran successfully\n",
-		     direntry->d_name);
+      if(execl(fullname, direntry->d_name, mode, NULL) == -1){
+	perror_plus("execl");
+	_exit(EXIT_FAILURE);
+      }
+    } else {
+      int status;
+      if(TEMP_FAILURE_RETRY(waitpid(hook_pid, &status, 0)) == -1){
+	perror_plus("waitpid");
+	free(fullname);
+	continue;
+      }
+      if(WIFEXITED(status)){
+	if(WEXITSTATUS(status) != 0){
+	  fprintf_plus(stderr, "Warning: network hook \"%s\" exited"
+		       " with status %d\n", direntry->d_name,
+		       WEXITSTATUS(status));
+	  free(fullname);
+	  continue;
+	}
+      } else if(WIFSIGNALED(status)){
+	fprintf_plus(stderr, "Warning: network hook \"%s\" died by"
+		     " signal %d\n", direntry->d_name,
+		     WTERMSIG(status));
+	free(fullname);
+	continue;
+      } else {
+	fprintf_plus(stderr, "Warning: network hook \"%s\""
+		     " crashed\n", direntry->d_name);
+	free(fullname);
+	continue;
       }
     }
-    close(devnull);
+    free(fullname);
+    if(debug){
+      fprintf_plus(stderr, "Network hook \"%s\" ran successfully\n",
+		   direntry->d_name);
+    }
   }
+  if((int)TEMP_FAILURE_RETRY(close(hookdir_fd)) == -1){
+    perror_plus("close");
+  } else {
+    hookdir_fd = -1;
+  }
+  close(devnull);
 }
 
 __attribute__((nonnull, warn_unused_result))
