@@ -1346,21 +1346,13 @@ int runnable_hook(const struct dirent *direntry){
     return 0;
   }
   
-  char *fullname = NULL;
-  ret = asprintf(&fullname, "%s/%s", hookdir, direntry->d_name);
-  if(ret < 0){
-    perror_plus("asprintf");
-    return 0;
-  }
-  
-  ret = stat(fullname, &st);
+  ret = fstatat(hookdir_fd, direntry->d_name, &st, 0);
   if(ret == -1){
     if(debug){
       perror_plus("Could not stat hook");
     }
     return 0;
   }
-  free(fullname);
   if(not (S_ISREG(st.st_mode))){
     /* Not a regular file */
     if(debug){
