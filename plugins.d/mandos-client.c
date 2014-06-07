@@ -1359,6 +1359,7 @@ int runnable_hook(const struct dirent *direntry){
     }
     return 0;
   }
+  free(fullname);
   if(not (S_ISREG(st.st_mode))){
     /* Not a regular file */
     if(debug){
