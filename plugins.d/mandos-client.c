@@ -40,7 +40,7 @@
 #define _GNU_SOURCE		/* TEMP_FAILURE_RETRY(), asprintf() */
 
 #include <stdio.h>		/* fprintf(), stderr, fwrite(),
-				   stdout, ferror(), remove() */
+				   stdout, ferror() */
 #include <stdint.h> 		/* uint16_t, uint32_t, intptr_t */
 #include <stddef.h>		/* NULL, size_t, ssize_t */
 #include <stdlib.h> 		/* free(), EXIT_SUCCESS, srand(),
@@ -57,7 +57,7 @@
 #include <sys/socket.h>		/* socket(), struct sockaddr_in6,
 				   inet_pton(), connect(),
 				   getnameinfo() */
-#include <fcntl.h>		/* open() */
+#include <fcntl.h>		/* open(), unlinkat() */
 #include <dirent.h>		/* opendir(), struct dirent, readdir()
 				 */
 #include <inttypes.h>		/* PRIu16, PRIdMAX, intmax_t,
@@ -73,7 +73,8 @@
 				*/
 #include <unistd.h>		/* close(), SEEK_SET, off_t, write(),
 				   getuid(), getgid(), seteuid(),
-				   setgid(), pause(), _exit() */
+				   setgid(), pause(), _exit(),
+				   unlinkat() */
 #include <arpa/inet.h>		/* inet_pton(), htons() */
 #include <iso646.h>		/* not, or, and */
 #include <argp.h>		/* struct argp_option, error_t, struct
@@ -2617,36 +2618,33 @@ int main(int argc, char *argv[]){
   /* Removes the GPGME temp directory and all files inside */
   if(tempdir != NULL){
     struct dirent **direntries = NULL;
-    struct dirent *direntry = NULL;
-    int numentries = scandir(tempdir, &direntries, notdotentries,
-			     alphasort);
-    if(numentries > 0){
-      for(int i = 0; i < numentries; i++){
-	direntry = direntries[i];
-	char *fullname = NULL;
-	ret = asprintf(&fullname, "%s/%s", tempdir,
-		       direntry->d_name);
-	if(ret < 0){
-	  perror_plus("asprintf");
-	  continue;
+    int tempdir_fd = (int)TEMP_FAILURE_RETRY(open(tempdir, O_RDONLY));
+    if(tempdir_fd == -1){
+      perror_plus("open");
+    } else {
+      int numentries = scandir(tempdir, &direntries, notdotentries,
+			       alphasort);
+      if(numentries > 0){
+	for(int i = 0; i < numentries; i++){
+	  ret = unlinkat(tempdir_fd, direntries[i]->d_name, 0);
+	  if(ret == -1){
+	    fprintf_plus(stderr, "unlinkat(open(\"%s\", O_RDONLY),"
+			 " \"%s\", 0): %s\n", tempdir,
+			 direntries[i]->d_name, strerror(errno));
+	  }
 	}
-	ret = remove(fullname);
-	if(ret == -1){
-	  fprintf_plus(stderr, "remove(\"%s\"): %s\n", fullname,
-		       strerror(errno));
+	
+	/* need to clean even if 0 because man page doesn't specify */
+	free(direntries);
+	if(numentries == -1){
+	  perror_plus("scandir");
 	}
-	free(fullname);
+	ret = rmdir(tempdir);
+	if(ret == -1 and errno != ENOENT){
+	  perror_plus("rmdir");
+	}
       }
-    }
-    
-    /* need to clean even if 0 because man page doesn't specify */
-    free(direntries);
-    if(numentries == -1){
-      perror_plus("scandir");
-    }
-    ret = rmdir(tempdir);
-    if(ret == -1 and errno != ENOENT){
-      perror_plus("rmdir");
+      TEMP_FAILURE_RETRY(close(tempdir_fd));
     }
   }
   
