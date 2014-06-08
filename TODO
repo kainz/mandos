@@ -23,7 +23,6 @@
 ** TODO [#B] Use capabilities instead of seteuid().
 ** TODO [#B] Use getaddrinfo(hints=AI_NUMERICHOST) instead of inet_pton()
 ** TODO [#C] Make start_mandos_communication() take "struct server".
-** TODO [#B] Use openat(), fstatat() etc. to avoid asprintf().
 
 * splashy
 ** TODO [#B] use scandir(3) instead of readdir(3)

@@ -1507,37 +1507,12 @@ error_t lower_privileges_permanently(void){
   return ret_errno;
 }
 
-#ifndef O_CLOEXEC
-/*
- * Based on the example in the GNU LibC manual chapter 13.13 "File
- * Descriptor Flags".
- | [[info:libc:Descriptor%20Flags][File Descriptor Flags]] |
- */
-__attribute__((warn_unused_result))
-static int set_cloexec_flag(int fd){
-  int ret = (int)TEMP_FAILURE_RETRY(fcntl(fd, F_GETFD, 0));
-  /* If reading the flags failed, return error indication now. */
-  if(ret < 0){
-    return ret;
-  }
-  /* Store modified flag word in the descriptor. */
-  return (int)TEMP_FAILURE_RETRY(fcntl(fd, F_SETFD,
-				       ret | FD_CLOEXEC));
-}
-#endif	/* not O_CLOEXEC */
-
 __attribute__((nonnull))
 void run_network_hooks(const char *mode, const char *interface,
 		       const float delay){
   struct dirent **direntries;
   if(hookdir_fd == -1){
-    hookdir_fd = open(hookdir, O_RDONLY |
-#ifdef O_CLOEXEC
-		      O_CLOEXEC
-#else  /* not O_CLOEXEC */
-		      0
-#endif	/* not O_CLOEXEC */
-		      );
+    hookdir_fd = open(hookdir, O_RDONLY);
     if(hookdir_fd == -1){
       if(errno == ENOENT){
 	if(debug){
@@ -1549,17 +1524,6 @@ void run_network_hooks(const char *mode, const char *interface,
       }
       return;
     }
-#ifndef O_CLOEXEC
-    if(set_cloexec_flag(hookdir_fd) < 0){
-      perror_plus("set_cloexec_flag");
-      if((int)TEMP_FAILURE_RETRY(close(hookdir_fd)) == -1){
-	perror_plus("close");
-      } else {
-	hookdir_fd = -1;
-      }
-      return;
-    }
-#endif	/* not O_CLOEXEC */
   }
 #ifdef __GLIBC__
 #if __GLIBC_PREREQ(2, 15)
@@ -1663,8 +1627,17 @@ void run_network_hooks(const char *mode, const char *interface,
 	  _exit(EX_OSERR);
 	}
       }
-      if(fexecve(hookdir_fd, (char *const [])
-		 { direntry->d_name, NULL }, environ) == -1){
+      int hook_fd = openat(hookdir_fd, direntry->d_name, O_RDONLY);
+      if(hook_fd == -1){
+	perror_plus("openat");
+	_exit(EXIT_FAILURE);
+      }
+      if((int)TEMP_FAILURE_RETRY(close(hookdir_fd)) == -1){
+	perror_plus("close");
+	_exit(EXIT_FAILURE);
+      }
+      if(fexecve(hook_fd, (char *const []){ direntry->d_name, NULL },
+		 environ) == -1){
 	perror_plus("fexecve");
 	_exit(EXIT_FAILURE);
       }
