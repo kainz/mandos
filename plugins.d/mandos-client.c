@@ -2622,8 +2622,18 @@ int main(int argc, char *argv[]){
     if(tempdir_fd == -1){
       perror_plus("open");
     } else {
+#ifdef __GLIBC__
+#if __GLIBC_PREREQ(2, 15)
+      int numentries = scandirat(tempdir_fd, ".", &direntries,
+				 notdotentries, alphasort);
+#else  /* not __GLIBC_PREREQ(2, 15) */
       int numentries = scandir(tempdir, &direntries, notdotentries,
 			       alphasort);
+#endif	/* not __GLIBC_PREREQ(2, 15) */
+#else	/* not __GLIBC__ */
+      int numentries = scandir(tempdir, &direntries, notdotentries,
+			       alphasort);
+#endif	/* not __GLIBC__ */
       if(numentries > 0){
 	for(int i = 0; i < numentries; i++){
 	  ret = unlinkat(tempdir_fd, direntries[i]->d_name, 0);
