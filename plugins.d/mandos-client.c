@@ -2591,7 +2591,8 @@ int main(int argc, char *argv[]){
   /* Removes the GPGME temp directory and all files inside */
   if(tempdir != NULL){
     struct dirent **direntries = NULL;
-    int tempdir_fd = (int)TEMP_FAILURE_RETRY(open(tempdir, O_RDONLY));
+    int tempdir_fd = (int)TEMP_FAILURE_RETRY(open(tempdir, O_RDONLY |
+						  O_NOFOLLOW));
     if(tempdir_fd == -1){
       perror_plus("open");
     } else {
