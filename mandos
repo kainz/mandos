@@ -114,6 +114,7 @@ except (OSError, AttributeError):
 def initlogger(debug, level=logging.WARNING):
     """init logger and add loglevel"""
     
+    global syslogger
     syslogger = (logging.handlers.SysLogHandler
                  (facility =
                   logging.handlers.SysLogHandler.LOG_DAEMON,
