@@ -2253,7 +2253,7 @@ int main(int argc, char *argv[]){
   
   /* If no interfaces were specified, make a list */
   if(mc.interfaces == NULL){
-    struct dirent **direntries;
+    struct dirent **direntries = NULL;
     /* Look for any good interfaces */
     ret = scandir(sys_class_net, &direntries, good_interface,
 		  alphasort);
