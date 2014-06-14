@@ -349,7 +349,7 @@ int main(int argc, char *argv[]){
   char *plugindir = NULL;
   char *argfile = NULL;
   FILE *conffp;
-  struct dirent **direntries;
+  struct dirent **direntries = NULL;
   struct stat st;
   fd_set rfds_all;
   int ret, maxfd = 0;
@@ -829,7 +829,6 @@ int main(int argc, char *argv[]){
     ret = set_cloexec_flag(dir_fd);
     if(ret < 0){
       error(0, errno, "set_cloexec_flag");
-      TEMP_FAILURE_RETRY(close(dir_fd));
       exitstatus = EX_OSERR;
       goto fallback;
     }
@@ -875,7 +874,7 @@ int main(int argc, char *argv[]){
 #endif	/* not __GLIBC__ */
   if(numplugins == -1){
     error(0, errno, "Could not scan plugin dir");
-    TEMP_FAILURE_RETRY(close(dir_fd));
+    direntries = NULL;
     exitstatus = EX_OSERR;
     goto fallback;
   }
@@ -1092,7 +1091,10 @@ int main(int argc, char *argv[]){
     }
   }
   
+  free(direntries);
+  direntries = NULL;
   TEMP_FAILURE_RETRY(close(dir_fd));
+  dir_fd = -1;
   free_plugin(getplugin(NULL));
   
   for(plugin *p = plugin_list; p != NULL; p = p->next){
@@ -1291,6 +1293,8 @@ int main(int argc, char *argv[]){
     }
     free(custom_argv);
   }
+  
+  free(direntries);
   
   if(dir_fd != -1){
     TEMP_FAILURE_RETRY(close(dir_fd));
