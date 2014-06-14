@@ -23,18 +23,17 @@
  */
 
 #define _GNU_SOURCE		/* TEMP_FAILURE_RETRY(), getline(),
-				   O_CLOEXEC */
+				   O_CLOEXEC, pipe2() */
 #include <stddef.h>		/* size_t, NULL */
 #include <stdlib.h>		/* malloc(), exit(), EXIT_SUCCESS,
 				   realloc() */
 #include <stdbool.h>		/* bool, true, false */
 #include <stdio.h>		/* fileno(), fprintf(),
 				   stderr, STDOUT_FILENO, fclose() */
-#include <sys/types.h>	        /* DIR, fdopendir(), fstat(), struct
-				   stat, waitpid(), WIFEXITED(),
-				   WEXITSTATUS(), wait(), pid_t,
-				   uid_t, gid_t, getuid(), getgid(),
-				   dirfd() */
+#include <sys/types.h>	        /* fstat(), struct stat, waitpid(),
+				   WIFEXITED(), WEXITSTATUS(), wait(),
+				   pid_t, uid_t, gid_t, getuid(),
+				   getgid() */
 #include <sys/select.h>		/* fd_set, select(), FD_ZERO(),
 				   FD_SET(), FD_ISSET(), FD_CLR */
 #include <sys/wait.h>		/* wait(), waitpid(), WIFEXITED(),
@@ -42,17 +41,17 @@
 				   WCOREDUMP() */
 #include <sys/stat.h>		/* struct stat, fstat(), S_ISREG() */
 #include <iso646.h>		/* and, or, not */
-#include <dirent.h>		/* DIR, struct dirent, fdopendir(),
-				   readdir(), closedir(), dirfd() */
+#include <dirent.h>		/* struct dirent, scandirat() */
 #include <unistd.h>		/* fcntl(), F_GETFD, F_SETFD,
 				   FD_CLOEXEC, write(), STDOUT_FILENO,
 				   struct stat, fstat(), close(),
 				   setgid(), setuid(), S_ISREG(),
-				   faccessat() pipe(), fork(),
+				   faccessat() pipe2(), fork(),
 				   _exit(), dup2(), fexecve(), read()
 				*/
 #include <fcntl.h>		/* fcntl(), F_GETFD, F_SETFD,
-				   FD_CLOEXEC, openat() */
+				   FD_CLOEXEC, openat(), scandirat(),
+				   pipe2() */
 #include <string.h>		/* strsep, strlen(), strsignal(),
 				   strcmp(), strncmp() */
 #include <errno.h>		/* errno */
@@ -241,6 +240,7 @@ static bool add_environment(plugin *p, const char *def, bool replace){
   return add_to_char_array(def, &(p->environ), &(p->envc));
 }
 
+#ifndef O_CLOEXEC
 /*
  * Based on the example in the GNU LibC manual chapter 13.13 "File
  * Descriptor Flags".
@@ -257,6 +257,7 @@ static int set_cloexec_flag(int fd){
   return (int)TEMP_FAILURE_RETRY(fcntl(fd, F_SETFD,
 				       ret | FD_CLOEXEC));
 }
+#endif	/* not O_CLOEXEC */
 
 
 /* Mark processes as completed when they exit, and save their exit
@@ -348,8 +349,7 @@ int main(int argc, char *argv[]){
   char *plugindir = NULL;
   char *argfile = NULL;
   FILE *conffp;
-  DIR *dir = NULL;
-  struct dirent *dirst;
+  struct dirent **direntries;
   struct stat st;
   fd_set rfds_all;
   int ret, maxfd = 0;
@@ -363,7 +363,7 @@ int main(int argc, char *argv[]){
 				      .sa_flags = SA_NOCLDSTOP };
   char **custom_argv = NULL;
   int custom_argc = 0;
-  int dir_fd;
+  int dir_fd = -1;
   
   /* Establish a signal handler */
   sigemptyset(&sigchld_action.sa_mask);
@@ -834,85 +834,62 @@ int main(int argc, char *argv[]){
       goto fallback;
     }
 #endif	/* O_CLOEXEC */
-    
-    dir = fdopendir(dir_fd);
-    if(dir == NULL){
-      error(0, errno, "Could not open plugin dir");
-      TEMP_FAILURE_RETRY(close(dir_fd));
-      exitstatus = EX_OSERR;
-      goto fallback;
+  }
+  
+  int good_name(const struct dirent * const dirent){
+    const char * const patterns[] = { ".*", "#*#", "*~", "*.dpkg-new",
+				      "*.dpkg-old", "*.dpkg-bak",
+				      "*.dpkg-divert", NULL };
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-qual"
+#endif
+    for(const char **pat = (const char **)patterns;
+	*pat != NULL; pat++){
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif
+      if(fnmatch(*pat, dirent->d_name, FNM_FILE_NAME | FNM_PERIOD)
+	 != FNM_NOMATCH){
+	if(debug){
+	    fprintf(stderr, "Ignoring plugin dir entry \"%s\""
+		    " matching pattern %s\n", dirent->d_name, *pat);
+	}
+	return 0;
+      }
     }
+    return 1;
+  }
+  
+#ifdef __GLIBC__
+#if __GLIBC_PREREQ(2, 15)
+  int numplugins = scandirat(dir_fd, ".", &direntries, good_name,
+			     alphasort);
+#else  /* not __GLIBC_PREREQ(2, 15) */
+  int numplugins = scandir(plugindir != NULL ? plugindir : PDIR,
+			   &direntries, good_name, alphasort);
+#endif	/* not __GLIBC_PREREQ(2, 15) */
+#else	/* not __GLIBC__ */
+  int numplugins = scandir(plugindir != NULL ? plugindir : PDIR,
+			   &direntries, good_name, alphasort);
+#endif	/* not __GLIBC__ */
+  if(numplugins == -1){
+    error(0, errno, "Could not scan plugin dir");
+    TEMP_FAILURE_RETRY(close(dir_fd));
+    exitstatus = EX_OSERR;
+    goto fallback;
   }
   
   FD_ZERO(&rfds_all);
   
   /* Read and execute any executable in the plugin directory*/
-  while(true){
-    do {
-      dirst = readdir(dir);
-    } while(dirst == NULL and errno == EINTR);
+  for(int i = 0; i < numplugins; i++){
     
-    /* All directory entries have been processed */
-    if(dirst == NULL){
-      if(errno == EBADF){
-	error(0, errno, "readdir");
-	exitstatus = EX_IOERR;
-	goto fallback;
-      }
-      break;
-    }
-    
-    /* Ignore dotfiles, backup files and other junk */
-    {
-      bool bad_name = false;
-      const char * const patterns[] = { ".*", "#*#", "*~",
-					"*.dpkg-new", "*.dpkg-old",
-					"*.dpkg-bak", "*.dpkg-divert",
-					NULL };
-#ifdef __GNUC__
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wcast-qual"
-#endif
-      for(const char **pat = (const char **)patterns;
-	  *pat != NULL; pat++){
-#ifdef __GNUC__
-#pragma GCC diagnostic pop
-#endif
-	if(fnmatch(*pat, dirst->d_name,
-		   FNM_FILE_NAME | FNM_PERIOD) != FNM_NOMATCH){
-	  if(debug){
-	    fprintf(stderr, "Ignoring plugin dir entry \"%s\""
-		    " matching pattern %s\n", dirst->d_name, *pat);
-	  }
-	  bad_name = true;
-	  break;
-	}
-      }
-      if(bad_name){
-	continue;
-      }
-    }
-    
-    int plugin_fd = openat(dir_fd, dirst->d_name, O_RDONLY |
-#ifdef O_CLOEXEC
-			    O_CLOEXEC
-#else  /* not O_CLOEXEC */
-			    0
-#endif	/* not O_CLOEXEC */
-			    );
+    int plugin_fd = openat(dir_fd, direntries[i]->d_name, O_RDONLY);
     if(plugin_fd == -1){
       error(0, errno, "Could not open plugin");
       continue;
     }
-#ifndef O_CLOEXEC
-  /* Set the FD_CLOEXEC flag on the plugin FD */
-    ret = set_cloexec_flag(plugin_fd);
-    if(ret < 0){
-      error(0, errno, "set_cloexec_flag");
-      TEMP_FAILURE_RETRY(close(plugin_fd));
-      continue;
-    }
-#endif	/* O_CLOEXEC */
     ret = (int)TEMP_FAILURE_RETRY(fstat(plugin_fd, &st));
     if(ret == -1){
       error(0, errno, "stat");
@@ -922,18 +899,19 @@ int main(int argc, char *argv[]){
     
     /* Ignore non-executable files */
     if(not S_ISREG(st.st_mode)
-       or (TEMP_FAILURE_RETRY(faccessat(dir_fd, dirst->d_name, X_OK,
-					0)) != 0)){
+       or (TEMP_FAILURE_RETRY(faccessat(dir_fd, direntries[i]->d_name,
+					X_OK, 0)) != 0)){
       if(debug){
 	fprintf(stderr, "Ignoring plugin dir entry \"%s/%s\""
 		" with bad type or mode\n",
-		plugindir != NULL ? plugindir : PDIR, dirst->d_name);
+		plugindir != NULL ? plugindir : PDIR,
+		direntries[i]->d_name);
       }
       TEMP_FAILURE_RETRY(close(plugin_fd));
       continue;
     }
     
-    plugin *p = getplugin(dirst->d_name);
+    plugin *p = getplugin(direntries[i]->d_name);
     if(p == NULL){
       error(0, errno, "getplugin");
       TEMP_FAILURE_RETRY(close(plugin_fd));
@@ -942,7 +920,7 @@ int main(int argc, char *argv[]){
     if(p->disabled){
       if(debug){
 	fprintf(stderr, "Ignoring disabled plugin \"%s\"\n",
-		dirst->d_name);
+		direntries[i]->d_name);
       }
       TEMP_FAILURE_RETRY(close(plugin_fd));
       continue;
@@ -975,7 +953,11 @@ int main(int argc, char *argv[]){
     }
     
     int pipefd[2];
+#ifndef O_CLOEXEC
     ret = (int)TEMP_FAILURE_RETRY(pipe(pipefd));
+#else  /* O_CLOEXEC */
+    ret = (int)TEMP_FAILURE_RETRY(pipe2(pipefd, O_CLOEXEC));
+#endif	/* O_CLOEXEC */
     if(ret == -1){
       error(0, errno, "pipe");
       exitstatus = EX_OSERR;
@@ -989,6 +971,7 @@ int main(int argc, char *argv[]){
       exitstatus = EX_OSERR;
       goto fallback;
     }
+#ifndef O_CLOEXEC
     /* Ask OS to automatic close the pipe on exec */
     ret = set_cloexec_flag(pipefd[0]);
     if(ret < 0){
@@ -1006,6 +989,7 @@ int main(int argc, char *argv[]){
       exitstatus = EX_OSERR;
       goto fallback;
     }
+#endif	/* not O_CLOEXEC */
     /* Block SIGCHLD until process is safely in process list */
     ret = (int)TEMP_FAILURE_RETRY(sigprocmask(SIG_BLOCK,
 					      &sigchld_action.sa_mask,
@@ -1048,15 +1032,11 @@ int main(int argc, char *argv[]){
 	_exit(EX_OSERR);
       }
       
-      if(dirfd(dir) < 0){
-	/* If dir has no file descriptor, we could not set FD_CLOEXEC
-	   above and must now close it manually here. */
-	closedir(dir);
-      }
       if(fexecve(plugin_fd, p->argv,
 		(p->environ[0] != NULL) ? p->environ : environ) < 0){
 	error(0, errno, "fexecve for %s/%s",
-	      plugindir != NULL ? plugindir : PDIR, dirst->d_name);
+	      plugindir != NULL ? plugindir : PDIR,
+	      direntries[i]->d_name);
 	_exit(EX_OSERR);
       }
       /* no return */
@@ -1065,7 +1045,7 @@ int main(int argc, char *argv[]){
     TEMP_FAILURE_RETRY(close(pipefd[1])); /* Close unused write end of
 					     pipe */
     TEMP_FAILURE_RETRY(close(plugin_fd));
-    plugin *new_plugin = getplugin(dirst->d_name);
+    plugin *new_plugin = getplugin(direntries[i]->d_name);
     if(new_plugin == NULL){
       error(0, errno, "getplugin");
       ret = (int)(TEMP_FAILURE_RETRY
@@ -1112,8 +1092,7 @@ int main(int argc, char *argv[]){
     }
   }
   
-  TEMP_FAILURE_RETRY(closedir(dir));
-  dir = NULL;
+  TEMP_FAILURE_RETRY(close(dir_fd));
   free_plugin(getplugin(NULL));
   
   for(plugin *p = plugin_list; p != NULL; p = p->next){
@@ -1313,8 +1292,8 @@ int main(int argc, char *argv[]){
     free(custom_argv);
   }
   
-  if(dir != NULL){
-    closedir(dir);
+  if(dir_fd != -1){
+    TEMP_FAILURE_RETRY(close(dir_fd));
   }
   
   /* Kill the processes */
