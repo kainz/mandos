@@ -981,6 +981,14 @@ int main(int argc, char *argv[]){
       exitstatus = EX_OSERR;
       goto fallback;
     }
+    if(pipefd[0] >= FD_SETSIZE){
+      fprintf(stderr, "pipe()[0] (%d) >= FD_SETSIZE (%d)", pipefd[0],
+	      FD_SETSIZE);
+      TEMP_FAILURE_RETRY(close(pipefd[0]));
+      TEMP_FAILURE_RETRY(close(pipefd[1]));
+      exitstatus = EX_OSERR;
+      goto fallback;
+    }
     /* Ask OS to automatic close the pipe on exec */
     ret = set_cloexec_flag(pipefd[0]);
     if(ret < 0){
