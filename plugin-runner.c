@@ -1014,6 +1014,10 @@ int main(int argc, char *argv[]){
     } while(pid == -1 and errno == EINTR);
     if(pid == -1){
       error(0, errno, "fork");
+      TEMP_FAILURE_RETRY(sigprocmask(SIG_UNBLOCK,
+				     &sigchld_action.sa_mask, NULL));
+      TEMP_FAILURE_RETRY(close(pipefd[0]));
+      TEMP_FAILURE_RETRY(close(pipefd[1]));
       exitstatus = EX_OSERR;
       goto fallback;
     }
