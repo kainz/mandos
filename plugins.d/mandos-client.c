@@ -1510,7 +1510,7 @@ error_t lower_privileges_permanently(void){
 __attribute__((nonnull))
 void run_network_hooks(const char *mode, const char *interface,
 		       const float delay){
-  struct dirent **direntries;
+  struct dirent **direntries = NULL;
   if(hookdir_fd == -1){
     hookdir_fd = open(hookdir, O_RDONLY);
     if(hookdir_fd == -1){
@@ -1670,6 +1670,7 @@ void run_network_hooks(const char *mode, const char *interface,
 		   direntry->d_name);
     }
   }
+  free(direntries);
   if((int)TEMP_FAILURE_RETRY(close(hookdir_fd)) == -1){
     perror_plus("close");
   } else {
@@ -2274,7 +2275,9 @@ int main(int argc, char *argv[]){
       }
       free(direntries);
     } else {
-      free(direntries);
+      if(ret == 0){
+	free(direntries);
+      }
       fprintf_plus(stderr, "Could not find a network interface\n");
       exitcode = EXIT_FAILURE;
       goto end;
@@ -2608,7 +2611,7 @@ int main(int argc, char *argv[]){
       int numentries = scandir(tempdir, &direntries, notdotentries,
 			       alphasort);
 #endif	/* not __GLIBC__ */
-      if(numentries > 0){
+      if(numentries >= 0){
 	for(int i = 0; i < numentries; i++){
 	  ret = unlinkat(tempdir_fd, direntries[i]->d_name, 0);
 	  if(ret == -1){
