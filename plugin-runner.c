@@ -985,12 +985,16 @@ int main(int argc, char *argv[]){
     ret = set_cloexec_flag(pipefd[0]);
     if(ret < 0){
       error(0, errno, "set_cloexec_flag");
+      TEMP_FAILURE_RETRY(close(pipefd[0]));
+      TEMP_FAILURE_RETRY(close(pipefd[1]));
       exitstatus = EX_OSERR;
       goto fallback;
     }
     ret = set_cloexec_flag(pipefd[1]);
     if(ret < 0){
       error(0, errno, "set_cloexec_flag");
+      TEMP_FAILURE_RETRY(close(pipefd[0]));
+      TEMP_FAILURE_RETRY(close(pipefd[1]));
       exitstatus = EX_OSERR;
       goto fallback;
     }
