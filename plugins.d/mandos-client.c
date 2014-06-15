@@ -1458,7 +1458,6 @@ error_t raise_privileges(void){
   error_t ret_errno = 0;
   if(seteuid(0) == -1){
     ret_errno = errno;
-    perror_plus("seteuid");
   }
   errno = old_errno;
   return ret_errno;
@@ -1475,7 +1474,6 @@ error_t raise_privileges_permanently(void){
   }
   if(setuid(0) == -1){
     ret_errno = errno;
-    perror_plus("seteuid");
   }
   errno = old_errno;
   return ret_errno;
@@ -1488,7 +1486,6 @@ error_t lower_privileges(void){
   error_t ret_errno = 0;
   if(seteuid(uid) == -1){
     ret_errno = errno;
-    perror_plus("seteuid");
   }
   errno = old_errno;
   return ret_errno;
@@ -1501,7 +1498,6 @@ error_t lower_privileges_permanently(void){
   error_t ret_errno = 0;
   if(setuid(uid) == -1){
     ret_errno = errno;
-    perror_plus("setuid");
   }
   errno = old_errno;
   return ret_errno;
@@ -1554,7 +1550,8 @@ void run_network_hooks(const char *mode, const char *interface,
     if(hook_pid == 0){
       /* Child */
       /* Raise privileges */
-      if(raise_privileges_permanently() != 0){
+      errno = raise_privileges_permanently();
+      if(errno != 0){
 	perror_plus("Failed to raise privileges");
 	_exit(EX_NOPERM);
       }
@@ -1733,6 +1730,7 @@ error_t bring_up_interface(const char *const interface,
     /* Raise privileges */
     ret_errno = raise_privileges();
     if(ret_errno != 0){
+      errno = ret_errno;
       perror_plus("Failed to raise privileges");
     }
     
@@ -1842,6 +1840,7 @@ error_t take_down_interface(const char *const interface){
     /* Raise privileges */
     ret_errno = raise_privileges();
     if(ret_errno != 0){
+      errno = ret_errno;
       perror_plus("Failed to raise privileges");
     }
     
@@ -2556,6 +2555,7 @@ int main(int argc, char *argv[]){
   {
     ret_errno = raise_privileges();
     if(ret_errno != 0){
+      errno = ret_errno;
       perror_plus("Failed to raise privileges");
     } else {
       
@@ -2584,6 +2584,7 @@ int main(int argc, char *argv[]){
     
     ret_errno = lower_privileges_permanently();
     if(ret_errno != 0){
+      errno = ret_errno;
       perror_plus("Failed to lower privileges permanently");
     }
   }
