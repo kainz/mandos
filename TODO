@@ -44,8 +44,6 @@
 * plugin-runner
 ** TODO handle printing for errors for plugins
 *** Hook up stderr of plugins, buffer them, and prepend "Mandos Plugin [plugin name]"
-** TODO [#B] use scandirat(3) instead of readdir(3)
-*** Must wait until GNU libc 2.15
 ** TODO [#C] use same file name rules as run-parts(8)
 ** kernel command line option for debug info
 
@@ -83,7 +81,6 @@
    http://standards.freedesktop.org/secret-service/
 ** TODO Remove D-Bus interfaces with old domain name			  :2:
 ** TODO Remove old string_to_delta format				  :2:
-** TODO --no-zeroconf (only valid if port or socket is set)
 
 * mandos.xml
 ** Add mandos contact info in manual pages

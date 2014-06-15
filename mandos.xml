@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY COMMANDNAME "mandos">
-<!ENTITY TIMESTAMP "2013-10-26">
+<!ENTITY TIMESTAMP "2014-06-15">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -106,6 +106,8 @@
       <replaceable>FD</replaceable></option></arg>
       <sbr/>
       <arg><option>--foreground</option></arg>
+      <sbr/>
+      <arg><option>--no-zeroconf</option></arg>
     </cmdsynopsis>
     <cmdsynopsis>
       <command>&COMMANDNAME;</command>
@@ -320,6 +322,13 @@
 	<listitem>
 	  <xi:include href="mandos-options.xml"
 		      xpointer="foreground"/>
+	</listitem>
+      </varlistentry>
+      
+      <varlistentry>
+	<term><option>--no-zeroconf</option></term>
+	<listitem>
+	  <xi:include href="mandos-options.xml" xpointer="zeroconf"/>
 	</listitem>
       </varlistentry>
       
