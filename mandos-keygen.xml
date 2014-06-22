@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY COMMANDNAME "mandos-keygen">
-<!ENTITY TIMESTAMP "2013-10-22">
+<!ENTITY TIMESTAMP "2014-06-22">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -119,7 +119,10 @@
 	<replaceable>TIME</replaceable></option></arg>
       </group>
       <sbr/>
-      <arg><option>--force</option></arg>
+      <group>
+	<arg choice="plain"><option>--force</option></arg>
+	<arg choice="plain"><option>-f</option></arg>
+      </group>
     </cmdsynopsis>
     <cmdsynopsis>
       <command>&COMMANDNAME;</command>
@@ -144,6 +147,10 @@
 	<replaceable>NAME</replaceable></option></arg>
 	<arg choice="plain"><option>-n
 	<replaceable>NAME</replaceable></option></arg>
+      </group>
+      <group>
+	<arg choice="plain"><option>--no-ssh</option></arg>
+	<arg choice="plain"><option>-S</option></arg>
       </group>
     </cmdsynopsis>
     <cmdsynopsis>
@@ -346,6 +353,22 @@
 	  </para>
 	</listitem>
       </varlistentry>
+      <varlistentry>
+	<term><option>--no-ssh</option></term>
+	<term><option>-S</option></term>
+	<listitem>
+	  <para>
+	    When <option>--password</option> or
+	    <option>--passfile</option> is given, this option will
+	    prevent <command>&COMMANDNAME;</command> from calling
+	    <command>ssh-keyscan</command> to get an SSH fingerprint
+	    for this host and, if successful, output suitable config
+	    options to use this fingerprint as a
+	    <option>checker</option> option in the output.  This is
+	    otherwise the default behavior.
+	  </para>
+	</listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
   
@@ -502,7 +525,9 @@
       <citerefentry><refentrytitle>mandos</refentrytitle>
       <manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>mandos-client</refentrytitle>
-      <manvolnum>8mandos</manvolnum></citerefentry>
+      <manvolnum>8mandos</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>ssh-keyscan</refentrytitle>
+      <manvolnum>1</manvolnum></citerefentry>
     </para>
   </refsect1>
   

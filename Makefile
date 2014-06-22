@@ -296,7 +296,7 @@ confdir/clients.conf: clients.conf keydir/seckey.txt
 	install --directory confdir
 	install --mode=u=rw $< $@
 # Add a client password
-	./mandos-keygen --dir keydir --password >> $@
+	./mandos-keygen --dir keydir --password --no-ssh >> $@
 statedir:
 	install --directory statedir
 
