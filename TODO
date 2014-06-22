@@ -81,6 +81,11 @@
    http://standards.freedesktop.org/secret-service/
 ** TODO Remove D-Bus interfaces with old domain name			  :2:
 ** TODO Remove old string_to_delta format				  :2:
+** TODO http://0pointer.de/blog/projects/stateless.html
+*** tmpfiles snippet to create /var/lib/mandos with right user+perms
+*** File in /usr/lib/sysusers.d to create user+group "_mandos"
+** TODO Error handling on error parsing config files
+** TODO init.d script error handling
 
 * mandos.xml
 ** Add mandos contact info in manual pages
@@ -101,6 +106,7 @@
 *** Properties popup
 ** Print a nice "We are sorry" message, save stack trace to log.
 ** Rename module "gobject" to "GObject".
+** TODO Optional verbose mode to see checkers starting and succeeding
 
 * mandos-keygen
 ** TODO "--secfile" option
