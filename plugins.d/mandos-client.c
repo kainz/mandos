@@ -234,11 +234,14 @@ bool add_server(const char *ip, in_port_t port, AvahiIfIndex if_index,
 			  .af = af };
   if(new_server->ip == NULL){
     perror_plus("strdup");
+    free(new_server);
     return false;
   }
   ret = clock_gettime(CLOCK_MONOTONIC, &(new_server->last_seen));
   if(ret == -1){
     perror_plus("clock_gettime");
+    free(new_server->ip);
+    free(new_server);
     return false;
   }
   /* Special case of first server */
