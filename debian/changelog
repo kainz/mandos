@@ -1,3 +1,12 @@
+mandos (1.6.6-1) unstable; urgency=medium
+
+  * New upstream release.
+  * debian/mandos.postinst: Fix typo in comment.
+  * debian/control (mandos/Recommends): Changed to "ssh-client | fping".
+    (mandos-client/Recommends): New; set to "ssh".
+
+ -- Teddy Hogeborn <teddy@recompile.se>  Sun, 13 Jul 2014 22:49:21 +0200
+
 mandos (1.6.5-3) unstable; urgency=medium
 
   * debian/control (mandos-client/Depends): Add "dpkg-dev (>=1.16.0)";
