@@ -33,6 +33,7 @@ KEYEMAIL=""
 KEYCOMMENT=""
 KEYEXPIRE=0
 FORCE=no
+SSH=yes
 KEYCOMMENT_ORIG="$KEYCOMMENT"
 mode=keygen
 
@@ -41,8 +42,8 @@ if [ ! -d "$KEYDIR" ]; then
 fi
 
 # Parse options
-TEMP=`getopt --options vhpF:d:t:l:s:L:n:e:c:x:f \
-    --longoptions version,help,password,passfile:,dir:,type:,length:,subtype:,sublength:,name:,email:,comment:,expire:,force \
+TEMP=`getopt --options vhpF:d:t:l:s:L:n:e:c:x:fS \
+    --longoptions version,help,password,passfile:,dir:,type:,length:,subtype:,sublength:,name:,email:,comment:,expire:,force,no-ssh \
     --name "$0" -- "$@"`
 
 help(){
@@ -85,6 +86,7 @@ Password creation options:
                         Encrypt a password from FILE using the key in
                         the key directory.  All options other than
                         --dir and --name are ignored.
+  -S, --no-ssh          Don't get SSH key or set "checker" option.
 EOF
 }
 
@@ -103,6 +105,7 @@ while :; do
 	-c|--comment) KEYCOMMENT="$2"; shift 2;;
 	-x|--expire) KEYEXPIRE="$2"; shift 2;;
 	-f|--force) FORCE=yes; shift;;
+	-S|--no-ssh) SSH=no; shift;;
 	-v|--version) echo "$0 $VERSION"; exit;;
 	-h|--help) help; exit;;
 	--) shift; break;;
@@ -188,7 +191,7 @@ RINGDIR="`mktemp -d -t mandos-keygen-keyrings.XXXXXXXXXX`"
 trap "
 set +e; \
 test -n \"$SECFILE\" && shred --remove \"$SECFILE\"; \
-shred --remove \"$RINGDIR\"/sec*;
+shred --remove \"$RINGDIR\"/sec* 2>/dev/null;
 test -n \"$BATCHFILE\" && rm --force \"$BATCHFILE\"; \
 rm --recursive --force \"$RINGDIR\";
 tty --quiet && stty echo; \
@@ -274,6 +277,23 @@ if [ "$mode" = keygen ]; then
 fi
 
 if [ "$mode" = password ]; then
+    
+    # Make SSH be 0 or 1
+    case "$SSH" in
+	[Yy][Ee][Ss]|[Tt][Rr][Uu][Ee]) SSH=1;;
+	[Nn][Oo]|[Ff][Aa][Ll][Ss][Ee]|*) SSH=0;;
+    esac
+    
+    if [ $SSH -eq 1 ]; then
+	set +e
+	ssh_fingerprint="`ssh-keyscan localhost 2>/dev/null`"
+	if [ $? -ne 0 ]; then
+	    ssh_fingerprint=""
+	fi
+	set -e
+	ssh_fingerprint="${ssh_fingerprint#localhost }"
+    fi
+    
     # Import key into temporary key rings
     gpg --quiet --batch --no-tty --no-options --enable-dsa2 \
 	--homedir "$RINGDIR" --trust-model always --armor \
@@ -342,6 +362,10 @@ if [ "$mode" = password ]; then
 		/^[^-]/s/^/    /p
 	    }
 	}' < "$SECFILE"
+    if [ -n "$ssh_fingerprint" ]; then
+	echo 'checker = ssh-keyscan %%(host)s 2>/dev/null | grep --fixed-strings --line-regexp --quiet --regexp="%%(host)s %(ssh_fingerprint)s"'
+	echo "ssh_fingerprint = ${ssh_fingerprint}"
+    fi
 fi
 
 trap - EXIT
@@ -352,5 +376,5 @@ if [ -n "$SECFILE" ]; then
     shred --remove "$SECFILE"
 fi
 # Remove the key rings
-shred --remove "$RINGDIR"/sec*
+shred --remove "$RINGDIR"/sec* 2>/dev/null
 rm --recursive --force "$RINGDIR"

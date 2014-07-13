@@ -123,4 +123,11 @@ It is also used for some texts by mandos-client(8mandos).
     implies this option.
   </para>
   
+  <para id="zeroconf">
+    This option controls whether the server will announce its
+    existence using Zeroconf.  Default is to use Zeroconf.  If
+    Zeroconf is not used, a <option>port</option> number or a
+    <option>socket</option> is required.
+  </para>
+  
 </section>

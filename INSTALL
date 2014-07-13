@@ -47,10 +47,11 @@
     
     Strongly recommended:
     + fping 2.4b2-to-ipv6 http://www.fping.com/
+    + ssh-keyscan from OpenSSH http://www.openssh.com/
     
     Package names:
     python-gnutls avahi-daemon python python-avahi python-dbus
-    python-gobject python-urwid
+    python-gobject python-urwid ssh-client
     
 *** Mandos Client
     + initramfs-tools 0.85i
@@ -60,9 +61,12 @@
     + GnuPG 1.4.9         http://www.gnupg.org/
     + GPGME 1.1.6         http://www.gnupg.org/related_software/gpgme/
     
+    Strongly recommended:
+    + OpenSSH             http://www.openssh.com/
+    
     Package names:
     initramfs-tools libgnutls-dev libavahi-core-dev gnupg
-    libgpgme11-dev
+    libgpgme11-dev ssh
 
 * Installing the Mandos server
   
@@ -132,6 +136,6 @@
   
   You may want to tighten or loosen the timeouts in the server
   configuration files; see mandos.conf(5) and mandos-clients.conf(5).
-  If IPsec is not used, it is suggested that a more cryptographically
-  secure checker program is used and configured, since without IPsec
-  ping packets can be faked.
+  If IPsec is not used and SSH is not installed, it is suggested that
+  a more cryptographically secure checker program is used and
+  configured, since, without IPsec, ping packets can be faked.

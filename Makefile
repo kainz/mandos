@@ -264,15 +264,18 @@ run-client: all keydir/seckey.txt keydir/pubkey.txt
 	@echo "# ignored.  The messages are caused by not running as root, but   #"
 	@echo "# you should NOT run \"make run-client\" as root unless you also    #"
 	@echo "# unpacked and compiled Mandos as root, which is NOT recommended. #"
-	@echo "# From plugin-runner: setuid: Operation not permitted             #"
+	@echo "# From plugin-runner: setgid: Operation not permitted             #"
+	@echo "#                     setuid: Operation not permitted             #"
 	@echo "# From askpass-fifo:  mkfifo: Permission denied                   #"
-	@echo "# From mandos-client: setuid: Operation not permitted             #"
-	@echo "#                     seteuid: Operation not permitted            #"
-	@echo "#                     klogctl: Operation not permitted            #"
+	@echo "# From mandos-client:                                             #"
+	@echo "#             Failed to raise privileges: Operation not permitted #"
+	@echo "#             Warning: network hook \"*\" exited with status *      #"
 	@echo "###################################################################"
+# We set GNOME_KEYRING_CONTROL to block pam_gnome_keyring
 	./plugin-runner --plugin-dir=plugins.d \
 		--config-file=plugin-runner.conf \
 		--options-for=mandos-client:--seckey=keydir/seckey.txt,--pubkey=keydir/pubkey.txt,--network-hook-dir=network-hooks.d \
+		--env-for=mandos-client:GNOME_KEYRING_CONTROL= \
 		$(CLIENTARGS)
 
 # Used by run-client
@@ -293,7 +296,7 @@ confdir/clients.conf: clients.conf keydir/seckey.txt
 	install --directory confdir
 	install --mode=u=rw $< $@
 # Add a client password
-	./mandos-keygen --dir keydir --password >> $@
+	./mandos-keygen --dir keydir --password --no-ssh >> $@
 statedir:
 	install --directory statedir
 
