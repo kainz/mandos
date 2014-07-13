@@ -32,15 +32,15 @@
 /* Needed by GPGME, specifically gpgme_data_seek() */
 #ifndef _LARGEFILE_SOURCE
 #define _LARGEFILE_SOURCE
-#endif
+#endif	/* not _LARGEFILE_SOURCE */
 #ifndef _FILE_OFFSET_BITS
 #define _FILE_OFFSET_BITS 64
-#endif
+#endif	/* not _FILE_OFFSET_BITS */
 
 #define _GNU_SOURCE		/* TEMP_FAILURE_RETRY(), asprintf() */
 
 #include <stdio.h>		/* fprintf(), stderr, fwrite(),
-				   stdout, ferror(), remove() */
+				   stdout, ferror() */
 #include <stdint.h> 		/* uint16_t, uint32_t, intptr_t */
 #include <stddef.h>		/* NULL, size_t, ssize_t */
 #include <stdlib.h> 		/* free(), EXIT_SUCCESS, srand(),
@@ -57,7 +57,7 @@
 #include <sys/socket.h>		/* socket(), struct sockaddr_in6,
 				   inet_pton(), connect(),
 				   getnameinfo() */
-#include <fcntl.h>		/* open() */
+#include <fcntl.h>		/* open(), unlinkat() */
 #include <dirent.h>		/* opendir(), struct dirent, readdir()
 				 */
 #include <inttypes.h>		/* PRIu16, PRIdMAX, intmax_t,
@@ -73,7 +73,8 @@
 				*/
 #include <unistd.h>		/* close(), SEEK_SET, off_t, write(),
 				   getuid(), getgid(), seteuid(),
-				   setgid(), pause(), _exit() */
+				   setgid(), pause(), _exit(),
+				   unlinkat() */
 #include <arpa/inet.h>		/* inet_pton(), htons() */
 #include <iso646.h>		/* not, or, and */
 #include <argp.h>		/* struct argp_option, error_t, struct
@@ -141,6 +142,7 @@ const char *argp_program_bug_address = "<mandos@recompile.se>";
 static const char sys_class_net[] = "/sys/class/net";
 char *connect_to = NULL;
 const char *hookdir = HOOKDIR;
+int hookdir_fd = -1;
 uid_t uid = 65534;
 gid_t gid = 65534;
 
@@ -232,11 +234,14 @@ bool add_server(const char *ip, in_port_t port, AvahiIfIndex if_index,
 			  .af = af };
   if(new_server->ip == NULL){
     perror_plus("strdup");
+    free(new_server);
     return false;
   }
   ret = clock_gettime(CLOCK_MONOTONIC, &(new_server->last_seen));
   if(ret == -1){
     perror_plus("clock_gettime");
+    free(new_server->ip);
+    free(new_server);
     return false;
   }
   /* Special case of first server */
@@ -1335,7 +1340,7 @@ int runnable_hook(const struct dirent *direntry){
   sret = strspn(direntry->d_name, "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 		"abcdefghijklmnopqrstuvwxyz"
 		"0123456789"
-		"_-");
+		"_.-");
   if((direntry->d_name)[sret] != '\0'){
     /* Contains non-allowed characters */
     if(debug){
@@ -1345,14 +1350,7 @@ int runnable_hook(const struct dirent *direntry){
     return 0;
   }
   
-  char *fullname = NULL;
-  ret = asprintf(&fullname, "%s/%s", hookdir, direntry->d_name);
-  if(ret < 0){
-    perror_plus("asprintf");
-    return 0;
-  }
-  
-  ret = stat(fullname, &st);
+  ret = fstatat(hookdir_fd, direntry->d_name, &st, 0);
   if(ret == -1){
     if(debug){
       perror_plus("Could not stat hook");
@@ -1463,7 +1461,6 @@ error_t raise_privileges(void){
   error_t ret_errno = 0;
   if(seteuid(0) == -1){
     ret_errno = errno;
-    perror_plus("seteuid");
   }
   errno = old_errno;
   return ret_errno;
@@ -1480,7 +1477,6 @@ error_t raise_privileges_permanently(void){
   }
   if(setuid(0) == -1){
     ret_errno = errno;
-    perror_plus("seteuid");
   }
   errno = old_errno;
   return ret_errno;
@@ -1493,7 +1489,6 @@ error_t lower_privileges(void){
   error_t ret_errno = 0;
   if(seteuid(uid) == -1){
     ret_errno = errno;
-    perror_plus("seteuid");
   }
   errno = old_errno;
   return ret_errno;
@@ -1506,7 +1501,6 @@ error_t lower_privileges_permanently(void){
   error_t ret_errno = 0;
   if(setuid(uid) == -1){
     ret_errno = errno;
-    perror_plus("setuid");
   }
   errno = old_errno;
   return ret_errno;
@@ -1515,151 +1509,174 @@ error_t lower_privileges_permanently(void){
 __attribute__((nonnull))
 void run_network_hooks(const char *mode, const char *interface,
 		       const float delay){
-  struct dirent **direntries;
-  int numhooks = scandir(hookdir, &direntries, runnable_hook,
-			 alphasort);
-  if(numhooks == -1){
-    if(errno == ENOENT){
-      if(debug){
-	fprintf_plus(stderr, "Network hook directory \"%s\" not"
-		     " found\n", hookdir);
-      }
-    } else {
-      perror_plus("scandir");
-    }
-  } else {
-    struct dirent *direntry;
-    int ret;
-    int devnull = open("/dev/null", O_RDONLY);
-    for(int i = 0; i < numhooks; i++){
-      direntry = direntries[i];
-      char *fullname = NULL;
-      ret = asprintf(&fullname, "%s/%s", hookdir, direntry->d_name);
-      if(ret < 0){
-	perror_plus("asprintf");
-	continue;
-      }
-      if(debug){
-	fprintf_plus(stderr, "Running network hook \"%s\"\n",
-		     direntry->d_name);
-      }
-      pid_t hook_pid = fork();
-      if(hook_pid == 0){
-	/* Child */
-	/* Raise privileges */
-	if(raise_privileges_permanently() != 0){
-	  perror_plus("Failed to raise privileges");
-	  _exit(EX_NOPERM);
-	}
-	/* Set group */
-	errno = 0;
-	ret = setgid(0);
-	if(ret == -1){
-	  perror_plus("setgid");
-	  _exit(EX_NOPERM);
-	}
-	/* Reset supplementary groups */
-	errno = 0;
-	ret = setgroups(0, NULL);
-	if(ret == -1){
-	  perror_plus("setgroups");
-	  _exit(EX_NOPERM);
-	}
-	ret = dup2(devnull, STDIN_FILENO);
-	if(ret == -1){
-	  perror_plus("dup2(devnull, STDIN_FILENO)");
-	  _exit(EX_OSERR);
-	}
-	ret = close(devnull);
-	if(ret == -1){
-	  perror_plus("close");
-	  _exit(EX_OSERR);
-	}
-	ret = dup2(STDERR_FILENO, STDOUT_FILENO);
-	if(ret == -1){
-	  perror_plus("dup2(STDERR_FILENO, STDOUT_FILENO)");
-	  _exit(EX_OSERR);
-	}
-	ret = setenv("MANDOSNETHOOKDIR", hookdir, 1);
-	if(ret == -1){
-	  perror_plus("setenv");
-	  _exit(EX_OSERR);
-	}
-	ret = setenv("DEVICE", interface, 1);
-	if(ret == -1){
-	  perror_plus("setenv");
-	  _exit(EX_OSERR);
-	}
-	ret = setenv("VERBOSITY", debug ? "1" : "0", 1);
-	if(ret == -1){
-	  perror_plus("setenv");
-	  _exit(EX_OSERR);
-	}
-	ret = setenv("MODE", mode, 1);
-	if(ret == -1){
-	  perror_plus("setenv");
-	  _exit(EX_OSERR);
-	}
-	char *delaystring;
-	ret = asprintf(&delaystring, "%f", (double)delay);
-	if(ret == -1){
-	  perror_plus("asprintf");
-	  _exit(EX_OSERR);
-	}
-	ret = setenv("DELAY", delaystring, 1);
-	if(ret == -1){
-	  free(delaystring);
-	  perror_plus("setenv");
-	  _exit(EX_OSERR);
-	}
-	free(delaystring);
-	if(connect_to != NULL){
-	  ret = setenv("CONNECT", connect_to, 1);
-	  if(ret == -1){
-	    perror_plus("setenv");
-	    _exit(EX_OSERR);
-	  }
-	}
-	if(execl(fullname, direntry->d_name, mode, NULL) == -1){
-	  perror_plus("execl");
-	  _exit(EXIT_FAILURE);
+  struct dirent **direntries = NULL;
+  if(hookdir_fd == -1){
+    hookdir_fd = open(hookdir, O_RDONLY);
+    if(hookdir_fd == -1){
+      if(errno == ENOENT){
+	if(debug){
+	  fprintf_plus(stderr, "Network hook directory \"%s\" not"
+		       " found\n", hookdir);
 	}
       } else {
-	int status;
-	if(TEMP_FAILURE_RETRY(waitpid(hook_pid, &status, 0)) == -1){
-	  perror_plus("waitpid");
-	  free(fullname);
-	  continue;
-	}
-	if(WIFEXITED(status)){
-	  if(WEXITSTATUS(status) != 0){
-	    fprintf_plus(stderr, "Warning: network hook \"%s\" exited"
-			 " with status %d\n", direntry->d_name,
-			 WEXITSTATUS(status));
-	    free(fullname);
-	    continue;
-	  }
-	} else if(WIFSIGNALED(status)){
-	  fprintf_plus(stderr, "Warning: network hook \"%s\" died by"
-		       " signal %d\n", direntry->d_name,
-		       WTERMSIG(status));
-	  free(fullname);
-	  continue;
-	} else {
-	  fprintf_plus(stderr, "Warning: network hook \"%s\""
-		       " crashed\n", direntry->d_name);
-	  free(fullname);
-	  continue;
+	perror_plus("open");
+      }
+      return;
+    }
+  }
+#ifdef __GLIBC__
+#if __GLIBC_PREREQ(2, 15)
+  int numhooks = scandirat(hookdir_fd, ".", &direntries,
+			   runnable_hook, alphasort);
+#else  /* not __GLIBC_PREREQ(2, 15) */
+  int numhooks = scandir(hookdir, &direntries, runnable_hook,
+			 alphasort);
+#endif	/* not __GLIBC_PREREQ(2, 15) */
+#else	/* not __GLIBC__ */
+  int numhooks = scandir(hookdir, &direntries, runnable_hook,
+			 alphasort);
+#endif	/* not __GLIBC__ */
+  if(numhooks == -1){
+    perror_plus("scandir");
+    return;
+  }
+  struct dirent *direntry;
+  int ret;
+  int devnull = open("/dev/null", O_RDONLY);
+  for(int i = 0; i < numhooks; i++){
+    direntry = direntries[i];
+    if(debug){
+      fprintf_plus(stderr, "Running network hook \"%s\"\n",
+		   direntry->d_name);
+    }
+    pid_t hook_pid = fork();
+    if(hook_pid == 0){
+      /* Child */
+      /* Raise privileges */
+      errno = raise_privileges_permanently();
+      if(errno != 0){
+	perror_plus("Failed to raise privileges");
+	_exit(EX_NOPERM);
+      }
+      /* Set group */
+      errno = 0;
+      ret = setgid(0);
+      if(ret == -1){
+	perror_plus("setgid");
+	_exit(EX_NOPERM);
+      }
+      /* Reset supplementary groups */
+      errno = 0;
+      ret = setgroups(0, NULL);
+      if(ret == -1){
+	perror_plus("setgroups");
+	_exit(EX_NOPERM);
+      }
+      ret = dup2(devnull, STDIN_FILENO);
+      if(ret == -1){
+	perror_plus("dup2(devnull, STDIN_FILENO)");
+	_exit(EX_OSERR);
+      }
+      ret = close(devnull);
+      if(ret == -1){
+	perror_plus("close");
+	_exit(EX_OSERR);
+      }
+      ret = dup2(STDERR_FILENO, STDOUT_FILENO);
+      if(ret == -1){
+	perror_plus("dup2(STDERR_FILENO, STDOUT_FILENO)");
+	_exit(EX_OSERR);
+      }
+      ret = setenv("MANDOSNETHOOKDIR", hookdir, 1);
+      if(ret == -1){
+	perror_plus("setenv");
+	_exit(EX_OSERR);
+      }
+      ret = setenv("DEVICE", interface, 1);
+      if(ret == -1){
+	perror_plus("setenv");
+	_exit(EX_OSERR);
+      }
+      ret = setenv("VERBOSITY", debug ? "1" : "0", 1);
+      if(ret == -1){
+	perror_plus("setenv");
+	_exit(EX_OSERR);
+      }
+      ret = setenv("MODE", mode, 1);
+      if(ret == -1){
+	perror_plus("setenv");
+	_exit(EX_OSERR);
+      }
+      char *delaystring;
+      ret = asprintf(&delaystring, "%f", (double)delay);
+      if(ret == -1){
+	perror_plus("asprintf");
+	_exit(EX_OSERR);
+      }
+      ret = setenv("DELAY", delaystring, 1);
+      if(ret == -1){
+	free(delaystring);
+	perror_plus("setenv");
+	_exit(EX_OSERR);
+      }
+      free(delaystring);
+      if(connect_to != NULL){
+	ret = setenv("CONNECT", connect_to, 1);
+	if(ret == -1){
+	  perror_plus("setenv");
+	  _exit(EX_OSERR);
 	}
       }
-      free(fullname);
-      if(debug){
-	fprintf_plus(stderr, "Network hook \"%s\" ran successfully\n",
-		     direntry->d_name);
+      int hook_fd = openat(hookdir_fd, direntry->d_name, O_RDONLY);
+      if(hook_fd == -1){
+	perror_plus("openat");
+	_exit(EXIT_FAILURE);
+      }
+      if((int)TEMP_FAILURE_RETRY(close(hookdir_fd)) == -1){
+	perror_plus("close");
+	_exit(EXIT_FAILURE);
+      }
+      if(fexecve(hook_fd, (char *const []){ direntry->d_name, NULL },
+		 environ) == -1){
+	perror_plus("fexecve");
+	_exit(EXIT_FAILURE);
+      }
+    } else {
+      int status;
+      if(TEMP_FAILURE_RETRY(waitpid(hook_pid, &status, 0)) == -1){
+	perror_plus("waitpid");
+	continue;
+      }
+      if(WIFEXITED(status)){
+	if(WEXITSTATUS(status) != 0){
+	  fprintf_plus(stderr, "Warning: network hook \"%s\" exited"
+		       " with status %d\n", direntry->d_name,
+		       WEXITSTATUS(status));
+	  continue;
+	}
+      } else if(WIFSIGNALED(status)){
+	fprintf_plus(stderr, "Warning: network hook \"%s\" died by"
+		     " signal %d\n", direntry->d_name,
+		     WTERMSIG(status));
+	continue;
+      } else {
+	fprintf_plus(stderr, "Warning: network hook \"%s\""
+		     " crashed\n", direntry->d_name);
+	continue;
       }
     }
-    close(devnull);
+    if(debug){
+      fprintf_plus(stderr, "Network hook \"%s\" ran successfully\n",
+		   direntry->d_name);
+    }
   }
+  free(direntries);
+  if((int)TEMP_FAILURE_RETRY(close(hookdir_fd)) == -1){
+    perror_plus("close");
+  } else {
+    hookdir_fd = -1;
+  }
+  close(devnull);
 }
 
 __attribute__((nonnull, warn_unused_result))
@@ -1716,6 +1733,7 @@ error_t bring_up_interface(const char *const interface,
     /* Raise privileges */
     ret_errno = raise_privileges();
     if(ret_errno != 0){
+      errno = ret_errno;
       perror_plus("Failed to raise privileges");
     }
     
@@ -1825,6 +1843,7 @@ error_t take_down_interface(const char *const interface){
     /* Raise privileges */
     ret_errno = raise_privileges();
     if(ret_errno != 0){
+      errno = ret_errno;
       perror_plus("Failed to raise privileges");
     }
     
@@ -2237,7 +2256,7 @@ int main(int argc, char *argv[]){
   
   /* If no interfaces were specified, make a list */
   if(mc.interfaces == NULL){
-    struct dirent **direntries;
+    struct dirent **direntries = NULL;
     /* Look for any good interfaces */
     ret = scandir(sys_class_net, &direntries, good_interface,
 		  alphasort);
@@ -2258,7 +2277,9 @@ int main(int argc, char *argv[]){
       }
       free(direntries);
     } else {
-      free(direntries);
+      if(ret == 0){
+	free(direntries);
+      }
       fprintf_plus(stderr, "Could not find a network interface\n");
       exitcode = EXIT_FAILURE;
       goto end;
@@ -2486,7 +2507,7 @@ int main(int argc, char *argv[]){
   if(debug){
     fprintf_plus(stderr, "Starting Avahi loop search\n");
   }
-
+  
   ret = avahi_loop_with_timeout(simple_poll,
 				(int)(retry_interval * 1000), &mc);
   if(debug){
@@ -2537,6 +2558,7 @@ int main(int argc, char *argv[]){
   {
     ret_errno = raise_privileges();
     if(ret_errno != 0){
+      errno = ret_errno;
       perror_plus("Failed to raise privileges");
     } else {
       
@@ -2565,6 +2587,7 @@ int main(int argc, char *argv[]){
     
     ret_errno = lower_privileges_permanently();
     if(ret_errno != 0){
+      errno = ret_errno;
       perror_plus("Failed to lower privileges permanently");
     }
   }
@@ -2575,36 +2598,44 @@ int main(int argc, char *argv[]){
   /* Removes the GPGME temp directory and all files inside */
   if(tempdir != NULL){
     struct dirent **direntries = NULL;
-    struct dirent *direntry = NULL;
-    int numentries = scandir(tempdir, &direntries, notdotentries,
-			     alphasort);
-    if(numentries > 0){
-      for(int i = 0; i < numentries; i++){
-	direntry = direntries[i];
-	char *fullname = NULL;
-	ret = asprintf(&fullname, "%s/%s", tempdir,
-		       direntry->d_name);
-	if(ret < 0){
-	  perror_plus("asprintf");
-	  continue;
+    int tempdir_fd = (int)TEMP_FAILURE_RETRY(open(tempdir, O_RDONLY |
+						  O_NOFOLLOW));
+    if(tempdir_fd == -1){
+      perror_plus("open");
+    } else {
+#ifdef __GLIBC__
+#if __GLIBC_PREREQ(2, 15)
+      int numentries = scandirat(tempdir_fd, ".", &direntries,
+				 notdotentries, alphasort);
+#else  /* not __GLIBC_PREREQ(2, 15) */
+      int numentries = scandir(tempdir, &direntries, notdotentries,
+			       alphasort);
+#endif	/* not __GLIBC_PREREQ(2, 15) */
+#else	/* not __GLIBC__ */
+      int numentries = scandir(tempdir, &direntries, notdotentries,
+			       alphasort);
+#endif	/* not __GLIBC__ */
+      if(numentries >= 0){
+	for(int i = 0; i < numentries; i++){
+	  ret = unlinkat(tempdir_fd, direntries[i]->d_name, 0);
+	  if(ret == -1){
+	    fprintf_plus(stderr, "unlinkat(open(\"%s\", O_RDONLY),"
+			 " \"%s\", 0): %s\n", tempdir,
+			 direntries[i]->d_name, strerror(errno));
+	  }
 	}
-	ret = remove(fullname);
-	if(ret == -1){
-	  fprintf_plus(stderr, "remove(\"%s\"): %s\n", fullname,
-		       strerror(errno));
+	
+	/* need to clean even if 0 because man page doesn't specify */
+	free(direntries);
+	if(numentries == -1){
+	  perror_plus("scandir");
 	}
-	free(fullname);
+	ret = rmdir(tempdir);
+	if(ret == -1 and errno != ENOENT){
+	  perror_plus("rmdir");
+	}
       }
-    }
-
-    /* need to clean even if 0 because man page doesn't specify */
-    free(direntries);
-    if(numentries == -1){
-      perror_plus("scandir");
-    }
-    ret = rmdir(tempdir);
-    if(ret == -1 and errno != ENOENT){
-      perror_plus("rmdir");
+      TEMP_FAILURE_RETRY(close(tempdir_fd));
     }
   }
   

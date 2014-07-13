@@ -3,7 +3,7 @@
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY CONFNAME "mandos-clients.conf">
 <!ENTITY CONFPATH "<filename>/etc/mandos/clients.conf</filename>">
-<!ENTITY TIMESTAMP "2013-10-15">
+<!ENTITY TIMESTAMP "2014-06-22">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -177,7 +177,13 @@
 	    <varname>PATH</varname> will be searched.  The default
 	    value for the checker command is <quote><literal
 	    ><command>fping</command> <option>-q</option> <option
-	    >--</option> %%(host)s</literal></quote>.
+	    >--</option> %%(host)s</literal></quote>.  Note that
+	    <command>mandos-keygen</command>, when generating output
+	    to be inserted into this file, normally looks for an SSH
+	    server on the Mandos client, and, if it find one, outputs
+	    a <option>checker</option> option to check for the
+	    client’s key fingerprint – this is more secure against
+	    spoofing.
 	  </para>
 	  <para>
 	    In addition to normal start time expansion, this option
