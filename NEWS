@@ -1,6 +1,18 @@
 This NEWS file records noteworthy changes, very tersely.
 See the manual for detailed information.
 
+Version 1.6.6 (2014-07-13)
+* Client
+** If client host has an SSH server, "mandos-keygen --password" now
+   outputs "checker" option which uses "ssh-keyscan"; this is more
+   secure than the default "fping" checker.
+** Bug fix: allow "." in network hook names, to match documentation.
+** Better error messages.
+* Server
+** New --no-zeroconf option.
+** Bug fix: Fix --servicename option, broken since 1.6.4.
+** Bug fix: Fix --socket option work for --socket=0.
+
 Version 1.6.5 (2014-05-11)
 * Client
 ** Work around bug in GnuPG <http://bugs.g10code.com/gnupg/issue1622>
