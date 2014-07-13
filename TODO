@@ -44,8 +44,6 @@
 * plugin-runner
 ** TODO handle printing for errors for plugins
 *** Hook up stderr of plugins, buffer them, and prepend "Mandos Plugin [plugin name]"
-** TODO [#B] use scandirat(3) instead of readdir(3)
-*** Must wait until GNU libc 2.15
 ** TODO [#C] use same file name rules as run-parts(8)
 ** kernel command line option for debug info
 
@@ -83,7 +81,11 @@
    http://standards.freedesktop.org/secret-service/
 ** TODO Remove D-Bus interfaces with old domain name			  :2:
 ** TODO Remove old string_to_delta format				  :2:
-** TODO --no-zeroconf (only valid if port or socket is set)
+** TODO http://0pointer.de/blog/projects/stateless.html
+*** tmpfiles snippet to create /var/lib/mandos with right user+perms
+*** File in /usr/lib/sysusers.d to create user+group "_mandos"
+** TODO Error handling on error parsing config files
+** TODO init.d script error handling
 
 * mandos.xml
 ** Add mandos contact info in manual pages
@@ -104,6 +106,7 @@
 *** Properties popup
 ** Print a nice "We are sorry" message, save stack trace to log.
 ** Rename module "gobject" to "GObject".
+** TODO Optional verbose mode to see checkers starting and succeeding
 
 * mandos-keygen
 ** TODO "--secfile" option

@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY COMMANDNAME "mandos-client">
-<!ENTITY TIMESTAMP "2014-03-05">
+<!ENTITY TIMESTAMP "2014-06-22">
 <!ENTITY % common SYSTEM "../common.ent">
 %common;
 ]>
@@ -748,8 +748,9 @@
     <para>
       It will also help if the checker program on the server is
       configured to request something from the client which can not be
-      spoofed by someone else on the network, unlike unencrypted
-      <acronym>ICMP</acronym> echo (<quote>ping</quote>) replies.
+      spoofed by someone else on the network, like SSH server key
+      fingerprints, and unlike unencrypted <acronym>ICMP</acronym>
+      echo (<quote>ping</quote>) replies.
     </para>
     <para>
       <emphasis>Note</emphasis>: This makes it completely insecure to
