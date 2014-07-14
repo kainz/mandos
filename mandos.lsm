@@ -11,13 +11,13 @@ Author:		teddy@recompile.se (Teddy Hogeborn),
 		belorn@recompile.se (Björn Påhlsson)
 Maintained-by:	teddy@recompile.se (Teddy Hogeborn),
 		belorn@recompile.se (Björn Påhlsson)
-Primary-site: http://www.recompile.se/mandos
-	      160K mandos_1.6.6.orig.tar.gz
-Alternate-site: ftp://ftp.recompile.se/pub/mandos
+Primary-site:	http://www.recompile.se/mandos
+		160K mandos_1.6.6.orig.tar.gz
+Alternate-site:	ftp://ftp.recompile.se/pub/mandos
 		160K mandos_1.6.6.orig.tar.gz
 Platforms:	Requires GCC, GNU libC, Avahi, GnuPG, Python 2.6, and
 		various other libraries.  While made for Debian
 		GNU/Linux, it is probably portable to other
-		distributions, but not other Unixes. 
-Copying-policy: GNU General Public License version 3.0 or later
+		distributions, but not other Unixes.
+Copying-policy:	GNU General Public License version 3.0 or later
 End
