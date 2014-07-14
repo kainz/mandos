@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY COMMANDNAME "mandos-monitor">
-<!ENTITY TIMESTAMP "2012-01-01">
+<!ENTITY TIMESTAMP "2014-07-14">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -127,6 +127,10 @@
       <row>
 	<entry>w, i</entry>
 	<entry>Toggle log window line wrap</entry>
+      </row>
+      <row>
+	<entry>v</entry>
+	<entry>Toggle verbose logging</entry>
       </row>
       <row>
 	<entry>Up, Ctrl-P, k</entry>
