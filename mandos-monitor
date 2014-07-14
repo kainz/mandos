@@ -161,8 +161,8 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
                                          self.rejected,
                                          client_interface,
                                          byte_arrays=True))
-        #self.logger('Created client {0}'
-        #            .format(self.properties["Name"]))
+        self.logger('Created client {0}'
+                    .format(self.properties["Name"]), level=0)
     
     def using_timer(self, flag):
         """Call this method with True or False when timer should be
@@ -179,6 +179,9 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
     
     def checker_completed(self, exitstatus, condition, command):
         if exitstatus == 0:
+            self.logger('Checker for client {0} (command "{1}")'
+                        ' succeeded'.format(self.properties["Name"],
+                                            command), level=0)
             self.update()
             return
         # Checker failed
@@ -203,12 +206,10 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
         self.update()
     
     def checker_started(self, command):
-        """Server signals that a checker started. This could be useful
-           to log in the future. """
-        #self.logger('Client {0} started checker "{1}"'
-        #            .format(self.properties["Name"],
-        #                    str(command)))
-        pass
+        """Server signals that a checker started."""
+        self.logger('Client {0} started checker "{1}"'
+                    .format(self.properties["Name"],
+                            command), level=0)
     
     def got_secret(self):
         self.logger('Client {0} received its secret'
@@ -403,7 +404,7 @@ class UserInterface(object):
     """This is the entire user interface - the whole screen
     with boxes, lists of client widgets, etc.
     """
-    def __init__(self, max_log_length=1000):
+    def __init__(self, max_log_length=1000, log_level=1):
         DBusGMainLoop(set_as_default=True)
         
         self.screen = urwid.curses_display.Screen()
@@ -447,6 +448,8 @@ class UserInterface(object):
         self.log = []
         self.max_log_length = max_log_length
         
+        self.log_level = log_level
+        
         # We keep a reference to the log widget so we can remove it
         # from the ListWalker without it getting destroyed
         self.logbox = ConstrainedListBox(self.log)
@@ -486,13 +489,18 @@ class UserInterface(object):
             self.uilist.append(self.logbox)
         self.topwidget = urwid.Pile(self.uilist)
     
-    def log_message(self, message):
+    def log_message(self, message, level=1):
         """Log message formatted with timestamp"""
+        if level < self.log_level:
+            return
         timestamp = datetime.datetime.now().isoformat()
-        self.log_message_raw(timestamp + ": " + message)
+        self.log_message_raw("{0}: {1}".format(timestamp, message),
+                             level=level)
     
-    def log_message_raw(self, markup):
+    def log_message_raw(self, markup, level=1):
         """Add a log message to the log buffer."""
+        if level < self.log_level:
+            return
         self.log.append(urwid.Text(markup, wrap=self.log_wrap))
         if (self.max_log_length
             and len(self.log) > self.max_log_length):
@@ -505,8 +513,8 @@ class UserInterface(object):
         """Toggle visibility of the log buffer."""
         self.log_visible = not self.log_visible
         self.rebuild()
-        #self.log_message("Log visibility changed to: "
-        #                 + str(self.log_visible))
+        self.log_message("Log visibility changed to: {0}"
+                         .format(self.log_visible), level=0)
     
     def change_log_display(self):
         """Change type of log display.
@@ -517,7 +525,8 @@ class UserInterface(object):
             self.log_wrap = "clip"
         for textwidget in self.log:
             textwidget.set_wrap_mode(self.log_wrap)
-        #self.log_message("Wrap mode: " + self.log_wrap)
+        self.log_message("Wrap mode: {0}".format(self.log_wrap),
+                         level=0)
     
     def find_and_remove_client(self, path, name):
         """Find a client by its object path and remove it.
@@ -670,7 +679,9 @@ class UserInterface(object):
                                             "?: Help",
                                             "l: Log window toggle",
                                             "TAB: Switch window",
-                                            "w: Wrap (log)"))))
+                                            "w: Wrap (log lines)",
+                                            "v: Toggle verbose log",
+                                            ))))
                 self.log_message_raw(("bold",
                                       "  "
                                       .join(("Clients:",
@@ -689,6 +700,13 @@ class UserInterface(object):
                 else:
                     self.topwidget.set_focus(self.logbox)
                 self.refresh()
+            elif key == "v":
+                if self.log_level == 0:
+                    self.log_level = 1
+                    self.log_message("Verbose mode: Off")
+                else:
+                    self.log_level = 0
+                    self.log_message("Verbose mode: On")
             #elif (key == "end" or key == "meta >" or key == "G"
             #      or key == ">"):
             #    pass            # xxx end-of-buffer
