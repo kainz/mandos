@@ -240,7 +240,14 @@ bool add_server(const char *ip, in_port_t port, AvahiIfIndex if_index,
   ret = clock_gettime(CLOCK_MONOTONIC, &(new_server->last_seen));
   if(ret == -1){
     perror_plus("clock_gettime");
-    free(new_server->ip);
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-qual"
+#endif
+    free((char *)(new_server->ip));
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif
     free(new_server);
     return false;
   }
@@ -2549,6 +2556,14 @@ int main(int argc, char *argv[]){
     mc.current_server->prev->next = NULL;
     while(mc.current_server != NULL){
       server *next = mc.current_server->next;
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-qual"
+#endif
+      free((char *)(mc.current_server->ip));
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif
       free(mc.current_server);
       mc.current_server = next;
     }
