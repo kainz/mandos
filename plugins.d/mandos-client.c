@@ -1076,6 +1076,7 @@ static void resolve_callback(AvahiSServiceResolver *r,
      timed out */
   
   if(quit_now){
+    avahi_s_service_resolver_free(r);
     return;
   }
   
@@ -1652,6 +1653,7 @@ void run_network_hooks(const char *mode, const char *interface,
       int status;
       if(TEMP_FAILURE_RETRY(waitpid(hook_pid, &status, 0)) == -1){
 	perror_plus("waitpid");
+	free(direntry);
 	continue;
       }
       if(WIFEXITED(status)){
@@ -1659,16 +1661,19 @@ void run_network_hooks(const char *mode, const char *interface,
 	  fprintf_plus(stderr, "Warning: network hook \"%s\" exited"
 		       " with status %d\n", direntry->d_name,
 		       WEXITSTATUS(status));
+	  free(direntry);
 	  continue;
 	}
       } else if(WIFSIGNALED(status)){
 	fprintf_plus(stderr, "Warning: network hook \"%s\" died by"
 		     " signal %d\n", direntry->d_name,
 		     WTERMSIG(status));
+	free(direntry);
 	continue;
       } else {
 	fprintf_plus(stderr, "Warning: network hook \"%s\""
 		     " crashed\n", direntry->d_name);
+	free(direntry);
 	continue;
       }
     }
@@ -1676,6 +1681,7 @@ void run_network_hooks(const char *mode, const char *interface,
       fprintf_plus(stderr, "Network hook \"%s\" ran successfully\n",
 		   direntry->d_name);
     }
+    free(direntry);
   }
   free(direntries);
   if((int)TEMP_FAILURE_RETRY(close(hookdir_fd)) == -1){
@@ -2275,12 +2281,14 @@ int main(int argc, char *argv[]){
 	if(ret_errno != 0){
 	  errno = ret_errno;
 	  perror_plus("argz_add");
+	  free(direntries[i]);
 	  continue;
 	}
 	if(debug){
 	  fprintf_plus(stderr, "Will use interface \"%s\"\n",
 		       direntries[i]->d_name);
 	}
+	free(direntries[i]);
       }
       free(direntries);
     } else {
@@ -2638,6 +2646,7 @@ int main(int argc, char *argv[]){
 			 " \"%s\", 0): %s\n", tempdir,
 			 direntries[i]->d_name, strerror(errno));
 	  }
+	  free(direntries[i]);
 	}
 	
 	/* need to clean even if 0 because man page doesn't specify */
