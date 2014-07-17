@@ -887,12 +887,14 @@ int main(int argc, char *argv[]){
     int plugin_fd = openat(dir_fd, direntries[i]->d_name, O_RDONLY);
     if(plugin_fd == -1){
       error(0, errno, "Could not open plugin");
+      free(direntries[i]);
       continue;
     }
     ret = (int)TEMP_FAILURE_RETRY(fstat(plugin_fd, &st));
     if(ret == -1){
       error(0, errno, "stat");
       TEMP_FAILURE_RETRY(close(plugin_fd));
+      free(direntries[i]);
       continue;
     }
     
@@ -907,6 +909,7 @@ int main(int argc, char *argv[]){
 		direntries[i]->d_name);
       }
       TEMP_FAILURE_RETRY(close(plugin_fd));
+      free(direntries[i]);
       continue;
     }
     
@@ -914,6 +917,7 @@ int main(int argc, char *argv[]){
     if(p == NULL){
       error(0, errno, "getplugin");
       TEMP_FAILURE_RETRY(close(plugin_fd));
+      free(direntries[i]);
       continue;
     }
     if(p->disabled){
@@ -922,6 +926,7 @@ int main(int argc, char *argv[]){
 		direntries[i]->d_name);
       }
       TEMP_FAILURE_RETRY(close(plugin_fd));
+      free(direntries[i]);
       continue;
     }
     {
@@ -960,6 +965,7 @@ int main(int argc, char *argv[]){
     if(ret == -1){
       error(0, errno, "pipe");
       exitstatus = EX_OSERR;
+      free(direntries[i]);
       goto fallback;
     }
     if(pipefd[0] >= FD_SETSIZE){
@@ -968,6 +974,7 @@ int main(int argc, char *argv[]){
       TEMP_FAILURE_RETRY(close(pipefd[0]));
       TEMP_FAILURE_RETRY(close(pipefd[1]));
       exitstatus = EX_OSERR;
+      free(direntries[i]);
       goto fallback;
     }
 #ifndef O_CLOEXEC
@@ -978,6 +985,7 @@ int main(int argc, char *argv[]){
       TEMP_FAILURE_RETRY(close(pipefd[0]));
       TEMP_FAILURE_RETRY(close(pipefd[1]));
       exitstatus = EX_OSERR;
+      free(direntries[i]);
       goto fallback;
     }
     ret = set_cloexec_flag(pipefd[1]);
@@ -986,6 +994,7 @@ int main(int argc, char *argv[]){
       TEMP_FAILURE_RETRY(close(pipefd[0]));
       TEMP_FAILURE_RETRY(close(pipefd[1]));
       exitstatus = EX_OSERR;
+      free(direntries[i]);
       goto fallback;
     }
 #endif	/* not O_CLOEXEC */
@@ -996,6 +1005,7 @@ int main(int argc, char *argv[]){
     if(ret < 0){
       error(0, errno, "sigprocmask");
       exitstatus = EX_OSERR;
+      free(direntries[i]);
       goto fallback;
     }
     /* Starting a new process to be watched */
@@ -1010,6 +1020,7 @@ int main(int argc, char *argv[]){
       TEMP_FAILURE_RETRY(close(pipefd[0]));
       TEMP_FAILURE_RETRY(close(pipefd[1]));
       exitstatus = EX_OSERR;
+      free(direntries[i]);
       goto fallback;
     }
     if(pid == 0){
@@ -1054,8 +1065,10 @@ int main(int argc, char *argv[]){
         error(0, errno, "sigprocmask");
       }
       exitstatus = EX_OSERR;
+      free(direntries[i]);
       goto fallback;
     }
+    free(direntries[i]);
     
     new_plugin->pid = pid;
     new_plugin->fd = pipefd[0];
