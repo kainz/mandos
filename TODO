@@ -106,7 +106,6 @@
 *** Properties popup
 ** Print a nice "We are sorry" message, save stack trace to log.
 ** Rename module "gobject" to "GObject".
-** TODO Optional verbose mode to see checkers starting and succeeding
 
 * mandos-keygen
 ** TODO "--secfile" option

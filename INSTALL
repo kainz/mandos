@@ -4,14 +4,15 @@
   
 ** Operating System
    
-   Debian 6.0 "squeeze" or Ubuntu 10.10 "Maverick Meerkat".
+   Debian 6.0 "squeeze" or Ubuntu 10.10 "Maverick Meerkat" (or later).
    
    This is mostly for the support scripts which make sure that the
    client is installed and started in the initial RAM disk environment
-   and that the initrd.img file is automatically made unreadable.  The
-   server and client programs themselves *could* be run in other
-   distributions, but they *are* specific to GNU/Linux systems, and
-   are not written with portabillity to other Unixes in mind.
+   and that the initial RAM file system image file is automatically
+   made unreadable.  The server and client programs themselves *could*
+   be run in other distributions, but they *are* specific to GNU/Linux
+   systems, and are not written with portabillity to other Unixes in
+   mind.
    
 ** Libraries
    
@@ -27,7 +28,7 @@
     + DocBook 4.5         http://www.docbook.org/
       Note: DocBook 5.0 is not compatible.
     + DocBook XSL stylesheets 1.71.0
-                   http://wiki.docbook.org/topic/DocBookXslStylesheets
+                         http://wiki.docbook.org/DocBookXslStylesheets
     
     Package names:
     docbook docbook-xsl
@@ -37,36 +38,41 @@
     "man -l mandos.8".
     
 *** Mandos Server
-    + GnuTLS 2.4          http://www.gnu.org/software/gnutls/
+    + GnuTLS 2.4          http://www.gnutls.org/
+      Note: GnuTLS 3 will only work with Python-GnuTLS 2
     + Avahi 0.6.16        http://www.avahi.org/
-    + Python 2.6          http://www.python.org/
-    + Python-GnuTLS 1.1.5 http://pypi.python.org/pypi/python-gnutls/
+    + Python 2.6          https://www.python.org/
+    + Python-GnuTLS 1.1.5 https://pypi.python.org/pypi/python-gnutls/
     + dbus-python 0.82.4  http://dbus.freedesktop.org/doc/dbus-python/
-    + PyGObject 2.14.2    http://library.gnome.org/devel/pygobject/
-    + Urwid 0.9.8.3       http://excess.org/urwid/
+    + PyGObject 2.14.2    https://developer.gnome.org/pygobject/
+    + pkg-config  http://www.freedesktop.org/wiki/Software/pkg-config/
+    + Python-argparse     https://pypi.python.org/pypi/argparse
+    + Urwid 1.0.1         http://urwid.org/
+      (Only needed by the "mandos-monitor" tool.)
     
     Strongly recommended:
-    + fping 2.4b2-to-ipv6 http://www.fping.com/
+    + fping 2.4b2-to-ipv6      http://www.fping.org/
     + ssh-keyscan from OpenSSH http://www.openssh.com/
     
     Package names:
     python-gnutls avahi-daemon python python-avahi python-dbus
-    python-gobject python-urwid ssh-client
+    python-gobject python-urwid pkg-config fping ssh-client
     
 *** Mandos Client
     + initramfs-tools 0.85i
-                  http://packages.qa.debian.org/i/initramfs-tools.html
-    + GnuTLS 2.4          http://www.gnu.org/software/gnutls/
-    + Avahi 0.6.16        http://www.avahi.org/
-    + GnuPG 1.4.9         http://www.gnupg.org/
-    + GPGME 1.1.6         http://www.gnupg.org/related_software/gpgme/
+                        https://tracker.debian.org/pkg/initramfs-tools
+    + GnuTLS 2.4        http://www.gnutls.org/
+    + Avahi 0.6.16      http://www.avahi.org/
+    + GnuPG 1.4.9       https://www.gnupg.org/
+    + GPGME 1.1.6       https://www.gnupg.org/related_software/gpgme/
+    + pkg-config  http://www.freedesktop.org/wiki/Software/pkg-config/
     
     Strongly recommended:
-    + OpenSSH             http://www.openssh.com/
+    + OpenSSH           http://www.openssh.com/
     
     Package names:
     initramfs-tools libgnutls-dev libavahi-core-dev gnupg
-    libgpgme11-dev ssh
+    libgpgme11-dev pkg-config ssh
 
 * Installing the Mandos server
   
@@ -102,15 +108,11 @@
      and append this to the file "/etc/mandos/clients.conf" *on the
      server computer*.
   
-  4. Configure the client to use the correct network interface.  The
-     interface to use is automatically chosen at boot, and if this
-     needs to be adjusted, it will be necessary to edit
-     /etc/initramfs-tools/initramfs.conf to change the DEVICE setting
-     there.  Alternatively, the file /etc/mandos/plugin-runner.conf
-     can be edited to add a "--device" parameter for the
-     mandos-client(8) plugin.  Please note: If any of those files are
-     changed, the initrd.img file must be updated, possibly using the
-     following command:
+  4. Configure the client to use any special configuration needed for
+     your local system.  Note: This is not necessary if the server is
+     present on the same wired local network as the client.  If you do
+     make changes to /etc/mandos/plugin-runner.conf, the initrd.img
+     file must be updated, possibly using the following command:
      
 	# update-initramfs -k all -u
   
@@ -130,7 +132,7 @@
      
      After this, the client computer should be able to reboot without
      needing a password entered on the console, as long as it does not
-     take more than an hour to reboot.
+     take more than five minutes to reboot.
 
 * Further customizations
   

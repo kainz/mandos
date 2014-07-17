@@ -150,11 +150,17 @@ for hook in /etc/mandos/network-hooks.d/*; do
 done
 
 # GPGME needs GnuPG
+gpg=/usr/bin/gpg
 libgpgme11_version="`dpkg-query --showformat='${Version}' --show libgpgme11`"
-if dpkg --compare-versions "$libgpgme11_version" ge 1.4.1-0.1; then
+if dpkg --compare-versions "$libgpgme11_version" ge 1.5.0-0.1; then
+    if [ -e /usr/bin/gpgconf ]; then
+	if [ ! -e "${DESTDIR}/usr/bin/gpgconf" ]; then
+	    copy_exec /usr/bin/gpgconf
+	fi
+	gpg="`/usr/bin/gpgconf|sed --quiet --expression='s/^gpg:[^:]*://p'`"
+    fi
+elif dpkg --compare-versions "$libgpgme11_version" ge 1.4.1-0.1; then
     gpg=/usr/bin/gpg2
-else
-    gpg=/usr/bin/gpg
 fi
 if [ ! -e "${DESTDIR}$gpg" ]; then
     copy_exec "$gpg"

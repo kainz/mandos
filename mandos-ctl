@@ -26,7 +26,10 @@
 from __future__ import (division, absolute_import, print_function,
                         unicode_literals)
 
-from future_builtins import *
+try:
+    from future_builtins import *
+except ImportError:
+    pass
 
 import sys
 import argparse
@@ -38,6 +41,9 @@ import collections
 import doctest
 
 import dbus
+
+if sys.version_info[0] == 2:
+    str = unicode
 
 locale.setlocale(locale.LC_ALL, "")
 
@@ -230,7 +236,7 @@ def print_clients(clients, keywords):
         if keyword in ("Timeout", "Interval", "ApprovalDelay",
                        "ApprovalDuration", "ExtendedTimeout"):
             return milliseconds_to_string(value)
-        return unicode(value)
+        return str(value)
     
     # Create format string to print table rows
     format_string = " ".join("{{{key}:{width}}}".format(
@@ -310,7 +316,8 @@ def main():
     parser.add_argument("--approval-duration",
                         help="Set duration of one client approval")
     parser.add_argument("-H", "--host", help="Set host for client")
-    parser.add_argument("-s", "--secret", type=file,
+    parser.add_argument("-s", "--secret",
+                        type=argparse.FileType(mode="rb"),
                         help="Set password blob (file) for client")
     parser.add_argument("-A", "--approve", action="store_true",
                         help="Approve any current client request")
@@ -367,7 +374,7 @@ def main():
     if options.all or not options.client:
         clients = dict((bus.get_object(busname, path), properties)
                        for path, properties in
-                       mandos_clients.iteritems())
+                       mandos_clients.items())
     else:
         for name in options.client:
             for path, client in mandos_clients.iteritems():
