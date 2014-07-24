@@ -661,7 +661,8 @@ class UserInterface(object):
             elif key == "window resize":
                 self.size = self.screen.get_cols_rows()
                 self.refresh()
-            elif key == "\f":  # Ctrl-L
+            elif key == "ctrl l":
+                self.screen.clear()
                 self.refresh()
             elif key == "l" or key == "D":
                 self.toggle_log_display()
