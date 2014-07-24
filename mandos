@@ -2188,11 +2188,11 @@ def rfc3339_duration_to_delta(duration):
     token_duration = Token(re.compile(r"P"), None,
                            frozenset((token_year, token_month,
                                       token_day, token_time,
-                                      token_week))),
+                                      token_week)))
     # Define starting values
     value = datetime.timedelta() # Value so far
     found_token = None
-    followers = frozenset(token_duration,) # Following valid tokens
+    followers = frozenset((token_duration,)) # Following valid tokens
     s = duration                # String left to parse
     # Loop until end token is found
     while found_token is not token_end:
