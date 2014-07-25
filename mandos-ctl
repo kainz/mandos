@@ -376,7 +376,7 @@ def main():
                     for path, properties in mandos_clients.items() }
     else:
         for name in options.client:
-            for path, client in mandos_clients.iteritems():
+            for path, client in mandos_clients.items():
                 if client["Name"] == name:
                     client_objc = bus.get_object(busname, path)
                     clients[client_objc] = client

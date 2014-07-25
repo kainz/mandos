@@ -536,7 +536,7 @@ class Client(object):
             server_settings = {}
         self.server_settings = server_settings
         # adding all client settings
-        for setting, value in settings.iteritems():
+        for setting, value in settings.items():
             setattr(self, setting, value)
         
         if self.enabled:
@@ -1009,7 +1009,7 @@ class DBusObjectWithProperties(dbus.service.Object):
                                               (prop,
                                                "_dbus_annotations",
                                                {}))
-                        for name, value in annots.iteritems():
+                        for name, value in annots.items():
                             ann_tag = document.createElement(
                                 "annotation")
                             ann_tag.setAttribute("name", name)
@@ -1018,11 +1018,11 @@ class DBusObjectWithProperties(dbus.service.Object):
                 # Add interface annotation tags
                 for annotation, value in dict(
                     itertools.chain.from_iterable(
-                        annotations().iteritems()
+                        annotations().items()
                         for name, annotations in
                         self._get_all_dbus_things("interface")
                         if name == if_tag.getAttribute("name")
-                        )).iteritems():
+                        )).items():
                     ann_tag = document.createElement("annotation")
                     ann_tag.setAttribute("name", annotation)
                     ann_tag.setAttribute("value", value)
@@ -1084,7 +1084,7 @@ def alternate_dbus_interfaces(alt_interface_names, deprecate=True):
     """
     def wrapper(cls):
         for orig_interface_name, alt_interface_name in (
-            alt_interface_names.iteritems()):
+            alt_interface_names.items()):
             attr = {}
             interface_names = set()
             # Go though all attributes of the class
@@ -2594,7 +2594,7 @@ def main():
                            "EOFError:", exc_info=e)
     
     with PGPEngine() as pgp:
-        for client_name, client in clients_data.iteritems():
+        for client_name, client in clients_data.items():
             # Skip removed clients
             if client_name not in client_settings:
                 continue
@@ -2664,7 +2664,7 @@ def main():
         clients_data[client_name] = client_settings[client_name]
     
     # Create all client objects
-    for client_name, client in clients_data.iteritems():
+    for client_name, client in clients_data.items():
         tcp_server.clients[client_name] = client_class(
             name = client_name, settings = client,
             server_settings = server_settings)
