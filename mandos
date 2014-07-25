@@ -338,7 +338,7 @@ class AvahiService(object):
         elif state == avahi.ENTRY_GROUP_FAILURE:
             logger.critical("Avahi: Error in group state changed %s",
                             unicode(error))
-            raise AvahiGroupError("State changed: {0!s}"
+            raise AvahiGroupError("State changed: {!s}"
                                   .format(error))
     
     def cleanup(self):
@@ -395,7 +395,7 @@ class AvahiServiceToSyslog(AvahiService):
         """Add the new name to the syslog messages"""
         ret = AvahiService.rename(self)
         syslogger.setFormatter(logging.Formatter
-                               ('Mandos ({0}) [%(process)d]:'
+                               ('Mandos ({}) [%(process)d]:'
                                 ' %(levelname)s: %(message)s'
                                 .format(self.name)))
         return ret
@@ -513,7 +513,7 @@ class Client(object):
                           "rb") as secfile:
                     client["secret"] = secfile.read()
             else:
-                raise TypeError("No secret or secfile for section {0}"
+                raise TypeError("No secret or secfile for section {}"
                                 .format(section))
             client["timeout"] = string_to_delta(section["timeout"])
             client["extended_timeout"] = string_to_delta(
@@ -797,7 +797,7 @@ def dbus_service_property(dbus_interface, signature="v",
     # "Set" method, so we fail early here:
     if byte_arrays and signature != "ay":
         raise ValueError("Byte arrays not supported for non-'ay'"
-                         " signature {0!r}".format(signature))
+                         " signature {!r}".format(signature))
     def decorator(func):
         func._dbus_is_property = True
         func._dbus_interface = dbus_interface
@@ -882,7 +882,7 @@ class DBusObjectWithProperties(dbus.service.Object):
         If called like _is_dbus_thing("method") it returns a function
         suitable for use as predicate to inspect.getmembers().
         """
-        return lambda obj: getattr(obj, "_dbus_is_{0}".format(thing),
+        return lambda obj: getattr(obj, "_dbus_is_{}".format(thing),
                                    False)
     
     def _get_all_dbus_things(self, thing):
@@ -938,7 +938,7 @@ class DBusObjectWithProperties(dbus.service.Object):
             # signatures other than "ay".
             if prop._dbus_signature != "ay":
                 raise ValueError("Byte arrays not supported for non-"
-                                 "'ay' signature {0!r}"
+                                 "'ay' signature {!r}"
                                  .format(prop._dbus_signature))
             value = dbus.ByteArray(b''.join(chr(byte)
                                             for byte in value))
@@ -1207,7 +1207,7 @@ def alternate_dbus_interfaces(alt_interface_names, deprecate=True):
                                         attribute.func_closure)))
             if deprecate:
                 # Deprecate all alternate interfaces
-                iname="_AlternateDBusNames_interface_annotation{0}"
+                iname="_AlternateDBusNames_interface_annotation{}"
                 for interface_name in interface_names:
                     @dbus_interface_annotations(interface_name)
                     def func(self):
@@ -1222,7 +1222,7 @@ def alternate_dbus_interfaces(alt_interface_names, deprecate=True):
             if interface_names:
                 # Replace the class with a new subclass of it with
                 # methods, signals, etc. as created above.
-                cls = type(b"{0}Alternate".format(cls.__name__),
+                cls = type(b"{}Alternate".format(cls.__name__),
                            (cls,), attr)
         return cls
     return wrapper
@@ -1269,7 +1269,7 @@ class ClientDBus(Client, DBusObjectWithProperties):
                    to the D-Bus.  Default: no transform
         variant_level: D-Bus variant level.  Default: 1
         """
-        attrname = "_{0}".format(dbus_name)
+        attrname = "_{}".format(dbus_name)
         def setter(self, value):
             if hasattr(self, "dbus_object_path"):
                 if (not hasattr(self, attrname) or
@@ -2258,7 +2258,7 @@ def string_to_delta(interval):
             elif suffix == "w":
                 delta = datetime.timedelta(0, 0, 0, 0, 0, 0, value)
             else:
-                raise ValueError("Unknown suffix {0!r}"
+                raise ValueError("Unknown suffix {!r}"
                                  .format(suffix))
         except IndexError as e:
             raise ValueError(*(e.args))
@@ -2281,8 +2281,7 @@ def daemon(nochdir = False, noclose = False):
         # Close all standard open file descriptors
         null = os.open(os.devnull, os.O_NOCTTY | os.O_RDWR)
         if not stat.S_ISCHR(os.fstat(null).st_mode):
-            raise OSError(errno.ENODEV,
-                          "{0} not a character device"
+            raise OSError(errno.ENODEV, "{} not a character device"
                           .format(os.devnull))
         os.dup2(null, sys.stdin.fileno())
         os.dup2(null, sys.stdout.fileno())
@@ -2298,7 +2297,7 @@ def main():
     
     parser = argparse.ArgumentParser()
     parser.add_argument("-v", "--version", action="version",
-                        version = "%(prog)s {0}".format(version),
+                        version = "%(prog)s {}".format(version),
                         help="show version number and exit")
     parser.add_argument("-i", "--interface", metavar="IF",
                         help="Bind to interface IF")
@@ -2443,7 +2442,7 @@ def main():
     
     if server_settings["servicename"] != "Mandos":
         syslogger.setFormatter(logging.Formatter
-                               ('Mandos ({0}) [%(process)d]:'
+                               ('Mandos ({}) [%(process)d]:'
                                 ' %(levelname)s: %(message)s'
                                 .format(server_settings
                                         ["servicename"])))
@@ -2583,7 +2582,7 @@ def main():
             os.remove(stored_state_path)
         except IOError as e:
             if e.errno == errno.ENOENT:
-                logger.warning("Could not load persistent state: {0}"
+                logger.warning("Could not load persistent state: {}"
                                 .format(os.strerror(e.errno)))
             else:
                 logger.critical("Could not load persistent state:",
@@ -2625,14 +2624,14 @@ def main():
                 if datetime.datetime.utcnow() >= client["expires"]:
                     if not client["last_checked_ok"]:
                         logger.warning(
-                            "disabling client {0} - Client never "
+                            "disabling client {} - Client never "
                             "performed a successful checker"
                             .format(client_name))
                         client["enabled"] = False
                     elif client["last_checker_status"] != 0:
                         logger.warning(
-                            "disabling client {0} - Client "
-                            "last checker failed with error code {1}"
+                            "disabling client {} - Client last"
+                            " checker failed with error code {}"
                             .format(client_name,
                                     client["last_checker_status"]))
                         client["enabled"] = False
@@ -2641,7 +2640,7 @@ def main():
                                              .utcnow()
                                              + client["timeout"])
                         logger.debug("Last checker succeeded,"
-                                     " keeping {0} enabled"
+                                     " keeping {} enabled"
                                      .format(client_name))
             try:
                 client["secret"] = (
@@ -2650,7 +2649,7 @@ def main():
                                 ["secret"]))
             except PGPError:
                 # If decryption fails, we use secret from new settings
-                logger.debug("Failed to decrypt {0} old secret"
+                logger.debug("Failed to decrypt {} old secret"
                              .format(client_name))
                 client["secret"] = (
                     client_settings[client_name]["secret"])
@@ -2804,7 +2803,7 @@ def main():
                 except NameError:
                     pass
             if e.errno in (errno.ENOENT, errno.EACCES, errno.EEXIST):
-                logger.warning("Could not save persistent state: {0}"
+                logger.warning("Could not save persistent state: {}"
                                .format(os.strerror(e.errno)))
             else:
                 logger.warning("Could not save persistent state:",

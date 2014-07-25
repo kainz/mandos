@@ -161,7 +161,7 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
                                          self.rejected,
                                          client_interface,
                                          byte_arrays=True))
-        self.logger('Created client {0}'
+        self.logger('Created client {}'
                     .format(self.properties["Name"]), level=0)
     
     def using_timer(self, flag):
@@ -179,52 +179,52 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
     
     def checker_completed(self, exitstatus, condition, command):
         if exitstatus == 0:
-            self.logger('Checker for client {0} (command "{1}")'
+            self.logger('Checker for client {} (command "{}")'
                         ' succeeded'.format(self.properties["Name"],
                                             command), level=0)
             self.update()
             return
         # Checker failed
         if os.WIFEXITED(condition):
-            self.logger('Checker for client {0} (command "{1}")'
-                        ' failed with exit code {2}'
+            self.logger('Checker for client {} (command "{}") failed'
+                        ' with exit code {}'
                         .format(self.properties["Name"], command,
                                 os.WEXITSTATUS(condition)))
         elif os.WIFSIGNALED(condition):
-            self.logger('Checker for client {0} (command "{1}") was'
-                        ' killed by signal {2}'
+            self.logger('Checker for client {} (command "{}") was'
+                        ' killed by signal {}'
                         .format(self.properties["Name"], command,
                                 os.WTERMSIG(condition)))
         elif os.WCOREDUMP(condition):
-            self.logger('Checker for client {0} (command "{1}")'
-                        ' dumped core'
-                        .format(self.properties["Name"], command))
+            self.logger('Checker for client {} (command "{}") dumped'
+                        ' core'.format(self.properties["Name"],
+                                       command))
         else:
-            self.logger('Checker for client {0} completed'
+            self.logger('Checker for client {} completed'
                         ' mysteriously'
                         .format(self.properties["Name"]))
         self.update()
     
     def checker_started(self, command):
         """Server signals that a checker started."""
-        self.logger('Client {0} started checker "{1}"'
+        self.logger('Client {} started checker "{}"'
                     .format(self.properties["Name"],
                             command), level=0)
     
     def got_secret(self):
-        self.logger('Client {0} received its secret'
+        self.logger('Client {} received its secret'
                     .format(self.properties["Name"]))
     
     def need_approval(self, timeout, default):
         if not default:
-            message = 'Client {0} needs approval within {1} seconds'
+            message = 'Client {} needs approval within {} seconds'
         else:
-            message = 'Client {0} will get its secret in {1} seconds'
+            message = 'Client {} will get its secret in {} seconds'
         self.logger(message.format(self.properties["Name"],
                                    timeout/1000))
     
     def rejected(self, reason):
-        self.logger('Client {0} was rejected; reason: {1}'
+        self.logger('Client {} was rejected; reason: {}'
                     .format(self.properties["Name"], reason))
     
     def selectable(self):
@@ -274,9 +274,9 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
             else:
                 timer = datetime.timedelta()
             if self.properties["ApprovedByDefault"]:
-                message = "Approval in {0}. (d)eny?"
+                message = "Approval in {}. (d)eny?"
             else:
-                message = "Denial in {0}. (a)pprove?"
+                message = "Denial in {}. (a)pprove?"
             message = message.format(str(timer).rsplit(".", 1)[0])
             self.using_timer(True)
         elif self.properties["LastCheckerStatus"] != 0:
@@ -290,13 +290,13 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
                 timer = max(expires - datetime.datetime.utcnow(),
                             datetime.timedelta())
             message = ('A checker has failed! Time until client'
-                       ' gets disabled: {0}'
+                       ' gets disabled: {}'
                        .format(str(timer).rsplit(".", 1)[0]))
             self.using_timer(True)
         else:
             message = "enabled"
             self.using_timer(False)
-        self._text = "{0}{1}".format(base, message)
+        self._text = "{}{}".format(base, message)
         
         if not urwid.supports_unicode():
             self._text = self._text.encode("ascii", "replace")
@@ -469,8 +469,8 @@ class UserInterface(object):
         self.main_loop = gobject.MainLoop()
     
     def client_not_found(self, fingerprint, address):
-        self.log_message("Client with address {0} and fingerprint"
-                         " {1} could not be found"
+        self.log_message("Client with address {} and fingerprint {}"
+                         " could not be found"
                          .format(address, fingerprint))
     
     def rebuild(self):
@@ -494,7 +494,7 @@ class UserInterface(object):
         if level < self.log_level:
             return
         timestamp = datetime.datetime.now().isoformat()
-        self.log_message_raw("{0}: {1}".format(timestamp, message),
+        self.log_message_raw("{}: {}".format(timestamp, message),
                              level=level)
     
     def log_message_raw(self, markup, level=1):
@@ -513,7 +513,7 @@ class UserInterface(object):
         """Toggle visibility of the log buffer."""
         self.log_visible = not self.log_visible
         self.rebuild()
-        self.log_message("Log visibility changed to: {0}"
+        self.log_message("Log visibility changed to: {}"
                          .format(self.log_visible), level=0)
     
     def change_log_display(self):
@@ -525,7 +525,7 @@ class UserInterface(object):
             self.log_wrap = "clip"
         for textwidget in self.log:
             textwidget.set_wrap_mode(self.log_wrap)
-        self.log_message("Wrap mode: {0}".format(self.log_wrap),
+        self.log_message("Wrap mode: {}".format(self.log_wrap),
                          level=0)
     
     def find_and_remove_client(self, path, name):
@@ -537,7 +537,7 @@ class UserInterface(object):
             client = self.clients_dict[path]
         except KeyError:
             # not found?
-            self.log_message("Unknown client {0!r} ({1!r}) removed"
+            self.log_message("Unknown client {!r} ({!r}) removed"
                              .format(name, path))
             return
         client.delete()
