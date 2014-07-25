@@ -2774,8 +2774,8 @@ def main():
                 
                 # A list of attributes that can not be pickled
                 # + secret.
-                exclude = set(("bus", "changedstate", "secret",
-                               "checker", "server_settings"))
+                exclude = { "bus", "changedstate", "secret",
+                            "checker", "server_settings" }
                 for name, typ in (inspect.getmembers
                                   (dbus.service.Object)):
                     exclude.add(name)
