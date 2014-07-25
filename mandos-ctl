@@ -74,12 +74,6 @@ server_interface = domain + ".Mandos"
 client_interface = domain + ".Mandos.Client"
 version = "1.6.7"
 
-def timedelta_to_milliseconds(td):
-    """Convert a datetime.timedelta object to milliseconds"""
-    return ((td.days * 24 * 60 * 60 * 1000)
-            + (td.seconds * 1000)
-            + (td.microseconds // 1000))
-
 def milliseconds_to_string(ms):
     td = datetime.timedelta(0, 0, 0, ms)
     return ("{days}{hours:02}:{minutes:02}:{seconds:02}"
@@ -411,8 +405,8 @@ def main():
                 """Set a Client D-Bus property, converted
                 from a string to milliseconds."""
                 set_client_prop(prop,
-                                timedelta_to_milliseconds
-                                (string_to_delta(value)))
+                                string_to_delta(value).total_seconds()
+                                * 1000)
             if options.remove:
                 mandos_serv.RemoveClient(client.__dbus_object_path__)
             if options.enable:
