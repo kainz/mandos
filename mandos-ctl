@@ -249,10 +249,10 @@ def print_clients(clients, keywords):
     # Print header line
     print(format_string.format(**tablewords))
     for client in clients:
-        print(format_string.format(**dict((key,
+        print(format_string.format(**{ key:
                                            valuetostring(client[key],
-                                                         key))
-                                          for key in keywords)))
+                                                         key)
+                                       for key in keywords }))
 
 def has_actions(options):
     return any((options.enable,
@@ -372,9 +372,8 @@ def main():
     clients={}
     
     if options.all or not options.client:
-        clients = dict((bus.get_object(busname, path), properties)
-                       for path, properties in
-                       mandos_clients.items())
+        clients = { bus.get_object(busname, path): properties
+                    for path, properties in mandos_clients.items() }
     else:
         for name in options.client:
             for path, client in mandos_clients.iteritems():
