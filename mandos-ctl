@@ -42,7 +42,7 @@ import doctest
 
 import dbus
 
-if sys.version_info[0] == 2:
+if sys.version_info.major == 2:
     str = unicode
 
 locale.setlocale(locale.LC_ALL, "")
@@ -74,16 +74,10 @@ server_interface = domain + ".Mandos"
 client_interface = domain + ".Mandos.Client"
 version = "1.6.7"
 
-def timedelta_to_milliseconds(td):
-    """Convert a datetime.timedelta object to milliseconds"""
-    return ((td.days * 24 * 60 * 60 * 1000)
-            + (td.seconds * 1000)
-            + (td.microseconds // 1000))
-
 def milliseconds_to_string(ms):
     td = datetime.timedelta(0, 0, 0, ms)
     return ("{days}{hours:02}:{minutes:02}:{seconds:02}"
-            .format(days = "{0}T".format(td.days) if td.days else "",
+            .format(days = "{}T".format(td.days) if td.days else "",
                     hours = td.seconds // 3600,
                     minutes = (td.seconds % 3600) // 60,
                     seconds = td.seconds % 60,
@@ -249,10 +243,10 @@ def print_clients(clients, keywords):
     # Print header line
     print(format_string.format(**tablewords))
     for client in clients:
-        print(format_string.format(**dict((key,
+        print(format_string.format(**{ key:
                                            valuetostring(client[key],
-                                                         key))
-                                          for key in keywords)))
+                                                         key)
+                                       for key in keywords }))
 
 def has_actions(options):
     return any((options.enable,
@@ -277,7 +271,7 @@ def has_actions(options):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--version", action="version",
-                        version = "%(prog)s {0}".format(version),
+                        version = "%(prog)s {}".format(version),
                         help="show version number and exit")
     parser.add_argument("-a", "--all", action="store_true",
                         help="Select all clients")
@@ -372,18 +366,17 @@ def main():
     clients={}
     
     if options.all or not options.client:
-        clients = dict((bus.get_object(busname, path), properties)
-                       for path, properties in
-                       mandos_clients.items())
+        clients = { bus.get_object(busname, path): properties
+                    for path, properties in mandos_clients.items() }
     else:
         for name in options.client:
-            for path, client in mandos_clients.iteritems():
+            for path, client in mandos_clients.items():
                 if client["Name"] == name:
                     client_objc = bus.get_object(busname, path)
                     clients[client_objc] = client
                     break
             else:
-                print("Client not found on server: {0!r}"
+                print("Client not found on server: {!r}"
                       .format(name), file=sys.stderr)
                 sys.exit(1)
     
@@ -412,8 +405,8 @@ def main():
                 """Set a Client D-Bus property, converted
                 from a string to milliseconds."""
                 set_client_prop(prop,
-                                timedelta_to_milliseconds
-                                (string_to_delta(value)))
+                                string_to_delta(value).total_seconds()
+                                * 1000)
             if options.remove:
                 mandos_serv.RemoveClient(client.__dbus_object_path__)
             if options.enable:
