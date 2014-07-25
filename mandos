@@ -707,10 +707,10 @@ class Client(object):
         # Start a new checker if needed
         if self.checker is None:
             # Escape attributes for the shell
-            escaped_attrs = dict(
-                (attr, re.escape(unicode(getattr(self, attr))))
-                for attr in
-                self.runtime_expansions)
+            escaped_attrs = { attr:
+                                  re.escape(unicode(getattr(self,
+                                                            attr)))
+                              for attr in self.runtime_expansions }
             try:
                 command = self.checker_command % escaped_attrs
             except TypeError as error:
