@@ -141,3 +141,5 @@
   If IPsec is not used and SSH is not installed, it is suggested that
   a more cryptographically secure checker program is used and
   configured, since, without IPsec, ping packets can be faked.
+
+#+STARTUP: showall
