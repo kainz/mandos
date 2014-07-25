@@ -401,13 +401,6 @@ class AvahiServiceToSyslog(AvahiService):
         return ret
 
 
-def timedelta_to_milliseconds(td):
-    "Convert a datetime.timedelta() to milliseconds"
-    return ((td.days * 24 * 60 * 60 * 1000)
-            + (td.seconds * 1000)
-            + (td.microseconds // 1000))
-
-
 class Client(object):
     """A representation of a client host served by this server.
     
@@ -467,21 +460,6 @@ class Client(object):
                         "approved_by_default": "True",
                         "enabled": "True",
                         }
-    
-    def timeout_milliseconds(self):
-        "Return the 'timeout' attribute in milliseconds"
-        return timedelta_to_milliseconds(self.timeout)
-    
-    def extended_timeout_milliseconds(self):
-        "Return the 'extended_timeout' attribute in milliseconds"
-        return timedelta_to_milliseconds(self.extended_timeout)
-    
-    def interval_milliseconds(self):
-        "Return the 'interval' attribute in milliseconds"
-        return timedelta_to_milliseconds(self.interval)
-    
-    def approval_delay_milliseconds(self):
-        return timedelta_to_milliseconds(self.approval_delay)
     
     @staticmethod
     def config_parser(config):
@@ -625,14 +603,16 @@ class Client(object):
         if self.checker_initiator_tag is not None:
             gobject.source_remove(self.checker_initiator_tag)
         self.checker_initiator_tag = (gobject.timeout_add
-                                      (self.interval_milliseconds(),
+                                      (int(self.interval
+                                           .total_seconds() * 1000),
                                        self.start_checker))
         # Schedule a disable() when 'timeout' has passed
         if self.disable_initiator_tag is not None:
             gobject.source_remove(self.disable_initiator_tag)
         self.disable_initiator_tag = (gobject.timeout_add
-                                   (self.timeout_milliseconds(),
-                                    self.disable))
+                                      (int(self.timeout
+                                           .total_seconds() * 1000),
+                                       self.disable))
         # Also start a new checker *right now*.
         self.start_checker()
     
@@ -669,8 +649,8 @@ class Client(object):
             self.disable_initiator_tag = None
         if getattr(self, "enabled", False):
             self.disable_initiator_tag = (gobject.timeout_add
-                                          (timedelta_to_milliseconds
-                                           (timeout), self.disable))
+                                          (int(timeout.total_seconds()
+                                               * 1000), self.disable))
             self.expires = datetime.datetime.utcnow() + timeout
     
     def need_approval(self):
@@ -1305,21 +1285,23 @@ class ClientDBus(Client, DBusObjectWithProperties):
     approval_delay = notifychangeproperty(dbus.UInt64,
                                           "ApprovalDelay",
                                           type_func =
-                                          timedelta_to_milliseconds)
+                                          lambda td: td.total_seconds()
+                                          * 1000)
     approval_duration = notifychangeproperty(
         dbus.UInt64, "ApprovalDuration",
-        type_func = timedelta_to_milliseconds)
+        type_func = lambda td: td.total_seconds() * 1000)
     host = notifychangeproperty(dbus.String, "Host")
     timeout = notifychangeproperty(dbus.UInt64, "Timeout",
-                                   type_func =
-                                   timedelta_to_milliseconds)
+                                   type_func = lambda td:
+                                       td.total_seconds() * 1000)
     extended_timeout = notifychangeproperty(
         dbus.UInt64, "ExtendedTimeout",
-        type_func = timedelta_to_milliseconds)
+        type_func = lambda td: td.total_seconds() * 1000)
     interval = notifychangeproperty(dbus.UInt64,
                                     "Interval",
                                     type_func =
-                                    timedelta_to_milliseconds)
+                                    lambda td: td.total_seconds()
+                                    * 1000)
     checker_command = notifychangeproperty(dbus.String, "Checker")
     
     del notifychangeproperty
@@ -1368,9 +1350,8 @@ class ClientDBus(Client, DBusObjectWithProperties):
     
     def approve(self, value=True):
         self.approved = value
-        gobject.timeout_add(timedelta_to_milliseconds
-                            (self.approval_duration),
-                            self._reset_approved)
+        gobject.timeout_add(int(self.approval_duration.total_seconds()
+                                * 1000), self._reset_approved)
         self.send_changedstate()
     
     ## D-Bus methods, signals & properties
@@ -1479,7 +1460,8 @@ class ClientDBus(Client, DBusObjectWithProperties):
                            access="readwrite")
     def ApprovalDelay_dbus_property(self, value=None):
         if value is None:       # get
-            return dbus.UInt64(self.approval_delay_milliseconds())
+            return dbus.UInt64(self.approval_delay.total_seconds()
+                               * 1000)
         self.approval_delay = datetime.timedelta(0, 0, 0, value)
     
     # ApprovalDuration - property
@@ -1487,8 +1469,8 @@ class ClientDBus(Client, DBusObjectWithProperties):
                            access="readwrite")
     def ApprovalDuration_dbus_property(self, value=None):
         if value is None:       # get
-            return dbus.UInt64(timedelta_to_milliseconds(
-                    self.approval_duration))
+            return dbus.UInt64(self.approval_duration.total_seconds()
+                               * 1000)
         self.approval_duration = datetime.timedelta(0, 0, 0, value)
     
     # Name - property
@@ -1560,7 +1542,7 @@ class ClientDBus(Client, DBusObjectWithProperties):
                            access="readwrite")
     def Timeout_dbus_property(self, value=None):
         if value is None:       # get
-            return dbus.UInt64(self.timeout_milliseconds())
+            return dbus.UInt64(self.timeout.total_seconds() * 1000)
         old_timeout = self.timeout
         self.timeout = datetime.timedelta(0, 0, 0, value)
         # Reschedule disabling
@@ -1577,15 +1559,16 @@ class ClientDBus(Client, DBusObjectWithProperties):
                 gobject.source_remove(self.disable_initiator_tag)
                 self.disable_initiator_tag = (
                     gobject.timeout_add(
-                        timedelta_to_milliseconds(self.expires - now),
-                        self.disable))
+                        int((self.expires - now).total_seconds()
+                            * 1000), self.disable))
     
     # ExtendedTimeout - property
     @dbus_service_property(_interface, signature="t",
                            access="readwrite")
     def ExtendedTimeout_dbus_property(self, value=None):
         if value is None:       # get
-            return dbus.UInt64(self.extended_timeout_milliseconds())
+            return dbus.UInt64(self.extended_timeout.total_seconds()
+                               * 1000)
         self.extended_timeout = datetime.timedelta(0, 0, 0, value)
     
     # Interval - property
@@ -1593,7 +1576,7 @@ class ClientDBus(Client, DBusObjectWithProperties):
                            access="readwrite")
     def Interval_dbus_property(self, value=None):
         if value is None:       # get
-            return dbus.UInt64(self.interval_milliseconds())
+            return dbus.UInt64(self.interval.total_seconds() * 1000)
         self.interval = datetime.timedelta(0, 0, 0, value)
         if getattr(self, "checker_initiator_tag", None) is None:
             return
@@ -1759,8 +1742,8 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
                         if self.server.use_dbus:
                             # Emit D-Bus signal
                             client.NeedApproval(
-                                client.approval_delay_milliseconds(),
-                                client.approved_by_default)
+                                client.approval_delay.total_seconds()
+                                * 1000, client.approved_by_default)
                     else:
                         logger.warning("Client %s was not approved",
                                        client.name)
@@ -1772,9 +1755,7 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
                     #wait until timeout or approved
                     time = datetime.datetime.now()
                     client.changedstate.acquire()
-                    client.changedstate.wait(
-                        float(timedelta_to_milliseconds(delay)
-                              / 1000))
+                    client.changedstate.wait(delay.total_seconds())
                     client.changedstate.release()
                     time2 = datetime.datetime.now()
                     if (time2 - time) >= delay:
