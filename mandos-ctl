@@ -83,7 +83,7 @@ def timedelta_to_milliseconds(td):
 def milliseconds_to_string(ms):
     td = datetime.timedelta(0, 0, 0, ms)
     return ("{days}{hours:02}:{minutes:02}:{seconds:02}"
-            .format(days = "{0}T".format(td.days) if td.days else "",
+            .format(days = "{}T".format(td.days) if td.days else "",
                     hours = td.seconds // 3600,
                     minutes = (td.seconds % 3600) // 60,
                     seconds = td.seconds % 60,
@@ -277,7 +277,7 @@ def has_actions(options):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--version", action="version",
-                        version = "%(prog)s {0}".format(version),
+                        version = "%(prog)s {}".format(version),
                         help="show version number and exit")
     parser.add_argument("-a", "--all", action="store_true",
                         help="Select all clients")
@@ -382,7 +382,7 @@ def main():
                     clients[client_objc] = client
                     break
             else:
-                print("Client not found on server: {0!r}"
+                print("Client not found on server: {!r}"
                       .format(name), file=sys.stderr)
                 sys.exit(1)
     
