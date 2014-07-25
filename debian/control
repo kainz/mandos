@@ -16,7 +16,7 @@ Homepage: http://www.recompile.se/mandos
 
 Package: mandos
 Architecture: all
-Depends: ${misc:Depends}, python (<= 2.7), python2.7, python-gnutls,
+Depends: ${misc:Depends}, python (>= 2.7), python2.7, python-gnutls,
 	python2.7-gnutls, python-dbus, python2.7-dbus, python-avahi,
 	python2.7-avahi, python-gobject, python2.7-gobject,
 	avahi-daemon, adduser, python-urwid, python2.7-urwid,
