@@ -1,6 +1,13 @@
 This NEWS file records noteworthy changes, very tersely.
 See the manual for detailed information.
 
+Version 1.6.8 (2014-08-06)
+* Client
+** Bug fix: mandos-keygen now generates working SSH checker commands.
+* Server
+** Bug fix: "mandos-monitor" now really redraws screen on Ctrl-L.
+** Now requires Python 2.7.
+
 Version 1.6.7 (2014-07-17)
 * Client
 ** Bug fix: Now compatible with GPGME 1.5.0.

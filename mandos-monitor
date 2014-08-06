@@ -60,7 +60,7 @@ logging.getLogger('dbus.proxies').setLevel(logging.CRITICAL)
 domain = 'se.recompile'
 server_interface = domain + '.Mandos'
 client_interface = domain + '.Mandos.Client'
-version = "1.6.7"
+version = "1.6.8"
 
 def isoformat_to_datetime(iso):
     "Parse an ISO 8601 date string to a datetime.datetime()"
