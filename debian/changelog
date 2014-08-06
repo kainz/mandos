@@ -1,3 +1,16 @@
+mandos (1.6.8-1) unstable; urgency=medium
+
+  * New upstream release.
+  * debian/control (Source: mandos/Build-Depends-Indep): Since upstream
+    now requires Python 2.7, depend on exactly the python2.7 package and
+    all the Python 2.7 versions of the python modules.
+    (Package: mandos/Depends): - '' - but still depend on python (>=2.7)
+    and the generic versions of the Python modules; this is for mandos-ctl
+    and mandos-monitor, both of which are compatible with Python 3, and
+    use #!/usr/bin/python.
+
+ -- Teddy Hogeborn <teddy@recompile.se>  Wed, 06 Aug 2014 22:55:24 +0200
+
 mandos (1.6.7-1) unstable; urgency=medium
 
   * New upstream release.
