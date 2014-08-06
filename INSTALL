@@ -41,12 +41,11 @@
     + GnuTLS 2.4          http://www.gnutls.org/
       Note: GnuTLS 3 will only work with Python-GnuTLS 2
     + Avahi 0.6.16        http://www.avahi.org/
-    + Python 2.6          https://www.python.org/
+    + Python 2.7          https://www.python.org/
     + Python-GnuTLS 1.1.5 https://pypi.python.org/pypi/python-gnutls/
     + dbus-python 0.82.4  http://dbus.freedesktop.org/doc/dbus-python/
     + PyGObject 2.14.2    https://developer.gnome.org/pygobject/
     + pkg-config  http://www.freedesktop.org/wiki/Software/pkg-config/
-    + Python-argparse     https://pypi.python.org/pypi/argparse
     + Urwid 1.0.1         http://urwid.org/
       (Only needed by the "mandos-monitor" tool.)
     
@@ -141,3 +140,5 @@
   If IPsec is not used and SSH is not installed, it is suggested that
   a more cryptographically secure checker program is used and
   configured, since, without IPsec, ping packets can be faked.
+
+#+STARTUP: showall
