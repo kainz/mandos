@@ -363,7 +363,7 @@ if [ "$mode" = password ]; then
 	    }
 	}' < "$SECFILE"
     if [ -n "$ssh_fingerprint" ]; then
-	echo 'checker = ssh-keyscan %%(host)s 2>/dev/null | grep --fixed-strings --line-regexp --quiet --regexp="%%(host)s %(ssh_fingerprint)s"'
+	echo 'checker = ssh-keyscan %%(host)s 2>/dev/null | grep --fixed-strings --line-regexp --quiet --regexp=%%(host)s" %(ssh_fingerprint)s"'
 	echo "ssh_fingerprint = ${ssh_fingerprint}"
     fi
 fi
