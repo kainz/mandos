@@ -32,7 +32,6 @@
 ** TODO [#B] use scandir(3) instead of readdir(3)
 
 * askpass-fifo
-** TODO [#B] Drop privileges after opening FIFO.
 
 * password-prompt
 ** TODO [#B] lock stdin (with flock()?)
