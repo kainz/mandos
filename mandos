@@ -104,10 +104,8 @@ except (OSError, AttributeError):
         SIOCGIFINDEX = 0x8933  # From /usr/include/linux/sockios.h
         with contextlib.closing(socket.socket()) as s:
             ifreq = fcntl.ioctl(s, SIOCGIFINDEX,
-                                struct.pack(str("16s16x"),
-                                            interface))
-        interface_index = struct.unpack(str("I"),
-                                        ifreq[16:20])[0]
+                                struct.pack(b"16s16x", interface))
+        interface_index = struct.unpack("I", ifreq[16:20])[0]
         return interface_index
 
 
@@ -118,7 +116,7 @@ def initlogger(debug, level=logging.WARNING):
     syslogger = (logging.handlers.SysLogHandler
                  (facility =
                   logging.handlers.SysLogHandler.LOG_DAEMON,
-                  address = str("/dev/log")))
+                  address = "/dev/log"))
     syslogger.setFormatter(logging.Formatter
                            ('Mandos [%(process)d]: %(levelname)s:'
                             ' %(message)s'))
@@ -224,9 +222,8 @@ class PGPEngine(object):
 class AvahiError(Exception):
     def __init__(self, value, *args, **kwargs):
         self.value = value
-        super(AvahiError, self).__init__(value, *args, **kwargs)
-    def __unicode__(self):
-        return unicode(repr(self.value))
+        return super(AvahiError, self).__init__(value, *args,
+                                                **kwargs)
 
 class AvahiServiceError(AvahiError):
     pass
@@ -831,9 +828,7 @@ def dbus_annotations(annotations):
 class DBusPropertyException(dbus.exceptions.DBusException):
     """A base class for D-Bus property-related exceptions
     """
-    def __unicode__(self):
-        return unicode(str(self))
-
+    pass
 
 class DBusPropertyAccessException(DBusPropertyException):
     """A property's access permissions disallows an operation.
@@ -1615,7 +1610,7 @@ class ClientDBus(Client, DBusObjectWithProperties):
     @dbus_service_property(_interface, signature="ay",
                            access="write", byte_arrays=True)
     def Secret_dbus_property(self, value):
-        self.secret = str(value)
+        self.secret = bytes(value)
     
     del _interface
 
@@ -1960,7 +1955,8 @@ class IPv6_TCPServer(MultiprocessingMixInWithPipe,
                 try:
                     self.socket.setsockopt(socket.SOL_SOCKET,
                                            SO_BINDTODEVICE,
-                                           str(self.interface + '\0'))
+                                           (self.interface + "\0")
+                                           .encode("utf-8"))
                 except socket.error as error:
                     if error.errno == errno.EPERM:
                         logger.error("No permission to bind to"
@@ -2226,7 +2222,7 @@ def string_to_delta(interval):
     timevalue = datetime.timedelta(0)
     for s in interval.split():
         try:
-            suffix = unicode(s[-1])
+            suffix = s[-1]
             value = int(s[:-1])
             if suffix == "d":
                 delta = datetime.timedelta(value)
@@ -2383,8 +2379,9 @@ def main():
     del options
     # Force all strings to be unicode
     for option in server_settings.keys():
-        if type(server_settings[option]) is str:
-            server_settings[option] = unicode(server_settings[option])
+        if isinstance(server_settings[option], bytes):
+            server_settings[option] = (server_settings[option]
+                                       .decode("utf-8"))
     # Force all boolean options to be boolean
     for option in ("debug", "use_dbus", "use_ipv6", "restore",
                    "foreground", "zeroconf"):
@@ -2533,7 +2530,8 @@ def main():
                                        protocol = protocol, bus = bus)
         if server_settings["interface"]:
             service.interface = (if_nametoindex
-                                 (str(server_settings["interface"])))
+                                 (server_settings["interface"]
+                                  .encode("utf-8")))
     
     global multiprocessing_manager
     multiprocessing_manager = multiprocessing.Manager()
@@ -2657,7 +2655,7 @@ def main():
             try:
                 with pidfile:
                     pid = os.getpid()
-                    pidfile.write(str(pid) + "\n".encode("utf-8"))
+                    pidfile.write("{}\n".format(pid).encode("utf-8"))
             except IOError:
                 logger.error("Could not write to file %r with PID %d",
                              pidfilename, pid)

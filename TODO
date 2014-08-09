@@ -69,7 +69,7 @@
 ** TODO Use python-tlslite?
 ** TODO D-Bus AddClient() method on server object
 ** TODO Use org.freedesktop.DBus.Method.NoReply annotation on async methods. :2:
-** TODO Emit [[http://dbus.freedesktop.org/doc/dbus-specification.html#standard-interfaces-properties][org.freedesktop.DBus.Properties.PropertiesChanged]] signal	  :2:
+** TODO Emit [[http://dbus.freedesktop.org/doc/dbus-specification.html#standard-interfaces-properties][org.freedesktop.DBus.Properties.PropertiesChanged]] signal	     :2:
    TODO Deprecate se.recompile.Mandos.Client.PropertyChanged - annotate!
    TODO Can use "invalidates" annotation to also emit on changed secret.
 ** TODO Support [[http://dbus.freedesktop.org/doc/dbus-specification.html#standard-interfaces-objectmanager][org.freedesktop.DBus.ObjectManager]] interface on server object :2:
@@ -79,13 +79,14 @@
 ** TODO CheckerCompleted method, deprecate CheckedOK
 ** TODO Secret Service API?
    http://standards.freedesktop.org/secret-service/
-** TODO Remove D-Bus interfaces with old domain name			  :2:
-** TODO Remove old string_to_delta format				  :2:
+** TODO Remove D-Bus interfaces with old domain name			     :2:
+** TODO Remove old string_to_delta format				     :2:
 ** TODO http://0pointer.de/blog/projects/stateless.html
 *** tmpfiles snippet to create /var/lib/mandos with right user+perms
 *** File in /usr/lib/sysusers.d to create user+group "_mandos"
 ** TODO Error handling on error parsing config files
 ** TODO init.d script error handling
+** TODO D-Bus server properties; address, port, interface, etc.		     :2:
 
 * mandos.xml
 ** Add mandos contact info in manual pages
@@ -93,7 +94,7 @@
 * mandos-ctl
 *** Handle "no D-Bus server" and/or "no Mandos server found" better
 *** [#B] --dump option
-** TODO Remove old string_to_delta format				  :2:
+** TODO Remove old string_to_delta format				     :2:
 
 * TODO mandos-dispatch
   Listens for specified D-Bus signals and spawns shell commands with
