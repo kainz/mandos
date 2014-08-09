@@ -88,6 +88,9 @@ except AttributeError:
     except ImportError:
         SO_BINDTODEVICE = None
 
+if sys.version_info.major == 2:
+    str = unicode
+
 version = "1.6.8"
 stored_state_file = "clients.pickle"
 
@@ -279,8 +282,8 @@ class AvahiService(object):
                             " after %i retries, exiting.",
                             self.rename_count)
             raise AvahiServiceError("Too many renames")
-        self.name = unicode(self.server
-                            .GetAlternativeServiceName(self.name))
+        self.name = str(self.server
+                        .GetAlternativeServiceName(self.name))
         logger.info("Changing Zeroconf service name to %r ...",
                     self.name)
         self.remove()
@@ -334,7 +337,7 @@ class AvahiService(object):
             self.rename()
         elif state == avahi.ENTRY_GROUP_FAILURE:
             logger.critical("Avahi: Error in group state changed %s",
-                            unicode(error))
+                            str(error))
             raise AvahiGroupError("State changed: {!s}"
                                   .format(error))
     
@@ -685,8 +688,7 @@ class Client(object):
         if self.checker is None:
             # Escape attributes for the shell
             escaped_attrs = { attr:
-                                  re.escape(unicode(getattr(self,
-                                                            attr)))
+                                  re.escape(str(getattr(self, attr)))
                               for attr in self.runtime_expansions }
             try:
                 command = self.checker_command % escaped_attrs
@@ -1223,7 +1225,7 @@ class ClientDBus(Client, DBusObjectWithProperties):
         Client.__init__(self, *args, **kwargs)
         # Only now, when this client is initialized, can it show up on
         # the D-Bus
-        client_object_name = unicode(self.name).translate(
+        client_object_name = str(self.name).translate(
             {ord("."): ord("_"),
              ord("-"): ord("_")})
         self.dbus_object_path = (dbus.ObjectPath
@@ -1484,7 +1486,7 @@ class ClientDBus(Client, DBusObjectWithProperties):
     def Host_dbus_property(self, value=None):
         if value is None:       # get
             return dbus.String(self.host)
-        self.host = unicode(value)
+        self.host = str(value)
     
     # Created - property
     @dbus_service_property(_interface, signature="s", access="read")
@@ -1588,7 +1590,7 @@ class ClientDBus(Client, DBusObjectWithProperties):
     def Checker_dbus_property(self, value=None):
         if value is None:       # get
             return dbus.String(self.checker_command)
-        self.checker_command = unicode(value)
+        self.checker_command = str(value)
     
     # CheckerRunning - property
     @dbus_service_property(_interface, signature="b",
@@ -1650,7 +1652,7 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
     def handle(self):
         with contextlib.closing(self.server.child_pipe) as child_pipe:
             logger.info("TCP connection from: %s",
-                        unicode(self.client_address))
+                        str(self.client_address))
             logger.debug("Pipe FD: %d",
                          self.server.child_pipe.fileno())
             
