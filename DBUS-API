@@ -150,9 +150,6 @@ This file documents the D-Bus interface to the Mandos server.
     milliseconds, depending on ApprovedByDefault.  Approve() can now
     usefully be called on this client object.
     
-*** PropertyChanged(s: Property, v: Value)
-    The Property on this client has changed to Value.
-    
 *** Rejected(s: Reason)
     This client was not given its secret for a specified Reason.
 
