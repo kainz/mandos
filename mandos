@@ -813,11 +813,11 @@ def dbus_annotations(annotations):
     """Decorator to annotate D-Bus methods, signals or properties
     Usage:
     
+    @dbus_annotations({"org.freedesktop.DBus.Deprecated": "true",
+                       "org.freedesktop.DBus.Property."
+                       "EmitsChangedSignal": "false"})
     @dbus_service_property("org.example.Interface", signature="b",
                            access="r")
-    @dbus_annotations({{"org.freedesktop.DBus.Deprecated": "true",
-                        "org.freedesktop.DBus.Property."
-                        "EmitsChangedSignal": "false"})
     def Property_dbus_property(self):
         return dbus.Boolean(False)
     """
@@ -945,6 +945,14 @@ class DBusObjectWithProperties(dbus.service.Object):
             properties[name] = type(value)(value, variant_level=
                                            value.variant_level+1)
         return dbus.Dictionary(properties, signature="sv")
+    
+    @dbus.service.signal(dbus.PROPERTIES_IFACE, signature="sa{sv}as")
+    def PropertiesChanged(self, interface_name, changed_properties,
+                          invalidated_properties):
+        """Standard D-Bus PropertiesChanged() signal, see D-Bus
+        standard.
+        """
+        pass
     
     @dbus.service.method(dbus.INTROSPECTABLE_IFACE,
                          out_signature="s",
@@ -1218,6 +1226,8 @@ class ClientDBus(Client, DBusObjectWithProperties):
     runtime_expansions = (Client.runtime_expansions
                           + ("dbus_object_path",))
     
+    _interface = "se.recompile.Mandos.Client"
+    
     # dbus.service.Object doesn't use super(), so we can't either.
     
     def __init__(self, bus = None, *args, **kwargs):
@@ -1235,7 +1245,8 @@ class ClientDBus(Client, DBusObjectWithProperties):
     
     def notifychangeproperty(transform_func,
                              dbus_name, type_func=lambda x: x,
-                             variant_level=1):
+                             variant_level=1, invalidate_only=False,
+                             _interface=_interface):
         """ Modify a variable so that it's a property which announces
         its changes to DBus.
         
@@ -1252,11 +1263,21 @@ class ClientDBus(Client, DBusObjectWithProperties):
                 if (not hasattr(self, attrname) or
                     type_func(getattr(self, attrname, None))
                     != type_func(value)):
-                    dbus_value = transform_func(type_func(value),
-                                                variant_level
-                                                =variant_level)
-                    self.PropertyChanged(dbus.String(dbus_name),
-                                         dbus_value)
+                    if invalidate_only:
+                        self.PropertiesChanged(_interface,
+                                               dbus.Dictionary(),
+                                               dbus.Array
+                                               ((dbus_name,)))
+                    else:
+                        dbus_value = transform_func(type_func(value),
+                                                    variant_level
+                                                    =variant_level)
+                        self.PropertyChanged(dbus.String(dbus_name),
+                                             dbus_value)
+                        self.PropertiesChanged(_interface,
+                                               dbus.Dictionary({
+                                    dbus.String(dbus_name):
+                                        dbus_value }), dbus.Array())
             setattr(self, attrname, value)
         
         return property(lambda self: getattr(self, attrname), setter)
@@ -1300,6 +1321,8 @@ class ClientDBus(Client, DBusObjectWithProperties):
                                     lambda td: td.total_seconds()
                                     * 1000)
     checker_command = notifychangeproperty(dbus.String, "Checker")
+    secret = notifychangeproperty(dbus.ByteArray, "Secret",
+                                  invalidate_only=True)
     
     del notifychangeproperty
     
@@ -1352,14 +1375,8 @@ class ClientDBus(Client, DBusObjectWithProperties):
         self.send_changedstate()
     
     ## D-Bus methods, signals & properties
-    _interface = "se.recompile.Mandos.Client"
     
     ## Interfaces
-    
-    @dbus_interface_annotations(_interface)
-    def _foo(self):
-        return { "org.freedesktop.DBus.Property.EmitsChangedSignal":
-                     "false"}
     
     ## Signals
     
@@ -1376,6 +1393,7 @@ class ClientDBus(Client, DBusObjectWithProperties):
         pass
     
     # PropertyChanged - signal
+    @dbus_annotations({"org.freedesktop.DBus.Deprecated": "true"})
     @dbus.service.signal(_interface, signature="sv")
     def PropertyChanged(self, property, value):
         "D-Bus signal"
@@ -2709,8 +2727,8 @@ def main():
             def GetAllClientsWithProperties(self):
                 "D-Bus method"
                 return dbus.Dictionary(
-                    ((c.dbus_object_path, c.GetAll(""))
-                     for c in tcp_server.clients.itervalues()),
+                    { c.dbus_object_path: c.GetAll("")
+                      for c in tcp_server.clients.itervalues() },
                     signature="oa{sv}")
             
             @dbus.service.method(_interface, in_signature="o")
