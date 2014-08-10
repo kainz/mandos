@@ -87,9 +87,9 @@ class MandosClientPropertyCache(object):
         self.proxy = proxy_object # Mandos Client proxy object
         self.properties = dict() if properties is None else properties
         self.property_changed_match = (
-            self.proxy.connect_to_signal("PropertyChanged",
-                                         self._property_changed,
-                                         client_interface,
+            self.proxy.connect_to_signal("PropertiesChanged",
+                                         self.properties_changed,
+                                         dbus.PROPERTIES_IFACE,
                                          byte_arrays=True))
         
         if properties is None:
@@ -100,16 +100,12 @@ class MandosClientPropertyCache(object):
         
         super(MandosClientPropertyCache, self).__init__(**kwargs)
     
-    def _property_changed(self, property, value):
-        """Helper which takes positional arguments"""
-        return self.property_changed(property=property, value=value)
-    
-    def property_changed(self, property=None, value=None):
-        """This is called whenever we get a PropertyChanged signal
-        It updates the changed property in the "properties" dict.
+    def properties_changed(self, interface, properties, invalidated):
+        """This is called whenever we get a PropertiesChanged signal
+        It updates the changed properties in the "properties" dict.
         """
         # Update properties dict with new value
-        self.properties[property] = value
+        self.properties.update(properties)
     
     def delete(self):
         self.property_changed_match.remove()
@@ -377,14 +373,15 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
         else:
             return key
     
-    def property_changed(self, property=None, **kwargs):
-        """Call self.update() if old value is not new value.
+    def properties_changed(self, interface, properties, invalidated):
+        """Call self.update() if any properties changed.
         This overrides the method from MandosClientPropertyCache"""
-        property_name = str(property)
-        old_value = self.properties.get(property_name)
-        super(MandosClientWidget, self).property_changed(
-            property=property, **kwargs)
-        if self.properties.get(property_name) != old_value:
+        old_values = { key: self.properties.get(key)
+                       for key in properties.keys() }
+        super(MandosClientWidget, self).properties_changed(
+            interface, properties, invalidated)
+        if any(old_values[key] != self.properties.get(key)
+               for key in old_values):
             self.update()
 
 
