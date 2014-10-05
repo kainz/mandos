@@ -1,5 +1,6 @@
 [Unit]
 Description=Server of encrypted passwords to Mandos clients
+Documentation=man:intro(8mandos) man:mandos(8)
 
 [Service]
 Type=simple

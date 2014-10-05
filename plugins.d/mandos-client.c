@@ -1650,6 +1650,11 @@ void run_network_hooks(const char *mode, const char *interface,
 	_exit(EXIT_FAILURE);
       }
     } else {
+      if(hook_pid == -1){
+	perror_plus("fork");
+	free(direntry);
+	continue;
+      }
       int status;
       if(TEMP_FAILURE_RETRY(waitpid(hook_pid, &status, 0)) == -1){
 	perror_plus("waitpid");
