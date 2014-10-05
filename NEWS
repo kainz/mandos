@@ -1,6 +1,11 @@
 This NEWS file records noteworthy changes, very tersely.
 See the manual for detailed information.
 
+Version 1.6.9 (2014-10-05)
+* Server
+** Changed to emit standard D-Bus signal when D-Bus properties change.
+   (The old signal is still emitted too, but marked as deprecated.)
+
 Version 1.6.8 (2014-08-06)
 * Client
 ** Bug fix: mandos-keygen now generates working SSH checker commands.

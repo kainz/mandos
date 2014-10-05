@@ -1,3 +1,12 @@
+mandos (1.6.9-1) unstable; urgency=medium
+
+  * New upstream release.
+  * debian/control (Build-Depends): Fix "still uses GnutLS 2.x" by
+    changing from "libgnutls-dev" to "libgnutls28-dev | gnutls-dev"
+    (Closes: #762349)
+
+ -- Teddy Hogeborn <teddy@recompile.se>  Sun, 05 Oct 2014 22:05:06 +0200
+
 mandos (1.6.8-1) unstable; urgency=medium
 
   * New upstream release.
