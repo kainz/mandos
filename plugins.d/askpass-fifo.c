@@ -23,7 +23,7 @@
  */
 
 #define _GNU_SOURCE		/* TEMP_FAILURE_RETRY() */
-#include <sys/types.h>		/* ssize_t */
+#include <sys/types.h>		/* uid_t, gid_t, ssize_t */
 #include <sys/stat.h>		/* mkfifo(), S_IRUSR, S_IWUSR */
 #include <iso646.h>		/* and */
 #include <errno.h>		/* errno, EACCES, ENOTDIR, ELOOP,
@@ -44,6 +44,8 @@
 #include <string.h> 		/* strerror() */
 #include <stdarg.h>		/* va_list, va_start(), ... */
 
+uid_t uid = 65534;
+gid_t gid = 65534;
 
 /* Function to use when printing errors */
 __attribute__((format (gnu_printf, 3, 4)))
@@ -73,6 +75,9 @@ int main(__attribute__((unused))int argc,
 	 __attribute__((unused))char **argv){
   int ret = 0;
   ssize_t sret;
+  
+  uid = getuid();
+  gid = getgid();
   
   /* Create FIFO */
   const char passfifo[] = "/lib/cryptsetup/passfifo";
@@ -117,6 +122,16 @@ int main(__attribute__((unused))int argc,
     case ELOOP:
       return EX_OSFILE;
     }
+  }
+  
+  /* Lower group privileges  */
+  if(setgid(gid) == -1){
+    error_plus(0, errno, "setgid");
+  }
+  
+  /* Lower user privileges */
+  if(setuid(uid) == -1){
+    error_plus(0, errno, "setuid");
   }
   
   /* Read from FIFO */

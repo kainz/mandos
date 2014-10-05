@@ -88,6 +88,9 @@ except AttributeError:
     except ImportError:
         SO_BINDTODEVICE = None
 
+if sys.version_info.major == 2:
+    str = unicode
+
 version = "1.6.8"
 stored_state_file = "clients.pickle"
 
@@ -104,10 +107,8 @@ except (OSError, AttributeError):
         SIOCGIFINDEX = 0x8933  # From /usr/include/linux/sockios.h
         with contextlib.closing(socket.socket()) as s:
             ifreq = fcntl.ioctl(s, SIOCGIFINDEX,
-                                struct.pack(str("16s16x"),
-                                            interface))
-        interface_index = struct.unpack(str("I"),
-                                        ifreq[16:20])[0]
+                                struct.pack(b"16s16x", interface))
+        interface_index = struct.unpack("I", ifreq[16:20])[0]
         return interface_index
 
 
@@ -118,7 +119,7 @@ def initlogger(debug, level=logging.WARNING):
     syslogger = (logging.handlers.SysLogHandler
                  (facility =
                   logging.handlers.SysLogHandler.LOG_DAEMON,
-                  address = str("/dev/log")))
+                  address = "/dev/log"))
     syslogger.setFormatter(logging.Formatter
                            ('Mandos [%(process)d]: %(levelname)s:'
                             ' %(message)s'))
@@ -224,9 +225,8 @@ class PGPEngine(object):
 class AvahiError(Exception):
     def __init__(self, value, *args, **kwargs):
         self.value = value
-        super(AvahiError, self).__init__(value, *args, **kwargs)
-    def __unicode__(self):
-        return unicode(repr(self.value))
+        return super(AvahiError, self).__init__(value, *args,
+                                                **kwargs)
 
 class AvahiServiceError(AvahiError):
     pass
@@ -282,8 +282,8 @@ class AvahiService(object):
                             " after %i retries, exiting.",
                             self.rename_count)
             raise AvahiServiceError("Too many renames")
-        self.name = unicode(self.server
-                            .GetAlternativeServiceName(self.name))
+        self.name = str(self.server
+                        .GetAlternativeServiceName(self.name))
         logger.info("Changing Zeroconf service name to %r ...",
                     self.name)
         self.remove()
@@ -337,7 +337,7 @@ class AvahiService(object):
             self.rename()
         elif state == avahi.ENTRY_GROUP_FAILURE:
             logger.critical("Avahi: Error in group state changed %s",
-                            unicode(error))
+                            str(error))
             raise AvahiGroupError("State changed: {!s}"
                                   .format(error))
     
@@ -688,8 +688,7 @@ class Client(object):
         if self.checker is None:
             # Escape attributes for the shell
             escaped_attrs = { attr:
-                                  re.escape(unicode(getattr(self,
-                                                            attr)))
+                                  re.escape(str(getattr(self, attr)))
                               for attr in self.runtime_expansions }
             try:
                 command = self.checker_command % escaped_attrs
@@ -814,11 +813,11 @@ def dbus_annotations(annotations):
     """Decorator to annotate D-Bus methods, signals or properties
     Usage:
     
+    @dbus_annotations({"org.freedesktop.DBus.Deprecated": "true",
+                       "org.freedesktop.DBus.Property."
+                       "EmitsChangedSignal": "false"})
     @dbus_service_property("org.example.Interface", signature="b",
                            access="r")
-    @dbus_annotations({{"org.freedesktop.DBus.Deprecated": "true",
-                        "org.freedesktop.DBus.Property."
-                        "EmitsChangedSignal": "false"})
     def Property_dbus_property(self):
         return dbus.Boolean(False)
     """
@@ -831,9 +830,7 @@ def dbus_annotations(annotations):
 class DBusPropertyException(dbus.exceptions.DBusException):
     """A base class for D-Bus property-related exceptions
     """
-    def __unicode__(self):
-        return unicode(str(self))
-
+    pass
 
 class DBusPropertyAccessException(DBusPropertyException):
     """A property's access permissions disallows an operation.
@@ -948,6 +945,14 @@ class DBusObjectWithProperties(dbus.service.Object):
             properties[name] = type(value)(value, variant_level=
                                            value.variant_level+1)
         return dbus.Dictionary(properties, signature="sv")
+    
+    @dbus.service.signal(dbus.PROPERTIES_IFACE, signature="sa{sv}as")
+    def PropertiesChanged(self, interface_name, changed_properties,
+                          invalidated_properties):
+        """Standard D-Bus PropertiesChanged() signal, see D-Bus
+        standard.
+        """
+        pass
     
     @dbus.service.method(dbus.INTROSPECTABLE_IFACE,
                          out_signature="s",
@@ -1221,6 +1226,8 @@ class ClientDBus(Client, DBusObjectWithProperties):
     runtime_expansions = (Client.runtime_expansions
                           + ("dbus_object_path",))
     
+    _interface = "se.recompile.Mandos.Client"
+    
     # dbus.service.Object doesn't use super(), so we can't either.
     
     def __init__(self, bus = None, *args, **kwargs):
@@ -1228,7 +1235,7 @@ class ClientDBus(Client, DBusObjectWithProperties):
         Client.__init__(self, *args, **kwargs)
         # Only now, when this client is initialized, can it show up on
         # the D-Bus
-        client_object_name = unicode(self.name).translate(
+        client_object_name = str(self.name).translate(
             {ord("."): ord("_"),
              ord("-"): ord("_")})
         self.dbus_object_path = (dbus.ObjectPath
@@ -1238,7 +1245,8 @@ class ClientDBus(Client, DBusObjectWithProperties):
     
     def notifychangeproperty(transform_func,
                              dbus_name, type_func=lambda x: x,
-                             variant_level=1):
+                             variant_level=1, invalidate_only=False,
+                             _interface=_interface):
         """ Modify a variable so that it's a property which announces
         its changes to DBus.
         
@@ -1255,11 +1263,21 @@ class ClientDBus(Client, DBusObjectWithProperties):
                 if (not hasattr(self, attrname) or
                     type_func(getattr(self, attrname, None))
                     != type_func(value)):
-                    dbus_value = transform_func(type_func(value),
-                                                variant_level
-                                                =variant_level)
-                    self.PropertyChanged(dbus.String(dbus_name),
-                                         dbus_value)
+                    if invalidate_only:
+                        self.PropertiesChanged(_interface,
+                                               dbus.Dictionary(),
+                                               dbus.Array
+                                               ((dbus_name,)))
+                    else:
+                        dbus_value = transform_func(type_func(value),
+                                                    variant_level
+                                                    =variant_level)
+                        self.PropertyChanged(dbus.String(dbus_name),
+                                             dbus_value)
+                        self.PropertiesChanged(_interface,
+                                               dbus.Dictionary({
+                                    dbus.String(dbus_name):
+                                        dbus_value }), dbus.Array())
             setattr(self, attrname, value)
         
         return property(lambda self: getattr(self, attrname), setter)
@@ -1303,6 +1321,8 @@ class ClientDBus(Client, DBusObjectWithProperties):
                                     lambda td: td.total_seconds()
                                     * 1000)
     checker_command = notifychangeproperty(dbus.String, "Checker")
+    secret = notifychangeproperty(dbus.ByteArray, "Secret",
+                                  invalidate_only=True)
     
     del notifychangeproperty
     
@@ -1355,14 +1375,8 @@ class ClientDBus(Client, DBusObjectWithProperties):
         self.send_changedstate()
     
     ## D-Bus methods, signals & properties
-    _interface = "se.recompile.Mandos.Client"
     
     ## Interfaces
-    
-    @dbus_interface_annotations(_interface)
-    def _foo(self):
-        return { "org.freedesktop.DBus.Property.EmitsChangedSignal":
-                     "false"}
     
     ## Signals
     
@@ -1379,6 +1393,7 @@ class ClientDBus(Client, DBusObjectWithProperties):
         pass
     
     # PropertyChanged - signal
+    @dbus_annotations({"org.freedesktop.DBus.Deprecated": "true"})
     @dbus.service.signal(_interface, signature="sv")
     def PropertyChanged(self, property, value):
         "D-Bus signal"
@@ -1489,7 +1504,7 @@ class ClientDBus(Client, DBusObjectWithProperties):
     def Host_dbus_property(self, value=None):
         if value is None:       # get
             return dbus.String(self.host)
-        self.host = unicode(value)
+        self.host = str(value)
     
     # Created - property
     @dbus_service_property(_interface, signature="s", access="read")
@@ -1593,7 +1608,7 @@ class ClientDBus(Client, DBusObjectWithProperties):
     def Checker_dbus_property(self, value=None):
         if value is None:       # get
             return dbus.String(self.checker_command)
-        self.checker_command = unicode(value)
+        self.checker_command = str(value)
     
     # CheckerRunning - property
     @dbus_service_property(_interface, signature="b",
@@ -1615,7 +1630,7 @@ class ClientDBus(Client, DBusObjectWithProperties):
     @dbus_service_property(_interface, signature="ay",
                            access="write", byte_arrays=True)
     def Secret_dbus_property(self, value):
-        self.secret = str(value)
+        self.secret = bytes(value)
     
     del _interface
 
@@ -1655,7 +1670,7 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
     def handle(self):
         with contextlib.closing(self.server.child_pipe) as child_pipe:
             logger.info("TCP connection from: %s",
-                        unicode(self.client_address))
+                        str(self.client_address))
             logger.debug("Pipe FD: %d",
                          self.server.child_pipe.fileno())
             
@@ -1960,7 +1975,8 @@ class IPv6_TCPServer(MultiprocessingMixInWithPipe,
                 try:
                     self.socket.setsockopt(socket.SOL_SOCKET,
                                            SO_BINDTODEVICE,
-                                           str(self.interface + '\0'))
+                                           (self.interface + "\0")
+                                           .encode("utf-8"))
                 except socket.error as error:
                     if error.errno == errno.EPERM:
                         logger.error("No permission to bind to"
@@ -2226,7 +2242,7 @@ def string_to_delta(interval):
     timevalue = datetime.timedelta(0)
     for s in interval.split():
         try:
-            suffix = unicode(s[-1])
+            suffix = s[-1]
             value = int(s[:-1])
             if suffix == "d":
                 delta = datetime.timedelta(value)
@@ -2383,8 +2399,9 @@ def main():
     del options
     # Force all strings to be unicode
     for option in server_settings.keys():
-        if type(server_settings[option]) is str:
-            server_settings[option] = unicode(server_settings[option])
+        if isinstance(server_settings[option], bytes):
+            server_settings[option] = (server_settings[option]
+                                       .decode("utf-8"))
     # Force all boolean options to be boolean
     for option in ("debug", "use_dbus", "use_ipv6", "restore",
                    "foreground", "zeroconf"):
@@ -2533,7 +2550,8 @@ def main():
                                        protocol = protocol, bus = bus)
         if server_settings["interface"]:
             service.interface = (if_nametoindex
-                                 (str(server_settings["interface"])))
+                                 (server_settings["interface"]
+                                  .encode("utf-8")))
     
     global multiprocessing_manager
     multiprocessing_manager = multiprocessing.Manager()
@@ -2657,7 +2675,7 @@ def main():
             try:
                 with pidfile:
                     pid = os.getpid()
-                    pidfile.write(str(pid) + "\n".encode("utf-8"))
+                    pidfile.write("{}\n".format(pid).encode("utf-8"))
             except IOError:
                 logger.error("Could not write to file %r with PID %d",
                              pidfilename, pid)
@@ -2709,8 +2727,8 @@ def main():
             def GetAllClientsWithProperties(self):
                 "D-Bus method"
                 return dbus.Dictionary(
-                    ((c.dbus_object_path, c.GetAll(""))
-                     for c in tcp_server.clients.itervalues()),
+                    { c.dbus_object_path: c.GetAll("")
+                      for c in tcp_server.clients.itervalues() },
                     signature="oa{sv}")
             
             @dbus.service.method(_interface, in_signature="o")
