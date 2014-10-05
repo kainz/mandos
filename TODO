@@ -23,6 +23,7 @@
 ** TODO [#B] Use capabilities instead of seteuid().
 ** TODO [#B] Use getaddrinfo(hints=AI_NUMERICHOST) instead of inet_pton()
 ** TODO [#C] Make start_mandos_communication() take "struct server".
+** TODO [#C] --interfaces=regex,eth*,noregex (bridge-utils-interfaces(5))
 
 * splashy
 ** TODO [#B] use scandir(3) instead of readdir(3)
