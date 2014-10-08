@@ -275,7 +275,7 @@ class AvahiService(object):
         self.bus = bus
         self.entry_group_state_changed_match = None
     
-    def rename(self):
+    def rename(self, remove=True):
         """Derived from the Avahi example code"""
         if self.rename_count >= self.max_renames:
             logger.critical("No suitable Zeroconf service name found"
@@ -284,16 +284,22 @@ class AvahiService(object):
             raise AvahiServiceError("Too many renames")
         self.name = str(self.server
                         .GetAlternativeServiceName(self.name))
+        self.rename_count += 1
         logger.info("Changing Zeroconf service name to %r ...",
                     self.name)
-        self.remove()
+        if remove:
+            self.remove()
         try:
             self.add()
         except dbus.exceptions.DBusException as error:
-            logger.critical("D-Bus Exception", exc_info=error)
-            self.cleanup()
-            os._exit(1)
-        self.rename_count += 1
+            if (error.get_dbus_name()
+                == "org.freedesktop.Avahi.CollisionError"):
+                logger.info("Local Zeroconf service name collision.")
+                return self.rename(remove=False)
+            else:
+                logger.critical("D-Bus Exception", exc_info=error)
+                self.cleanup()
+                os._exit(1)
     
     def remove(self):
         """Derived from the Avahi example code"""
@@ -391,9 +397,9 @@ class AvahiService(object):
 
 
 class AvahiServiceToSyslog(AvahiService):
-    def rename(self):
+    def rename(self, *args, **kwargs):
         """Add the new name to the syslog messages"""
-        ret = AvahiService.rename(self)
+        ret = AvahiService.rename(self, *args, **kwargs)
         syslogger.setFormatter(logging.Formatter
                                ('Mandos ({}) [%(process)d]:'
                                 ' %(levelname)s: %(message)s'
