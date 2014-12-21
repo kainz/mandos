@@ -47,7 +47,7 @@ TEMP=`getopt --options vhpF:d:t:l:s:L:n:e:c:x:fS \
     --name "$0" -- "$@"`
 
 help(){
-basename="`basename $0`"
+basename="`basename "$0"`"
 cat <<EOF
 Usage: $basename [ -v | --version ]
        $basename [ -h | --help ]
@@ -113,7 +113,7 @@ while :; do
     esac
 done
 if [ "$#" -gt 0 ]; then
-    echo "Unknown arguments: '$@'" >&2
+    echo "Unknown arguments: '$*'" >&2
     exit 1
 fi
 
@@ -304,7 +304,7 @@ if [ "$mode" = password ]; then
     
     # Get fingerprint of key
     FINGERPRINT="`gpg --quiet --batch --no-tty --no-options \
-	--enable-dsa2 --homedir \"$RINGDIR\" --trust-model always \
+	--enable-dsa2 --homedir "$RINGDIR" --trust-model always \
 	--fingerprint --with-colons \
 	| sed --quiet \
 	--expression='/^fpr:/{s/^fpr:.*:\\([0-9A-Z]*\\):\$/\\1/p;q}'`"
