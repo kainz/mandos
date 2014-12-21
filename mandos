@@ -487,6 +487,9 @@ class Client(object):
             client["enabled"] = config.getboolean(client_name,
                                                   "enabled")
             
+            # Uppercase and remove spaces from fingerprint for later
+            # comparison purposes with return value from the
+            # fingerprint() function
             client["fingerprint"] = (section["fingerprint"].upper()
                                      .replace(" ", ""))
             if "secret" in section:
@@ -534,9 +537,6 @@ class Client(object):
             self.expires = None
         
         logger.debug("Creating client %r", self.name)
-        # Uppercase and remove spaces from fingerprint for later
-        # comparison purposes with return value from the fingerprint()
-        # function
         logger.debug("  Fingerprint: %s", self.fingerprint)
         self.created = settings.get("created",
                                     datetime.datetime.utcnow())
