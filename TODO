@@ -88,6 +88,7 @@
 ** TODO Error handling on error parsing config files
 ** TODO init.d script error handling
 ** TODO D-Bus server properties; address, port, interface, etc.		     :2:
+** TODO [#C] In Python 3.3, use shlex.quote() instead of re.escape()
 
 * mandos.xml
 ** Add mandos contact info in manual pages
