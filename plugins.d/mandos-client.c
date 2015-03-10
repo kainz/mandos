@@ -493,12 +493,17 @@ static ssize_t pgp_packet_decrypt(const char *cryptotext,
   return plaintext_length;
 }
 
+__attribute__((warn_unused_result, const))
+static const char *safe_string(const char *str){
+  if(str == NULL)
+    return "(unknown)";
+  return str;
+}
+
 __attribute__((warn_unused_result))
 static const char *safer_gnutls_strerror(int value){
   const char *ret = gnutls_strerror(value);
-  if(ret == NULL)
-    ret = "(unknown)";
-  return ret;
+  return safe_string(ret);
 }
 
 /* GnuTLS log function callback */
@@ -513,6 +518,7 @@ static int init_gnutls_global(const char *pubkeyfilename,
 			      const char *seckeyfilename,
 			      mandos_context *mc){
   int ret;
+  unsigned int uret;
   
   if(debug){
     fprintf_plus(stderr, "Initializing GnuTLS\n");
@@ -569,10 +575,111 @@ static int init_gnutls_global(const char *pubkeyfilename,
 		 safer_gnutls_strerror(ret));
     goto globalfail;
   }
+  if(mc->dh_bits == 0){
+    /* Find out the optimal number of DH bits */
+    /* Try to read the private key file */
+    gnutls_datum_t buffer = { .data = NULL, .size = 0 };
+    {
+      int secfile = open(seckeyfilename, O_RDONLY);
+      size_t buffer_capacity = 0;
+      while(true){
+	buffer_capacity = incbuffer((char **)&buffer.data,
+				    (size_t)buffer.size,
+				    (size_t)buffer_capacity);
+	if(buffer_capacity == 0){
+	  perror_plus("incbuffer");
+	  free(buffer.data);
+	  buffer.data = NULL;
+	  break;
+	}
+	ssize_t bytes_read = read(secfile, buffer.data + buffer.size,
+				  BUFFER_SIZE);
+	/* EOF */
+	if(bytes_read == 0){
+	  break;
+	}
+	/* check bytes_read for failure */
+	if(bytes_read < 0){
+	  perror_plus("read");
+	  free(buffer.data);
+	  buffer.data = NULL;
+	  break;
+	}
+	buffer.size += (unsigned int)bytes_read;
+      }
+      close(secfile);
+    }
+    /* If successful, use buffer to parse private key */
+    gnutls_sec_param_t sec_param = GNUTLS_SEC_PARAM_ULTRA;
+    if(buffer.data != NULL){
+      {
+	gnutls_openpgp_privkey_t privkey = NULL;
+	ret = gnutls_openpgp_privkey_init(&privkey);
+	if(ret != GNUTLS_E_SUCCESS){
+	  fprintf_plus(stderr, "Error initializing OpenPGP key"
+		       " structure: %s", safer_gnutls_strerror(ret));
+	  free(buffer.data);
+	  buffer.data = NULL;
+	} else {
+	  ret = gnutls_openpgp_privkey_import(privkey, &buffer,
+					    GNUTLS_OPENPGP_FMT_BASE64,
+					      "", 0);
+	  if(ret != GNUTLS_E_SUCCESS){
+	    fprintf_plus(stderr, "Error importing OpenPGP key : %s",
+			 safer_gnutls_strerror(ret));
+	    privkey = NULL;
+	  }
+	  free(buffer.data);
+	  buffer.data = NULL;
+	  if(privkey != NULL){
+	    /* Use private key to suggest an appropriate sec_param */
+	    sec_param = gnutls_openpgp_privkey_sec_param(privkey);
+	    gnutls_openpgp_privkey_deinit(privkey);
+	    if(debug){
+	      fprintf_plus(stderr, "This OpenPGP key implies using a"
+			   " GnuTLS security parameter \"%s\".\n",
+			   safe_string(gnutls_sec_param_get_name
+				       (sec_param)));
+	    }
+	  }
+	}
+      }
+      if(sec_param == GNUTLS_SEC_PARAM_UNKNOWN){
+	/* Err on the side of caution */
+	sec_param = GNUTLS_SEC_PARAM_ULTRA;
+	if(debug){
+	  fprintf_plus(stderr, "Falling back to security parameter"
+		       " \"%s\"\n",
+		       safe_string(gnutls_sec_param_get_name
+				   (sec_param)));
+	}
+      }
+    }
+    uret = gnutls_sec_param_to_pk_bits(GNUTLS_PK_DH, sec_param);
+    if(uret != 0){
+      mc->dh_bits = uret;
+      if(debug){
+	fprintf_plus(stderr, "A \"%s\" GnuTLS security parameter"
+		     " implies %u DH bits; using that.\n",
+		     safe_string(gnutls_sec_param_get_name
+				 (sec_param)),
+		     mc->dh_bits);
+      }
+    } else {
+      fprintf_plus(stderr, "Failed to get implied number of DH"
+		   " bits for security parameter \"%s\"): %s\n",
+		   safe_string(gnutls_sec_param_get_name(sec_param)),
+		   safer_gnutls_strerror(ret));
+      goto globalfail;
+    }
+  } else if(debug){
+    fprintf_plus(stderr, "DH bits explicitly set to %u\n",
+		 mc->dh_bits);
+  }
   ret = gnutls_dh_params_generate2(mc->dh_params, mc->dh_bits);
   if(ret != GNUTLS_E_SUCCESS){
-    fprintf_plus(stderr, "Error in GnuTLS prime generation: %s\n",
-		 safer_gnutls_strerror(ret));
+    fprintf_plus(stderr, "Error in GnuTLS prime generation (%u bits):"
+		 " %s\n", mc->dh_bits, safer_gnutls_strerror(ret));
     goto globalfail;
   }
   
@@ -1900,7 +2007,7 @@ error_t take_down_interface(const char *const interface){
 }
 
 int main(int argc, char *argv[]){
-  mandos_context mc = { .server = NULL, .dh_bits = 1024,
+  mandos_context mc = { .server = NULL, .dh_bits = 0,
 			.priority = "SECURE256:!CTYPE-X.509:"
 			"+CTYPE-OPENPGP:!RSA", .current_server = NULL,
 			.interfaces = NULL, .interfaces_size = 0 };
