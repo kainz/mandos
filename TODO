@@ -20,6 +20,7 @@
 * mandos-applet
 
 * mandos-client
+** TODO [#A] --dh-params=FILE
 ** TODO [#B] Use capabilities instead of seteuid().
    https://forums.grsecurity.net/viewtopic.php?f=7&t=2522
 ** TODO [#B] Use getaddrinfo(hints=AI_NUMERICHOST) instead of inet_pton()

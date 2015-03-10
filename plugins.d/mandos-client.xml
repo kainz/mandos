@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY COMMANDNAME "mandos-client">
-<!ENTITY TIMESTAMP "2014-06-22">
+<!ENTITY TIMESTAMP "2015-03-08">
 <!ENTITY % common SYSTEM "../common.ent">
 %common;
 ]>
@@ -311,7 +311,8 @@
 	<listitem>
 	  <para>
 	    Sets the number of bits to use for the prime number in the
-	    TLS Diffie-Hellman key exchange.  Default is 1024.
+	    TLS Diffie-Hellman key exchange.  The default value is
+	    selected automatically based on the OpenPGP key.
 	  </para>
 	</listitem>
       </varlistentry>
