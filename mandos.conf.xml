@@ -3,7 +3,7 @@
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY CONFNAME "mandos.conf">
 <!ENTITY CONFPATH "<filename>/etc/mandos/mandos.conf</filename>">
-<!ENTITY TIMESTAMP "2013-10-23">
+<!ENTITY TIMESTAMP "2015-04-02">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -223,8 +223,8 @@
 interface = eth0
 address = fe80::aede:48ff:fe71:f6f2
 port = 1025
-debug = true
-priority = SECURE256:!CTYPE-X.509:+CTYPE-OPENPGP
+debug = True
+priority = SECURE256:!CTYPE-X.509:+CTYPE-OPENPGP:!RSA
 servicename = Daena
 use_dbus = False
 use_ipv6 = True
