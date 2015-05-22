@@ -285,13 +285,19 @@ if [ "$mode" = password ]; then
     esac
     
     if [ $SSH -eq 1 ]; then
-	set +e
-	ssh_fingerprint="`ssh-keyscan localhost 2>/dev/null`"
-	if [ $? -ne 0 ]; then
-	    ssh_fingerprint=""
-	fi
-	set -e
-	ssh_fingerprint="${ssh_fingerprint#localhost }"
+	for ssh_keytype in ed25519 rsa; do
+	    set +e
+	    ssh_fingerprint="`ssh-keyscan -t $ssh_keytype localhost 2>/dev/null`"
+	    set -e
+	    if [ $? -ne 0 ]; then
+		ssh_fingerprint=""
+		continue
+	    fi
+	    if [ -n "$ssh_fingerprint" ]; then
+		ssh_fingerprint="${ssh_fingerprint#localhost }"
+		break
+	    fi
+	done
     fi
     
     # Import key into temporary key rings
@@ -363,7 +369,7 @@ if [ "$mode" = password ]; then
 	    }
 	}' < "$SECFILE"
     if [ -n "$ssh_fingerprint" ]; then
-	echo 'checker = ssh-keyscan %%(host)s 2>/dev/null | grep --fixed-strings --line-regexp --quiet --regexp=%%(host)s" %(ssh_fingerprint)s"'
+	echo 'checker = ssh-keyscan -t '"$ssh_keytype"' %%(host)s 2>/dev/null | grep --fixed-strings --line-regexp --quiet --regexp=%%(host)s" %(ssh_fingerprint)s"'
 	echo "ssh_fingerprint = ${ssh_fingerprint}"
     fi
 fi
