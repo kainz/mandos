@@ -423,6 +423,15 @@ class AvahiServiceToSyslog(AvahiService):
             .format(self.name)))
         return ret
 
+def subprocess_call_pipe(connection, # : multiprocessing.Connection
+                         *args, **kwargs):
+    """This function is meant to be called by multiprocessing.Process
+    
+    This function runs a synchronous subprocess.call(), and writes the
+    resulting return code on the provided multiprocessing.Connection.
+    """
+    connection.send(subprocess.call(*args, **kwargs))
+    connection.close()
 
 class Client(object):
     """A representation of a client host served by this server.
@@ -455,6 +464,8 @@ class Client(object):
     last_checker_status: integer between 0 and 255 reflecting exit
                          status of last checker. -1 reflects crashed
                          checker, -2 means no checker completed yet.
+    last_checker_signal: The signal which killed the last checker, if
+                         last_checker_status is -1
     last_enabled: datetime.datetime(); (UTC) or None
     name:       string; from the config file, used in log messages and
                         D-Bus identifiers
@@ -634,12 +645,18 @@ class Client(object):
         # Also start a new checker *right now*.
         self.start_checker()
     
-    def checker_callback(self, pid, condition, command):
+    def checker_callback(self, source, condition,
+                         (connection, command)):
         """The checker has completed, so take appropriate actions."""
         self.checker_callback_tag = None
         self.checker = None
-        if os.WIFEXITED(condition):
-            self.last_checker_status = os.WEXITSTATUS(condition)
+        # Read return code from connection (see subprocess_call_pipe)
+        returncode = connection.recv()
+        connection.close()
+        
+        if returncode >= 0:
+            self.last_checker_status = returncode
+            self.last_checker_signal = None
             if self.last_checker_status == 0:
                 logger.info("Checker for %(name)s succeeded",
                             vars(self))
@@ -648,13 +665,16 @@ class Client(object):
                 logger.info("Checker for %(name)s failed", vars(self))
         else:
             self.last_checker_status = -1
+            self.last_checker_signal = -returncode
             logger.warning("Checker for %(name)s crashed?",
                            vars(self))
+        return False
     
     def checked_ok(self):
         """Assert that the client has been seen, alive and well."""
         self.last_checked_ok = datetime.datetime.utcnow()
         self.last_checker_status = 0
+        self.last_checker_signal = None
         self.bump_timeout()
     
     def bump_timeout(self, timeout=None):
@@ -686,20 +706,10 @@ class Client(object):
         # than 'timeout' for the client to be disabled, which is as it
         # should be.
         
-        # If a checker exists, make sure it is not a zombie
-        try:
-            pid, status = os.waitpid(self.checker.pid, os.WNOHANG)
-        except AttributeError:
-            pass
-        except OSError as error:
-            if error.errno != errno.ECHILD:
-                raise
-        else:
-            if pid:
-                logger.warning("Checker was a zombie")
-                gobject.source_remove(self.checker_callback_tag)
-                self.checker_callback(pid, status,
-                                      self.current_checker_command)
+        if self.checker is not None and not self.checker.is_alive():
+            logger.warning("Checker was not alive; joining")
+            self.checker.join()
+            self.checker = None
         # Start a new checker if needed
         if self.checker is None:
             # Escape attributes for the shell
@@ -714,46 +724,30 @@ class Client(object):
                              exc_info=error)
                 return True     # Try again later
             self.current_checker_command = command
-            try:
-                logger.info("Starting checker %r for %s", command,
-                            self.name)
-                # We don't need to redirect stdout and stderr, since
-                # in normal mode, that is already done by daemon(),
-                # and in debug mode we don't want to.  (Stdin is
-                # always replaced by /dev/null.)
-                # The exception is when not debugging but nevertheless
-                # running in the foreground; use the previously
-                # created wnull.
-                popen_args = {}
-                if (not self.server_settings["debug"]
-                    and self.server_settings["foreground"]):
-                    popen_args.update({"stdout": wnull,
-                                       "stderr": wnull })
-                self.checker = subprocess.Popen(command,
-                                                close_fds=True,
-                                                shell=True,
-                                                cwd="/",
-                                                **popen_args)
-            except OSError as error:
-                logger.error("Failed to start subprocess",
-                             exc_info=error)
-                return True
-            self.checker_callback_tag = gobject.child_watch_add(
-                self.checker.pid, self.checker_callback, data=command)
-            # The checker may have completed before the gobject
-            # watch was added.  Check for this.
-            try:
-                pid, status = os.waitpid(self.checker.pid, os.WNOHANG)
-            except OSError as error:
-                if error.errno == errno.ECHILD:
-                    # This should never happen
-                    logger.error("Child process vanished",
-                                 exc_info=error)
-                    return True
-                raise
-            if pid:
-                gobject.source_remove(self.checker_callback_tag)
-                self.checker_callback(pid, status, command)
+            logger.info("Starting checker %r for %s", command,
+                        self.name)
+            # We don't need to redirect stdout and stderr, since
+            # in normal mode, that is already done by daemon(),
+            # and in debug mode we don't want to.  (Stdin is
+            # always replaced by /dev/null.)
+            # The exception is when not debugging but nevertheless
+            # running in the foreground; use the previously
+            # created wnull.
+            popen_args = { "close_fds": True,
+                           "shell": True,
+                           "cwd": "/" }
+            if (not self.server_settings["debug"]
+                and self.server_settings["foreground"]):
+                popen_args.update({"stdout": wnull,
+                                   "stderr": wnull })
+            pipe = multiprocessing.Pipe(duplex=False)
+            self.checker = multiprocessing.Process(
+                target=subprocess_call_pipe, args=(pipe[1], command),
+                kwargs=popen_args)
+            self.checker.start()
+            self.checker_callback_tag = gobject.io_add_watch(
+                pipe[0].fileno(), gobject.IO_IN,
+                self.checker_callback, (pipe[0], command))
         # Re-run this periodically if run by gobject.timeout_add
         return True
     
@@ -765,14 +759,7 @@ class Client(object):
         if getattr(self, "checker", None) is None:
             return
         logger.debug("Stopping checker for %(name)s", vars(self))
-        try:
-            self.checker.terminate()
-            #time.sleep(0.5)
-            #if self.checker.poll() is None:
-            #    self.checker.kill()
-        except OSError as error:
-            if error.errno != errno.ESRCH: # No such process
-                raise
+        self.checker.terminate()
         self.checker = None
 
 
@@ -1355,24 +1342,24 @@ class ClientDBus(Client, DBusObjectWithProperties):
             DBusObjectWithProperties.__del__(self, *args, **kwargs)
         Client.__del__(self, *args, **kwargs)
     
-    def checker_callback(self, pid, condition, command,
-                         *args, **kwargs):
-        self.checker_callback_tag = None
-        self.checker = None
-        if os.WIFEXITED(condition):
-            exitstatus = os.WEXITSTATUS(condition)
+    def checker_callback(self, source, condition,
+                         (connection, command), *args, **kwargs):
+        ret = Client.checker_callback(self, source, condition,
+                                      (connection, command), *args,
+                                      **kwargs)
+        exitstatus = self.last_checker_status
+        if exitstatus >= 0:
             # Emit D-Bus signal
             self.CheckerCompleted(dbus.Int16(exitstatus),
-                                  dbus.Int64(condition),
+                                  dbus.Int64(0),
                                   dbus.String(command))
         else:
             # Emit D-Bus signal
             self.CheckerCompleted(dbus.Int16(-1),
-                                  dbus.Int64(condition),
+                                  dbus.Int64(
+                                      self.last_checker_signal),
                                   dbus.String(command))
-        
-        return Client.checker_callback(self, pid, condition, command,
-                                       *args, **kwargs)
+        return ret
     
     def start_checker(self, *args, **kwargs):
         old_checker_pid = getattr(self.checker, "pid", None)
@@ -2654,7 +2641,7 @@ def main():
                     pass
             
             # Clients who has passed its expire date can still be
-            # enabled if its last checker was successful.  Clients
+            # enabled if its last checker was successful.  A Client
             # whose checker succeeded before we stored its state is
             # assumed to have successfully run all checkers during
             # downtime.
