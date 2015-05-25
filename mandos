@@ -423,14 +423,14 @@ class AvahiServiceToSyslog(AvahiService):
             .format(self.name)))
         return ret
 
-def subprocess_call_pipe(connection, # : multiprocessing.Connection
-                         *args, **kwargs):
+def call_pipe(connection,       # : multiprocessing.Connection
+              func, *args, **kwargs):
     """This function is meant to be called by multiprocessing.Process
     
-    This function runs a synchronous subprocess.call(), and writes the
-    resulting return code on the provided multiprocessing.Connection.
+    This function runs func(*args, **kwargs), and writes the resulting
+    return value on the provided multiprocessing.Connection.
     """
-    connection.send(subprocess.call(*args, **kwargs))
+    connection.send(func(*args, **kwargs))
     connection.close()
 
 class Client(object):
@@ -650,7 +650,7 @@ class Client(object):
         """The checker has completed, so take appropriate actions."""
         self.checker_callback_tag = None
         self.checker = None
-        # Read return code from connection (see subprocess_call_pipe)
+        # Read return code from connection (see call_pipe)
         returncode = connection.recv()
         connection.close()
         
@@ -742,8 +742,9 @@ class Client(object):
                                    "stderr": wnull })
             pipe = multiprocessing.Pipe(duplex=False)
             self.checker = multiprocessing.Process(
-                target=subprocess_call_pipe, args=(pipe[1], command),
-                kwargs=popen_args)
+                target = call_pipe,
+                args = (subprocess.call, pipe[1], command),
+                kwargs = popen_args)
             self.checker.start()
             self.checker_callback_tag = gobject.io_add_watch(
                 pipe[0].fileno(), gobject.IO_IN,
