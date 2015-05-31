@@ -111,15 +111,11 @@ def rfc3339_duration_to_delta(duration):
     # avoid excessive use of external libraries.
     
     # New type for defining tokens, syntax, and semantics all-in-one
-    Token = collections.namedtuple("Token",
-                                   ("regexp", # To match token; if
-                                              # "value" is not None,
-                                              # must have a "group"
-                                              # containing digits
-                                    "value",  # datetime.timedelta or
-                                              # None
-                                    "followers")) # Tokens valid after
-                                                  # this token
+    Token = collections.namedtuple("Token", (
+        "regexp",  # To match token; if "value" is not None, must have
+                   # a "group" containing digits
+        "value",   # datetime.timedelta or None
+        "followers"))           # Tokens valid after this token
     # RFC 3339 "duration" tokens, syntax, and semantics; taken from
     # the "duration" ABNF definition in RFC 3339, Appendix A.
     token_end = Token(re.compile(r"$"), None, frozenset())
@@ -178,7 +174,8 @@ def rfc3339_duration_to_delta(duration):
                 break
         else:
             # No currently valid tokens were found
-            raise ValueError("Invalid RFC 3339 duration")
+            raise ValueError("Invalid RFC 3339 duration: {!r}"
+                             .format(duration))
     # End token found
     return value
 
@@ -186,17 +183,17 @@ def rfc3339_duration_to_delta(duration):
 def string_to_delta(interval):
     """Parse a string and return a datetime.timedelta
     
-    >>> string_to_delta("7d")
+    >>> string_to_delta('7d')
     datetime.timedelta(7)
-    >>> string_to_delta("60s")
+    >>> string_to_delta('60s')
     datetime.timedelta(0, 60)
-    >>> string_to_delta("60m")
+    >>> string_to_delta('60m')
     datetime.timedelta(0, 3600)
-    >>> string_to_delta("24h")
+    >>> string_to_delta('24h')
     datetime.timedelta(1)
-    >>> string_to_delta("1w")
+    >>> string_to_delta('1w')
     datetime.timedelta(7)
-    >>> string_to_delta("5m 30s")
+    >>> string_to_delta('5m 30s')
     datetime.timedelta(0, 330)
     """
     
