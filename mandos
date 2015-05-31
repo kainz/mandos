@@ -2182,15 +2182,6 @@ def rfc3339_duration_to_delta(duration):
     # avoid excessive use of external libraries.
     
     # New type for defining tokens, syntax, and semantics all-in-one
-    Token = collections.namedtuple("Token",
-                                   ("regexp", # To match token; if
-                                              # "value" is not None,
-                                              # must have a "group"
-                                              # containing digits
-                                    "value",  # datetime.timedelta or
-                                              # None
-                                    "followers")) # Tokens valid after
-                                                  # this token
     Token = collections.namedtuple("Token", (
         "regexp",  # To match token; if "value" is not None, must have
                    # a "group" containing digits
@@ -2231,7 +2222,7 @@ def rfc3339_duration_to_delta(duration):
     # Define starting values
     value = datetime.timedelta() # Value so far
     found_token = None
-    followers = frozenset((token_duration,)) # Following valid tokens
+    followers = frozenset((token_duration, )) # Following valid tokens
     s = duration                # String left to parse
     # Loop until end token is found
     while found_token is not token_end:
