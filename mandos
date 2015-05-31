@@ -78,6 +78,7 @@ import binascii
 import tempfile
 import itertools
 import collections
+import codecs
 
 import dbus
 import dbus.service
@@ -2510,7 +2511,7 @@ def main():
             pidfilename = "/var/run/mandos.pid"
         pidfile = None
         try:
-            pidfile = open(pidfilename, "w")
+            pidfile = codecs.open(pidfilename, "w", encoding="utf-8")
         except IOError as e:
             logger.error("Could not open file %r", pidfilename,
                          exc_info=e)
@@ -2712,10 +2713,10 @@ def main():
     
     if not foreground:
         if pidfile is not None:
+            pid = os.getpid()
             try:
                 with pidfile:
-                    pid = os.getpid()
-                    pidfile.write("{}\n".format(pid).encode("utf-8"))
+                    print(pid, file=pidfile)
             except IOError:
                 logger.error("Could not write to file %r with PID %d",
                              pidfilename, pid)
