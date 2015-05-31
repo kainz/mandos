@@ -2153,7 +2153,8 @@ class MandosServer(IPv6_TCPServer):
         
         if command == 'getattr':
             attrname = request[1]
-            if callable(client_object.__getattribute__(attrname)):
+            if isinstance(client_object.__getattribute__(attrname),
+                          collections.Callable):
                 parent_pipe.send(('function', ))
             else:
                 parent_pipe.send((
