@@ -1111,23 +1111,35 @@ def alternate_dbus_interfaces(alt_interface_names, deprecate=True):
                 interface_names.add(alt_interface)
                 # Is this a D-Bus signal?
                 if getattr(attribute, "_dbus_is_signal", False):
-                    # Extract the original non-method undecorated
-                    # function by black magic
-                    nonmethod_func = (dict(
-                        zip(attribute.func_code.co_freevars,
-                            attribute.__closure__))
-                                      ["func"].cell_contents)
+                    if sys.version == 2:
+                        # Extract the original non-method undecorated
+                        # function by black magic
+                        nonmethod_func = (dict(
+                            zip(attribute.func_code.co_freevars,
+                                attribute.__closure__))
+                                          ["func"].cell_contents)
+                    else:
+                        nonmethod_func = attribute
                     # Create a new, but exactly alike, function
                     # object, and decorate it to be a new D-Bus signal
                     # with the alternate D-Bus interface name
+                    if sys.version == 2:
+                        new_function = types.FunctionType(
+                            nonmethod_func.func_code,
+                            nonmethod_func.func_globals,
+                            nonmethod_func.func_name,
+                            nonmethod_func.func_defaults,
+                            nonmethod_func.func_closure)
+                    else:
+                        new_function = types.FunctionType(
+                            nonmethod_func.__code__,
+                            nonmethod_func.__globals__,
+                            nonmethod_func.__name__,
+                            nonmethod_func.__defaults__,
+                            nonmethod_func.__closure__)
                     new_function = (dbus.service.signal(
-                        alt_interface, attribute._dbus_signature)
-                                    (types.FunctionType(
-                                        nonmethod_func.func_code,
-                                        nonmethod_func.func_globals,
-                                        nonmethod_func.func_name,
-                                        nonmethod_func.func_defaults,
-                                        nonmethod_func.func_closure)))
+                        alt_interface,
+                        attribute._dbus_signature)(new_function))
                     # Copy annotations, if any
                     try:
                         new_function._dbus_annotations = dict(
