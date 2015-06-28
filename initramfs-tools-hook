@@ -70,11 +70,13 @@ force_load ipv6
 CONFDIR="/conf/conf.d/mandos"
 MANDOSDIR="/lib/mandos"
 PLUGINDIR="${MANDOSDIR}/plugins.d"
+PLUGINHELPERDIR="${MANDOSDIR}/plugins-helpers"
 HOOKDIR="${MANDOSDIR}/network-hooks.d"
 
 # Make directories
 install --directory --mode=u=rwx,go=rx "${DESTDIR}${CONFDIR}" \
-	"${DESTDIR}${MANDOSDIR}" "${DESTDIR}${HOOKDIR}"
+	"${DESTDIR}${MANDOSDIR}" "${DESTDIR}${HOOKDIR}" \
+	"${DESTDIR}${PLUGINHELPERDIR}"
 install --owner=${mandos_user} --group=${mandos_group} --directory \
     --mode=u=rwx "${DESTDIR}${PLUGINDIR}"
 
@@ -98,6 +100,21 @@ for file in "$libdir"/mandos/plugins.d/*; do
     esac
 done
 
+# Copy the packaged plugin helpers
+for file in "$libdir"/mandos/plugin-helpers/*; do
+    base="`basename \"$file\"`"
+    # Is this plugin overridden?
+    if [ -e "/etc/mandos/plugin-helpers/$base" ]; then
+	continue
+    fi
+    case "$base" in
+	*~|.*|\#*\#|*.dpkg-old|*.dpkg-bak|*.dpkg-new|*.dpkg-divert)
+	    : ;;
+	"*") : ;;
+	*) copy_exec "$file" "${PLUGINHELPERDIR}" ;;
+    esac
+done
+
 # Copy any user-supplied plugins
 for file in /etc/mandos/plugins.d/*; do
     base="`basename \"$file\"`"
@@ -106,6 +123,17 @@ for file in /etc/mandos/plugins.d/*; do
 	    : ;;
 	"*") : ;;
 	*) copy_exec "$file" "${PLUGINDIR}" ;;
+    esac
+done
+
+# Copy any user-supplied plugin helpers
+for file in /etc/mandos/plugin-helpers/*; do
+    base="`basename \"$file\"`"
+    case "$base" in
+	*~|.*|\#*\#|*.dpkg-old|*.dpkg-bak|*.dpkg-new|*.dpkg-divert)
+	    : ;;
+	"*") : ;;
+	*) copy_exec "$file" "${PLUGINHELPERDIR}" ;;
     esac
 done
 

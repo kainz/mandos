@@ -106,7 +106,8 @@ HTMLPOST=$(SED) --in-place \
 PLUGINS=plugins.d/password-prompt plugins.d/mandos-client \
 	plugins.d/usplash plugins.d/splashy plugins.d/askpass-fifo \
 	plugins.d/plymouth
-CPROGS=plugin-runner $(PLUGINS)
+PLUGIN_HELPERS=
+CPROGS=plugin-runner $(PLUGINS) $(PLUGIN_HELPERS)
 PROGS=mandos mandos-keygen mandos-ctl mandos-monitor $(CPROGS)
 DOCS=mandos.8 mandos-keygen.8 mandos-monitor.8 mandos-ctl.8 \
 	mandos.conf.5 mandos-clients.conf.5 plugin-runner.8mandos \
@@ -273,6 +274,7 @@ run-client: all keydir/seckey.txt keydir/pubkey.txt
 	@echo "###################################################################"
 # We set GNOME_KEYRING_CONTROL to block pam_gnome_keyring
 	./plugin-runner --plugin-dir=plugins.d \
+		--plugin-helper-dir=plugin-helpers \
 		--config-file=plugin-runner.conf \
 		--options-for=mandos-client:--seckey=keydir/seckey.txt,--pubkey=keydir/pubkey.txt,--network-hook-dir=network-hooks.d \
 		--env-for=mandos-client:GNOME_KEYRING_CONTROL= \
@@ -356,6 +358,7 @@ install-client-nokey: all doc
 	if [ "$(CONFDIR)" != "$(LIBDIR)/mandos" ]; then \
 		install --mode=u=rwx \
 			--directory "$(CONFDIR)/plugins.d"; \
+		install --directory "$(CONFDIR)/plugin-helpers"; \
 	fi
 	install --mode=u=rwx,go=rx --directory \
 		"$(CONFDIR)/network-hooks.d"

@@ -76,6 +76,7 @@
 #define BUFFER_SIZE 256
 
 #define PDIR "/lib/mandos/plugins.d"
+#define PHDIR "/lib/mandos/plugin-helpers"
 #define AFILE "/conf/conf.d/mandos/plugin-runner.conf"
 
 const char *argp_program_version = "plugin-runner " VERSION;
@@ -347,6 +348,7 @@ static void free_plugin_list(void){
 
 int main(int argc, char *argv[]){
   char *plugindir = NULL;
+  char *pluginhelperdir = NULL;
   char *argfile = NULL;
   FILE *conffp;
   struct dirent **direntries = NULL;
@@ -414,6 +416,10 @@ int main(int argc, char *argv[]){
       .doc = "Group ID the plugins will run as", .group = 3 },
     { .name = "debug", .key = 132,
       .doc = "Debug mode", .group = 4 },
+    { .name = "plugin-helper-dir", .key = 133,
+      .arg = "DIRECTORY",
+      .doc = "Specify a different plugin helper directory",
+      .group = 2 },
     /*
      * These reproduce what we would get without ARGP_NO_HELP
      */
@@ -545,6 +551,13 @@ int main(int argc, char *argv[]){
     case 132:			/* --debug */
       debug = true;
       break;
+    case 133:			/* --plugin-helper-dir */
+      free(pluginhelperdir);
+      pluginhelperdir = strdup(arg);
+      if(pluginhelperdir != NULL){
+	errno = 0;
+      }
+      break;
       /*
        * These reproduce what we would get without ARGP_NO_HELP
        */
@@ -601,6 +614,7 @@ int main(int argc, char *argv[]){
     case 130:			/* --userid */
     case 131:			/* --groupid */
     case 132:			/* --debug */
+    case 133:			/* --plugin-helper-dir */
     case '?':			/* --help */
     case -3:			/* --usage */
     case 'V':			/* --version */
@@ -759,6 +773,24 @@ int main(int argc, char *argv[]){
   case EINVAL:
     exitstatus = EX_USAGE;
     goto fallback;
+  }
+  
+  {
+    char *pluginhelperenv;
+    bool bret = true;
+    ret = asprintf(&pluginhelperenv, "MANDOSPLUGINHELPERDIR=%s",
+		   pluginhelperdir != NULL ? pluginhelperdir : PHDIR);
+    if(ret != -1){
+      bret = add_environment(getplugin(NULL), pluginhelperenv, true);
+    }
+    if(ret == -1 or not bret){
+      error(0, errno, "Failed to set MANDOSPLUGINHELPERDIR"
+	    " environment variable to \"%s\" for all plugins\n",
+	    pluginhelperdir != NULL ? pluginhelperdir : PHDIR);
+    }
+    if(ret != -1){
+      free(pluginhelperenv);
+    }
   }
   
   if(debug){
@@ -1336,6 +1368,7 @@ int main(int argc, char *argv[]){
   free_plugin_list();
   
   free(plugindir);
+  free(pluginhelperdir);
   free(argfile);
   
   return exitstatus;
