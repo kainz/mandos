@@ -760,7 +760,7 @@ static bool add_remove_local_route(const bool add,
       perror_plus("dup2(devnull, STDIN_FILENO)");
       _exit(EX_OSERR);
     }
-    ret = close(devnull);
+    ret = (int)TEMP_FAILURE_RETRY(close(devnull));
     if(ret == -1){
       perror_plus("close");
       _exit(EX_OSERR);
@@ -775,8 +775,16 @@ static bool add_remove_local_route(const bool add,
 						    | O_DIRECTORY
 						    | O_PATH
 						    | O_CLOEXEC));
+    if(helperdir_fd == -1){
+      perror_plus("open");
+      _exit(EX_UNAVAILABLE);
+    }
     int helper_fd = (int)TEMP_FAILURE_RETRY(openat(helperdir_fd,
 						   helper, O_RDONLY));
+    if(helper_fd == -1){
+      perror_plus("openat");
+      _exit(EX_UNAVAILABLE);
+    }
     TEMP_FAILURE_RETRY(close(helperdir_fd));
 #ifdef __GNUC__
 #pragma GCC diagnostic push
@@ -1813,9 +1821,9 @@ void run_network_hooks(const char *mode, const char *interface,
 	  _exit(EX_OSERR);
 	}
       }
-      int hook_fd = TEMP_FAILURE_RETRY(openat(hookdir_fd,
-					      direntry->d_name,
-					      O_RDONLY));
+      int hook_fd = (int)TEMP_FAILURE_RETRY(openat(hookdir_fd,
+						   direntry->d_name,
+						   O_RDONLY));
       if(hook_fd == -1){
 	perror_plus("openat");
 	_exit(EXIT_FAILURE);
@@ -1829,7 +1837,7 @@ void run_network_hooks(const char *mode, const char *interface,
 	perror_plus("dup2(devnull, STDIN_FILENO)");
 	_exit(EX_OSERR);
       }
-      ret = close(devnull);
+      ret = (int)TEMP_FAILURE_RETRY(close(devnull));
       if(ret == -1){
 	perror_plus("close");
 	_exit(EX_OSERR);
