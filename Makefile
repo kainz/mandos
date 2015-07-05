@@ -69,6 +69,8 @@ AVAHI_LIBS=$(shell pkg-config --libs avahi-core)
 GPGME_CFLAGS=$(shell gpgme-config --cflags; getconf LFS_CFLAGS)
 GPGME_LIBS=$(shell gpgme-config --libs; getconf LFS_LIBS; \
 	getconf LFS_LDFLAGS)
+LIBNL3_CFLAGS=$(shell pkg-config --cflags-only-I libnl-route-3.0)
+LIBNL3_LIBS=$(shell pkg-config --libs libnl-route-3.0)
 
 # Do not change these two
 CFLAGS+=$(WARN) $(DEBUG) $(FORTIFY) $(COVERAGE) $(OPTIMIZE) \
@@ -106,7 +108,7 @@ HTMLPOST=$(SED) --in-place \
 PLUGINS=plugins.d/password-prompt plugins.d/mandos-client \
 	plugins.d/usplash plugins.d/splashy plugins.d/askpass-fifo \
 	plugins.d/plymouth
-PLUGIN_HELPERS=
+PLUGIN_HELPERS=plugin-helpers/mandos-client-iprouteadddel
 CPROGS=plugin-runner $(PLUGINS) $(PLUGIN_HELPERS)
 PROGS=mandos mandos-keygen mandos-ctl mandos-monitor $(CPROGS)
 DOCS=mandos.8 mandos-keygen.8 mandos-monitor.8 mandos-ctl.8 \
@@ -239,6 +241,10 @@ mandos.lsm: Makefile
 plugins.d/mandos-client: plugins.d/mandos-client.c
 	$(LINK.c) $^ -lrt $(GNUTLS_LIBS) $(AVAHI_LIBS) $(strip\
 		) $(GPGME_LIBS) $(LOADLIBES) $(LDLIBS) -o $@
+
+plugin-helpers/mandos-client-iprouteadddel: plugin-helpers/mandos-client-iprouteadddel.c
+	$(LINK.c) $(LIBNL3_CFLAGS) $^ $(LIBNL3_LIBS) $(strip\
+		) $(LOADLIBES) $(LDLIBS) -o $@
 
 .PHONY : all doc html clean distclean mostlyclean maintainer-clean \
 	check run-client run-server install install-html \
