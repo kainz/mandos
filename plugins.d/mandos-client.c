@@ -710,7 +710,7 @@ static bool add_remove_local_route(const bool add,
   int ret;
   char helper[] = "mandos-client-iprouteadddel";
   char add_arg[] = "add";
-  char remove_arg[] = "remove";
+  char delete_arg[] = "delete";
   char *pluginhelperdir = getenv("MANDOSPLUGINHELPERDIR");
   if(pluginhelperdir == NULL){
     if(debug){
@@ -791,7 +791,7 @@ static bool add_remove_local_route(const bool add,
 #pragma GCC diagnostic ignored "-Wcast-qual"
 #endif
     if(fexecve(helper_fd, (char *const [])
-	       { helper, add ? add_arg : remove_arg, (char *)address,
+	       { helper, add ? add_arg : delete_arg, (char *)address,
 		   interface, NULL }, environ) == -1){
 #ifdef __GNUC__
 #pragma GCC diagnostic pop
