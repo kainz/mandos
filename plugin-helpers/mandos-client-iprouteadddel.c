@@ -24,27 +24,50 @@
 
 #define _GNU_SOURCE		/* asprintf(),
 				   program_invocation_short_name */
-#include <iso646.h>		/* not, or, and */
 #include <stdbool.h>		/* bool, false, true */
-#include <stdio.h>		/* vfprintf(), stderr, stdout */
+#include <stdio.h>		/* fprintf(), stderr, FILE, vfprintf */
+#include <errno.h>		/* program_invocation_short_name,
+				   errno, perror(), EINVAL, ENOMEM */
 #include <stdarg.h>		/* va_list, va_start */
-#include <errno.h>		/* perror(), errno,
-				   program_invocation_short_name */
+#include <stdlib.h> 		/* EXIT_SUCCESS */
 #include <argp.h>		/* struct argp_option, error_t, struct
-				   argp_state, struct argp,
-				   argp_parse(), ARGP_KEY_ARG,
-				   ARGP_KEY_END, ARGP_ERR_UNKNOWN */
+				   argp_state, ARGP_KEY_ARG,
+				   argp_usage(), ARGP_KEY_END,
+				   ARGP_ERR_UNKNOWN, struct argp,
+				   argp_parse() */
+#include <sysexits.h>		/* EX_USAGE, EX_OSERR */
+#include <netinet/ip.h>		/* sa_family_t, AF_INET6, AF_INET */
 #include <inttypes.h>		/* PRIdMAX, intmax_t */
-#include <sysexits.h>		/* EX_OSERR */
 
-/* #include <linux/netlink.h> */
-/* #include <netlink/netlink.h> */
-/* #include <netlink/socket.h> */
-#include <netlink/netlink.h>
-#include <netlink/socket.h>
-#include <netlink/cache.h>
-#include <netlink/route/link.h>	 /* libnl xxx */
-#include <netlink/route/route.h> /* libnl xxx */
+#include <netlink/netlink.h>	/* struct nl_addr, nl_addr_parse(),
+				   nl_geterror(),
+				   nl_addr_get_family(),
+				   nl_addr_put() */
+#include <netlink/route/route.h> /* struct rtnl_route,
+				    struct rtnl_nexthop,
+				    rtnl_route_alloc(),
+				    rtnl_route_set_family(),
+				    rtnl_route_set_protocol(),
+				    RTPROT_BOOT,
+				    rtnl_route_set_scope(),
+				    RT_SCOPE_LINK,
+				    rtnl_route_set_type(),
+				    RTN_UNICAST,
+				    rtnl_route_set_dst(),
+				    rtnl_route_set_table(),
+				    RT_TABLE_MAIN,
+				    rtnl_route_nh_alloc(),
+				    rtnl_route_nh_set_ifindex(),
+				    rtnl_route_add_nexthop(),
+				    rtnl_route_add(),
+				    rtnl_route_delete(),
+				    rtnl_route_put(),
+				    rtnl_route_nh_free() */
+#include <netlink/socket.h>	/* struct nl_sock, nl_socket_alloc(),
+				   nl_connect(), nl_socket_free() */
+#include <netlink/route/link.h>	/* rtnl_link_get_kernel(),
+				   rtnl_link_get_ifindex(),
+				   rtnl_link_put() */
 
 bool debug = false;
 const char *argp_program_version = "mandos-client-iprouteadddel " VERSION;
@@ -208,7 +231,7 @@ int main(int argc, char *argv[]){
   /* Create nexthop */
   nexthop = rtnl_route_nh_alloc();
   if(nexthop == NULL){
-    fprintf_plus(stderr, "Failed to get netlink route nexthop:\n");
+    fprintf_plus(stderr, "Failed to get netlink route nexthop\n");
     exitcode = EX_OSERR;
     goto end;
   }
