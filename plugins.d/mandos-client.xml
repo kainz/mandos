@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY COMMANDNAME "mandos-client">
-<!ENTITY TIMESTAMP "2015-03-08">
+<!ENTITY TIMESTAMP "2015-07-06">
 <!ENTITY % common SYSTEM "../common.ent">
 %common;
 ]>
@@ -36,6 +36,7 @@
       <year>2012</year>
       <year>2013</year>
       <year>2014</year>
+      <year>2015</year>
       <holder>Teddy Hogeborn</holder>
       <holder>Björn Påhlsson</holder>
     </copyright>
@@ -445,9 +446,22 @@
   
   <refsect1 id="environment">
     <title>ENVIRONMENT</title>
+    <variablelist>
+      <varlistentry>
+	<term><envar>MANDOSPLUGINHELPERDIR</envar></term>
+	<listitem>
+	  <para>
+	    This environment variable will be assumed to contain the
+	    directory containing any helper executables.  The use and
+	    nature of these helper executables, if any, is
+	    purposefully not documented.
+	</para>
+	</listitem>
+      </varlistentry>
+    </variablelist>
     <para>
-      This program does not use any environment variables, not even
-      the ones provided by <citerefentry><refentrytitle
+      This program does not use any other environment variables, not
+      even the ones provided by <citerefentry><refentrytitle
       >cryptsetup</refentrytitle><manvolnum>8</manvolnum>
     </citerefentry>.
     </para>

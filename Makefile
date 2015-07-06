@@ -69,6 +69,8 @@ AVAHI_LIBS=$(shell pkg-config --libs avahi-core)
 GPGME_CFLAGS=$(shell gpgme-config --cflags; getconf LFS_CFLAGS)
 GPGME_LIBS=$(shell gpgme-config --libs; getconf LFS_LIBS; \
 	getconf LFS_LDFLAGS)
+LIBNL3_CFLAGS=$(shell pkg-config --cflags-only-I libnl-route-3.0)
+LIBNL3_LIBS=$(shell pkg-config --libs libnl-route-3.0)
 
 # Do not change these two
 CFLAGS+=$(WARN) $(DEBUG) $(FORTIFY) $(COVERAGE) $(OPTIMIZE) \
@@ -106,7 +108,8 @@ HTMLPOST=$(SED) --in-place \
 PLUGINS=plugins.d/password-prompt plugins.d/mandos-client \
 	plugins.d/usplash plugins.d/splashy plugins.d/askpass-fifo \
 	plugins.d/plymouth
-CPROGS=plugin-runner $(PLUGINS)
+PLUGIN_HELPERS=plugin-helpers/mandos-client-iprouteadddel
+CPROGS=plugin-runner $(PLUGINS) $(PLUGIN_HELPERS)
 PROGS=mandos mandos-keygen mandos-ctl mandos-monitor $(CPROGS)
 DOCS=mandos.8 mandos-keygen.8 mandos-monitor.8 mandos-ctl.8 \
 	mandos.conf.5 mandos-clients.conf.5 plugin-runner.8mandos \
@@ -239,6 +242,10 @@ plugins.d/mandos-client: plugins.d/mandos-client.c
 	$(LINK.c) $^ -lrt $(GNUTLS_LIBS) $(AVAHI_LIBS) $(strip\
 		) $(GPGME_LIBS) $(LOADLIBES) $(LDLIBS) -o $@
 
+plugin-helpers/mandos-client-iprouteadddel: plugin-helpers/mandos-client-iprouteadddel.c
+	$(LINK.c) $(LIBNL3_CFLAGS) $^ $(LIBNL3_LIBS) $(strip\
+		) $(LOADLIBES) $(LDLIBS) -o $@
+
 .PHONY : all doc html clean distclean mostlyclean maintainer-clean \
 	check run-client run-server install install-html \
 	install-server install-client-nokey install-client uninstall \
@@ -273,6 +280,7 @@ run-client: all keydir/seckey.txt keydir/pubkey.txt
 	@echo "###################################################################"
 # We set GNOME_KEYRING_CONTROL to block pam_gnome_keyring
 	./plugin-runner --plugin-dir=plugins.d \
+		--plugin-helper-dir=plugin-helpers \
 		--config-file=plugin-runner.conf \
 		--options-for=mandos-client:--seckey=keydir/seckey.txt,--pubkey=keydir/pubkey.txt,--network-hook-dir=network-hooks.d \
 		--env-for=mandos-client:GNOME_KEYRING_CONTROL= \
@@ -352,10 +360,12 @@ install-server: doc
 install-client-nokey: all doc
 	install --directory $(LIBDIR)/mandos $(CONFDIR)
 	install --directory --mode=u=rwx $(KEYDIR) \
-		$(LIBDIR)/mandos/plugins.d
+		$(LIBDIR)/mandos/plugins.d \
+		$(LIBDIR)/mandos/plugin-helpers
 	if [ "$(CONFDIR)" != "$(LIBDIR)/mandos" ]; then \
 		install --mode=u=rwx \
 			--directory "$(CONFDIR)/plugins.d"; \
+		install --directory "$(CONFDIR)/plugin-helpers"; \
 	fi
 	install --mode=u=rwx,go=rx --directory \
 		"$(CONFDIR)/network-hooks.d"
@@ -381,6 +391,9 @@ install-client-nokey: all doc
 	install --mode=u=rwxs,go=rx \
 		--target-directory=$(LIBDIR)/mandos/plugins.d \
 		plugins.d/plymouth
+	install --mode=u=rwxs,go=rx \
+		--target-directory=$(LIBDIR)/mandos/plugin-helpers \
+		plugin-helpers/mandos-client-iprouteadddel
 	install initramfs-tools-hook \
 		$(INITRAMFSTOOLS)/hooks/mandos
 	install --mode=u=rw,go=r initramfs-tools-hook-conf \
