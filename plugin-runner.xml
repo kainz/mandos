@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY COMMANDNAME "plugin-runner">
-<!ENTITY TIMESTAMP "2012-01-01">
+<!ENTITY TIMESTAMP "2015-06-28">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -572,15 +572,16 @@
     </informalexample>
     <informalexample>
       <para>
-	Run plugins from a different directory, read a different
-	configuration file, and add two options to the
+	Read a different configuration file, run plugins from a
+	different directory, specify an alternate plugin helper
+	directory and add two options to the
 	<citerefentry><refentrytitle >mandos-client</refentrytitle>
 	<manvolnum>8mandos</manvolnum></citerefentry> plugin:
       </para>
       <para>
 
 <!-- do not wrap this line -->
-<userinput>cd /etc/keys/mandos; &COMMANDNAME;  --config-file=/etc/mandos/plugin-runner.conf --plugin-dir /usr/lib/mandos/plugins.d --options-for=mandos-client:--pubkey=pubkey.txt,--seckey=seckey.txt</userinput>
+<userinput>cd /etc/keys/mandos; &COMMANDNAME;  --config-file=/etc/mandos/plugin-runner.conf --plugin-dir /usr/lib/x86_64-linux-gnu/mandos/plugins.d --plugin-helper-dir /usr/lib/x86_64-linux-gnu/mandos/plugin-helpers --options-for=mandos-client:--pubkey=pubkey.txt,--seckey=seckey.txt</userinput>
 
       </para>
     </informalexample>

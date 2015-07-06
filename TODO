@@ -1,7 +1,7 @@
 -*- org -*-
 
 * GIT
-** General: [[https://www.atlassian.com/git/workflows][Git Workflows]], [[http://gitimmersion.com/][Git Immersion]], [[https://news.ycombinator.com/item?id=7036628][Simple git workflow is simple]]
+** General: [[https://www.atlassian.com/git/workflows][Git Workflows]], [[http://gitimmersion.com/][Git Immersion]], [[https://news.ycombinator.com/item?id=7036628][Simple git workflow is simple]] [[https://news.ycombinator.com/item?id=9661349][On undoing, fixing, or removing commits in git]]
 ** Intro: [[http://www.eyrie.org/~eagle/notes/debian/git.html#combine][Using Git for Debian Packaging]]
 ** Use: [[https://honk.sigxcpu.org/piki/projects/git-buildpackage/][git-buildpackage]]
 ** Migration
@@ -26,6 +26,7 @@
 ** TODO [#B] Use getaddrinfo(hints=AI_NUMERICHOST) instead of inet_pton()
 ** TODO [#C] Make start_mandos_communication() take "struct server".
 ** TODO [#C] --interfaces=regex,eth*,noregex (bridge-utils-interfaces(5))
+** TODO [#C] Remove code for GNU libc < 2.15
 
 * splashy
 ** TODO [#B] use scandir(3) instead of readdir(3)
@@ -48,6 +49,7 @@
 *** Hook up stderr of plugins, buffer them, and prepend "Mandos Plugin [plugin name]"
 ** TODO [#C] use same file name rules as run-parts(8)
 ** kernel command line option for debug info
+** TODO [#C] Remove code for GNU libc < 2.15
 
 * mandos (server)
 ** TODO [#B] Work around Avahi issue
@@ -93,6 +95,7 @@
 ** TODO init.d script error handling
 ** TODO D-Bus server properties; address, port, interface, etc.		     :2:
 ** TODO [#C] In Python 3.3, use shlex.quote() instead of re.escape()
+** TODO [#A] USe systemd Type=dbus
 
 * mandos.xml
 ** Add mandos contact info in manual pages
@@ -125,7 +128,7 @@
 *** TODO [#C] use same file name rules as run-parts(8)
 *** TODO [#C] Do not install in initrd.img if configured not to.
     Use "/etc/initramfs-tools/hooksconf.d/mandos"?
-** TODO [#C] /etc/bash_completion.d/mandos
+** TODO [#C] $(pkg-config --variable=completionsdir bash-completion)
    From XML sources directly?
 
 * Side Stuff
