@@ -48,9 +48,6 @@
 ** kernel command line option for debug info
 
 * mandos (server)
-** TODO [#B] Work around Avahi issue
-   Avahi does not announce link-local addresses if any global
-   addresses exist: http://lists.freedesktop.org/archives/avahi/2010-March/001863.html
 ** TODO [#B] Log level							  :BUGS:
 *** TODO /etc/mandos/clients.d/*.conf
     Watch this directory and add/remove/update clients?

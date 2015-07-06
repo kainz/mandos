@@ -360,7 +360,8 @@ install-server: doc
 install-client-nokey: all doc
 	install --directory $(LIBDIR)/mandos $(CONFDIR)
 	install --directory --mode=u=rwx $(KEYDIR) \
-		$(LIBDIR)/mandos/plugins.d
+		$(LIBDIR)/mandos/plugins.d \
+		$(LIBDIR)/mandos/plugin-helpers
 	if [ "$(CONFDIR)" != "$(LIBDIR)/mandos" ]; then \
 		install --mode=u=rwx \
 			--directory "$(CONFDIR)/plugins.d"; \
@@ -390,6 +391,9 @@ install-client-nokey: all doc
 	install --mode=u=rwxs,go=rx \
 		--target-directory=$(LIBDIR)/mandos/plugins.d \
 		plugins.d/plymouth
+	install --mode=u=rwxs,go=rx \
+		--target-directory=$(LIBDIR)/mandos/plugin-helpers \
+		plugin-helpers/mandos-client-iprouteadddel
 	install initramfs-tools-hook \
 		$(INITRAMFSTOOLS)/hooks/mandos
 	install --mode=u=rw,go=r initramfs-tools-hook-conf \
