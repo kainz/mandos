@@ -70,7 +70,7 @@ force_load ipv6
 CONFDIR="/conf/conf.d/mandos"
 MANDOSDIR="/lib/mandos"
 PLUGINDIR="${MANDOSDIR}/plugins.d"
-PLUGINHELPERDIR="${MANDOSDIR}/plugins-helpers"
+PLUGINHELPERDIR="${MANDOSDIR}/plugin-helpers"
 HOOKDIR="${MANDOSDIR}/network-hooks.d"
 
 # Make directories
