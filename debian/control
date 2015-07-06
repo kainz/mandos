@@ -6,7 +6,7 @@ Uploaders: Teddy Hogeborn <teddy@recompile.se>,
 	   Björn Påhlsson <belorn@recompile.se>
 Build-Depends: debhelper (>= 9), docbook-xml, docbook-xsl,
 	libavahi-core-dev, libgpgme11-dev, libgnutls28-dev
-	| gnutls-dev, xsltproc, pkg-config
+	| gnutls-dev, xsltproc, pkg-config, libnl-route-3-dev
 Build-Depends-Indep: systemd, python2.7, python2.7-gnutls,
 	python2.7-dbus, python2.7-avahi, python2.7-gobject
 Standards-Version: 3.9.6
