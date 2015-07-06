@@ -9,8 +9,8 @@
  * "browse_callback", and parts of "main".
  * 
  * Everything else is
- * Copyright © 2008-2014 Teddy Hogeborn
- * Copyright © 2008-2014 Björn Påhlsson
+ * Copyright © 2008-2015 Teddy Hogeborn
+ * Copyright © 2008-2015 Björn Påhlsson
  * 
  * This program is free software: you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -757,6 +757,223 @@ static int init_gnutls_session(gnutls_session_t *session,
 static void empty_log(__attribute__((unused)) AvahiLogLevel level,
 		      __attribute__((unused)) const char *txt){}
 
+/* Set effective uid to 0, return errno */
+__attribute__((warn_unused_result))
+error_t raise_privileges(void){
+  error_t old_errno = errno;
+  error_t ret_errno = 0;
+  if(seteuid(0) == -1){
+    ret_errno = errno;
+  }
+  errno = old_errno;
+  return ret_errno;
+}
+
+/* Set effective and real user ID to 0.  Return errno. */
+__attribute__((warn_unused_result))
+error_t raise_privileges_permanently(void){
+  error_t old_errno = errno;
+  error_t ret_errno = raise_privileges();
+  if(ret_errno != 0){
+    errno = old_errno;
+    return ret_errno;
+  }
+  if(setuid(0) == -1){
+    ret_errno = errno;
+  }
+  errno = old_errno;
+  return ret_errno;
+}
+
+/* Set effective user ID to unprivileged saved user ID */
+__attribute__((warn_unused_result))
+error_t lower_privileges(void){
+  error_t old_errno = errno;
+  error_t ret_errno = 0;
+  if(seteuid(uid) == -1){
+    ret_errno = errno;
+  }
+  errno = old_errno;
+  return ret_errno;
+}
+
+/* Lower privileges permanently */
+__attribute__((warn_unused_result))
+error_t lower_privileges_permanently(void){
+  error_t old_errno = errno;
+  error_t ret_errno = 0;
+  if(setuid(uid) == -1){
+    ret_errno = errno;
+  }
+  errno = old_errno;
+  return ret_errno;
+}
+
+/* Helper function to add_local_route() and delete_local_route() */
+__attribute__((nonnull, warn_unused_result))
+static bool add_delete_local_route(const bool add,
+				   const char *address,
+				   AvahiIfIndex if_index){
+  int ret;
+  char helper[] = "mandos-client-iprouteadddel";
+  char add_arg[] = "add";
+  char delete_arg[] = "delete";
+  char debug_flag[] = "--debug";
+  char *pluginhelperdir = getenv("MANDOSPLUGINHELPERDIR");
+  if(pluginhelperdir == NULL){
+    if(debug){
+      fprintf_plus(stderr, "MANDOSPLUGINHELPERDIR environment"
+		   " variable not set; cannot run helper\n");
+    }
+    return false;
+  }
+  
+  char interface[IF_NAMESIZE];
+  if(if_indextoname((unsigned int)if_index, interface) == NULL){
+    perror_plus("if_indextoname");
+    return false;
+  }
+  
+  int devnull = (int)TEMP_FAILURE_RETRY(open("/dev/null", O_RDONLY));
+  if(devnull == -1){
+    perror_plus("open(\"/dev/null\", O_RDONLY)");
+    return false;
+  }
+  pid_t pid = fork();
+  if(pid == 0){
+    /* Child */
+    /* Raise privileges */
+    errno = raise_privileges_permanently();
+    if(errno != 0){
+      perror_plus("Failed to raise privileges");
+      /* _exit(EX_NOPERM); */
+    } else {
+      /* Set group */
+      errno = 0;
+      ret = setgid(0);
+      if(ret == -1){
+	perror_plus("setgid");
+	_exit(EX_NOPERM);
+      }
+      /* Reset supplementary groups */
+      errno = 0;
+      ret = setgroups(0, NULL);
+      if(ret == -1){
+	perror_plus("setgroups");
+	_exit(EX_NOPERM);
+      }
+    }
+    ret = dup2(devnull, STDIN_FILENO);
+    if(ret == -1){
+      perror_plus("dup2(devnull, STDIN_FILENO)");
+      _exit(EX_OSERR);
+    }
+    ret = (int)TEMP_FAILURE_RETRY(close(devnull));
+    if(ret == -1){
+      perror_plus("close");
+      _exit(EX_OSERR);
+    }
+    ret = dup2(STDERR_FILENO, STDOUT_FILENO);
+    if(ret == -1){
+      perror_plus("dup2(STDERR_FILENO, STDOUT_FILENO)");
+      _exit(EX_OSERR);
+    }
+    int helperdir_fd = (int)TEMP_FAILURE_RETRY(open(pluginhelperdir,
+						    O_RDONLY
+						    | O_DIRECTORY
+						    | O_PATH
+						    | O_CLOEXEC));
+    if(helperdir_fd == -1){
+      perror_plus("open");
+      _exit(EX_UNAVAILABLE);
+    }
+    int helper_fd = (int)TEMP_FAILURE_RETRY(openat(helperdir_fd,
+						   helper, O_RDONLY));
+    if(helper_fd == -1){
+      perror_plus("openat");
+      _exit(EX_UNAVAILABLE);
+    }
+    TEMP_FAILURE_RETRY(close(helperdir_fd));
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-qual"
+#endif
+    if(fexecve(helper_fd, (char *const [])
+	       { helper, add ? add_arg : delete_arg, (char *)address,
+		   interface, debug ? debug_flag : NULL, NULL },
+	       environ) == -1){
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif
+      perror_plus("fexecve");
+      _exit(EXIT_FAILURE);
+    }
+  }
+  if(pid == -1){
+    perror_plus("fork");
+    return false;
+  }
+  int status;
+  pid_t pret = -1;
+  errno = 0;
+  do {
+    pret = waitpid(pid, &status, 0);
+    if(pret == -1 and errno == EINTR and quit_now){
+      int errno_raising = 0;
+      if((errno = raise_privileges()) != 0){
+	errno_raising = errno;
+	perror_plus("Failed to raise privileges in order to"
+		    " kill helper program");
+      }
+      if(kill(pid, SIGTERM) == -1){
+	perror_plus("kill");
+      }
+      if((errno_raising == 0) and (errno = lower_privileges()) != 0){
+	perror_plus("Failed to lower privileges after killing"
+		    " helper program");
+      }
+      return false;
+    }
+  } while(pret == -1 and errno == EINTR);
+  if(pret == -1){
+    perror_plus("waitpid");
+    return false;
+  }
+  if(WIFEXITED(status)){
+    if(WEXITSTATUS(status) != 0){
+      fprintf_plus(stderr, "Error: iprouteadddel exited"
+		   " with status %d\n", WEXITSTATUS(status));
+      return false;
+    }
+    return true;
+  }
+  if(WIFSIGNALED(status)){
+    fprintf_plus(stderr, "Error: iprouteadddel died by"
+		 " signal %d\n", WTERMSIG(status));
+    return false;
+  }
+  fprintf_plus(stderr, "Error: iprouteadddel crashed\n");
+  return false;
+}
+
+__attribute__((nonnull, warn_unused_result))
+static bool add_local_route(const char *address,
+			    AvahiIfIndex if_index){
+  if(debug){
+    fprintf_plus(stderr, "Adding route to %s\n", address);
+  }
+  return add_delete_local_route(true, address, if_index);
+}
+
+__attribute__((nonnull, warn_unused_result))
+static bool delete_local_route(const char *address,
+			       AvahiIfIndex if_index){
+  if(debug){
+    fprintf_plus(stderr, "Removing route to %s\n", address);
+  }
+  return add_delete_local_route(false, address, if_index);
+}
+
 /* Called when a Mandos server is found */
 __attribute__((nonnull, warn_unused_result))
 static int start_mandos_communication(const char *ip, in_port_t port,
@@ -773,6 +990,7 @@ static int start_mandos_communication(const char *ip, in_port_t port,
   int retval = -1;
   gnutls_session_t session;
   int pf;			/* Protocol family */
+  bool route_added = false;
   
   errno = 0;
   
@@ -836,7 +1054,7 @@ static int start_mandos_communication(const char *ip, in_port_t port,
 		 PRIuMAX "\n", ip, (uintmax_t)port);
   }
   
-  tcp_sd = socket(pf, SOCK_STREAM, 0);
+  tcp_sd = socket(pf, SOCK_STREAM | SOCK_CLOEXEC, 0);
   if(tcp_sd < 0){
     int e = errno;
     perror_plus("socket");
@@ -931,25 +1149,61 @@ static int start_mandos_communication(const char *ip, in_port_t port,
     goto mandos_end;
   }
   
-  if(af == AF_INET6){
-    ret = connect(tcp_sd, (struct sockaddr *)&to,
-		  sizeof(struct sockaddr_in6));
-  } else {
-    ret = connect(tcp_sd, (struct sockaddr *)&to, /* IPv4 */
-		  sizeof(struct sockaddr_in));
-  }
-  if(ret < 0){
-    if((errno != ECONNREFUSED and errno != ENETUNREACH) or debug){
-      int e = errno;
-      perror_plus("connect");
-      errno = e;
+  while(true){
+    if(af == AF_INET6){
+      ret = connect(tcp_sd, (struct sockaddr *)&to,
+		    sizeof(struct sockaddr_in6));
+    } else {
+      ret = connect(tcp_sd, (struct sockaddr *)&to, /* IPv4 */
+		    sizeof(struct sockaddr_in));
     }
-    goto mandos_end;
-  }
-  
-  if(quit_now){
-    errno = EINTR;
-    goto mandos_end;
+    if(ret < 0){
+      if(errno == ENETUNREACH
+	 and if_index != AVAHI_IF_UNSPEC
+	 and connect_to == NULL
+	 and not route_added and
+	 ((af == AF_INET6 and not
+	   IN6_IS_ADDR_LINKLOCAL(&(((struct sockaddr_in6 *)
+				    &to)->sin6_addr)))
+	  or (af == AF_INET and
+	      /* Not a a IPv4LL address */
+	      (ntohl(((struct sockaddr_in *)&to)->sin_addr.s_addr)
+	       & 0xFFFF0000L) != 0xA9FE0000L))){
+	/* Work around Avahi bug - Avahi does not announce link-local
+	   addresses if it has a global address, so local hosts with
+	   *only* a link-local address (e.g. Mandos clients) cannot
+	   connect to a Mandos server announced by Avahi on a server
+	   host with a global address.  Work around this by retrying
+	   with an explicit route added with the server's address.
+	   
+	   Avahi bug reference:
+	   http://lists.freedesktop.org/archives/avahi/2010-February/001833.html
+	   https://bugs.debian.org/587961
+	*/
+	if(debug){
+	  fprintf_plus(stderr, "Mandos server unreachable, trying"
+		       " direct route\n");
+	}
+	int e = errno;
+	route_added = add_local_route(ip, if_index);
+	if(route_added){
+	  continue;
+	}
+	errno = e;
+      }
+      if(errno != ECONNREFUSED or debug){
+	int e = errno;
+	perror_plus("connect");
+	errno = e;
+      }
+      goto mandos_end;
+    }
+    
+    if(quit_now){
+      errno = EINTR;
+      goto mandos_end;
+    }
+    break;
   }
   
   const char *out = mandos_protocol_version;
@@ -1138,6 +1392,12 @@ static int start_mandos_communication(const char *ip, in_port_t port,
   
  mandos_end:
   {
+    if(route_added){
+      if(not delete_local_route(ip, if_index)){
+	fprintf_plus(stderr, "Failed to delete local route to %s on"
+		     " interface %d", ip, if_index);
+      }
+    }
     int e = errno;
     free(decrypted_buffer);
     free(buffer);
@@ -1569,64 +1829,13 @@ int avahi_loop_with_timeout(AvahiSimplePoll *s, int retry_interval,
   }
 }
 
-/* Set effective uid to 0, return errno */
-__attribute__((warn_unused_result))
-error_t raise_privileges(void){
-  error_t old_errno = errno;
-  error_t ret_errno = 0;
-  if(seteuid(0) == -1){
-    ret_errno = errno;
-  }
-  errno = old_errno;
-  return ret_errno;
-}
-
-/* Set effective and real user ID to 0.  Return errno. */
-__attribute__((warn_unused_result))
-error_t raise_privileges_permanently(void){
-  error_t old_errno = errno;
-  error_t ret_errno = raise_privileges();
-  if(ret_errno != 0){
-    errno = old_errno;
-    return ret_errno;
-  }
-  if(setuid(0) == -1){
-    ret_errno = errno;
-  }
-  errno = old_errno;
-  return ret_errno;
-}
-
-/* Set effective user ID to unprivileged saved user ID */
-__attribute__((warn_unused_result))
-error_t lower_privileges(void){
-  error_t old_errno = errno;
-  error_t ret_errno = 0;
-  if(seteuid(uid) == -1){
-    ret_errno = errno;
-  }
-  errno = old_errno;
-  return ret_errno;
-}
-
-/* Lower privileges permanently */
-__attribute__((warn_unused_result))
-error_t lower_privileges_permanently(void){
-  error_t old_errno = errno;
-  error_t ret_errno = 0;
-  if(setuid(uid) == -1){
-    ret_errno = errno;
-  }
-  errno = old_errno;
-  return ret_errno;
-}
-
 __attribute__((nonnull))
 void run_network_hooks(const char *mode, const char *interface,
 		       const float delay){
   struct dirent **direntries = NULL;
   if(hookdir_fd == -1){
-    hookdir_fd = open(hookdir, O_RDONLY);
+    hookdir_fd = open(hookdir, O_RDONLY | O_DIRECTORY | O_PATH
+		      | O_CLOEXEC);
     if(hookdir_fd == -1){
       if(errno == ENOENT){
 	if(debug){
@@ -1657,7 +1866,11 @@ void run_network_hooks(const char *mode, const char *interface,
   }
   struct dirent *direntry;
   int ret;
-  int devnull = open("/dev/null", O_RDONLY);
+  int devnull = (int)TEMP_FAILURE_RETRY(open("/dev/null", O_RDONLY));
+  if(devnull == -1){
+    perror_plus("open(\"/dev/null\", O_RDONLY)");
+    return;
+  }
   for(int i = 0; i < numhooks; i++){
     direntry = direntries[i];
     if(debug){
@@ -1686,21 +1899,6 @@ void run_network_hooks(const char *mode, const char *interface,
       if(ret == -1){
 	perror_plus("setgroups");
 	_exit(EX_NOPERM);
-      }
-      ret = dup2(devnull, STDIN_FILENO);
-      if(ret == -1){
-	perror_plus("dup2(devnull, STDIN_FILENO)");
-	_exit(EX_OSERR);
-      }
-      ret = close(devnull);
-      if(ret == -1){
-	perror_plus("close");
-	_exit(EX_OSERR);
-      }
-      ret = dup2(STDERR_FILENO, STDOUT_FILENO);
-      if(ret == -1){
-	perror_plus("dup2(STDERR_FILENO, STDOUT_FILENO)");
-	_exit(EX_OSERR);
       }
       ret = setenv("MANDOSNETHOOKDIR", hookdir, 1);
       if(ret == -1){
@@ -1742,7 +1940,9 @@ void run_network_hooks(const char *mode, const char *interface,
 	  _exit(EX_OSERR);
 	}
       }
-      int hook_fd = openat(hookdir_fd, direntry->d_name, O_RDONLY);
+      int hook_fd = (int)TEMP_FAILURE_RETRY(openat(hookdir_fd,
+						   direntry->d_name,
+						   O_RDONLY));
       if(hook_fd == -1){
 	perror_plus("openat");
 	_exit(EXIT_FAILURE);
@@ -1750,6 +1950,21 @@ void run_network_hooks(const char *mode, const char *interface,
       if((int)TEMP_FAILURE_RETRY(close(hookdir_fd)) == -1){
 	perror_plus("close");
 	_exit(EXIT_FAILURE);
+      }
+      ret = dup2(devnull, STDIN_FILENO);
+      if(ret == -1){
+	perror_plus("dup2(devnull, STDIN_FILENO)");
+	_exit(EX_OSERR);
+      }
+      ret = (int)TEMP_FAILURE_RETRY(close(devnull));
+      if(ret == -1){
+	perror_plus("close");
+	_exit(EX_OSERR);
+      }
+      ret = dup2(STDERR_FILENO, STDOUT_FILENO);
+      if(ret == -1){
+	perror_plus("dup2(STDERR_FILENO, STDOUT_FILENO)");
+	_exit(EX_OSERR);
       }
       if(fexecve(hook_fd, (char *const []){ direntry->d_name, NULL },
 		 environ) == -1){
@@ -2204,7 +2419,7 @@ int main(int argc, char *argv[]){
       goto end;
     }
   }
-    
+  
   {
     /* Work around Debian bug #633582:
        <http://bugs.debian.org/633582> */
@@ -2237,7 +2452,7 @@ int main(int argc, char *argv[]){
 	  TEMP_FAILURE_RETRY(close(seckey_fd));
 	}
       }
-    
+      
       if(strcmp(pubkey, PATHDIR "/" PUBKEY) == 0){
 	int pubkey_fd = open(pubkey, O_RDONLY);
 	if(pubkey_fd == -1){
@@ -2258,7 +2473,7 @@ int main(int argc, char *argv[]){
 	  TEMP_FAILURE_RETRY(close(pubkey_fd));
 	}
       }
-    
+      
       /* Lower privileges */
       ret_errno = lower_privileges();
       if(ret_errno != 0){
@@ -2733,8 +2948,10 @@ int main(int argc, char *argv[]){
   /* Removes the GPGME temp directory and all files inside */
   if(tempdir != NULL){
     struct dirent **direntries = NULL;
-    int tempdir_fd = (int)TEMP_FAILURE_RETRY(open(tempdir, O_RDONLY |
-						  O_NOFOLLOW));
+    int tempdir_fd = (int)TEMP_FAILURE_RETRY(open(tempdir, O_RDONLY
+						  | O_NOFOLLOW
+						  | O_DIRECTORY
+						  | O_PATH));
     if(tempdir_fd == -1){
       perror_plus("open");
     } else {

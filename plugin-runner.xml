@@ -114,6 +114,9 @@
       <arg><option>--plugin-dir=<replaceable
       >DIRECTORY</replaceable></option></arg>
       <sbr/>
+      <arg><option>--plugin-helper-dir=<replaceable
+      >DIRECTORY</replaceable></option></arg>
+      <sbr/>
       <arg><option>--config-file=<replaceable
       >FILE</replaceable></option></arg>
       <sbr/>
@@ -320,6 +323,21 @@
       </varlistentry>
       
       <varlistentry>
+	<term><option>--plugin-helper-dir
+	<replaceable>DIRECTORY</replaceable></option></term>
+	<listitem>
+	  <para>
+	    Specify a different plugin helper directory.  The default
+	    is <filename>/lib/mandos/plugin-helpers</filename>, which
+	    will exist in the initial <acronym>RAM</acronym> disk
+	    environment.  (This will simply be passed to all plugins
+	    via the <envar>MANDOSPLUGINHELPERDIR</envar> environment
+	    variable.  See <xref linkend="writing_plugins"/>)
+	  </para>
+	</listitem>
+      </varlistentry>
+      
+      <varlistentry>
 	<term><option>--config-file
 	<replaceable>FILE</replaceable></option></term>
 	<listitem>
@@ -426,7 +444,11 @@
       <para>
 	The plugin will run in the initial RAM disk environment, so
 	care must be taken not to depend on any files or running
-	services not available there.
+	services not available there.  Any helper executables required
+	by the plugin (which are not in the <envar>PATH</envar>) can
+	be placed in the plugin helper directory, the name of which
+	will be made available to the plugin via the
+	<envar>MANDOSPLUGINHELPERDIR</envar> environment variable.
       </para>
       <para>
 	The plugin must exit cleanly and free all allocated resources
@@ -475,7 +497,9 @@
       only passes on its environment to all the plugins.  The
       environment passed to plugins can be modified using the
       <option>--global-env</option> and <option>--env-for</option>
-      options.
+      options.  Also, the <option>--plugin-helper-dir</option> option
+      will affect the environment variable
+      <envar>MANDOSPLUGINHELPERDIR</envar> for the plugins.
     </para>
   </refsect1>
   
