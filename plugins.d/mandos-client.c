@@ -702,15 +702,16 @@ error_t lower_privileges_permanently(void){
   return ret_errno;
 }
 
-/* Helper function to add_local_route() and remove_local_route() */
+/* Helper function to add_local_route() and delete_local_route() */
 __attribute__((nonnull, warn_unused_result))
-static bool add_remove_local_route(const bool add,
+static bool add_delete_local_route(const bool add,
 				   const char *address,
 				   AvahiIfIndex if_index){
   int ret;
   char helper[] = "mandos-client-iprouteadddel";
   char add_arg[] = "add";
   char delete_arg[] = "delete";
+  char debug_flag[] = "--debug";
   char *pluginhelperdir = getenv("MANDOSPLUGINHELPERDIR");
   if(pluginhelperdir == NULL){
     if(debug){
@@ -792,7 +793,8 @@ static bool add_remove_local_route(const bool add,
 #endif
     if(fexecve(helper_fd, (char *const [])
 	       { helper, add ? add_arg : delete_arg, (char *)address,
-		   interface, NULL }, environ) == -1){
+		   interface, debug ? debug_flag : NULL, NULL },
+	       environ) == -1){
 #ifdef __GNUC__
 #pragma GCC diagnostic pop
 #endif
@@ -850,13 +852,19 @@ static bool add_remove_local_route(const bool add,
 __attribute__((nonnull, warn_unused_result))
 static bool add_local_route(const char *address,
 			    AvahiIfIndex if_index){
-  return add_remove_local_route(true, address, if_index);
+  if(debug){
+    fprintf_plus(stderr, "Adding route to %s\n", address);
+  }
+  return add_delete_local_route(true, address, if_index);
 }
 
 __attribute__((nonnull, warn_unused_result))
-static bool remove_local_route(const char *address,
+static bool delete_local_route(const char *address,
 			       AvahiIfIndex if_index){
-  return add_remove_local_route(false, address, if_index);
+  if(debug){
+    fprintf_plus(stderr, "Removing route to %s\n", address);
+  }
+  return add_delete_local_route(false, address, if_index);
 }
 
 /* Called when a Mandos server is found */
@@ -1065,6 +1073,10 @@ static int start_mandos_communication(const char *ip, in_port_t port,
 	   http://lists.freedesktop.org/archives/avahi/2010-February/001833.html
 	   https://bugs.debian.org/587961
 	*/
+	if(debug){
+	  fprintf_plus(stderr, "Mandos server unreachable, trying"
+		       " direct route\n");
+	}
 	int e = errno;
 	route_added = add_local_route(ip, if_index);
 	if(route_added){
@@ -1274,8 +1286,8 @@ static int start_mandos_communication(const char *ip, in_port_t port,
  mandos_end:
   {
     if(route_added){
-      if(not remove_local_route(ip, if_index)){
-	fprintf_plus(stderr, "Failed to remove local route to %s on"
+      if(not delete_local_route(ip, if_index)){
+	fprintf_plus(stderr, "Failed to delete local route to %s on"
 		     " interface %d", ip, if_index);
       }
     }
