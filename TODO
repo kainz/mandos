@@ -52,9 +52,6 @@
 ** TODO [#C] Remove code for GNU libc < 2.15
 
 * mandos (server)
-** TODO [#B] Work around Avahi issue
-   Avahi does not announce link-local addresses if any global
-   addresses exist: http://lists.freedesktop.org/archives/avahi/2010-March/001863.html
 ** TODO [#B] --notify-command
    This would allow the mandos.service to use
    --notify-command="systemd-notify --pid READY=1"
@@ -72,7 +69,7 @@
     + Approve(False) -> Close client connection immediately
 ** TODO [#C] python-parsedatetime
 ** TODO Separate logging logic to own object
-** TODO [#A] Limit approval_delay to max gnutls/tls timeout value
+** TODO [#B] Limit approval_delay to max gnutls/tls timeout value
 ** TODO [#B] break the wait on approval_delay if connection dies
 ** TODO Generate Client.runtime_expansions from client options + extra
 ** TODO Allow %%(checker)s as a runtime expansion

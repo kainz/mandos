@@ -16,6 +16,8 @@
   is possible to verify that the correct password will be received by
   this client by running the command, on the client:
   
+	MANDOSPLUGINHELPERDIR=/usr/lib/$(dpkg-architecture \
+	-qDEB_HOST_MULTIARCH)/mandos/plugin-helpers \
 	/usr/lib/$(dpkg-architecture -qDEB_HOST_MULTIARCH \
 	)/mandos/plugins.d/mandos-client \
 		--pubkey=/etc/keys/mandos/pubkey.txt \
@@ -91,4 +93,4 @@
   work, "--options-for=mandos-client:--connect=<ADDRESS>:<PORT>" needs
   to be manually added to the file "/etc/mandos/plugin-runner.conf".
 
- -- Teddy Hogeborn <teddy@recompile.se>, Mon, 28 Oct 2013 11:02:26 +0100
+ -- Teddy Hogeborn <teddy@recompile.se>, Mon, 29 Jun 2015 18:17:41 +0200
