@@ -32,7 +32,7 @@
 ** TODO [#B] use scandir(3) instead of readdir(3)
 
 * usplash (Deprecated)
-** TODO [#A] Make it work again
+** TODO [#B] Make it work again
 ** TODO [#B] use scandir(3) instead of readdir(3)
 
 * askpass-fifo
@@ -92,7 +92,6 @@
 ** TODO init.d script error handling
 ** TODO D-Bus server properties; address, port, interface, etc.		     :2:
 ** TODO [#C] In Python 3.3, use shlex.quote() instead of re.escape()
-** TODO [#A] USe systemd Type=dbus
 
 * mandos.xml
 ** Add mandos contact info in manual pages
