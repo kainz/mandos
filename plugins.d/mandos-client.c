@@ -516,6 +516,7 @@ static void debuggnutls(__attribute__((unused)) int level,
 __attribute__((nonnull, warn_unused_result))
 static int init_gnutls_global(const char *pubkeyfilename,
 			      const char *seckeyfilename,
+			      const char *dhparamsfilename,
 			      mandos_context *mc){
   int ret;
   unsigned int uret;
@@ -575,24 +576,30 @@ static int init_gnutls_global(const char *pubkeyfilename,
 		 safer_gnutls_strerror(ret));
     goto globalfail;
   }
-  if(mc->dh_bits == 0){
-    /* Find out the optimal number of DH bits */
-    /* Try to read the private key file */
-    gnutls_datum_t buffer = { .data = NULL, .size = 0 };
-    {
-      int secfile = open(seckeyfilename, O_RDONLY);
-      size_t buffer_capacity = 0;
+  /* If a Diffie-Hellman parameters file was given, try to use it */
+  if(dhparamsfilename != NULL){
+    gnutls_datum_t params = { .data = NULL, .size = 0 };
+    do {
+      int dhpfile = open(dhparamsfilename, O_RDONLY);
+      if(dhpfile == -1){
+	perror_plus("open");
+	dhparamsfilename = NULL;
+	break;
+      }
+      size_t params_capacity = 0;
       while(true){
-	buffer_capacity = incbuffer((char **)&buffer.data,
-				    (size_t)buffer.size,
-				    (size_t)buffer_capacity);
-	if(buffer_capacity == 0){
+	params_capacity = incbuffer((char **)&params.data,
+				    (size_t)params.size,
+				    (size_t)params_capacity);
+	if(params_capacity == 0){
 	  perror_plus("incbuffer");
-	  free(buffer.data);
-	  buffer.data = NULL;
+	  free(params.data);
+	  params.data = NULL;
+	  dhparamsfilename = NULL;
 	  break;
 	}
-	ssize_t bytes_read = read(secfile, buffer.data + buffer.size,
+	ssize_t bytes_read = read(dhpfile,
+				  params.data + params.size,
 				  BUFFER_SIZE);
 	/* EOF */
 	if(bytes_read == 0){
@@ -601,88 +608,146 @@ static int init_gnutls_global(const char *pubkeyfilename,
 	/* check bytes_read for failure */
 	if(bytes_read < 0){
 	  perror_plus("read");
-	  free(buffer.data);
-	  buffer.data = NULL;
+	  free(params.data);
+	  params.data = NULL;
+	  dhparamsfilename = NULL;
 	  break;
 	}
-	buffer.size += (unsigned int)bytes_read;
+	params.size += (unsigned int)bytes_read;
       }
-      close(secfile);
-    }
-    /* If successful, use buffer to parse private key */
-    gnutls_sec_param_t sec_param = GNUTLS_SEC_PARAM_ULTRA;
-    if(buffer.data != NULL){
-      {
-	gnutls_openpgp_privkey_t privkey = NULL;
-	ret = gnutls_openpgp_privkey_init(&privkey);
-	if(ret != GNUTLS_E_SUCCESS){
-	  fprintf_plus(stderr, "Error initializing OpenPGP key"
-		       " structure: %s", safer_gnutls_strerror(ret));
-	  free(buffer.data);
-	  buffer.data = NULL;
-	} else {
-	  ret = gnutls_openpgp_privkey_import(privkey, &buffer,
-					    GNUTLS_OPENPGP_FMT_BASE64,
-					      "", 0);
-	  if(ret != GNUTLS_E_SUCCESS){
-	    fprintf_plus(stderr, "Error importing OpenPGP key : %s",
-			 safer_gnutls_strerror(ret));
-	    privkey = NULL;
+      if(params.data == NULL){
+	dhparamsfilename = NULL;
+      }
+      if(dhparamsfilename == NULL){
+	break;
+      }
+      ret = gnutls_dh_params_import_pkcs3(mc->dh_params, &params,
+					  GNUTLS_X509_FMT_PEM);
+      if(ret != GNUTLS_E_SUCCESS){
+	fprintf_plus(stderr, "Failed to parse DH parameters in file"
+		     " \"%s\": %s\n", dhparamsfilename,
+		     safer_gnutls_strerror(ret));
+	dhparamsfilename = NULL;
+      }
+    } while(false);
+  }
+  if(dhparamsfilename == NULL){
+    if(mc->dh_bits == 0){
+      /* Find out the optimal number of DH bits */
+      /* Try to read the private key file */
+      gnutls_datum_t buffer = { .data = NULL, .size = 0 };
+      do {
+	int secfile = open(seckeyfilename, O_RDONLY);
+	if(secfile == -1){
+	  perror_plus("open");
+	  break;
+	}
+	size_t buffer_capacity = 0;
+	while(true){
+	  buffer_capacity = incbuffer((char **)&buffer.data,
+				      (size_t)buffer.size,
+				      (size_t)buffer_capacity);
+	  if(buffer_capacity == 0){
+	    perror_plus("incbuffer");
+	    free(buffer.data);
+	    buffer.data = NULL;
+	    break;
 	  }
-	  free(buffer.data);
-	  buffer.data = NULL;
-	  if(privkey != NULL){
-	    /* Use private key to suggest an appropriate sec_param */
-	    sec_param = gnutls_openpgp_privkey_sec_param(privkey);
-	    gnutls_openpgp_privkey_deinit(privkey);
-	    if(debug){
-	      fprintf_plus(stderr, "This OpenPGP key implies using a"
-			   " GnuTLS security parameter \"%s\".\n",
-			   safe_string(gnutls_sec_param_get_name
-				       (sec_param)));
+	  ssize_t bytes_read = read(secfile,
+				    buffer.data + buffer.size,
+				    BUFFER_SIZE);
+	  /* EOF */
+	  if(bytes_read == 0){
+	    break;
+	  }
+	  /* check bytes_read for failure */
+	  if(bytes_read < 0){
+	    perror_plus("read");
+	    free(buffer.data);
+	    buffer.data = NULL;
+	    break;
+	  }
+	  buffer.size += (unsigned int)bytes_read;
+	}
+	close(secfile);
+      } while(false);
+      /* If successful, use buffer to parse private key */
+      gnutls_sec_param_t sec_param = GNUTLS_SEC_PARAM_ULTRA;
+      if(buffer.data != NULL){
+	{
+	  gnutls_openpgp_privkey_t privkey = NULL;
+	  ret = gnutls_openpgp_privkey_init(&privkey);
+	  if(ret != GNUTLS_E_SUCCESS){
+	    fprintf_plus(stderr, "Error initializing OpenPGP key"
+			 " structure: %s",
+			 safer_gnutls_strerror(ret));
+	    free(buffer.data);
+	    buffer.data = NULL;
+	  } else {
+	    ret = gnutls_openpgp_privkey_import
+	      (privkey, &buffer, GNUTLS_OPENPGP_FMT_BASE64, "", 0);
+	    if(ret != GNUTLS_E_SUCCESS){
+	      fprintf_plus(stderr, "Error importing OpenPGP key : %s",
+			   safer_gnutls_strerror(ret));
+	      privkey = NULL;
+	    }
+	    free(buffer.data);
+	    buffer.data = NULL;
+	    if(privkey != NULL){
+	      /* Use private key to suggest an appropriate
+		 sec_param */
+	      sec_param = gnutls_openpgp_privkey_sec_param(privkey);
+	      gnutls_openpgp_privkey_deinit(privkey);
+	      if(debug){
+		fprintf_plus(stderr, "This OpenPGP key implies using"
+			     " a GnuTLS security parameter \"%s\".\n",
+			     safe_string(gnutls_sec_param_get_name
+					 (sec_param)));
+	      }
 	    }
 	  }
 	}
-      }
-      if(sec_param == GNUTLS_SEC_PARAM_UNKNOWN){
-	/* Err on the side of caution */
-	sec_param = GNUTLS_SEC_PARAM_ULTRA;
-	if(debug){
-	  fprintf_plus(stderr, "Falling back to security parameter"
-		       " \"%s\"\n",
-		       safe_string(gnutls_sec_param_get_name
-				   (sec_param)));
+	if(sec_param == GNUTLS_SEC_PARAM_UNKNOWN){
+	  /* Err on the side of caution */
+	  sec_param = GNUTLS_SEC_PARAM_ULTRA;
+	  if(debug){
+	    fprintf_plus(stderr, "Falling back to security parameter"
+			 " \"%s\"\n",
+			 safe_string(gnutls_sec_param_get_name
+				     (sec_param)));
+	  }
 	}
       }
-    }
-    uret = gnutls_sec_param_to_pk_bits(GNUTLS_PK_DH, sec_param);
-    if(uret != 0){
-      mc->dh_bits = uret;
-      if(debug){
-	fprintf_plus(stderr, "A \"%s\" GnuTLS security parameter"
-		     " implies %u DH bits; using that.\n",
+      uret = gnutls_sec_param_to_pk_bits(GNUTLS_PK_DH, sec_param);
+      if(uret != 0){
+	mc->dh_bits = uret;
+	if(debug){
+	  fprintf_plus(stderr, "A \"%s\" GnuTLS security parameter"
+		       " implies %u DH bits; using that.\n",
+		       safe_string(gnutls_sec_param_get_name
+				   (sec_param)),
+		       mc->dh_bits);
+	}
+      } else {
+	fprintf_plus(stderr, "Failed to get implied number of DH"
+		     " bits for security parameter \"%s\"): %s\n",
 		     safe_string(gnutls_sec_param_get_name
 				 (sec_param)),
-		     mc->dh_bits);
+		     safer_gnutls_strerror(ret));
+	goto globalfail;
       }
-    } else {
-      fprintf_plus(stderr, "Failed to get implied number of DH"
-		   " bits for security parameter \"%s\"): %s\n",
-		   safe_string(gnutls_sec_param_get_name(sec_param)),
+    } else if(debug){
+      fprintf_plus(stderr, "DH bits explicitly set to %u\n",
+		   mc->dh_bits);
+    }
+    ret = gnutls_dh_params_generate2(mc->dh_params, mc->dh_bits);
+    if(ret != GNUTLS_E_SUCCESS){
+      fprintf_plus(stderr, "Error in GnuTLS prime generation (%u"
+		   " bits): %s\n", mc->dh_bits,
 		   safer_gnutls_strerror(ret));
       goto globalfail;
     }
-  } else if(debug){
-    fprintf_plus(stderr, "DH bits explicitly set to %u\n",
-		 mc->dh_bits);
   }
-  ret = gnutls_dh_params_generate2(mc->dh_params, mc->dh_bits);
-  if(ret != GNUTLS_E_SUCCESS){
-    fprintf_plus(stderr, "Error in GnuTLS prime generation (%u bits):"
-		 " %s\n", mc->dh_bits, safer_gnutls_strerror(ret));
-    goto globalfail;
-  }
-  
   gnutls_certificate_set_dh_params(mc->cred, mc->dh_params);
   
   return 0;
@@ -747,8 +812,6 @@ static int init_gnutls_session(gnutls_session_t *session,
   
   /* ignore client certificate if any. */
   gnutls_certificate_server_set_request(*session, GNUTLS_CERT_IGNORE);
-  
-  gnutls_dh_set_prime_bits(*session, mc->dh_bits);
   
   return 0;
 }
@@ -2240,6 +2303,7 @@ int main(int argc, char *argv[]){
   AvahiIfIndex if_index = AVAHI_IF_UNSPEC;
   const char *seckey = PATHDIR "/" SECKEY;
   const char *pubkey = PATHDIR "/" PUBKEY;
+  const char *dh_params_file = NULL;
   char *interfaces_hooks = NULL;
   
   bool gnutls_initialized = false;
@@ -2297,6 +2361,11 @@ int main(int argc, char *argv[]){
 	.arg = "BITS",
 	.doc = "Bit length of the prime number used in the"
 	" Diffie-Hellman key exchange",
+	.group = 2 },
+      { .name = "dh-params", .key = 134,
+	.arg = "FILE",
+	.doc = "PEM-encoded PKCS#3 file with pre-generated parameters"
+	" for the Diffie-Hellman key exchange",
 	.group = 2 },
       { .name = "priority", .key = 130,
 	.arg = "STRING",
@@ -2357,6 +2426,9 @@ int main(int argc, char *argv[]){
 	  argp_error(state, "Bad number of DH bits");
 	}
 	mc.dh_bits = (typeof(mc.dh_bits))tmpmax;
+	break;
+      case 134:			/* --dh-params */
+	dh_params_file = arg;
 	break;
       case 130:			/* --priority */
 	mc.priority = arg;
@@ -2682,7 +2754,7 @@ int main(int argc, char *argv[]){
     goto end;
   }
   
-  ret = init_gnutls_global(pubkey, seckey, &mc);
+  ret = init_gnutls_global(pubkey, seckey, dh_params_file, &mc);
   if(ret == -1){
     fprintf_plus(stderr, "init_gnutls_global failed\n");
     exitcode = EX_UNAVAILABLE;

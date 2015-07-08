@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY COMMANDNAME "mandos-client">
-<!ENTITY TIMESTAMP "2015-07-06">
+<!ENTITY TIMESTAMP "2015-07-08">
 <!ENTITY % common SYSTEM "../common.ent">
 %common;
 ]>
@@ -96,6 +96,10 @@
       <sbr/>
       <arg>
 	<option>--dh-bits <replaceable>BITS</replaceable></option>
+      </arg>
+      <sbr/>
+      <arg>
+	<option>--dh-params <replaceable>FILE</replaceable></option>
       </arg>
       <sbr/>
       <arg>
@@ -313,7 +317,26 @@
 	  <para>
 	    Sets the number of bits to use for the prime number in the
 	    TLS Diffie-Hellman key exchange.  The default value is
-	    selected automatically based on the OpenPGP key.
+	    selected automatically based on the OpenPGP key.  Note
+	    that if the <option>--dh-params</option> option is used,
+	    the values from that file will be used instead.
+	  </para>
+	</listitem>
+      </varlistentry>
+      
+      <varlistentry>
+	<term><option>--dh-params=<replaceable
+	>FILE</replaceable></option></term>
+	<listitem>
+	  <para>
+	    Specifies a PEM-encoded PKCS#3 file to read the parameters
+	    needed by the TLS Diffie-Hellman key exchange from.  If
+	    this option is not given, or if the file for some reason
+	    could not be used, the parameters will be generated on
+	    startup, which will take some time and processing power.
+	    Those using servers running under time, power or processor
+	    constraints may want to generate such a file in advance
+	    and use this option.
 	  </para>
 	</listitem>
       </varlistentry>
