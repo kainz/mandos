@@ -219,9 +219,17 @@ for file in "$keydir"/*; do
     if [ -d "$file" ]; then
 	continue
     fi
-    cp --archive --sparse=always "$file" "${DESTDIR}${CONFDIR}"
-    chown ${mandos_user}:${mandos_group} \
-	"${DESTDIR}${CONFDIR}/`basename \"$file\"`"
+    case "$file" in
+	*~|.*|\#*\#|*.dpkg-old|*.dpkg-bak|*.dpkg-new|*.dpkg-divert)
+	    : ;;
+	"*") : ;;
+	*)
+	    cp --archive --sparse=always "$file" \
+	       "${DESTDIR}${CONFDIR}"
+	    chown ${mandos_user}:${mandos_group} \
+		  "${DESTDIR}${CONFDIR}/`basename \"$file\"`"
+	    ;;
+    esac
 done
 
 # /lib/mandos/plugin-runner will drop priviliges, but needs access to
