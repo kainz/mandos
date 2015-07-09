@@ -64,7 +64,7 @@ create_key(){
 }
 
 create_dh_params(){
-    if [ -r /etc/keys/mandos/client-dhparams.pem ]; then
+    if [ -r /etc/keys/mandos/dhparams.pem ]; then
 	return 0
     fi
     # Create a Diffe-Hellman parameters file
@@ -84,7 +84,7 @@ create_dh_params(){
 	"$DHFILE"
     sed --in-place --expression='1i-----BEGIN DH PARAMETERS-----' \
 	    "$DHFILE"
-    cp --archive "$DHFILE" /etc/keys/mandos/client-dhparams.pem
+    cp --archive "$DHFILE" /etc/keys/mandos/dhparams.pem
     rm -- "$DHFILE"
 }
 
