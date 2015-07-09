@@ -41,7 +41,7 @@ Package: mandos-client
 Architecture: linux-any
 Depends: ${shlibs:Depends}, ${misc:Depends}, adduser, cryptsetup,
 	gnupg (<< 2), initramfs-tools, dpkg-dev (>=1.16.0)
-Recommends: ssh
+Recommends: ssh, gnutls-bin | openssl
 Breaks: dropbear (<= 0.53.1-1)
 Enhances: cryptsetup
 Description: do unattended reboots with an encrypted root file system
