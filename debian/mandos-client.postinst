@@ -63,10 +63,36 @@ create_key(){
     fi
 }
 
+create_dh_params(){
+    if [ -r /etc/keys/mandos/client-dhparams.pem ]; then
+	return 0
+    fi
+    # Create a Diffe-Hellman parameters file
+    DHFILE="`mktemp -t mandos-client-dh-parameters.XXXXXXXXXX.pem`"
+    # First try certtool from GnuTLS
+    if ! certtool --generate-dh-params --sec-param high \
+	 --outfile "$DHFILE"; then
+	# Otherwise try OpenSSL
+	if ! openssl genpkey -genparam -algorithm DH -out "$DHFILE" \
+	     -pkeyopt dh_paramgen_prime_len:3072; then
+	    # None of the commands succeded; give up
+	    rm -- "$DHFILE"
+	    return 1
+	fi
+    fi
+    sed --in-place --expression='0,/^-----BEGIN DH PARAMETERS-----$/d' \
+	"$DHFILE"
+    sed --in-place --expression='1i-----BEGIN DH PARAMETERS-----' \
+	    "$DHFILE"
+    cp --archive "$DHFILE" /etc/keys/mandos/client-dhparams.pem
+    rm -- "$DHFILE"
+}
+
 case "$1" in
     configure)
 	add_mandos_user "$@"
 	create_key "$@"
+	create_dh_params "$@" || :
 	update_initramfs "$@"
 	;;
     abort-upgrade|abort-deconfigure|abort-remove)

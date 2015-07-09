@@ -2546,6 +2546,28 @@ int main(int argc, char *argv[]){
 	}
       }
       
+      if(strcmp(dh_params_file, PATHDIR "/client-dhparams.pem" )
+	 == 0){
+	int dhparams_fd = open(dh_params_file, O_RDONLY);
+	if(dhparams_fd == -1){
+	  perror_plus("open");
+	} else {
+	  ret = (int)TEMP_FAILURE_RETRY(fstat(dhparams_fd, &st));
+	  if(ret == -1){
+	    perror_plus("fstat");
+	  } else {
+	    if(S_ISREG(st.st_mode)
+	       and st.st_uid == 0 and st.st_gid == 0){
+	      ret = fchown(dhparams_fd, uid, gid);
+	      if(ret == -1){
+		perror_plus("fchown");
+	      }
+	    }
+	  }
+	  TEMP_FAILURE_RETRY(close(dhparams_fd));
+	}
+      }
+      
       /* Lower privileges */
       ret_errno = lower_privileges();
       if(ret_errno != 0){
