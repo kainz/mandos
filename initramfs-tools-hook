@@ -231,6 +231,12 @@ for file in "$keydir"/*; do
 	    ;;
     esac
 done
+# Use Diffie-Hellman parameters file if available
+if [ -e "${DESTDIR}${CONFDIR}"/client-dhparams.pem ]; then
+    sed --in-place \
+	--expression="1i--options-for=mandos-client:--dh-params=${CONFDIR}/client-dhparams.pem" \
+	"${DESTDIR}/${CONFDIR}/plugin-runner.conf"
+fi
 
 # /lib/mandos/plugin-runner will drop priviliges, but needs access to
 # its plugin directory and its config file.  However, since almost all
