@@ -232,9 +232,9 @@ for file in "$keydir"/*; do
     esac
 done
 # Use Diffie-Hellman parameters file if available
-if [ -e "${DESTDIR}${CONFDIR}"/client-dhparams.pem ]; then
+if [ -e "${DESTDIR}${CONFDIR}"/dhparams.pem ]; then
     sed --in-place \
-	--expression="1i--options-for=mandos-client:--dh-params=${CONFDIR}/client-dhparams.pem" \
+	--expression="1i--options-for=mandos-client:--dh-params=${CONFDIR}/dhparams.pem" \
 	"${DESTDIR}/${CONFDIR}/plugin-runner.conf"
 fi
 

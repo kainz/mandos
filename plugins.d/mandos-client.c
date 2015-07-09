@@ -2546,8 +2546,7 @@ int main(int argc, char *argv[]){
 	}
       }
       
-      if(strcmp(dh_params_file, PATHDIR "/client-dhparams.pem" )
-	 == 0){
+      if(strcmp(dh_params_file, PATHDIR "/dhparams.pem" ) == 0){
 	int dhparams_fd = open(dh_params_file, O_RDONLY);
 	if(dhparams_fd == -1){
 	  perror_plus("open");
