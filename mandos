@@ -395,7 +395,18 @@ class AvahiService(object):
                     logger.error(bad_states[state] + ": %r", error)
             self.cleanup()
         elif state == avahi.SERVER_RUNNING:
-            self.add()
+            try:
+                self.add()
+            except dbus.exceptions.DBusException as error:
+                if (error.get_dbus_name()
+                    == "org.freedesktop.Avahi.CollisionError"):
+                    logger.info("Local Zeroconf service name"
+                                " collision.")
+                    return self.rename(remove=False)
+                else:
+                    logger.critical("D-Bus Exception", exc_info=error)
+                    self.cleanup()
+                    os._exit(1)
         else:
             if error is None:
                 logger.debug("Unknown state: %r", state)
