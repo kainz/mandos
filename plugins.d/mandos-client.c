@@ -2746,7 +2746,8 @@ int main(int argc, char *argv[]){
       errno = bring_up_interface(interface, delay);
       if(not interface_was_up){
 	if(errno != 0){
-	  perror_plus("Failed to bring up interface");
+	  fprintf_plus(stderr, "Failed to bring up interface \"%s\":"
+		       " %s\n", interface, strerror(errno));
 	} else {
 	  errno = argz_add(&interfaces_to_take_down,
 			   &interfaces_to_take_down_size,
