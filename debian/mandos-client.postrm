@@ -31,9 +31,7 @@ set -e
 # Update the initial RAM file system image
 update_initramfs()
 {
-    if [ -x /usr/sbin/update-initramfs ]; then
-	update-initramfs -u -k all
-    fi
+    update-initramfs -u -k all || :
 }
 
 case "$1" in

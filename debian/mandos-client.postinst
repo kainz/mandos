@@ -20,9 +20,7 @@ set -e
 # Update the initial RAM file system image
 update_initramfs()
 {
-    if [ -x /usr/sbin/update-initramfs ]; then
-	update-initramfs -u -k all
-    fi
+    update-initramfs -u -k all
     
     if dpkg --compare-versions "$2" lt-nl "1.0.10-1"; then
         # Make old initrd.img files unreadable too, in case they were
@@ -58,9 +56,7 @@ create_key(){
 	-a -r /etc/keys/mandos/seckey.txt ]; then
 	return 0
     fi
-    if [ -x /usr/sbin/mandos-keygen ]; then
-	mandos-keygen
-    fi
+    mandos-keygen
 }
 
 create_dh_params(){
