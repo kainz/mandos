@@ -46,8 +46,8 @@
 #include <stdlib.h> 		/* free(), EXIT_SUCCESS, srand(),
 				   strtof(), abort() */
 #include <stdbool.h>		/* bool, false, true */
-#include <string.h>		/* memset(), strcmp(), strlen(),
-				   strerror(), asprintf(), strcpy() */
+#include <string.h>		/* strcmp(), strlen(), strerror(),
+				   asprintf(), strcpy() */
 #include <sys/ioctl.h>		/* ioctl */
 #include <sys/types.h>		/* socket(), inet_pton(), sockaddr,
 				   sockaddr_in6, PF_INET6,
@@ -1130,13 +1130,14 @@ static int start_mandos_communication(const char *ip, in_port_t port,
     goto mandos_end;
   }
   
-  memset(&to, 0, sizeof(to));
   if(af == AF_INET6){
-    ((struct sockaddr_in6 *)&to)->sin6_family = (sa_family_t)af;
-    ret = inet_pton(af, ip, &((struct sockaddr_in6 *)&to)->sin6_addr);
+    struct sockaddr_in6 *to6 = (struct sockaddr_in6 *)&to;
+    *to6 = (struct sockaddr_in6){ .sin6_family = (sa_family_t)af };
+    ret = inet_pton(af, ip, &to6->sin6_addr);
   } else {			/* IPv4 */
-    ((struct sockaddr_in *)&to)->sin_family = (sa_family_t)af;
-    ret = inet_pton(af, ip, &((struct sockaddr_in *)&to)->sin_addr);
+    struct sockaddr_in *to4 = (struct sockaddr_in *)&to;
+    *to4 = (struct sockaddr_in){ .sin_family = (sa_family_t)af };
+    ret = inet_pton(af, ip, &to4->sin_addr);
   }
   if(ret < 0 ){
     int e = errno;
