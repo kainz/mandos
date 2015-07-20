@@ -305,7 +305,7 @@ static bool init_gpgme(const char * const seckey,
       return false;
     }
     
-    ret = (int)TEMP_FAILURE_RETRY(close(fd));
+    ret = close(fd);
     if(ret == -1){
       perror_plus("close");
     }
@@ -931,7 +931,7 @@ static bool add_delete_local_route(const bool add,
       perror_plus("dup2(devnull, STDIN_FILENO)");
       _exit(EX_OSERR);
     }
-    ret = (int)TEMP_FAILURE_RETRY(close(devnull));
+    ret = close(devnull);
     if(ret == -1){
       perror_plus("close");
       _exit(EX_OSERR);
@@ -956,7 +956,7 @@ static bool add_delete_local_route(const bool add,
       perror_plus("openat");
       _exit(EX_UNAVAILABLE);
     }
-    TEMP_FAILURE_RETRY(close(helperdir_fd));
+    close(helperdir_fd);
 #ifdef __GNUC__
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wcast-qual"
@@ -1466,7 +1466,7 @@ static int start_mandos_communication(const char *ip, in_port_t port,
     free(decrypted_buffer);
     free(buffer);
     if(tcp_sd >= 0){
-      ret = (int)TEMP_FAILURE_RETRY(close(tcp_sd));
+      ret = close(tcp_sd);
     }
     if(ret == -1){
       if(e == 0){
@@ -2011,7 +2011,7 @@ void run_network_hooks(const char *mode, const char *interface,
 	perror_plus("openat");
 	_exit(EXIT_FAILURE);
       }
-      if((int)TEMP_FAILURE_RETRY(close(hookdir_fd)) == -1){
+      if(close(hookdir_fd) == -1){
 	perror_plus("close");
 	_exit(EXIT_FAILURE);
       }
@@ -2020,7 +2020,7 @@ void run_network_hooks(const char *mode, const char *interface,
 	perror_plus("dup2(devnull, STDIN_FILENO)");
 	_exit(EX_OSERR);
       }
-      ret = (int)TEMP_FAILURE_RETRY(close(devnull));
+      ret = close(devnull);
       if(ret == -1){
 	perror_plus("close");
 	_exit(EX_OSERR);
@@ -2075,7 +2075,7 @@ void run_network_hooks(const char *mode, const char *interface,
     free(direntry);
   }
   free(direntries);
-  if((int)TEMP_FAILURE_RETRY(close(hookdir_fd)) == -1){
+  if(close(hookdir_fd) == -1){
     perror_plus("close");
   } else {
     hookdir_fd = -1;
@@ -2121,7 +2121,7 @@ error_t bring_up_interface(const char *const interface,
     }
     
     if(quit_now){
-      ret = (int)TEMP_FAILURE_RETRY(close(sd));
+      ret = close(sd);
       if(ret == -1){
 	perror_plus("close");
       }
@@ -2177,7 +2177,7 @@ error_t bring_up_interface(const char *const interface,
     }
     
     /* Close the socket */
-    ret = (int)TEMP_FAILURE_RETRY(close(sd));
+    ret = close(sd);
     if(ret == -1){
       perror_plus("close");
     }
@@ -2265,7 +2265,7 @@ error_t take_down_interface(const char *const interface){
     }
     
     /* Close the socket */
-    int ret = (int)TEMP_FAILURE_RETRY(close(sd));
+    int ret = close(sd);
     if(ret == -1){
       perror_plus("close");
     }
@@ -2522,7 +2522,7 @@ int main(int argc, char *argv[]){
 	      }
 	    }
 	  }
-	  TEMP_FAILURE_RETRY(close(seckey_fd));
+	  close(seckey_fd);
 	}
       }
       
@@ -2543,7 +2543,7 @@ int main(int argc, char *argv[]){
 	      }
 	    }
 	  }
-	  TEMP_FAILURE_RETRY(close(pubkey_fd));
+	  close(pubkey_fd);
 	}
       }
       
@@ -2564,7 +2564,7 @@ int main(int argc, char *argv[]){
 	      }
 	    }
 	  }
-	  TEMP_FAILURE_RETRY(close(dhparams_fd));
+	  close(dhparams_fd);
 	}
       }
       
@@ -3083,7 +3083,7 @@ int main(int argc, char *argv[]){
 	  perror_plus("rmdir");
 	}
       }
-      TEMP_FAILURE_RETRY(close(tempdir_fd));
+      close(tempdir_fd);
     }
   }
   
