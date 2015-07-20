@@ -2288,9 +2288,10 @@ error_t take_down_interface(const char *const interface){
 
 int main(int argc, char *argv[]){
   mandos_context mc = { .server = NULL, .dh_bits = 0,
-			.priority = "SECURE256:!CTYPE-X.509:"
-			"+CTYPE-OPENPGP:!RSA", .current_server = NULL,
-			.interfaces = NULL, .interfaces_size = 0 };
+			.priority = "SECURE256:!CTYPE-X.509"
+			":+CTYPE-OPENPGP:!RSA:+SIGN-DSA-SHA256",
+			.current_server = NULL, .interfaces = NULL,
+			.interfaces_size = 0 };
   AvahiSServiceBrowser *sb = NULL;
   error_t ret_errno;
   int ret;
