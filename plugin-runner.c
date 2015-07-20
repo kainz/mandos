@@ -827,7 +827,7 @@ int main(int argc, char *argv[]){
 	  }
 	}
       }
-      TEMP_FAILURE_RETRY(close(plugindir_fd));
+      close(plugindir_fd);
     }
   }
   
@@ -925,7 +925,7 @@ int main(int argc, char *argv[]){
     ret = (int)TEMP_FAILURE_RETRY(fstat(plugin_fd, &st));
     if(ret == -1){
       error(0, errno, "stat");
-      TEMP_FAILURE_RETRY(close(plugin_fd));
+      close(plugin_fd);
       free(direntries[i]);
       continue;
     }
@@ -940,7 +940,7 @@ int main(int argc, char *argv[]){
 		plugindir != NULL ? plugindir : PDIR,
 		direntries[i]->d_name);
       }
-      TEMP_FAILURE_RETRY(close(plugin_fd));
+      close(plugin_fd);
       free(direntries[i]);
       continue;
     }
@@ -948,7 +948,7 @@ int main(int argc, char *argv[]){
     plugin *p = getplugin(direntries[i]->d_name);
     if(p == NULL){
       error(0, errno, "getplugin");
-      TEMP_FAILURE_RETRY(close(plugin_fd));
+      close(plugin_fd);
       free(direntries[i]);
       continue;
     }
@@ -957,7 +957,7 @@ int main(int argc, char *argv[]){
 	fprintf(stderr, "Ignoring disabled plugin \"%s\"\n",
 		direntries[i]->d_name);
       }
-      TEMP_FAILURE_RETRY(close(plugin_fd));
+      close(plugin_fd);
       free(direntries[i]);
       continue;
     }
@@ -1003,8 +1003,8 @@ int main(int argc, char *argv[]){
     if(pipefd[0] >= FD_SETSIZE){
       fprintf(stderr, "pipe()[0] (%d) >= FD_SETSIZE (%d)", pipefd[0],
 	      FD_SETSIZE);
-      TEMP_FAILURE_RETRY(close(pipefd[0]));
-      TEMP_FAILURE_RETRY(close(pipefd[1]));
+      close(pipefd[0]);
+      close(pipefd[1]);
       exitstatus = EX_OSERR;
       free(direntries[i]);
       goto fallback;
@@ -1014,8 +1014,8 @@ int main(int argc, char *argv[]){
     ret = set_cloexec_flag(pipefd[0]);
     if(ret < 0){
       error(0, errno, "set_cloexec_flag");
-      TEMP_FAILURE_RETRY(close(pipefd[0]));
-      TEMP_FAILURE_RETRY(close(pipefd[1]));
+      close(pipefd[0]);
+      close(pipefd[1]);
       exitstatus = EX_OSERR;
       free(direntries[i]);
       goto fallback;
@@ -1023,8 +1023,8 @@ int main(int argc, char *argv[]){
     ret = set_cloexec_flag(pipefd[1]);
     if(ret < 0){
       error(0, errno, "set_cloexec_flag");
-      TEMP_FAILURE_RETRY(close(pipefd[0]));
-      TEMP_FAILURE_RETRY(close(pipefd[1]));
+      close(pipefd[0]);
+      close(pipefd[1]);
       exitstatus = EX_OSERR;
       free(direntries[i]);
       goto fallback;
@@ -1049,8 +1049,8 @@ int main(int argc, char *argv[]){
       error(0, errno, "fork");
       TEMP_FAILURE_RETRY(sigprocmask(SIG_UNBLOCK,
 				     &sigchld_action.sa_mask, NULL));
-      TEMP_FAILURE_RETRY(close(pipefd[0]));
-      TEMP_FAILURE_RETRY(close(pipefd[1]));
+      close(pipefd[0]);
+      close(pipefd[1]);
       exitstatus = EX_OSERR;
       free(direntries[i]);
       goto fallback;
@@ -1084,9 +1084,8 @@ int main(int argc, char *argv[]){
       /* no return */
     }
     /* Parent process */
-    TEMP_FAILURE_RETRY(close(pipefd[1])); /* Close unused write end of
-					     pipe */
-    TEMP_FAILURE_RETRY(close(plugin_fd));
+    close(pipefd[1]);		/* Close unused write end of pipe */
+    close(plugin_fd);
     plugin *new_plugin = getplugin(direntries[i]->d_name);
     if(new_plugin == NULL){
       error(0, errno, "getplugin");
@@ -1138,7 +1137,7 @@ int main(int argc, char *argv[]){
   
   free(direntries);
   direntries = NULL;
-  TEMP_FAILURE_RETRY(close(dir_fd));
+  close(dir_fd);
   dir_fd = -1;
   free_plugin(getplugin(NULL));
   
@@ -1342,7 +1341,7 @@ int main(int argc, char *argv[]){
   free(direntries);
   
   if(dir_fd != -1){
-    TEMP_FAILURE_RETRY(close(dir_fd));
+    close(dir_fd);
   }
   
   /* Kill the processes */
