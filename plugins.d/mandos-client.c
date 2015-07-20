@@ -954,6 +954,7 @@ static bool add_delete_local_route(const bool add,
 						   helper, O_RDONLY));
     if(helper_fd == -1){
       perror_plus("openat");
+      close(helperdir_fd);
       _exit(EX_UNAVAILABLE);
     }
     close(helperdir_fd);
