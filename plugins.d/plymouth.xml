@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY COMMANDNAME "plymouth">
-<!ENTITY TIMESTAMP "2012-01-01">
+<!ENTITY TIMESTAMP "2015-07-20">
 <!ENTITY % common SYSTEM "../common.ent">
 %common;
 ]>
@@ -34,6 +34,9 @@
       <year>2010</year>
       <year>2011</year>
       <year>2012</year>
+      <year>2013</year>
+      <year>2014</year>
+      <year>2015</year>
       <holder>Teddy Hogeborn</holder>
       <holder>Björn Påhlsson</holder>
     </copyright>

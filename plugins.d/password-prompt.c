@@ -2,8 +2,8 @@
 /*
  * Password-prompt - Read a password from the terminal and print it
  * 
- * Copyright © 2008-2014 Teddy Hogeborn
- * Copyright © 2008-2014 Björn Påhlsson
+ * Copyright © 2008-2015 Teddy Hogeborn
+ * Copyright © 2008-2015 Björn Påhlsson
  * 
  * This program is free software: you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
