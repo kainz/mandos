@@ -3,7 +3,7 @@
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY CONFNAME "mandos.conf">
 <!ENTITY CONFPATH "<filename>/etc/mandos/mandos.conf</filename>">
-<!ENTITY TIMESTAMP "2015-04-02">
+<!ENTITY TIMESTAMP "2015-07-20">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -121,8 +121,7 @@
 	<term><option>priority<literal> = </literal><replaceable
 	>STRING</replaceable></option></term>
 	<listitem>
-	  <xi:include href="mandos-options.xml"
-                      xpointer="priority_compat"/>
+	  <xi:include href="mandos-options.xml" xpointer="priority"/>
 	</listitem>
       </varlistentry>
       
