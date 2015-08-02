@@ -1524,11 +1524,15 @@ class ClientDBus(Client, DBusObjectWithProperties):
         self.approval_duration = datetime.timedelta(0, 0, 0, value)
     
     # Name - property
+    @dbus_annotations(
+        {"org.freedesktop.DBus.Property.EmitsChangedSignal": "const"})
     @dbus_service_property(_interface, signature="s", access="read")
     def Name_dbus_property(self):
         return dbus.String(self.name)
     
     # Fingerprint - property
+    @dbus_annotations(
+        {"org.freedesktop.DBus.Property.EmitsChangedSignal": "const"})
     @dbus_service_property(_interface, signature="s", access="read")
     def Fingerprint_dbus_property(self):
         return dbus.String(self.fingerprint)
@@ -1543,6 +1547,8 @@ class ClientDBus(Client, DBusObjectWithProperties):
         self.host = str(value)
     
     # Created - property
+    @dbus_annotations(
+        {"org.freedesktop.DBus.Property.EmitsChangedSignal": "const"})
     @dbus_service_property(_interface, signature="s", access="read")
     def Created_dbus_property(self):
         return datetime_to_dbus(self.created)
@@ -1663,11 +1669,16 @@ class ClientDBus(Client, DBusObjectWithProperties):
             self.stop_checker()
     
     # ObjectPath - property
+    @dbus_annotations(
+        {"org.freedesktop.DBus.Property.EmitsChangedSignal": "const"})
     @dbus_service_property(_interface, signature="o", access="read")
     def ObjectPath_dbus_property(self):
         return self.dbus_object_path # is already a dbus.ObjectPath
     
     # Secret = property
+    @dbus_annotations(
+        {"org.freedesktop.DBus.Property.EmitsChangedSignal":
+         "invalidates"})
     @dbus_service_property(_interface,
                            signature="ay",
                            access="write",
