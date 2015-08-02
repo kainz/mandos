@@ -1465,24 +1465,28 @@ class ClientDBus(Client, DBusObjectWithProperties):
         self.checked_ok()
     
     # Enable - method
+    @dbus_annotations({"org.freedesktop.DBus.Deprecated": "true"})
     @dbus.service.method(_interface)
     def Enable(self):
         "D-Bus method"
         self.enable()
     
     # StartChecker - method
+    @dbus_annotations({"org.freedesktop.DBus.Deprecated": "true"})
     @dbus.service.method(_interface)
     def StartChecker(self):
         "D-Bus method"
         self.start_checker()
     
     # Disable - method
+    @dbus_annotations({"org.freedesktop.DBus.Deprecated": "true"})
     @dbus.service.method(_interface)
     def Disable(self):
         "D-Bus method"
         self.disable()
     
     # StopChecker - method
+    @dbus_annotations({"org.freedesktop.DBus.Deprecated": "true"})
     @dbus.service.method(_interface)
     def StopChecker(self):
         self.stop_checker()

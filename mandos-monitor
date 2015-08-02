@@ -333,11 +333,13 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
         """Handle keys.
         This overrides the method from urwid.FlowWidget"""
         if key == "+":
-            self.proxy.Enable(dbus_interface = client_interface,
-                              ignore_reply=True)
+            self.proxy.Set(client_interface, "Enabled",
+                           dbus.Boolean(True), ignore_reply = True,
+                           dbus_interface = dbus.PROPERTIES_IFACE)
         elif key == "-":
-            self.proxy.Disable(dbus_interface = client_interface,
-                               ignore_reply=True)
+            self.proxy.Set(client_interface, "Enabled", False,
+                           ignore_reply = True,
+                           dbus_interface = dbus.PROPERTIES_IFACE)
         elif key == "a":
             self.proxy.Approve(dbus.Boolean(True, variant_level=1),
                                dbus_interface = client_interface,
@@ -351,11 +353,13 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
                                                   .object_path,
                                                   ignore_reply=True)
         elif key == "s":
-            self.proxy.StartChecker(dbus_interface = client_interface,
-                                    ignore_reply=True)
+            self.proxy.Set(client_interface, "CheckerRunning",
+                           dbus.Boolean(True), ignore_reply = True,
+                           dbus_interface = dbus.PROPERTIES_IFACE)
         elif key == "S":
-            self.proxy.StopChecker(dbus_interface = client_interface,
-                                   ignore_reply=True)
+            self.proxy.Set(client_interface, "CheckerRunning",
+                           dbus.Boolean(False), ignore_reply = True,
+                           dbus_interface = dbus.PROPERTIES_IFACE)
         elif key == "C":
             self.proxy.CheckedOK(dbus_interface = client_interface,
                                  ignore_reply=True)

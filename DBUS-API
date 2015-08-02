@@ -55,20 +55,6 @@ This file documents the D-Bus interface to the Mandos server.
     Assert that this client has been checked and found to be alive.
     This will restart the timeout before disabling this client.  See
     also the "LastCheckedOK" property.
-    
-*** Disable() → nothing
-    Disable this client.  See also the "Enabled" property.
-    
-*** Enable() → nothing
-    Enable this client.  See also the "Enabled" property.
-    
-*** StartChecker() → nothing
-    Start a new checker for this client, if none is currently
-    running.  See also the "CheckerRunning" property.
-    
-*** StopChecker() → nothing
-    Abort a running checker process for this client, if any.  See also
-    the "CheckerRunning" property.
 
 ** Properties
    
@@ -104,13 +90,12 @@ This file documents the D-Bus interface to the Mandos server.
    
    b) An approval is currently pending.
    
-   c) Setting this property is equivalent to calling StartChecker() or
-      StopChecker().
+   c) Changing this property can either start a new checker or abort a
+      running one.
    
    d) The creation time of this client object, as an RFC 3339 string.
    
-   e) Setting this property is equivalent to calling Enable() or
-      Disable().
+   e) Changing this property enables or disables a client.
    
    f) The date and time this client will be disabled, as an RFC 3339
       string, or an empty string if this is not scheduled.
