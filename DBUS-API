@@ -82,7 +82,6 @@ This file documents the D-Bus interface to the Mandos server.
    | LastCheckerStatus (i)   | n    | Read       | N/A                 |
    | LastEnabled (j)         | s    | Read       | N/A                 |
    | Name                    | s    | Read       | (Section name)      |
-   | ObjectPath              | o    | Read       | N/A                 |
    | Secret (k)              | ay   | Write      | secret (or secfile) |
    | Timeout (a)             | t    | Read/Write | timeout             |
    

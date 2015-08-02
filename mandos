@@ -1674,7 +1674,8 @@ class ClientDBus(Client, DBusObjectWithProperties):
     
     # ObjectPath - property
     @dbus_annotations(
-        {"org.freedesktop.DBus.Property.EmitsChangedSignal": "const"})
+        {"org.freedesktop.DBus.Property.EmitsChangedSignal": "const",
+         "org.freedesktop.DBus.Deprecated": "true"})
     @dbus_service_property(_interface, signature="o", access="read")
     def ObjectPath_dbus_property(self):
         return self.dbus_object_path # is already a dbus.ObjectPath
