@@ -1154,8 +1154,7 @@ class DBusObjectWithObjectManager(DBusObjectWithAnnotations):
     def InterfacesAdded(self, object_path, interfaces_and_properties):
         pass
     
-    @dbus.service.signal(dbus.OBJECT_MANAGER_IFACE,
-                         signature = "oas")
+    @dbus.service.signal(dbus.OBJECT_MANAGER_IFACE, signature = "oas")
     def InterfacesRemoved(self, object_path, interfaces):
         pass
     
@@ -1169,8 +1168,9 @@ class DBusObjectWithObjectManager(DBusObjectWithAnnotations):
         Override return argument name of GetManagedObjects to be
         "objpath_interfaces_and_properties"
         """
-        xmlstring = DBusObjectWithAnnotations(self, object_path,
-                                              connection)
+        xmlstring = DBusObjectWithAnnotations.Introspect(self,
+                                                         object_path,
+                                                         connection)
         try:
             document = xml.dom.minidom.parseString(xmlstring)
             
@@ -1291,11 +1291,16 @@ def alternate_dbus_interfaces(alt_interface_names, deprecate=True):
                         func1 and func2 to the "call_both" function
                         outside of its arguments"""
                         
+                        @functools.wraps(func2)
                         def call_both(*args, **kwargs):
                             """This function will emit two D-Bus
                             signals by calling func1 and func2"""
                             func1(*args, **kwargs)
                             func2(*args, **kwargs)
+                        # Make wrapper function look like a D-Bus signal
+                        for name, attr in inspect.getmembers(func2):
+                            if name.startswith("_dbus_"):
+                                setattr(call_both, name, attr)
                         
                         return call_both
                     # Create the "call_both" function and add it to
