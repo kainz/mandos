@@ -1,3 +1,24 @@
+mandos (1.7.0-1) unstable; urgency=medium
+
+  * New upstream release.
+  * debian/control (Standards-Version): Updated to "3.9.6".
+    (Build-Depends): Add "libnl-route-3-dev".
+    (Package: mandos-client/Recommends): Added "gnutls-bin | openssl" for
+    the generating of DH parameters.
+  * debian/mandos-client.README.Debian: Update example command line to use
+    new MANDOSPLUGINHELPERDIR environment variable.  Also document the new
+    dhparams.pem file.
+  * debian/mandos-client.postinst: Create DH parameters file.
+  * debian/mandos.prerm: Don't run init script, use only invoke-rc.d.
+  * debian/mandos-client.postinst: Don't use absolute paths to commands.
+  * debian/mandos-client.postrm: Don't use absolute paths to commands.
+    Also remove dhparams.pem file.
+  * debian/copyright (Copyright): Update copyright year.
+  * Upstream changed systemd service file to implicitly be of
+    "Type=dbus". (Closes: #786845)
+
+ -- Teddy Hogeborn <teddy@recompile.se>  Mon, 10 Aug 2015 22:00:29 +0200
+
 mandos (1.6.9-1) unstable; urgency=medium
 
   * New upstream release.
