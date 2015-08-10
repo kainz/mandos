@@ -118,10 +118,10 @@ This file documents the D-Bus interface to the Mandos server.
    k) A raw byte array, not hexadecimal digits.
 
 ** Signals
-*** CheckerCompleted(n: Exitcode, x: Signal, s: Command)
+*** CheckerCompleted(n: Exitcode, x: Waitstatus, s: Command)
     A checker (Command) has completed.  Exitcode is either the exit
-    code or -1 for abnormal exit, in which case, the signal number
-    is available.
+    code or -1 for abnormal exit.  In any case, the full Waitstatus
+    (as from wait(2)) is also available.
     
 *** CheckerStarted(s: Command)
     A checker command (Command) has just been started.

@@ -173,7 +173,7 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
             gobject.source_remove(self._update_timer_callback_tag)
             self._update_timer_callback_tag = None
     
-    def checker_completed(self, exitstatus, signal, command):
+    def checker_completed(self, exitstatus, condition, command):
         if exitstatus == 0:
             self.logger('Checker for client {} (command "{}")'
                         ' succeeded'.format(self.properties["Name"],
@@ -181,20 +181,16 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
             self.update()
             return
         # Checker failed
-        if exitstatus >= 0:
+        if os.WIFEXITED(condition):
             self.logger('Checker for client {} (command "{}") failed'
                         ' with exit code {}'
                         .format(self.properties["Name"], command,
-                                exitstatus))
-        elif signal != 0:
+                                os.WEXITSTATUS(condition)))
+        elif os.WIFSIGNALED(condition):
             self.logger('Checker for client {} (command "{}") was'
                         ' killed by signal {}'
                         .format(self.properties["Name"], command,
-                                signal))
-        else:
-            self.logger('Checker for client {} completed'
-                        ' mysteriously'
-                        .format(self.properties["Name"]))
+                                os.WTERMSIG(condition)))
         self.update()
     
     def checker_started(self, command):
