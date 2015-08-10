@@ -1,6 +1,30 @@
 This NEWS file records noteworthy changes, very tersely.
 See the manual for detailed information.
 
+Version 1.7.0 (2015-08-10)
+* Server
+** Bug fix: Handle local Zeroconf service name collisions better.
+** Bug fix: Finally fix "ERROR: Child process vanished" bug.
+** Bug fix: Fix systemd service file to start server correctly.
+** Bug fix: Be compatible with old 2048-bit DSA keys.
+** The D-Bus API now provides the standard D-Bus ObjectManager
+   interface, and deprecates older functionality.  See the DBUS-API
+   file for the currently recommended API.  Note: the original API
+   still works, but is deprecated.
+* Client
+** Can now find Mandos server even if the server has an IPv6 address
+   on a network without IPv6 Router Advertisment (like if the Mandos
+   client itself is the router, or there is an IPv6 router advertising
+   a network other than the one which the Mandos server is on.)
+** Use a better value than 1024 for the default number of DH bits.
+   This better value is either provided by a DH parameters file (see
+   below) or an appropriate number of DH bits is determined based on
+   the PGP key.
+** Bug fix: mandos-keygen now generates correct output for the
+   "Checker" variable even if the SSH server on the Mandos client has
+   multiple SSH key types.
+** Can now use pre-generated Diffie-Hellman parameters from a file.
+
 Version 1.6.9 (2014-10-05)
 * Server
 ** Changed to emit standard D-Bus signal when D-Bus properties change.
