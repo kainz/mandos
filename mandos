@@ -842,6 +842,8 @@ def dbus_annotations(annotations):
                            access="r")
     def Property_dbus_property(self):
         return dbus.Boolean(False)
+    
+    See also the DBusObjectWithAnnotations class.
     """
     
     def decorator(func):
@@ -869,12 +871,11 @@ class DBusPropertyNotFound(DBusPropertyException):
     pass
 
 
-class DBusObjectWithProperties(dbus.service.Object):
-    """A D-Bus object with properties.
+class DBusObjectWithAnnotations(dbus.service.Object):
+    """A D-Bus object with annotations.
     
-    Classes inheriting from this can use the dbus_service_property
-    decorator to expose methods as D-Bus properties.  It exposes the
-    standard Get(), Set(), and GetAll() methods on the D-Bus.
+    Classes inheriting from this can use the dbus_annotations
+    decorator to add annotations to methods or signals.
     """
     
     @staticmethod
@@ -895,6 +896,77 @@ class DBusObjectWithProperties(dbus.service.Object):
                 for cls in self.__class__.__mro__
                 for name, athing in
                 inspect.getmembers(cls, self._is_dbus_thing(thing)))
+    
+    @dbus.service.method(dbus.INTROSPECTABLE_IFACE,
+                         out_signature = "s",
+                         path_keyword = 'object_path',
+                         connection_keyword = 'connection')
+    def Introspect(self, object_path, connection):
+        """Overloading of standard D-Bus method.
+        
+        Inserts annotation tags on methods and signals.
+        """
+        xmlstring = dbus.service.Object.Introspect(self, object_path,
+                                                   connection)
+        try:
+            document = xml.dom.minidom.parseString(xmlstring)
+            
+            for if_tag in document.getElementsByTagName("interface"):
+                # Add annotation tags
+                for typ in ("method", "signal"):
+                    for tag in if_tag.getElementsByTagName(typ):
+                        annots = dict()
+                        for name, prop in (self.
+                                           _get_all_dbus_things(typ)):
+                            if (name == tag.getAttribute("name")
+                                and prop._dbus_interface
+                                == if_tag.getAttribute("name")):
+                                annots.update(getattr(
+                                    prop, "_dbus_annotations", {}))
+                        for name, value in annots.items():
+                            ann_tag = document.createElement(
+                                "annotation")
+                            ann_tag.setAttribute("name", name)
+                            ann_tag.setAttribute("value", value)
+                            tag.appendChild(ann_tag)
+                # Add interface annotation tags
+                for annotation, value in dict(
+                    itertools.chain.from_iterable(
+                        annotations().items()
+                        for name, annotations
+                        in self._get_all_dbus_things("interface")
+                        if name == if_tag.getAttribute("name")
+                        )).items():
+                    ann_tag = document.createElement("annotation")
+                    ann_tag.setAttribute("name", annotation)
+                    ann_tag.setAttribute("value", value)
+                    if_tag.appendChild(ann_tag)
+                # Fix argument name for the Introspect method itself
+                if (if_tag.getAttribute("name")
+                                == dbus.INTROSPECTABLE_IFACE):
+                    for cn in if_tag.getElementsByTagName("method"):
+                        if cn.getAttribute("name") == "Introspect":
+                            for arg in cn.getElementsByTagName("arg"):
+                                if (arg.getAttribute("direction")
+                                    == "out"):
+                                    arg.setAttribute("name",
+                                                     "xml_data")
+            xmlstring = document.toxml("utf-8")
+            document.unlink()
+        except (AttributeError, xml.dom.DOMException,
+                xml.parsers.expat.ExpatError) as error:
+            logger.error("Failed to override Introspection method",
+                         exc_info=error)
+        return xmlstring
+
+
+class DBusObjectWithProperties(DBusObjectWithAnnotations):
+    """A D-Bus object with properties.
+    
+    Classes inheriting from this can use the dbus_service_property
+    decorator to expose methods as D-Bus properties.  It exposes the
+    standard Get(), Set(), and GetAll() methods on the D-Bus.
+    """
     
     def _get_dbus_property(self, interface_name, property_name):
         """Returns a bound method if one exists which is a D-Bus
@@ -986,8 +1058,9 @@ class DBusObjectWithProperties(dbus.service.Object):
         
         Inserts property tags and interface annotation tags.
         """
-        xmlstring = dbus.service.Object.Introspect(self, object_path,
-                                                   connection)
+        xmlstring = DBusObjectWithAnnotations.Introspect(self,
+                                                         object_path,
+                                                         connection)
         try:
             document = xml.dom.minidom.parseString(xmlstring)
             
@@ -1006,35 +1079,22 @@ class DBusObjectWithProperties(dbus.service.Object):
                             if prop._dbus_interface
                             == if_tag.getAttribute("name")):
                     if_tag.appendChild(tag)
-                # Add annotation tags
-                for typ in ("method", "signal", "property"):
-                    for tag in if_tag.getElementsByTagName(typ):
-                        annots = dict()
-                        for name, prop in (self.
-                                           _get_all_dbus_things(typ)):
-                            if (name == tag.getAttribute("name")
-                                and prop._dbus_interface
-                                == if_tag.getAttribute("name")):
-                                annots.update(getattr(
-                                    prop, "_dbus_annotations", {}))
-                        for name, value in annots.items():
-                            ann_tag = document.createElement(
-                                "annotation")
-                            ann_tag.setAttribute("name", name)
-                            ann_tag.setAttribute("value", value)
-                            tag.appendChild(ann_tag)
-                # Add interface annotation tags
-                for annotation, value in dict(
-                    itertools.chain.from_iterable(
-                        annotations().items()
-                        for name, annotations
-                        in self._get_all_dbus_things("interface")
-                        if name == if_tag.getAttribute("name")
-                        )).items():
-                    ann_tag = document.createElement("annotation")
-                    ann_tag.setAttribute("name", annotation)
-                    ann_tag.setAttribute("value", value)
-                    if_tag.appendChild(ann_tag)
+                # Add annotation tags for properties
+                for tag in if_tag.getElementsByTagName("property"):
+                    annots = dict()
+                    for name, prop in self._get_all_dbus_things(
+                            "property"):
+                        if (name == tag.getAttribute("name")
+                            and prop._dbus_interface
+                            == if_tag.getAttribute("name")):
+                            annots.update(getattr(
+                                prop, "_dbus_annotations", {}))
+                    for name, value in annots.items():
+                        ann_tag = document.createElement(
+                            "annotation")
+                        ann_tag.setAttribute("name", name)
+                        ann_tag.setAttribute("value", value)
+                        tag.appendChild(ann_tag)
                 # Add the names to the return values for the
                 # "org.freedesktop.DBus.Properties" methods
                 if (if_tag.getAttribute("name")
@@ -2753,19 +2813,13 @@ def main():
         
         @alternate_dbus_interfaces(
             { "se.recompile.Mandos": "se.bsnet.fukt.Mandos" })
-        class MandosDBusService(DBusObjectWithProperties):
+        class MandosDBusService(DBusObjectWithAnnotations):
             """A D-Bus proxy object"""
             
             def __init__(self):
                 dbus.service.Object.__init__(self, bus, "/")
             
             _interface = "se.recompile.Mandos"
-            
-            @dbus_interface_annotations(_interface)
-            def _foo(self):
-                return {
-                    "org.freedesktop.DBus.Property.EmitsChangedSignal":
-                    "false" }
             
             @dbus.service.signal(_interface, signature="o")
             def ClientAdded(self, objpath):
