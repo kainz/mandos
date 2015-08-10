@@ -1376,13 +1376,16 @@ class ClientDBus(Client, DBusObjectWithProperties):
         if exitstatus >= 0:
             # Emit D-Bus signal
             self.CheckerCompleted(dbus.Int16(exitstatus),
-                                  dbus.Int64(0),
+                                  # This is specific to GNU libC
+                                  dbus.Int64(exitstatus << 8),
                                   dbus.String(command))
         else:
             # Emit D-Bus signal
             self.CheckerCompleted(dbus.Int16(-1),
                                   dbus.Int64(
-                                      self.last_checker_signal),
+                                      # This is specific to GNU libC
+                                      (exitstatus << 8)
+                                      | self.last_checker_signal),
                                   dbus.String(command))
         return ret
     
