@@ -983,6 +983,15 @@ class DBusObjectWithProperties(DBusObjectWithAnnotations):
         raise DBusPropertyNotFound("{}:{}.{}".format(
             self.dbus_object_path, interface_name, property_name))
     
+    @classmethod
+    def _get_all_interface_names(cls):
+        """Get a sequence of all interfaces supported by an object"""
+        return (name for name in set(getattr(getattr(x, attr),
+                                             "_dbus_interface", None)
+                                     for x in (inspect.getmro(cls))
+                                     for attr in dir(x))
+                if name is not None)
+    
     @dbus.service.method(dbus.PROPERTIES_IFACE,
                          in_signature="ss",
                          out_signature="v")
@@ -1118,6 +1127,74 @@ class DBusObjectWithProperties(DBusObjectWithAnnotations):
                          exc_info=error)
         return xmlstring
 
+try:
+    dbus.OBJECT_MANAGER_IFACE
+except AttributeError:
+    dbus.OBJECT_MANAGER_IFACE = "org.freedesktop.DBus.ObjectManager"
+
+class DBusObjectWithObjectManager(DBusObjectWithAnnotations):
+    """A D-Bus object with an ObjectManager.
+    
+    Classes inheriting from this exposes the standard
+    GetManagedObjects call and the InterfacesAdded and
+    InterfacesRemoved signals on the standard
+    "org.freedesktop.DBus.ObjectManager" interface.
+    
+    Note: No signals are sent automatically; they must be sent
+    manually.
+    """
+    @dbus.service.method(dbus.OBJECT_MANAGER_IFACE,
+                         out_signature = "a{oa{sa{sv}}}")
+    def GetManagedObjects(self):
+        """This function must be overridden"""
+        raise NotImplementedError()
+    
+    @dbus.service.signal(dbus.OBJECT_MANAGER_IFACE,
+                         signature = "oa{sa{sv}}")
+    def InterfacesAdded(self, object_path, interfaces_and_properties):
+        pass
+    
+    @dbus.service.signal(dbus.OBJECT_MANAGER_IFACE,
+                         signature = "oas")
+    def InterfacesRemoved(self, object_path, interfaces):
+        pass
+    
+    @dbus.service.method(dbus.INTROSPECTABLE_IFACE,
+                         out_signature = "s",
+                         path_keyword = 'object_path',
+                         connection_keyword = 'connection')
+    def Introspect(self, object_path, connection):
+        """Overloading of standard D-Bus method.
+        
+        Override return argument name of GetManagedObjects to be
+        "objpath_interfaces_and_properties"
+        """
+        xmlstring = DBusObjectWithAnnotations(self, object_path,
+                                              connection)
+        try:
+            document = xml.dom.minidom.parseString(xmlstring)
+            
+            for if_tag in document.getElementsByTagName("interface"):
+                # Fix argument name for the GetManagedObjects method
+                if (if_tag.getAttribute("name")
+                                == dbus.OBJECT_MANAGER_IFACE):
+                    for cn in if_tag.getElementsByTagName("method"):
+                        if (cn.getAttribute("name")
+                            == "GetManagedObjects"):
+                            for arg in cn.getElementsByTagName("arg"):
+                                if (arg.getAttribute("direction")
+                                    == "out"):
+                                    arg.setAttribute(
+                                        "name",
+                                        "objpath_interfaces"
+                                        "_and_properties")
+            xmlstring = document.toxml("utf-8")
+            document.unlink()
+        except (AttributeError, xml.dom.DOMException,
+                xml.parsers.expat.ExpatError) as error:
+            logger.error("Failed to override Introspection method",
+                         exc_info = error)
+        return xmlstring
 
 def datetime_to_dbus(dt, variant_level=0):
     """Convert a UTC datetime.datetime() to a D-Bus type."""
@@ -2813,7 +2890,7 @@ def main():
         
         @alternate_dbus_interfaces(
             { "se.recompile.Mandos": "se.bsnet.fukt.Mandos" })
-        class MandosDBusService(DBusObjectWithAnnotations):
+        class MandosDBusService(DBusObjectWithObjectManager):
             """A D-Bus proxy object"""
             
             def __init__(self):
@@ -2831,23 +2908,30 @@ def main():
                 "D-Bus signal"
                 pass
             
+            @dbus_annotations({"org.freedesktop.DBus.Deprecated":
+                               "true"})
             @dbus.service.signal(_interface, signature="os")
             def ClientRemoved(self, objpath, name):
                 "D-Bus signal"
                 pass
             
+            @dbus_annotations({"org.freedesktop.DBus.Deprecated":
+                               "true"})
             @dbus.service.method(_interface, out_signature="ao")
             def GetAllClients(self):
                 "D-Bus method"
                 return dbus.Array(c.dbus_object_path for c in
                                   tcp_server.clients.itervalues())
             
+            @dbus_annotations({"org.freedesktop.DBus.Deprecated":
+                               "true"})
             @dbus.service.method(_interface,
                                  out_signature="a{oa{sv}}")
             def GetAllClientsWithProperties(self):
                 "D-Bus method"
                 return dbus.Dictionary(
-                    { c.dbus_object_path: c.GetAll("")
+                    { c.dbus_object_path: c.GetAll(
+                        "se.recompile.Mandos.Client")
                       for c in tcp_server.clients.itervalues() },
                     signature="oa{sv}")
             
@@ -2858,14 +2942,50 @@ def main():
                     if c.dbus_object_path == object_path:
                         del tcp_server.clients[c.name]
                         c.remove_from_connection()
-                        # Don't signal anything except ClientRemoved
+                        # Don't signal the disabling
                         c.disable(quiet=True)
-                        # Emit D-Bus signal
-                        self.ClientRemoved(object_path, c.name)
+                        # Emit D-Bus signal for removal
+                        self.client_removed_signal(c)
                         return
                 raise KeyError(object_path)
             
             del _interface
+            
+            @dbus.service.method(dbus.OBJECT_MANAGER_IFACE,
+                                 out_signature = "a{oa{sa{sv}}}")
+            def GetManagedObjects(self):
+                """D-Bus method"""
+                return dbus.Dictionary(
+                    { client.dbus_object_path:
+                      dbus.Dictionary(
+                          { interface: client.GetAll(interface)
+                            for interface in
+                                 client._get_all_interface_names()})
+                      for client in tcp_server.clients.values()})
+            
+            def client_added_signal(self, client):
+                """Send the new standard signal and the old signal"""
+                if use_dbus:
+                    # New standard signal
+                    self.InterfacesAdded(
+                        client.dbus_object_path,
+                        dbus.Dictionary(
+                            { interface: client.GetAll(interface)
+                              for interface in
+                              client._get_all_interface_names()}))
+                    # Old signal
+                    self.ClientAdded(client.dbus_object_path)
+            
+            def client_removed_signal(self, client):
+                """Send the new standard signal and the old signal"""
+                if use_dbus:
+                    # New standard signal
+                    self.InterfacesRemoved(
+                        client.dbus_object_path,
+                        client._get_all_interface_names())
+                    # Old signal
+                    self.ClientRemoved(client.dbus_object_path,
+                                       client.name)
         
         mandos_dbus_service = MandosDBusService()
     
@@ -2936,20 +3056,18 @@ def main():
             name, client = tcp_server.clients.popitem()
             if use_dbus:
                 client.remove_from_connection()
-            # Don't signal anything except ClientRemoved
+            # Don't signal the disabling
             client.disable(quiet=True)
-            if use_dbus:
-                # Emit D-Bus signal
-                mandos_dbus_service.ClientRemoved(
-                    client.dbus_object_path, client.name)
+            # Emit D-Bus signal for removal
+            mandos_dbus_service.client_removed_signal(client)
         client_settings.clear()
     
     atexit.register(cleanup)
     
     for client in tcp_server.clients.itervalues():
         if use_dbus:
-            # Emit D-Bus signal
-            mandos_dbus_service.ClientAdded(client.dbus_object_path)
+            # Emit D-Bus signal for adding
+            mandos_dbus_service.client_added_signal(client)
         # Need to initiate checking of clients
         if client.enabled:
             client.init_checker()
