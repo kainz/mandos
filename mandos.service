@@ -1,8 +1,18 @@
 [Unit]
 Description=Server of encrypted passwords to Mandos clients
 Documentation=man:intro(8mandos) man:mandos(8)
+## If the server is configured to listen to a specific IP or network
+## interface, it may be necessary to change "network.target" to
+## "network-online.target".
+After=network.target
+## If the server is configured to not use ZeroConf, these two lines
+## become unnecessary and should be removed or commented out.
+After=avahi-daemon.service
+RequisiteOverridable=avahi-daemon.service
 
 [Service]
+## If the server's D-Bus interface is disabled, the "BusName" setting
+## should be removed or commented out.
 BusName=se.recompile.Mandos
 ExecStart=/usr/sbin/mandos --foreground
 Restart=always
