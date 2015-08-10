@@ -2,8 +2,8 @@
 # 
 # Mandos key generator - create a new OpenPGP key for a Mandos client
 # 
-# Copyright © 2008-2014 Teddy Hogeborn
-# Copyright © 2008-2014 Björn Påhlsson
+# Copyright © 2008-2015 Teddy Hogeborn
+# Copyright © 2008-2015 Björn Påhlsson
 # 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -47,7 +47,7 @@ TEMP=`getopt --options vhpF:d:t:l:s:L:n:e:c:x:fS \
     --name "$0" -- "$@"`
 
 help(){
-basename="`basename $0`"
+basename="`basename "$0"`"
 cat <<EOF
 Usage: $basename [ -v | --version ]
        $basename [ -h | --help ]
@@ -113,7 +113,7 @@ while :; do
     esac
 done
 if [ "$#" -gt 0 ]; then
-    echo "Unknown arguments: '$@'" >&2
+    echo "Unknown arguments: '$*'" >&2
     exit 1
 fi
 
@@ -285,13 +285,19 @@ if [ "$mode" = password ]; then
     esac
     
     if [ $SSH -eq 1 ]; then
-	set +e
-	ssh_fingerprint="`ssh-keyscan localhost 2>/dev/null`"
-	if [ $? -ne 0 ]; then
-	    ssh_fingerprint=""
-	fi
-	set -e
-	ssh_fingerprint="${ssh_fingerprint#localhost }"
+	for ssh_keytype in ed25519 rsa; do
+	    set +e
+	    ssh_fingerprint="`ssh-keyscan -t $ssh_keytype localhost 2>/dev/null`"
+	    set -e
+	    if [ $? -ne 0 ]; then
+		ssh_fingerprint=""
+		continue
+	    fi
+	    if [ -n "$ssh_fingerprint" ]; then
+		ssh_fingerprint="${ssh_fingerprint#localhost }"
+		break
+	    fi
+	done
     fi
     
     # Import key into temporary key rings
@@ -304,7 +310,7 @@ if [ "$mode" = password ]; then
     
     # Get fingerprint of key
     FINGERPRINT="`gpg --quiet --batch --no-tty --no-options \
-	--enable-dsa2 --homedir \"$RINGDIR\" --trust-model always \
+	--enable-dsa2 --homedir "$RINGDIR" --trust-model always \
 	--fingerprint --with-colons \
 	| sed --quiet \
 	--expression='/^fpr:/{s/^fpr:.*:\\([0-9A-Z]*\\):\$/\\1/p;q}'`"
@@ -363,7 +369,7 @@ if [ "$mode" = password ]; then
 	    }
 	}' < "$SECFILE"
     if [ -n "$ssh_fingerprint" ]; then
-	echo 'checker = ssh-keyscan %%(host)s 2>/dev/null | grep --fixed-strings --line-regexp --quiet --regexp=%%(host)s" %(ssh_fingerprint)s"'
+	echo 'checker = ssh-keyscan -t '"$ssh_keytype"' %%(host)s 2>/dev/null | grep --fixed-strings --line-regexp --quiet --regexp=%%(host)s" %(ssh_fingerprint)s"'
 	echo "ssh_fingerprint = ${ssh_fingerprint}"
     fi
 fi

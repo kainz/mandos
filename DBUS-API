@@ -13,34 +13,25 @@ This file documents the D-Bus interface to the Mandos server.
   | Path                  | Object            |
   |-----------------------+-------------------|
   | "/"                   | The Mandos Server |
-  | "/clients/CLIENTNAME" | Mandos Client     |
 
-  
+  (To get a list of paths to client objects, use the standard D-Bus
+  org.freedesktop.DBus.ObjectManager interface, which the server
+  object supports.)
+
+
 * Mandos Server Interface:
   Interface name: "se.recompile.Mandos"
   
 ** Methods:
-*** GetAllClients() → (ao: Clients)
-    Returns an array of all client D-Bus object paths
-   
-*** GetAllClientsWithProperties() → (a{oa{sv}}: ClientProperties)
-    Returns an array of all clients and all their properties
-   
 *** RemoveClient(o: ObjectPath) → nothing
     Removes a client
    
 ** Signals:
-*** ClientAdded(o: ObjectPath)
-    A new client was added.
-   
 *** ClientNotFound(s: Fingerprint, s: Address)
     A client connected from Address using Fingerprint, but was
     rejected because it was not found in the server.  The fingerprint
     is represented as a string of hexadecimal digits.  The address is
     an IPv4 or IPv6 address in its normal string format.
-   
-*** ClientRemoved(o: ObjectPath, s: Name)
-    A client named Name on ObjectPath was removed.
 
 
 * Mandos Client Interface:
@@ -55,20 +46,6 @@ This file documents the D-Bus interface to the Mandos server.
     Assert that this client has been checked and found to be alive.
     This will restart the timeout before disabling this client.  See
     also the "LastCheckedOK" property.
-    
-*** Disable() → nothing
-    Disable this client.  See also the "Enabled" property.
-    
-*** Enable() → nothing
-    Enable this client.  See also the "Enabled" property.
-    
-*** StartChecker() → nothing
-    Start a new checker for this client, if none is currently
-    running.  See also the "CheckerRunning" property.
-    
-*** StopChecker() → nothing
-    Abort a running checker process for this client, if any.  See also
-    the "CheckerRunning" property.
 
 ** Properties
    
@@ -96,7 +73,6 @@ This file documents the D-Bus interface to the Mandos server.
    | LastCheckerStatus (i)   | n    | Read       | N/A                 |
    | LastEnabled (j)         | s    | Read       | N/A                 |
    | Name                    | s    | Read       | (Section name)      |
-   | ObjectPath              | o    | Read       | N/A                 |
    | Secret (k)              | ay   | Write      | secret (or secfile) |
    | Timeout (a)             | t    | Read/Write | timeout             |
    
@@ -104,13 +80,12 @@ This file documents the D-Bus interface to the Mandos server.
    
    b) An approval is currently pending.
    
-   c) Setting this property is equivalent to calling StartChecker() or
-      StopChecker().
+   c) Changing this property can either start a new checker or abort a
+      running one.
    
    d) The creation time of this client object, as an RFC 3339 string.
    
-   e) Setting this property is equivalent to calling Enable() or
-      Disable().
+   e) Changing this property enables or disables a client.
    
    f) The date and time this client will be disabled, as an RFC 3339
       string, or an empty string if this is not scheduled.
@@ -155,8 +130,8 @@ This file documents the D-Bus interface to the Mandos server.
 
 * Copyright
 
-    Copyright © 2010-2012 Teddy Hogeborn
-    Copyright © 2010-2012 Björn Påhlsson
+    Copyright © 2010-2015 Teddy Hogeborn
+    Copyright © 2010-2015 Björn Påhlsson
   
 ** License:
    

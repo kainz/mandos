@@ -9,8 +9,8 @@
  * "browse_callback", and parts of "main".
  * 
  * Everything else is
- * Copyright © 2008-2014 Teddy Hogeborn
- * Copyright © 2008-2014 Björn Påhlsson
+ * Copyright © 2008-2015 Teddy Hogeborn
+ * Copyright © 2008-2015 Björn Påhlsson
  * 
  * This program is free software: you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -46,8 +46,8 @@
 #include <stdlib.h> 		/* free(), EXIT_SUCCESS, srand(),
 				   strtof(), abort() */
 #include <stdbool.h>		/* bool, false, true */
-#include <string.h>		/* memset(), strcmp(), strlen(),
-				   strerror(), asprintf(), strcpy() */
+#include <string.h>		/* strcmp(), strlen(), strerror(),
+				   asprintf(), strcpy() */
 #include <sys/ioctl.h>		/* ioctl */
 #include <sys/types.h>		/* socket(), inet_pton(), sockaddr,
 				   sockaddr_in6, PF_INET6,
@@ -305,7 +305,7 @@ static bool init_gpgme(const char * const seckey,
       return false;
     }
     
-    ret = (int)TEMP_FAILURE_RETRY(close(fd));
+    ret = close(fd);
     if(ret == -1){
       perror_plus("close");
     }
@@ -493,12 +493,17 @@ static ssize_t pgp_packet_decrypt(const char *cryptotext,
   return plaintext_length;
 }
 
+__attribute__((warn_unused_result, const))
+static const char *safe_string(const char *str){
+  if(str == NULL)
+    return "(unknown)";
+  return str;
+}
+
 __attribute__((warn_unused_result))
 static const char *safer_gnutls_strerror(int value){
   const char *ret = gnutls_strerror(value);
-  if(ret == NULL)
-    ret = "(unknown)";
-  return ret;
+  return safe_string(ret);
 }
 
 /* GnuTLS log function callback */
@@ -511,8 +516,10 @@ static void debuggnutls(__attribute__((unused)) int level,
 __attribute__((nonnull, warn_unused_result))
 static int init_gnutls_global(const char *pubkeyfilename,
 			      const char *seckeyfilename,
+			      const char *dhparamsfilename,
 			      mandos_context *mc){
   int ret;
+  unsigned int uret;
   
   if(debug){
     fprintf_plus(stderr, "Initializing GnuTLS\n");
@@ -569,13 +576,178 @@ static int init_gnutls_global(const char *pubkeyfilename,
 		 safer_gnutls_strerror(ret));
     goto globalfail;
   }
-  ret = gnutls_dh_params_generate2(mc->dh_params, mc->dh_bits);
-  if(ret != GNUTLS_E_SUCCESS){
-    fprintf_plus(stderr, "Error in GnuTLS prime generation: %s\n",
-		 safer_gnutls_strerror(ret));
-    goto globalfail;
+  /* If a Diffie-Hellman parameters file was given, try to use it */
+  if(dhparamsfilename != NULL){
+    gnutls_datum_t params = { .data = NULL, .size = 0 };
+    do {
+      int dhpfile = open(dhparamsfilename, O_RDONLY);
+      if(dhpfile == -1){
+	perror_plus("open");
+	dhparamsfilename = NULL;
+	break;
+      }
+      size_t params_capacity = 0;
+      while(true){
+	params_capacity = incbuffer((char **)&params.data,
+				    (size_t)params.size,
+				    (size_t)params_capacity);
+	if(params_capacity == 0){
+	  perror_plus("incbuffer");
+	  free(params.data);
+	  params.data = NULL;
+	  dhparamsfilename = NULL;
+	  break;
+	}
+	ssize_t bytes_read = read(dhpfile,
+				  params.data + params.size,
+				  BUFFER_SIZE);
+	/* EOF */
+	if(bytes_read == 0){
+	  break;
+	}
+	/* check bytes_read for failure */
+	if(bytes_read < 0){
+	  perror_plus("read");
+	  free(params.data);
+	  params.data = NULL;
+	  dhparamsfilename = NULL;
+	  break;
+	}
+	params.size += (unsigned int)bytes_read;
+      }
+      if(params.data == NULL){
+	dhparamsfilename = NULL;
+      }
+      if(dhparamsfilename == NULL){
+	break;
+      }
+      ret = gnutls_dh_params_import_pkcs3(mc->dh_params, &params,
+					  GNUTLS_X509_FMT_PEM);
+      if(ret != GNUTLS_E_SUCCESS){
+	fprintf_plus(stderr, "Failed to parse DH parameters in file"
+		     " \"%s\": %s\n", dhparamsfilename,
+		     safer_gnutls_strerror(ret));
+	dhparamsfilename = NULL;
+      }
+    } while(false);
   }
-  
+  if(dhparamsfilename == NULL){
+    if(mc->dh_bits == 0){
+      /* Find out the optimal number of DH bits */
+      /* Try to read the private key file */
+      gnutls_datum_t buffer = { .data = NULL, .size = 0 };
+      do {
+	int secfile = open(seckeyfilename, O_RDONLY);
+	if(secfile == -1){
+	  perror_plus("open");
+	  break;
+	}
+	size_t buffer_capacity = 0;
+	while(true){
+	  buffer_capacity = incbuffer((char **)&buffer.data,
+				      (size_t)buffer.size,
+				      (size_t)buffer_capacity);
+	  if(buffer_capacity == 0){
+	    perror_plus("incbuffer");
+	    free(buffer.data);
+	    buffer.data = NULL;
+	    break;
+	  }
+	  ssize_t bytes_read = read(secfile,
+				    buffer.data + buffer.size,
+				    BUFFER_SIZE);
+	  /* EOF */
+	  if(bytes_read == 0){
+	    break;
+	  }
+	  /* check bytes_read for failure */
+	  if(bytes_read < 0){
+	    perror_plus("read");
+	    free(buffer.data);
+	    buffer.data = NULL;
+	    break;
+	  }
+	  buffer.size += (unsigned int)bytes_read;
+	}
+	close(secfile);
+      } while(false);
+      /* If successful, use buffer to parse private key */
+      gnutls_sec_param_t sec_param = GNUTLS_SEC_PARAM_ULTRA;
+      if(buffer.data != NULL){
+	{
+	  gnutls_openpgp_privkey_t privkey = NULL;
+	  ret = gnutls_openpgp_privkey_init(&privkey);
+	  if(ret != GNUTLS_E_SUCCESS){
+	    fprintf_plus(stderr, "Error initializing OpenPGP key"
+			 " structure: %s",
+			 safer_gnutls_strerror(ret));
+	    free(buffer.data);
+	    buffer.data = NULL;
+	  } else {
+	    ret = gnutls_openpgp_privkey_import
+	      (privkey, &buffer, GNUTLS_OPENPGP_FMT_BASE64, "", 0);
+	    if(ret != GNUTLS_E_SUCCESS){
+	      fprintf_plus(stderr, "Error importing OpenPGP key : %s",
+			   safer_gnutls_strerror(ret));
+	      privkey = NULL;
+	    }
+	    free(buffer.data);
+	    buffer.data = NULL;
+	    if(privkey != NULL){
+	      /* Use private key to suggest an appropriate
+		 sec_param */
+	      sec_param = gnutls_openpgp_privkey_sec_param(privkey);
+	      gnutls_openpgp_privkey_deinit(privkey);
+	      if(debug){
+		fprintf_plus(stderr, "This OpenPGP key implies using"
+			     " a GnuTLS security parameter \"%s\".\n",
+			     safe_string(gnutls_sec_param_get_name
+					 (sec_param)));
+	      }
+	    }
+	  }
+	}
+	if(sec_param == GNUTLS_SEC_PARAM_UNKNOWN){
+	  /* Err on the side of caution */
+	  sec_param = GNUTLS_SEC_PARAM_ULTRA;
+	  if(debug){
+	    fprintf_plus(stderr, "Falling back to security parameter"
+			 " \"%s\"\n",
+			 safe_string(gnutls_sec_param_get_name
+				     (sec_param)));
+	  }
+	}
+      }
+      uret = gnutls_sec_param_to_pk_bits(GNUTLS_PK_DH, sec_param);
+      if(uret != 0){
+	mc->dh_bits = uret;
+	if(debug){
+	  fprintf_plus(stderr, "A \"%s\" GnuTLS security parameter"
+		       " implies %u DH bits; using that.\n",
+		       safe_string(gnutls_sec_param_get_name
+				   (sec_param)),
+		       mc->dh_bits);
+	}
+      } else {
+	fprintf_plus(stderr, "Failed to get implied number of DH"
+		     " bits for security parameter \"%s\"): %s\n",
+		     safe_string(gnutls_sec_param_get_name
+				 (sec_param)),
+		     safer_gnutls_strerror(ret));
+	goto globalfail;
+      }
+    } else if(debug){
+      fprintf_plus(stderr, "DH bits explicitly set to %u\n",
+		   mc->dh_bits);
+    }
+    ret = gnutls_dh_params_generate2(mc->dh_params, mc->dh_bits);
+    if(ret != GNUTLS_E_SUCCESS){
+      fprintf_plus(stderr, "Error in GnuTLS prime generation (%u"
+		   " bits): %s\n", mc->dh_bits,
+		   safer_gnutls_strerror(ret));
+      goto globalfail;
+    }
+  }
   gnutls_certificate_set_dh_params(mc->cred, mc->dh_params);
   
   return 0;
@@ -641,14 +813,230 @@ static int init_gnutls_session(gnutls_session_t *session,
   /* ignore client certificate if any. */
   gnutls_certificate_server_set_request(*session, GNUTLS_CERT_IGNORE);
   
-  gnutls_dh_set_prime_bits(*session, mc->dh_bits);
-  
   return 0;
 }
 
 /* Avahi log function callback */
 static void empty_log(__attribute__((unused)) AvahiLogLevel level,
 		      __attribute__((unused)) const char *txt){}
+
+/* Set effective uid to 0, return errno */
+__attribute__((warn_unused_result))
+error_t raise_privileges(void){
+  error_t old_errno = errno;
+  error_t ret_errno = 0;
+  if(seteuid(0) == -1){
+    ret_errno = errno;
+  }
+  errno = old_errno;
+  return ret_errno;
+}
+
+/* Set effective and real user ID to 0.  Return errno. */
+__attribute__((warn_unused_result))
+error_t raise_privileges_permanently(void){
+  error_t old_errno = errno;
+  error_t ret_errno = raise_privileges();
+  if(ret_errno != 0){
+    errno = old_errno;
+    return ret_errno;
+  }
+  if(setuid(0) == -1){
+    ret_errno = errno;
+  }
+  errno = old_errno;
+  return ret_errno;
+}
+
+/* Set effective user ID to unprivileged saved user ID */
+__attribute__((warn_unused_result))
+error_t lower_privileges(void){
+  error_t old_errno = errno;
+  error_t ret_errno = 0;
+  if(seteuid(uid) == -1){
+    ret_errno = errno;
+  }
+  errno = old_errno;
+  return ret_errno;
+}
+
+/* Lower privileges permanently */
+__attribute__((warn_unused_result))
+error_t lower_privileges_permanently(void){
+  error_t old_errno = errno;
+  error_t ret_errno = 0;
+  if(setuid(uid) == -1){
+    ret_errno = errno;
+  }
+  errno = old_errno;
+  return ret_errno;
+}
+
+/* Helper function to add_local_route() and delete_local_route() */
+__attribute__((nonnull, warn_unused_result))
+static bool add_delete_local_route(const bool add,
+				   const char *address,
+				   AvahiIfIndex if_index){
+  int ret;
+  char helper[] = "mandos-client-iprouteadddel";
+  char add_arg[] = "add";
+  char delete_arg[] = "delete";
+  char debug_flag[] = "--debug";
+  char *pluginhelperdir = getenv("MANDOSPLUGINHELPERDIR");
+  if(pluginhelperdir == NULL){
+    if(debug){
+      fprintf_plus(stderr, "MANDOSPLUGINHELPERDIR environment"
+		   " variable not set; cannot run helper\n");
+    }
+    return false;
+  }
+  
+  char interface[IF_NAMESIZE];
+  if(if_indextoname((unsigned int)if_index, interface) == NULL){
+    perror_plus("if_indextoname");
+    return false;
+  }
+  
+  int devnull = (int)TEMP_FAILURE_RETRY(open("/dev/null", O_RDONLY));
+  if(devnull == -1){
+    perror_plus("open(\"/dev/null\", O_RDONLY)");
+    return false;
+  }
+  pid_t pid = fork();
+  if(pid == 0){
+    /* Child */
+    /* Raise privileges */
+    errno = raise_privileges_permanently();
+    if(errno != 0){
+      perror_plus("Failed to raise privileges");
+      /* _exit(EX_NOPERM); */
+    } else {
+      /* Set group */
+      errno = 0;
+      ret = setgid(0);
+      if(ret == -1){
+	perror_plus("setgid");
+	_exit(EX_NOPERM);
+      }
+      /* Reset supplementary groups */
+      errno = 0;
+      ret = setgroups(0, NULL);
+      if(ret == -1){
+	perror_plus("setgroups");
+	_exit(EX_NOPERM);
+      }
+    }
+    ret = dup2(devnull, STDIN_FILENO);
+    if(ret == -1){
+      perror_plus("dup2(devnull, STDIN_FILENO)");
+      _exit(EX_OSERR);
+    }
+    ret = close(devnull);
+    if(ret == -1){
+      perror_plus("close");
+      _exit(EX_OSERR);
+    }
+    ret = dup2(STDERR_FILENO, STDOUT_FILENO);
+    if(ret == -1){
+      perror_plus("dup2(STDERR_FILENO, STDOUT_FILENO)");
+      _exit(EX_OSERR);
+    }
+    int helperdir_fd = (int)TEMP_FAILURE_RETRY(open(pluginhelperdir,
+						    O_RDONLY
+						    | O_DIRECTORY
+						    | O_PATH
+						    | O_CLOEXEC));
+    if(helperdir_fd == -1){
+      perror_plus("open");
+      _exit(EX_UNAVAILABLE);
+    }
+    int helper_fd = (int)TEMP_FAILURE_RETRY(openat(helperdir_fd,
+						   helper, O_RDONLY));
+    if(helper_fd == -1){
+      perror_plus("openat");
+      close(helperdir_fd);
+      _exit(EX_UNAVAILABLE);
+    }
+    close(helperdir_fd);
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-qual"
+#endif
+    if(fexecve(helper_fd, (char *const [])
+	       { helper, add ? add_arg : delete_arg, (char *)address,
+		   interface, debug ? debug_flag : NULL, NULL },
+	       environ) == -1){
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif
+      perror_plus("fexecve");
+      _exit(EXIT_FAILURE);
+    }
+  }
+  if(pid == -1){
+    perror_plus("fork");
+    return false;
+  }
+  int status;
+  pid_t pret = -1;
+  errno = 0;
+  do {
+    pret = waitpid(pid, &status, 0);
+    if(pret == -1 and errno == EINTR and quit_now){
+      int errno_raising = 0;
+      if((errno = raise_privileges()) != 0){
+	errno_raising = errno;
+	perror_plus("Failed to raise privileges in order to"
+		    " kill helper program");
+      }
+      if(kill(pid, SIGTERM) == -1){
+	perror_plus("kill");
+      }
+      if((errno_raising == 0) and (errno = lower_privileges()) != 0){
+	perror_plus("Failed to lower privileges after killing"
+		    " helper program");
+      }
+      return false;
+    }
+  } while(pret == -1 and errno == EINTR);
+  if(pret == -1){
+    perror_plus("waitpid");
+    return false;
+  }
+  if(WIFEXITED(status)){
+    if(WEXITSTATUS(status) != 0){
+      fprintf_plus(stderr, "Error: iprouteadddel exited"
+		   " with status %d\n", WEXITSTATUS(status));
+      return false;
+    }
+    return true;
+  }
+  if(WIFSIGNALED(status)){
+    fprintf_plus(stderr, "Error: iprouteadddel died by"
+		 " signal %d\n", WTERMSIG(status));
+    return false;
+  }
+  fprintf_plus(stderr, "Error: iprouteadddel crashed\n");
+  return false;
+}
+
+__attribute__((nonnull, warn_unused_result))
+static bool add_local_route(const char *address,
+			    AvahiIfIndex if_index){
+  if(debug){
+    fprintf_plus(stderr, "Adding route to %s\n", address);
+  }
+  return add_delete_local_route(true, address, if_index);
+}
+
+__attribute__((nonnull, warn_unused_result))
+static bool delete_local_route(const char *address,
+			       AvahiIfIndex if_index){
+  if(debug){
+    fprintf_plus(stderr, "Removing route to %s\n", address);
+  }
+  return add_delete_local_route(false, address, if_index);
+}
 
 /* Called when a Mandos server is found */
 __attribute__((nonnull, warn_unused_result))
@@ -666,6 +1054,7 @@ static int start_mandos_communication(const char *ip, in_port_t port,
   int retval = -1;
   gnutls_session_t session;
   int pf;			/* Protocol family */
+  bool route_added = false;
   
   errno = 0;
   
@@ -729,7 +1118,7 @@ static int start_mandos_communication(const char *ip, in_port_t port,
 		 PRIuMAX "\n", ip, (uintmax_t)port);
   }
   
-  tcp_sd = socket(pf, SOCK_STREAM, 0);
+  tcp_sd = socket(pf, SOCK_STREAM | SOCK_CLOEXEC, 0);
   if(tcp_sd < 0){
     int e = errno;
     perror_plus("socket");
@@ -742,13 +1131,14 @@ static int start_mandos_communication(const char *ip, in_port_t port,
     goto mandos_end;
   }
   
-  memset(&to, 0, sizeof(to));
   if(af == AF_INET6){
-    ((struct sockaddr_in6 *)&to)->sin6_family = (sa_family_t)af;
-    ret = inet_pton(af, ip, &((struct sockaddr_in6 *)&to)->sin6_addr);
+    struct sockaddr_in6 *to6 = (struct sockaddr_in6 *)&to;
+    *to6 = (struct sockaddr_in6){ .sin6_family = (sa_family_t)af };
+    ret = inet_pton(af, ip, &to6->sin6_addr);
   } else {			/* IPv4 */
-    ((struct sockaddr_in *)&to)->sin_family = (sa_family_t)af;
-    ret = inet_pton(af, ip, &((struct sockaddr_in *)&to)->sin_addr);
+    struct sockaddr_in *to4 = (struct sockaddr_in *)&to;
+    *to4 = (struct sockaddr_in){ .sin_family = (sa_family_t)af };
+    ret = inet_pton(af, ip, &to4->sin_addr);
   }
   if(ret < 0 ){
     int e = errno;
@@ -824,25 +1214,61 @@ static int start_mandos_communication(const char *ip, in_port_t port,
     goto mandos_end;
   }
   
-  if(af == AF_INET6){
-    ret = connect(tcp_sd, (struct sockaddr *)&to,
-		  sizeof(struct sockaddr_in6));
-  } else {
-    ret = connect(tcp_sd, (struct sockaddr *)&to, /* IPv4 */
-		  sizeof(struct sockaddr_in));
-  }
-  if(ret < 0){
-    if((errno != ECONNREFUSED and errno != ENETUNREACH) or debug){
-      int e = errno;
-      perror_plus("connect");
-      errno = e;
+  while(true){
+    if(af == AF_INET6){
+      ret = connect(tcp_sd, (struct sockaddr *)&to,
+		    sizeof(struct sockaddr_in6));
+    } else {
+      ret = connect(tcp_sd, (struct sockaddr *)&to, /* IPv4 */
+		    sizeof(struct sockaddr_in));
     }
-    goto mandos_end;
-  }
-  
-  if(quit_now){
-    errno = EINTR;
-    goto mandos_end;
+    if(ret < 0){
+      if(errno == ENETUNREACH
+	 and if_index != AVAHI_IF_UNSPEC
+	 and connect_to == NULL
+	 and not route_added and
+	 ((af == AF_INET6 and not
+	   IN6_IS_ADDR_LINKLOCAL(&(((struct sockaddr_in6 *)
+				    &to)->sin6_addr)))
+	  or (af == AF_INET and
+	      /* Not a a IPv4LL address */
+	      (ntohl(((struct sockaddr_in *)&to)->sin_addr.s_addr)
+	       & 0xFFFF0000L) != 0xA9FE0000L))){
+	/* Work around Avahi bug - Avahi does not announce link-local
+	   addresses if it has a global address, so local hosts with
+	   *only* a link-local address (e.g. Mandos clients) cannot
+	   connect to a Mandos server announced by Avahi on a server
+	   host with a global address.  Work around this by retrying
+	   with an explicit route added with the server's address.
+	   
+	   Avahi bug reference:
+	   http://lists.freedesktop.org/archives/avahi/2010-February/001833.html
+	   https://bugs.debian.org/587961
+	*/
+	if(debug){
+	  fprintf_plus(stderr, "Mandos server unreachable, trying"
+		       " direct route\n");
+	}
+	int e = errno;
+	route_added = add_local_route(ip, if_index);
+	if(route_added){
+	  continue;
+	}
+	errno = e;
+      }
+      if(errno != ECONNREFUSED or debug){
+	int e = errno;
+	perror_plus("connect");
+	errno = e;
+      }
+      goto mandos_end;
+    }
+    
+    if(quit_now){
+      errno = EINTR;
+      goto mandos_end;
+    }
+    break;
   }
   
   const char *out = mandos_protocol_version;
@@ -1031,11 +1457,17 @@ static int start_mandos_communication(const char *ip, in_port_t port,
   
  mandos_end:
   {
+    if(route_added){
+      if(not delete_local_route(ip, if_index)){
+	fprintf_plus(stderr, "Failed to delete local route to %s on"
+		     " interface %d", ip, if_index);
+      }
+    }
     int e = errno;
     free(decrypted_buffer);
     free(buffer);
     if(tcp_sd >= 0){
-      ret = (int)TEMP_FAILURE_RETRY(close(tcp_sd));
+      ret = close(tcp_sd);
     }
     if(ret == -1){
       if(e == 0){
@@ -1462,64 +1894,13 @@ int avahi_loop_with_timeout(AvahiSimplePoll *s, int retry_interval,
   }
 }
 
-/* Set effective uid to 0, return errno */
-__attribute__((warn_unused_result))
-error_t raise_privileges(void){
-  error_t old_errno = errno;
-  error_t ret_errno = 0;
-  if(seteuid(0) == -1){
-    ret_errno = errno;
-  }
-  errno = old_errno;
-  return ret_errno;
-}
-
-/* Set effective and real user ID to 0.  Return errno. */
-__attribute__((warn_unused_result))
-error_t raise_privileges_permanently(void){
-  error_t old_errno = errno;
-  error_t ret_errno = raise_privileges();
-  if(ret_errno != 0){
-    errno = old_errno;
-    return ret_errno;
-  }
-  if(setuid(0) == -1){
-    ret_errno = errno;
-  }
-  errno = old_errno;
-  return ret_errno;
-}
-
-/* Set effective user ID to unprivileged saved user ID */
-__attribute__((warn_unused_result))
-error_t lower_privileges(void){
-  error_t old_errno = errno;
-  error_t ret_errno = 0;
-  if(seteuid(uid) == -1){
-    ret_errno = errno;
-  }
-  errno = old_errno;
-  return ret_errno;
-}
-
-/* Lower privileges permanently */
-__attribute__((warn_unused_result))
-error_t lower_privileges_permanently(void){
-  error_t old_errno = errno;
-  error_t ret_errno = 0;
-  if(setuid(uid) == -1){
-    ret_errno = errno;
-  }
-  errno = old_errno;
-  return ret_errno;
-}
-
 __attribute__((nonnull))
 void run_network_hooks(const char *mode, const char *interface,
 		       const float delay){
   struct dirent **direntries = NULL;
   if(hookdir_fd == -1){
-    hookdir_fd = open(hookdir, O_RDONLY);
+    hookdir_fd = open(hookdir, O_RDONLY | O_DIRECTORY | O_PATH
+		      | O_CLOEXEC);
     if(hookdir_fd == -1){
       if(errno == ENOENT){
 	if(debug){
@@ -1550,7 +1931,11 @@ void run_network_hooks(const char *mode, const char *interface,
   }
   struct dirent *direntry;
   int ret;
-  int devnull = open("/dev/null", O_RDONLY);
+  int devnull = (int)TEMP_FAILURE_RETRY(open("/dev/null", O_RDONLY));
+  if(devnull == -1){
+    perror_plus("open(\"/dev/null\", O_RDONLY)");
+    return;
+  }
   for(int i = 0; i < numhooks; i++){
     direntry = direntries[i];
     if(debug){
@@ -1579,21 +1964,6 @@ void run_network_hooks(const char *mode, const char *interface,
       if(ret == -1){
 	perror_plus("setgroups");
 	_exit(EX_NOPERM);
-      }
-      ret = dup2(devnull, STDIN_FILENO);
-      if(ret == -1){
-	perror_plus("dup2(devnull, STDIN_FILENO)");
-	_exit(EX_OSERR);
-      }
-      ret = close(devnull);
-      if(ret == -1){
-	perror_plus("close");
-	_exit(EX_OSERR);
-      }
-      ret = dup2(STDERR_FILENO, STDOUT_FILENO);
-      if(ret == -1){
-	perror_plus("dup2(STDERR_FILENO, STDOUT_FILENO)");
-	_exit(EX_OSERR);
       }
       ret = setenv("MANDOSNETHOOKDIR", hookdir, 1);
       if(ret == -1){
@@ -1635,14 +2005,31 @@ void run_network_hooks(const char *mode, const char *interface,
 	  _exit(EX_OSERR);
 	}
       }
-      int hook_fd = openat(hookdir_fd, direntry->d_name, O_RDONLY);
+      int hook_fd = (int)TEMP_FAILURE_RETRY(openat(hookdir_fd,
+						   direntry->d_name,
+						   O_RDONLY));
       if(hook_fd == -1){
 	perror_plus("openat");
 	_exit(EXIT_FAILURE);
       }
-      if((int)TEMP_FAILURE_RETRY(close(hookdir_fd)) == -1){
+      if(close(hookdir_fd) == -1){
 	perror_plus("close");
 	_exit(EXIT_FAILURE);
+      }
+      ret = dup2(devnull, STDIN_FILENO);
+      if(ret == -1){
+	perror_plus("dup2(devnull, STDIN_FILENO)");
+	_exit(EX_OSERR);
+      }
+      ret = close(devnull);
+      if(ret == -1){
+	perror_plus("close");
+	_exit(EX_OSERR);
+      }
+      ret = dup2(STDERR_FILENO, STDOUT_FILENO);
+      if(ret == -1){
+	perror_plus("dup2(STDERR_FILENO, STDOUT_FILENO)");
+	_exit(EX_OSERR);
       }
       if(fexecve(hook_fd, (char *const []){ direntry->d_name, NULL },
 		 environ) == -1){
@@ -1689,7 +2076,7 @@ void run_network_hooks(const char *mode, const char *interface,
     free(direntry);
   }
   free(direntries);
-  if((int)TEMP_FAILURE_RETRY(close(hookdir_fd)) == -1){
+  if(close(hookdir_fd) == -1){
     perror_plus("close");
   } else {
     hookdir_fd = -1;
@@ -1735,7 +2122,7 @@ error_t bring_up_interface(const char *const interface,
     }
     
     if(quit_now){
-      ret = (int)TEMP_FAILURE_RETRY(close(sd));
+      ret = close(sd);
       if(ret == -1){
 	perror_plus("close");
       }
@@ -1791,7 +2178,7 @@ error_t bring_up_interface(const char *const interface,
     }
     
     /* Close the socket */
-    ret = (int)TEMP_FAILURE_RETRY(close(sd));
+    ret = close(sd);
     if(ret == -1){
       perror_plus("close");
     }
@@ -1879,7 +2266,7 @@ error_t take_down_interface(const char *const interface){
     }
     
     /* Close the socket */
-    int ret = (int)TEMP_FAILURE_RETRY(close(sd));
+    int ret = close(sd);
     if(ret == -1){
       perror_plus("close");
     }
@@ -1900,10 +2287,11 @@ error_t take_down_interface(const char *const interface){
 }
 
 int main(int argc, char *argv[]){
-  mandos_context mc = { .server = NULL, .dh_bits = 1024,
-			.priority = "SECURE256:!CTYPE-X.509:"
-			"+CTYPE-OPENPGP", .current_server = NULL,
-			.interfaces = NULL, .interfaces_size = 0 };
+  mandos_context mc = { .server = NULL, .dh_bits = 0,
+			.priority = "SECURE256:!CTYPE-X.509"
+			":+CTYPE-OPENPGP:!RSA:+SIGN-DSA-SHA256",
+			.current_server = NULL, .interfaces = NULL,
+			.interfaces_size = 0 };
   AvahiSServiceBrowser *sb = NULL;
   error_t ret_errno;
   int ret;
@@ -1918,6 +2306,7 @@ int main(int argc, char *argv[]){
   AvahiIfIndex if_index = AVAHI_IF_UNSPEC;
   const char *seckey = PATHDIR "/" SECKEY;
   const char *pubkey = PATHDIR "/" PUBKEY;
+  const char *dh_params_file = NULL;
   char *interfaces_hooks = NULL;
   
   bool gnutls_initialized = false;
@@ -1975,6 +2364,11 @@ int main(int argc, char *argv[]){
 	.arg = "BITS",
 	.doc = "Bit length of the prime number used in the"
 	" Diffie-Hellman key exchange",
+	.group = 2 },
+      { .name = "dh-params", .key = 134,
+	.arg = "FILE",
+	.doc = "PEM-encoded PKCS#3 file with pre-generated parameters"
+	" for the Diffie-Hellman key exchange",
 	.group = 2 },
       { .name = "priority", .key = 130,
 	.arg = "STRING",
@@ -2035,6 +2429,9 @@ int main(int argc, char *argv[]){
 	  argp_error(state, "Bad number of DH bits");
 	}
 	mc.dh_bits = (typeof(mc.dh_bits))tmpmax;
+	break;
+      case 134:			/* --dh-params */
+	dh_params_file = arg;
 	break;
       case 130:			/* --priority */
 	mc.priority = arg;
@@ -2097,7 +2494,7 @@ int main(int argc, char *argv[]){
       goto end;
     }
   }
-    
+  
   {
     /* Work around Debian bug #633582:
        <http://bugs.debian.org/633582> */
@@ -2127,10 +2524,10 @@ int main(int argc, char *argv[]){
 	      }
 	    }
 	  }
-	  TEMP_FAILURE_RETRY(close(seckey_fd));
+	  close(seckey_fd);
 	}
       }
-    
+      
       if(strcmp(pubkey, PATHDIR "/" PUBKEY) == 0){
 	int pubkey_fd = open(pubkey, O_RDONLY);
 	if(pubkey_fd == -1){
@@ -2148,10 +2545,32 @@ int main(int argc, char *argv[]){
 	      }
 	    }
 	  }
-	  TEMP_FAILURE_RETRY(close(pubkey_fd));
+	  close(pubkey_fd);
 	}
       }
-    
+      
+      if(dh_params_file != NULL
+	 and strcmp(dh_params_file, PATHDIR "/dhparams.pem" ) == 0){
+	int dhparams_fd = open(dh_params_file, O_RDONLY);
+	if(dhparams_fd == -1){
+	  perror_plus("open");
+	} else {
+	  ret = (int)TEMP_FAILURE_RETRY(fstat(dhparams_fd, &st));
+	  if(ret == -1){
+	    perror_plus("fstat");
+	  } else {
+	    if(S_ISREG(st.st_mode)
+	       and st.st_uid == 0 and st.st_gid == 0){
+	      ret = fchown(dhparams_fd, uid, gid);
+	      if(ret == -1){
+		perror_plus("fchown");
+	      }
+	    }
+	  }
+	  close(dhparams_fd);
+	}
+      }
+      
       /* Lower privileges */
       ret_errno = lower_privileges();
       if(ret_errno != 0){
@@ -2331,7 +2750,8 @@ int main(int argc, char *argv[]){
       errno = bring_up_interface(interface, delay);
       if(not interface_was_up){
 	if(errno != 0){
-	  perror_plus("Failed to bring up interface");
+	  fprintf_plus(stderr, "Failed to bring up interface \"%s\":"
+		       " %s\n", interface, strerror(errno));
 	} else {
 	  errno = argz_add(&interfaces_to_take_down,
 			   &interfaces_to_take_down_size,
@@ -2360,7 +2780,7 @@ int main(int argc, char *argv[]){
     goto end;
   }
   
-  ret = init_gnutls_global(pubkey, seckey, &mc);
+  ret = init_gnutls_global(pubkey, seckey, dh_params_file, &mc);
   if(ret == -1){
     fprintf_plus(stderr, "init_gnutls_global failed\n");
     exitcode = EX_UNAVAILABLE;
@@ -2626,8 +3046,10 @@ int main(int argc, char *argv[]){
   /* Removes the GPGME temp directory and all files inside */
   if(tempdir != NULL){
     struct dirent **direntries = NULL;
-    int tempdir_fd = (int)TEMP_FAILURE_RETRY(open(tempdir, O_RDONLY |
-						  O_NOFOLLOW));
+    int tempdir_fd = (int)TEMP_FAILURE_RETRY(open(tempdir, O_RDONLY
+						  | O_NOFOLLOW
+						  | O_DIRECTORY
+						  | O_PATH));
     if(tempdir_fd == -1){
       perror_plus("open");
     } else {
@@ -2664,7 +3086,7 @@ int main(int argc, char *argv[]){
 	  perror_plus("rmdir");
 	}
       }
-      TEMP_FAILURE_RETRY(close(tempdir_fd));
+      close(tempdir_fd);
     }
   }
   

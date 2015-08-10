@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY COMMANDNAME "mandos">
-<!ENTITY TIMESTAMP "2014-06-15">
+<!ENTITY TIMESTAMP "2015-07-20">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -37,6 +37,8 @@
       <year>2011</year>
       <year>2012</year>
       <year>2013</year>
+      <year>2014</year>
+      <year>2015</year>
       <holder>Teddy Hogeborn</holder>
       <holder>Björn Påhlsson</holder>
     </copyright>
@@ -236,8 +238,7 @@
 	<term><option>--priority <replaceable>
 	PRIORITY</replaceable></option></term>
 	<listitem>
-	  <xi:include href="mandos-options.xml"
-                      xpointer="priority_compat"/>
+	  <xi:include href="mandos-options.xml" xpointer="priority"/>
 	</listitem>
       </varlistentry>
       
@@ -707,8 +708,7 @@
       </varlistentry>
       <varlistentry>
 	<term>
-	  <ulink url="http://www.gnu.org/software/gnutls/"
-	  >GnuTLS</ulink>
+	  <ulink url="http://gnutls.org/">GnuTLS</ulink>
 	</term>
       <listitem>
 	<para>
@@ -752,12 +752,12 @@
       </varlistentry>
       <varlistentry>
 	<term>
-	  RFC 4346: <citetitle>The Transport Layer Security (TLS)
-	  Protocol Version 1.1</citetitle>
+	  RFC 5246: <citetitle>The Transport Layer Security (TLS)
+	  Protocol Version 1.2</citetitle>
 	</term>
       <listitem>
 	<para>
-	  TLS 1.1 is the protocol implemented by GnuTLS.
+	  TLS 1.2 is the protocol implemented by GnuTLS.
 	</para>
       </listitem>
       </varlistentry>
@@ -773,8 +773,8 @@
       </varlistentry>
       <varlistentry>
 	<term>
-	  RFC 5081: <citetitle>Using OpenPGP Keys for Transport Layer
-	  Security</citetitle>
+	  RFC 6091: <citetitle>Using OpenPGP Keys for Transport Layer
+	  Security (TLS) Authentication</citetitle>
 	</term>
       <listitem>
 	<para>

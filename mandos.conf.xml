@@ -3,7 +3,7 @@
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY CONFNAME "mandos.conf">
 <!ENTITY CONFPATH "<filename>/etc/mandos/mandos.conf</filename>">
-<!ENTITY TIMESTAMP "2013-10-23">
+<!ENTITY TIMESTAMP "2015-07-20">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -34,9 +34,12 @@
     <copyright>
       <year>2008</year>
       <year>2009</year>
+      <year>2010</year>
       <year>2011</year>
       <year>2012</year>
       <year>2013</year>
+      <year>2014</year>
+      <year>2015</year>
       <holder>Teddy Hogeborn</holder>
       <holder>Björn Påhlsson</holder>
     </copyright>
@@ -121,8 +124,7 @@
 	<term><option>priority<literal> = </literal><replaceable
 	>STRING</replaceable></option></term>
 	<listitem>
-	  <xi:include href="mandos-options.xml"
-                      xpointer="priority_compat"/>
+	  <xi:include href="mandos-options.xml" xpointer="priority"/>
 	</listitem>
       </varlistentry>
       
@@ -223,8 +225,8 @@
 interface = eth0
 address = fe80::aede:48ff:fe71:f6f2
 port = 1025
-debug = true
-priority = SECURE256:!CTYPE-X.509:+CTYPE-OPENPGP
+debug = True
+priority = SECURE256:!CTYPE-X.509:+CTYPE-OPENPGP:!RSA
 servicename = Daena
 use_dbus = False
 use_ipv6 = True
