@@ -2,8 +2,8 @@
 /*
  * Usplash - Read a password from usplash and output it
  * 
- * Copyright © 2008-2014 Teddy Hogeborn
- * Copyright © 2008-2014 Björn Påhlsson
+ * Copyright © 2008-2015 Teddy Hogeborn
+ * Copyright © 2008-2015 Björn Påhlsson
  * 
  * This program is free software: you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -117,7 +117,7 @@ static bool usplash_write(int *fifo_fd_r,
       ret = asprintf(&cmd_line_alloc, "%s %s", cmd, arg);
       if(ret == -1){
 	int e = errno;
-	TEMP_FAILURE_RETRY(close(*fifo_fd_r));
+	close(*fifo_fd_r);
 	errno = e;
 	return false;
       }
@@ -133,7 +133,7 @@ static bool usplash_write(int *fifo_fd_r,
 		 cmd_line_len - written);
     if(sret == -1){
       int e = errno;
-      TEMP_FAILURE_RETRY(close(*fifo_fd_r));
+      close(*fifo_fd_r);
       free(cmd_line_alloc);
       errno = e;
       return false;
@@ -491,7 +491,7 @@ int main(__attribute__((unused))int argc,
 	error_plus(0, errno, "read");
 	status = EX_OSERR;
       }
-      TEMP_FAILURE_RETRY(close(outfifo_fd));
+      close(outfifo_fd);
       goto failure;
     }
     if(interrupted_by_signal){
@@ -578,7 +578,7 @@ int main(__attribute__((unused))int argc,
   
   /* Close FIFO */
   if(fifo_fd != -1){
-    ret = (int)TEMP_FAILURE_RETRY(close(fifo_fd));
+    ret = close(fifo_fd);
     if(ret == -1 and errno != EINTR){
       error_plus(0, errno, "close");
     }
@@ -587,7 +587,7 @@ int main(__attribute__((unused))int argc,
   
   /* Close output FIFO */
   if(outfifo_fd != -1){
-    ret = (int)TEMP_FAILURE_RETRY(close(outfifo_fd));
+    ret = close(outfifo_fd);
     if(ret == -1){
       error_plus(0, errno, "close");
     }
@@ -655,7 +655,7 @@ int main(__attribute__((unused))int argc,
   
   /* Close FIFO (again) */
   if(fifo_fd != -1){
-    ret = (int)TEMP_FAILURE_RETRY(close(fifo_fd));
+    ret = close(fifo_fd);
     if(ret == -1 and errno != EINTR){
       error_plus(0, errno, "close");
     }

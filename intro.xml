@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
-<!ENTITY TIMESTAMP "2014-06-22">
+<!ENTITY TIMESTAMP "2015-07-20">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -32,6 +32,9 @@
     <copyright>
       <year>2011</year>
       <year>2012</year>
+      <year>2013</year>
+      <year>2014</year>
+      <year>2015</year>
       <holder>Teddy Hogeborn</holder>
       <holder>Björn Påhlsson</holder>
     </copyright>
@@ -194,6 +197,16 @@
 	have <emphasis>in the TLS handshake</emphasis> proven that
 	they do indeed hold the OpenPGP private key corresponding to
 	that client.
+      </para>
+    </refsect2>
+    
+    <refsect2 id="sniff">
+      <title>How about sniffing the network traffic and decrypting it
+      later by physically grabbing the Mandos client and using its
+      key?</title>
+      <para>
+	We only use <acronym>PFS</acronym> (Perfect Forward Security)
+	key exchange algorithms in TLS, which protects against this.
       </para>
     </refsect2>
     

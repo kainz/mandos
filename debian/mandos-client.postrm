@@ -31,9 +31,7 @@ set -e
 # Update the initial RAM file system image
 update_initramfs()
 {
-    if [ -x /usr/sbin/update-initramfs ]; then
-	update-initramfs -u -k all
-    fi
+    update-initramfs -u -k all || :
 }
 
 case "$1" in
@@ -45,7 +43,8 @@ case "$1" in
 	shred --remove /etc/keys/mandos/seckey.txt 2>/dev/null || :
 	rm --force /etc/mandos/plugin-runner.conf \
 	    /etc/keys/mandos/pubkey.txt \
-	    /etc/keys/mandos/seckey.txt 2>/dev/null
+	    /etc/keys/mandos/seckey.txt \
+	    /etc/keys/mandos/dhparams.pem 2>/dev/null
 	update_initramfs
 	;;
     upgrade|failed-upgrade|disappear|abort-install|abort-upgrade)

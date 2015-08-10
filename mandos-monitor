@@ -3,8 +3,8 @@
 # 
 # Mandos Monitor - Control and monitor the Mandos server
 # 
-# Copyright © 2009-2014 Teddy Hogeborn
-# Copyright © 2009-2014 Björn Påhlsson
+# Copyright © 2009-2015 Teddy Hogeborn
+# Copyright © 2009-2015 Björn Påhlsson
 # 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -62,6 +62,11 @@ server_interface = domain + '.Mandos'
 client_interface = domain + '.Mandos.Client'
 version = "1.6.9"
 
+try:
+    dbus.OBJECT_MANAGER_IFACE
+except AttributeError:
+    dbus.OBJECT_MANAGER_IFACE = "org.freedesktop.DBus.ObjectManager"
+
 def isoformat_to_datetime(iso):
     "Parse an ISO 8601 date string to a datetime.datetime()"
     if not iso:
@@ -105,7 +110,8 @@ class MandosClientPropertyCache(object):
         It updates the changed properties in the "properties" dict.
         """
         # Update properties dict with new value
-        self.properties.update(properties)
+        if interface == client_interface:
+            self.properties.update(properties)
     
     def delete(self):
         self.property_changed_match.remove()
@@ -191,14 +197,6 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
                         ' killed by signal {}'
                         .format(self.properties["Name"], command,
                                 os.WTERMSIG(condition)))
-        elif os.WCOREDUMP(condition):
-            self.logger('Checker for client {} (command "{}") dumped'
-                        ' core'.format(self.properties["Name"],
-                                       command))
-        else:
-            self.logger('Checker for client {} completed'
-                        ' mysteriously'
-                        .format(self.properties["Name"]))
         self.update()
     
     def checker_started(self, command):
@@ -337,11 +335,13 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
         """Handle keys.
         This overrides the method from urwid.FlowWidget"""
         if key == "+":
-            self.proxy.Enable(dbus_interface = client_interface,
-                              ignore_reply=True)
+            self.proxy.Set(client_interface, "Enabled",
+                           dbus.Boolean(True), ignore_reply = True,
+                           dbus_interface = dbus.PROPERTIES_IFACE)
         elif key == "-":
-            self.proxy.Disable(dbus_interface = client_interface,
-                               ignore_reply=True)
+            self.proxy.Set(client_interface, "Enabled", False,
+                           ignore_reply = True,
+                           dbus_interface = dbus.PROPERTIES_IFACE)
         elif key == "a":
             self.proxy.Approve(dbus.Boolean(True, variant_level=1),
                                dbus_interface = client_interface,
@@ -355,11 +355,13 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
                                                   .object_path,
                                                   ignore_reply=True)
         elif key == "s":
-            self.proxy.StartChecker(dbus_interface = client_interface,
-                                    ignore_reply=True)
+            self.proxy.Set(client_interface, "CheckerRunning",
+                           dbus.Boolean(True), ignore_reply = True,
+                           dbus_interface = dbus.PROPERTIES_IFACE)
         elif key == "S":
-            self.proxy.StopChecker(dbus_interface = client_interface,
-                                   ignore_reply=True)
+            self.proxy.Set(client_interface, "CheckerRunning",
+                           dbus.Boolean(False), ignore_reply = True,
+                           dbus_interface = dbus.PROPERTIES_IFACE)
         elif key == "C":
             self.proxy.CheckedOK(dbus_interface = client_interface,
                                  ignore_reply=True)
@@ -525,21 +527,32 @@ class UserInterface(object):
         self.log_message("Wrap mode: {}".format(self.log_wrap),
                          level=0)
     
-    def find_and_remove_client(self, path, name):
+    def find_and_remove_client(self, path, interfaces):
         """Find a client by its object path and remove it.
         
-        This is connected to the ClientRemoved signal from the
+        This is connected to the InterfacesRemoved signal from the
         Mandos server object."""
+        if client_interface not in interfaces:
+            # Not a Mandos client object; ignore
+            return
         try:
             client = self.clients_dict[path]
         except KeyError:
             # not found?
-            self.log_message("Unknown client {!r} ({!r}) removed"
-                             .format(name, path))
+            self.log_message("Unknown client {!r} removed"
+                             .format(path))
             return
         client.delete()
     
-    def add_new_client(self, path):
+    def add_new_client(self, path, ifs_and_props):
+        """Find a client by its object path and remove it.
+        
+        This is connected to the InterfacesAdded signal from the
+        Mandos server object.
+        """
+        if client_interface not in ifs_and_props:
+            # Not a Mandos client object; ignore
+            return
         client_proxy_object = self.bus.get_object(self.busname, path)
         self.add_client(MandosClientWidget(server_proxy_object
                                            =self.mandos_serv,
@@ -550,7 +563,10 @@ class UserInterface(object):
                                            delete_hook
                                            =self.remove_client,
                                            logger
-                                           =self.log_message),
+                                           =self.log_message,
+                                           properties
+                                           = dict(ifs_and_props[
+                                               client_interface])),
                         path=path)
     
     def add_client(self, client, path=None):
@@ -591,14 +607,16 @@ class UserInterface(object):
             mandos_clients = dbus.Dictionary()
         
         (self.mandos_serv
-         .connect_to_signal("ClientRemoved",
+         .connect_to_signal("InterfacesRemoved",
                             self.find_and_remove_client,
-                            dbus_interface=server_interface,
+                            dbus_interface
+                            = dbus.OBJECT_MANAGER_IFACE,
                             byte_arrays=True))
         (self.mandos_serv
-         .connect_to_signal("ClientAdded",
+         .connect_to_signal("InterfacesAdded",
                             self.add_new_client,
-                            dbus_interface=server_interface,
+                            dbus_interface
+                            = dbus.OBJECT_MANAGER_IFACE,
                             byte_arrays=True))
         (self.mandos_serv
          .connect_to_signal("ClientNotFound",

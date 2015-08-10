@@ -2,8 +2,8 @@
 /*
  * Mandos plugin runner - Run Mandos plugins
  *
- * Copyright © 2008-2014 Teddy Hogeborn
- * Copyright © 2008-2014 Björn Påhlsson
+ * Copyright © 2008-2015 Teddy Hogeborn
+ * Copyright © 2008-2015 Björn Påhlsson
  * 
  * This program is free software: you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -76,6 +76,7 @@
 #define BUFFER_SIZE 256
 
 #define PDIR "/lib/mandos/plugins.d"
+#define PHDIR "/lib/mandos/plugin-helpers"
 #define AFILE "/conf/conf.d/mandos/plugin-runner.conf"
 
 const char *argp_program_version = "plugin-runner " VERSION;
@@ -347,6 +348,7 @@ static void free_plugin_list(void){
 
 int main(int argc, char *argv[]){
   char *plugindir = NULL;
+  char *pluginhelperdir = NULL;
   char *argfile = NULL;
   FILE *conffp;
   struct dirent **direntries = NULL;
@@ -414,6 +416,10 @@ int main(int argc, char *argv[]){
       .doc = "Group ID the plugins will run as", .group = 3 },
     { .name = "debug", .key = 132,
       .doc = "Debug mode", .group = 4 },
+    { .name = "plugin-helper-dir", .key = 133,
+      .arg = "DIRECTORY",
+      .doc = "Specify a different plugin helper directory",
+      .group = 2 },
     /*
      * These reproduce what we would get without ARGP_NO_HELP
      */
@@ -545,6 +551,13 @@ int main(int argc, char *argv[]){
     case 132:			/* --debug */
       debug = true;
       break;
+    case 133:			/* --plugin-helper-dir */
+      free(pluginhelperdir);
+      pluginhelperdir = strdup(arg);
+      if(pluginhelperdir != NULL){
+	errno = 0;
+      }
+      break;
       /*
        * These reproduce what we would get without ARGP_NO_HELP
        */
@@ -601,6 +614,7 @@ int main(int argc, char *argv[]){
     case 130:			/* --userid */
     case 131:			/* --groupid */
     case 132:			/* --debug */
+    case 133:			/* --plugin-helper-dir */
     case '?':			/* --help */
     case -3:			/* --usage */
     case 'V':			/* --version */
@@ -761,6 +775,24 @@ int main(int argc, char *argv[]){
     goto fallback;
   }
   
+  {
+    char *pluginhelperenv;
+    bool bret = true;
+    ret = asprintf(&pluginhelperenv, "MANDOSPLUGINHELPERDIR=%s",
+		   pluginhelperdir != NULL ? pluginhelperdir : PHDIR);
+    if(ret != -1){
+      bret = add_environment(getplugin(NULL), pluginhelperenv, true);
+    }
+    if(ret == -1 or not bret){
+      error(0, errno, "Failed to set MANDOSPLUGINHELPERDIR"
+	    " environment variable to \"%s\" for all plugins\n",
+	    pluginhelperdir != NULL ? pluginhelperdir : PHDIR);
+    }
+    if(ret != -1){
+      free(pluginhelperenv);
+    }
+  }
+  
   if(debug){
     for(plugin *p = plugin_list; p != NULL; p=p->next){
       fprintf(stderr, "Plugin: %s has %d arguments\n",
@@ -795,7 +827,7 @@ int main(int argc, char *argv[]){
 	  }
 	}
       }
-      TEMP_FAILURE_RETRY(close(plugindir_fd));
+      close(plugindir_fd);
     }
   }
   
@@ -893,7 +925,7 @@ int main(int argc, char *argv[]){
     ret = (int)TEMP_FAILURE_RETRY(fstat(plugin_fd, &st));
     if(ret == -1){
       error(0, errno, "stat");
-      TEMP_FAILURE_RETRY(close(plugin_fd));
+      close(plugin_fd);
       free(direntries[i]);
       continue;
     }
@@ -908,7 +940,7 @@ int main(int argc, char *argv[]){
 		plugindir != NULL ? plugindir : PDIR,
 		direntries[i]->d_name);
       }
-      TEMP_FAILURE_RETRY(close(plugin_fd));
+      close(plugin_fd);
       free(direntries[i]);
       continue;
     }
@@ -916,7 +948,7 @@ int main(int argc, char *argv[]){
     plugin *p = getplugin(direntries[i]->d_name);
     if(p == NULL){
       error(0, errno, "getplugin");
-      TEMP_FAILURE_RETRY(close(plugin_fd));
+      close(plugin_fd);
       free(direntries[i]);
       continue;
     }
@@ -925,7 +957,7 @@ int main(int argc, char *argv[]){
 	fprintf(stderr, "Ignoring disabled plugin \"%s\"\n",
 		direntries[i]->d_name);
       }
-      TEMP_FAILURE_RETRY(close(plugin_fd));
+      close(plugin_fd);
       free(direntries[i]);
       continue;
     }
@@ -971,8 +1003,8 @@ int main(int argc, char *argv[]){
     if(pipefd[0] >= FD_SETSIZE){
       fprintf(stderr, "pipe()[0] (%d) >= FD_SETSIZE (%d)", pipefd[0],
 	      FD_SETSIZE);
-      TEMP_FAILURE_RETRY(close(pipefd[0]));
-      TEMP_FAILURE_RETRY(close(pipefd[1]));
+      close(pipefd[0]);
+      close(pipefd[1]);
       exitstatus = EX_OSERR;
       free(direntries[i]);
       goto fallback;
@@ -982,8 +1014,8 @@ int main(int argc, char *argv[]){
     ret = set_cloexec_flag(pipefd[0]);
     if(ret < 0){
       error(0, errno, "set_cloexec_flag");
-      TEMP_FAILURE_RETRY(close(pipefd[0]));
-      TEMP_FAILURE_RETRY(close(pipefd[1]));
+      close(pipefd[0]);
+      close(pipefd[1]);
       exitstatus = EX_OSERR;
       free(direntries[i]);
       goto fallback;
@@ -991,8 +1023,8 @@ int main(int argc, char *argv[]){
     ret = set_cloexec_flag(pipefd[1]);
     if(ret < 0){
       error(0, errno, "set_cloexec_flag");
-      TEMP_FAILURE_RETRY(close(pipefd[0]));
-      TEMP_FAILURE_RETRY(close(pipefd[1]));
+      close(pipefd[0]);
+      close(pipefd[1]);
       exitstatus = EX_OSERR;
       free(direntries[i]);
       goto fallback;
@@ -1017,8 +1049,8 @@ int main(int argc, char *argv[]){
       error(0, errno, "fork");
       TEMP_FAILURE_RETRY(sigprocmask(SIG_UNBLOCK,
 				     &sigchld_action.sa_mask, NULL));
-      TEMP_FAILURE_RETRY(close(pipefd[0]));
-      TEMP_FAILURE_RETRY(close(pipefd[1]));
+      close(pipefd[0]);
+      close(pipefd[1]);
       exitstatus = EX_OSERR;
       free(direntries[i]);
       goto fallback;
@@ -1052,9 +1084,8 @@ int main(int argc, char *argv[]){
       /* no return */
     }
     /* Parent process */
-    TEMP_FAILURE_RETRY(close(pipefd[1])); /* Close unused write end of
-					     pipe */
-    TEMP_FAILURE_RETRY(close(plugin_fd));
+    close(pipefd[1]);		/* Close unused write end of pipe */
+    close(plugin_fd);
     plugin *new_plugin = getplugin(direntries[i]->d_name);
     if(new_plugin == NULL){
       error(0, errno, "getplugin");
@@ -1106,7 +1137,7 @@ int main(int argc, char *argv[]){
   
   free(direntries);
   direntries = NULL;
-  TEMP_FAILURE_RETRY(close(dir_fd));
+  close(dir_fd);
   dir_fd = -1;
   free_plugin(getplugin(NULL));
   
@@ -1310,7 +1341,7 @@ int main(int argc, char *argv[]){
   free(direntries);
   
   if(dir_fd != -1){
-    TEMP_FAILURE_RETRY(close(dir_fd));
+    close(dir_fd);
   }
   
   /* Kill the processes */
@@ -1336,6 +1367,7 @@ int main(int argc, char *argv[]){
   free_plugin_list();
   
   free(plugindir);
+  free(pluginhelperdir);
   free(argfile);
   
   return exitstatus;
