@@ -13,34 +13,25 @@ This file documents the D-Bus interface to the Mandos server.
   | Path                  | Object            |
   |-----------------------+-------------------|
   | "/"                   | The Mandos Server |
-  | "/clients/CLIENTNAME" | Mandos Client     |
 
-  
+  (To get a list of paths to client objects, use the standard D-Bus
+  org.freedesktop.DBus.ObjectManager interface, which the server
+  object supports.)
+
+
 * Mandos Server Interface:
   Interface name: "se.recompile.Mandos"
   
 ** Methods:
-*** GetAllClients() → (ao: Clients)
-    Returns an array of all client D-Bus object paths
-   
-*** GetAllClientsWithProperties() → (a{oa{sv}}: ClientProperties)
-    Returns an array of all clients and all their properties
-   
 *** RemoveClient(o: ObjectPath) → nothing
     Removes a client
    
 ** Signals:
-*** ClientAdded(o: ObjectPath)
-    A new client was added.
-   
 *** ClientNotFound(s: Fingerprint, s: Address)
     A client connected from Address using Fingerprint, but was
     rejected because it was not found in the server.  The fingerprint
     is represented as a string of hexadecimal digits.  The address is
     an IPv4 or IPv6 address in its normal string format.
-   
-*** ClientRemoved(o: ObjectPath, s: Name)
-    A client named Name on ObjectPath was removed.
 
 
 * Mandos Client Interface:

@@ -75,9 +75,6 @@
 ** TODO Use python-tlslite?
 ** TODO D-Bus AddClient() method on server object
 ** TODO Use org.freedesktop.DBus.Method.NoReply annotation on async methods. :2:
-** TODO Support [[http://dbus.freedesktop.org/doc/dbus-specification.html#standard-interfaces-objectmanager][org.freedesktop.DBus.ObjectManager]] interface on server object :2:
-   Deprecate methods GetAllClients(), GetAllClientsWithProperties()
-   and signals ClientAdded and ClientRemoved.
 ** TODO Save state periodically to recover better from hard shutdowns
 ** TODO CheckerCompleted method, deprecate CheckedOK
 ** TODO Secret Service API?

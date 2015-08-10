@@ -75,6 +75,11 @@ client_interface = domain + ".Mandos.Client"
 version = "1.6.9"
 
 
+try:
+    dbus.OBJECT_MANAGER_IFACE
+except AttributeError:
+    dbus.OBJECT_MANAGER_IFACE = "org.freedesktop.DBus.ObjectManager"
+
 def milliseconds_to_string(ms):
     td = datetime.timedelta(0, 0, 0, ms)
     return ("{days}{hours:02}:{minutes:02}:{seconds:02}".format(
@@ -341,6 +346,8 @@ def main():
     
     mandos_serv = dbus.Interface(mandos_dbus_objc,
                                  dbus_interface = server_interface)
+    mandos_serv_object_manager = dbus.Interface(
+        mandos_dbus_objc, dbus_interface = dbus.OBJECT_MANAGER_IFACE)
     
     #block stderr since dbus library prints to stderr
     null = os.open(os.path.devnull, os.O_RDWR)
@@ -349,14 +356,18 @@ def main():
     os.close(null)
     try:
         try:
-            mandos_clients = mandos_serv.GetAllClientsWithProperties()
+            mandos_clients = { path: ifs_and_props[client_interface]
+                               for path, ifs_and_props in
+                               mandos_serv_object_manager
+                               .GetManagedObjects().items()
+                               if client_interface in ifs_and_props }
         finally:
             #restore stderr
             os.dup2(stderrcopy, sys.stderr.fileno())
             os.close(stderrcopy)
-    except dbus.exceptions.DBusException:
-        print("Access denied: Accessing mandos server through dbus.",
-              file=sys.stderr)
+    except dbus.exceptions.DBusException as e:
+        print("Access denied: Accessing mandos server through D-Bus: {}"
+              .format(e), file=sys.stderr)
         sys.exit(1)
     
     # Compile dict of (clients: properties) to process
