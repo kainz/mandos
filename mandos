@@ -104,7 +104,7 @@ except AttributeError:
 if sys.version_info.major == 2:
     str = unicode
 
-version = "1.6.9"
+version = "1.7.0"
 stored_state_file = "clients.pickle"
 
 logger = logging.getLogger()
