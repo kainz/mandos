@@ -20,6 +20,8 @@
 * mandos-applet
 
 * mandos-client
+** TODO A --server option which only adds to the server list.
+   (Unlike --connect, which implicitly disables zeroconf.)
 ** TODO [#B] Use capabilities instead of seteuid().
    https://forums.grsecurity.net/viewtopic.php?f=7&t=2522
 ** TODO [#B] Use getaddrinfo(hints=AI_NUMERICHOST) instead of inet_pton()
