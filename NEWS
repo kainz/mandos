@@ -1,6 +1,12 @@
 This NEWS file records noteworthy changes, very tersely.
 See the manual for detailed information.
 
+Version 1.7.1 (2015-10-24)
+* Client
+** Bug fix: Can now really find Mandos server even if the server has
+   an IPv6 address on a network other than the one which the Mandos
+   server is on.
+
 Version 1.7.0 (2015-08-10)
 * Server
 ** Bug fix: Handle local Zeroconf service name collisions better.
