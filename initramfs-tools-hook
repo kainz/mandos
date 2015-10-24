@@ -266,7 +266,7 @@ for dir in / /bin /etc /keyscripts /sbin /scripts /usr /usr/bin; do
 done
 for dir in "${DESTDIR}"/lib* "${DESTDIR}"/usr/lib*; do
     if [ -d "$dir" ]; then
-	find "$dir" \! -perm -u+rw,g+r -prune -or -print0 \
-	    | xargs --null --no-run-if-empty chmod a+rX
+	find "$dir" \! -perm -u+rw,g+r -prune -or \! -type l -print0 \
+	    | xargs --null --no-run-if-empty chmod a+rX --
     fi
 done

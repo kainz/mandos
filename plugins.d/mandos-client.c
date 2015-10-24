@@ -1223,7 +1223,7 @@ static int start_mandos_communication(const char *ip, in_port_t port,
 		    sizeof(struct sockaddr_in));
     }
     if(ret < 0){
-      if(errno == ENETUNREACH
+      if(((errno == ENETUNREACH) or (errno == EHOSTUNREACH))
 	 and if_index != AVAHI_IF_UNSPEC
 	 and connect_to == NULL
 	 and not route_added and
