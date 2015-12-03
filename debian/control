@@ -20,7 +20,7 @@ Depends: ${misc:Depends}, python (>= 2.7), python2.7, python-gnutls,
 	python2.7-gnutls, python-dbus, python2.7-dbus, python-avahi,
 	python2.7-avahi, python-gobject, python2.7-gobject,
 	avahi-daemon, adduser, python-urwid, python2.7-urwid,
-	gnupg (<< 2), initscripts (>= 2.88dsf-13.3)
+	gnupg (<< 2)
 Recommends: ssh-client | fping
 Description: server giving encrypted passwords to Mandos clients
  This is the server part of the Mandos system, which allows
