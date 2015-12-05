@@ -1,3 +1,15 @@
+mandos (1.7.1-2) unstable; urgency=medium
+
+  * debian/control (Package: mandos/Depends): Fix "Please drop versioned
+    dependency on initscripts package" by removing initscripts dependency
+    (Closes: #804967)
+  * debian/rules (override_dh_fixperms) Fix "FTBFS when built with
+    dpkg-buildpackage -A (No such file or directory)" by splitting into
+    "override_dh_fixperms-arch" and "override_dh_fixperms-indep".
+    (Closes: #806073)
+
+ -- Teddy Hogeborn <teddy@recompile.se>  Sat, 05 Dec 2015 02:27:40 +0100
+
 mandos (1.7.1-1) unstable; urgency=medium
 
   * New upstream release.
