@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY COMMANDNAME "mandos">
-<!ENTITY TIMESTAMP "2015-07-20">
+<!ENTITY TIMESTAMP "2015-12-06">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -541,9 +541,6 @@
 	</listitem>
       </varlistentry>
       <varlistentry>
-	<term><filename class="devicefile">/dev/log</filename></term>
-      </varlistentry>
-      <varlistentry>
 	<term><filename
 	class="directory">/var/lib/mandos</filename></term>
 	<listitem>
@@ -555,7 +552,7 @@
 	</listitem>
       </varlistentry>
       <varlistentry>
-	<term><filename>/dev/log</filename></term>
+	<term><filename class="devicefile">/dev/log</filename></term>
 	<listitem>
 	  <para>
 	    The Unix domain socket to where local syslog messages are
