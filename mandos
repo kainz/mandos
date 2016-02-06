@@ -3064,7 +3064,8 @@ def main():
             # Don't signal the disabling
             client.disable(quiet=True)
             # Emit D-Bus signal for removal
-            mandos_dbus_service.client_removed_signal(client)
+            if use_dbus:
+                mandos_dbus_service.client_removed_signal(client)
         client_settings.clear()
     
     atexit.register(cleanup)
