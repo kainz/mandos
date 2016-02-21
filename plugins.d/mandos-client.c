@@ -47,7 +47,7 @@
 				   strtof(), abort() */
 #include <stdbool.h>		/* bool, false, true */
 #include <string.h>		/* strcmp(), strlen(), strerror(),
-				   asprintf(), strcpy() */
+				   asprintf(), strncpy() */
 #include <sys/ioctl.h>		/* ioctl */
 #include <sys/types.h>		/* socket(), inet_pton(), sockaddr,
 				   sockaddr_in6, PF_INET6,
@@ -1637,7 +1637,8 @@ bool get_flags(const char *ifname, struct ifreq *ifr){
     errno = ret_errno;
     return false;
   }
-  strcpy(ifr->ifr_name, ifname);
+  strncpy(ifr->ifr_name, ifname, IF_NAMESIZE);
+  ifr->ifr_name[IF_NAMESIZE-1] = '\0'; /* NUL terminate */
   ret = ioctl(s, SIOCGIFFLAGS, ifr);
   if(ret == -1){
     if(debug){
