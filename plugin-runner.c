@@ -701,8 +701,7 @@ int main(int argc, char *argv[]){
 	custom_argc += 1;
 	{
 	  char **new_argv = realloc(custom_argv, sizeof(char *)
-				    * ((unsigned int)
-				       custom_argc + 1));
+				    * ((size_t)custom_argc + 1));
 	  if(new_argv == NULL){
 	    error(0, errno, "realloc");
 	    exitstatus = EX_OSERR;
