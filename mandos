@@ -44,7 +44,6 @@ import socket
 import argparse
 import datetime
 import errno
-import gnutls.crypto
 import gnutls.connection
 import gnutls.errors
 import gnutls.library.functions
@@ -1881,7 +1880,7 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
                          self.server.child_pipe.fileno())
             
             session = gnutls.connection.ClientSession(
-                self.request, gnutls.connection .X509Credentials())
+                self.request, gnutls.connection.X509Credentials())
             
             # Note: gnutls.connection.X509Credentials is really a
             # generic GnuTLS certificate credentials object so long as
