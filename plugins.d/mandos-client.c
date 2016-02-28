@@ -525,13 +525,6 @@ static int init_gnutls_global(const char *pubkeyfilename,
     fprintf_plus(stderr, "Initializing GnuTLS\n");
   }
   
-  ret = gnutls_global_init();
-  if(ret != GNUTLS_E_SUCCESS){
-    fprintf_plus(stderr, "GnuTLS global_init: %s\n",
-		 safer_gnutls_strerror(ret));
-    return -1;
-  }
-  
   if(debug){
     /* "Use a log level over 10 to enable all debugging options."
      * - GnuTLS manual
@@ -545,7 +538,6 @@ static int init_gnutls_global(const char *pubkeyfilename,
   if(ret != GNUTLS_E_SUCCESS){
     fprintf_plus(stderr, "GnuTLS memory error: %s\n",
 		 safer_gnutls_strerror(ret));
-    gnutls_global_deinit();
     return -1;
   }
   
@@ -755,7 +747,6 @@ static int init_gnutls_global(const char *pubkeyfilename,
  globalfail:
   
   gnutls_certificate_free_credentials(mc->cred);
-  gnutls_global_deinit();
   gnutls_dh_params_deinit(mc->dh_params);
   return -1;
 }
@@ -2966,7 +2957,6 @@ int main(int argc, char *argv[]){
   
   if(gnutls_initialized){
     gnutls_certificate_free_credentials(mc.cred);
-    gnutls_global_deinit();
     gnutls_dh_params_deinit(mc.dh_params);
   }
   
