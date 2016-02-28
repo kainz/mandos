@@ -5,10 +5,11 @@ Maintainer: Mandos Maintainers <mandos@recompile.se>
 Uploaders: Teddy Hogeborn <teddy@recompile.se>,
 	   Björn Påhlsson <belorn@recompile.se>
 Build-Depends: debhelper (>= 9), docbook-xml, docbook-xsl,
-	libavahi-core-dev, libgpgme11-dev, libgnutls28-dev
-	| gnutls-dev, xsltproc, pkg-config, libnl-route-3-dev
-Build-Depends-Indep: systemd, python2.7, python2.7-gnutls,
-	python2.7-dbus, python2.7-avahi, python2.7-gobject
+	libavahi-core-dev, libgpgme11-dev, libgnutls28-dev (>= 3.3.0)
+	| gnutls-dev (>= 3.3.0), xsltproc, pkg-config,
+	libnl-route-3-dev
+Build-Depends-Indep: systemd, python2.7, python2.7-dbus,
+	python2.7-avahi, python2.7-gobject
 Standards-Version: 3.9.6
 Vcs-Bzr: http://ftp.recompile.se/pub/mandos/trunk
 Vcs-Browser: http://bzr.recompile.se/loggerhead/mandos/trunk/files
@@ -16,8 +17,9 @@ Homepage: http://www.recompile.se/mandos
 
 Package: mandos
 Architecture: all
-Depends: ${misc:Depends}, python (>= 2.7), python2.7, python-gnutls,
-	python2.7-gnutls, python-dbus, python2.7-dbus, python-avahi,
+Depends: ${misc:Depends}, python (>= 2.7), python2.7,
+	libgnutls28-dev (>= 3.3.0) | libgnutls30 (>= 3.3.0),
+	python-dbus, python2.7-dbus, python-avahi,
 	python2.7-avahi, python-gobject, python2.7-gobject,
 	avahi-daemon, adduser, python-urwid, python2.7-urwid,
 	gnupg (<< 2)
