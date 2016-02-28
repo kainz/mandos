@@ -1,4 +1,4 @@
-#!/usr/bin/python2.7
+#!/usr/bin/python
 # -*- mode: python; coding: utf-8 -*-
 # 
 # Mandos server - give out binary blobs to connecting clients.
