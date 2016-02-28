@@ -1,3 +1,27 @@
+mandos (1.7.2-1) unstable; urgency=medium
+
+  * New upstream release.
+  * Fix "Uses unneeded and obsolete version specific python packages"
+    by removing version-specific dependencies (Closes: #811159)
+  * debian/control (Source: mandos/Build-Depends): Add (>= 3.3.0) to
+    "libgnutls28-dev" and "gnutls-dev".
+    (Source: mandos/Build-Depends-Indep): Remove "python2.7-gnutls",
+    "python2.7", "python2.7-dbus", "python2.7-avahi", and
+    "python2.7-gobject"; replace with "python (>= 2.7), python (<< 3)",
+    "python-dbus", "python-avahi", "python-gobject | python-gi".
+    (Package: mandos/Depends): Remove "python-gnutls" and
+    "python2.7-gnutls", add "libgnutls28-dev (>= 3.3.0) | libgnutls30 (>=
+    3.3.0)".  Add "python (<< 3)".  Remove "python2.7-dbus",
+    "python2.7-avahi", "python2.7-gobject", and "python2.7-urwid".
+    Replace "python-gobject" with "python-gobject | python-gi" and "gnupg
+    (<< 2)" with "gnupg".
+    (Package: mandos-client/Depends): Replace
+    "gnupg (<< 2)" with "gnupg".
+    (Source: mandos/Standards-Version): Change to 3.9.7.
+  * debian/copyright (Copyright): Update copyright year.
+
+ -- Teddy Hogeborn <teddy@recompile.se>  Sun, 28 Feb 2016 16:09:01 +0100
+
 mandos (1.7.1-2) unstable; urgency=medium
 
   * debian/control (Package: mandos/Depends): Fix "Please drop versioned
