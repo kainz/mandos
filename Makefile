@@ -44,7 +44,7 @@ endif
 OPTIMIZE=-Os -fno-strict-aliasing
 LANGUAGE=-std=gnu11
 htmldir=man
-version=1.7.1
+version=1.7.2
 SED=sed
 
 USER=$(firstword $(subst :, ,$(shell getent passwd _mandos || getent passwd nobody || echo 65534)))

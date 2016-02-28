@@ -1,6 +1,14 @@
 This NEWS file records noteworthy changes, very tersely.
 See the manual for detailed information.
 
+Version 1.7.2 (2016-02-28)
+* Server
+** Stop using python-gnutls library; it was not updated to GnuTLS 3.3.
+** Bug fix: Only send D-Bus signal ClientRemoved if using D-Bus.
+** Use GnuPG 2 if available.
+* Client
+** Compile with various sanitizing flags.
+
 Version 1.7.1 (2015-10-24)
 * Client
 ** Bug fix: Can now really find Mandos server even if the server has
