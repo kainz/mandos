@@ -8,8 +8,8 @@ Build-Depends: debhelper (>= 9), docbook-xml, docbook-xsl,
 	libavahi-core-dev, libgpgme11-dev, libgnutls28-dev (>= 3.3.0)
 	| gnutls-dev (>= 3.3.0), xsltproc, pkg-config,
 	libnl-route-3-dev
-Build-Depends-Indep: systemd, python (= 2.7), python-dbus,
-	python-avahi, python-gobject | python-gi
+Build-Depends-Indep: systemd, python (>= 2.7), python (<< 3),
+	python-dbus, python-avahi, python-gobject | python-gi
 Standards-Version: 3.9.6
 Vcs-Bzr: http://ftp.recompile.se/pub/mandos/trunk
 Vcs-Browser: http://bzr.recompile.se/loggerhead/mandos/trunk/files
@@ -17,7 +17,7 @@ Homepage: http://www.recompile.se/mandos
 
 Package: mandos
 Architecture: all
-Depends: ${misc:Depends}, python (= 2.7),
+Depends: ${misc:Depends}, python (>= 2.7), python (<< 3),
 	libgnutls28-dev (>= 3.3.0) | libgnutls30 (>= 3.3.0),
 	python-dbus, python-dbus, python-avahi,
 	python-gobject | python-gi, avahi-daemon, adduser,
