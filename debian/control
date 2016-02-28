@@ -19,9 +19,8 @@ Package: mandos
 Architecture: all
 Depends: ${misc:Depends}, python (>= 2.7), python (<< 3),
 	libgnutls28-dev (>= 3.3.0) | libgnutls30 (>= 3.3.0),
-	python-dbus, python-dbus, python-avahi,
-	python-gobject | python-gi, avahi-daemon, adduser,
-	python-urwid, gnupg
+	python-dbus, python-avahi, python-gobject | python-gi,
+	avahi-daemon, adduser, python-urwid, gnupg
 Recommends: ssh-client | fping
 Description: server giving encrypted passwords to Mandos clients
  This is the server part of the Mandos system, which allows
