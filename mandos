@@ -1,4 +1,4 @@
-#!/usr/bin/python2.7
+#!/usr/bin/python
 # -*- mode: python; coding: utf-8 -*-
 # 
 # Mandos server - give out binary blobs to connecting clients.
@@ -11,8 +11,8 @@
 # "AvahiService" class, and some lines in "main".
 # 
 # Everything else is
-# Copyright © 2008-2015 Teddy Hogeborn
-# Copyright © 2008-2015 Björn Påhlsson
+# Copyright © 2008-2016 Teddy Hogeborn
+# Copyright © 2008-2016 Björn Påhlsson
 # 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -44,12 +44,6 @@ import socket
 import argparse
 import datetime
 import errno
-import gnutls.crypto
-import gnutls.connection
-import gnutls.errors
-import gnutls.library.functions
-import gnutls.library.constants
-import gnutls.library.types
 try:
     import ConfigParser as configparser
 except ImportError:
@@ -157,8 +151,19 @@ class PGPEngine(object):
     
     def __init__(self):
         self.tempdir = tempfile.mkdtemp(prefix="mandos-")
+        self.gpg = "gpg"
+        try:
+            output = subprocess.check_output(["gpgconf"])
+            for line in output.splitlines():
+                name, text, path = line.split(":")
+                if name == "gpg":
+                    self.gpg = path
+                    break
+        except OSError as e:
+            if e.errno != errno.ENOENT:
+                raise
         self.gnupgargs = ['--batch',
-                          '--home', self.tempdir,
+                          '--homedir', self.tempdir,
                           '--force-mdc',
                           '--quiet',
                           '--no-use-agent']
@@ -203,7 +208,7 @@ class PGPEngine(object):
                 dir=self.tempdir) as passfile:
             passfile.write(passphrase)
             passfile.flush()
-            proc = subprocess.Popen(['gpg', '--symmetric',
+            proc = subprocess.Popen([self.gpg, '--symmetric',
                                      '--passphrase-file',
                                      passfile.name]
                                     + self.gnupgargs,
@@ -221,7 +226,7 @@ class PGPEngine(object):
                 dir = self.tempdir) as passfile:
             passfile.write(passphrase)
             passfile.flush()
-            proc = subprocess.Popen(['gpg', '--decrypt',
+            proc = subprocess.Popen([self.gpg, '--decrypt',
                                      '--passphrase-file',
                                      passfile.name]
                                     + self.gnupgargs,
@@ -434,6 +439,261 @@ class AvahiServiceToSyslog(AvahiService):
             'Mandos ({}) [%(process)d]: %(levelname)s: %(message)s'
             .format(self.name)))
         return ret
+
+# Pretend that we have a GnuTLS module
+class GnuTLS(object):
+    """This isn't so much a class as it is a module-like namespace.
+    It is instantiated once, and simulates having a GnuTLS module."""
+    
+    _library = ctypes.cdll.LoadLibrary(
+        ctypes.util.find_library("gnutls"))
+    _need_version = "3.3.0"
+    def __init__(self):
+        # Need to use class name "GnuTLS" here, since this method is
+        # called before the assignment to the "gnutls" global variable
+        # happens.
+        if GnuTLS.check_version(self._need_version) is None:
+            raise GnuTLS.Error("Needs GnuTLS {} or later"
+                               .format(self._need_version))
+    
+    # Unless otherwise indicated, the constants and types below are
+    # all from the gnutls/gnutls.h C header file.
+    
+    # Constants
+    E_SUCCESS = 0
+    E_INTERRUPTED = -52
+    E_AGAIN = -28
+    CRT_OPENPGP = 2
+    CLIENT = 2
+    SHUT_RDWR = 0
+    CRD_CERTIFICATE = 1
+    E_NO_CERTIFICATE_FOUND = -49
+    OPENPGP_FMT_RAW = 0         # gnutls/openpgp.h
+    
+    # Types
+    class session_int(ctypes.Structure):
+        _fields_ = []
+    session_t = ctypes.POINTER(session_int)
+    class certificate_credentials_st(ctypes.Structure):
+        _fields_ = []
+    certificate_credentials_t = ctypes.POINTER(
+        certificate_credentials_st)
+    certificate_type_t = ctypes.c_int
+    class datum_t(ctypes.Structure):
+        _fields_ = [('data', ctypes.POINTER(ctypes.c_ubyte)),
+                    ('size', ctypes.c_uint)]
+    class openpgp_crt_int(ctypes.Structure):
+        _fields_ = []
+    openpgp_crt_t = ctypes.POINTER(openpgp_crt_int)
+    openpgp_crt_fmt_t = ctypes.c_int # gnutls/openpgp.h
+    log_func = ctypes.CFUNCTYPE(None, ctypes.c_int, ctypes.c_char_p)
+    credentials_type_t = ctypes.c_int # 
+    transport_ptr_t = ctypes.c_void_p
+    close_request_t = ctypes.c_int
+    
+    # Exceptions
+    class Error(Exception):
+        # We need to use the class name "GnuTLS" here, since this
+        # exception might be raised from within GnuTLS.__init__,
+        # which is called before the assignment to the "gnutls"
+        # global variable has happened.
+        def __init__(self, message = None, code = None, args=()):
+            # Default usage is by a message string, but if a return
+            # code is passed, convert it to a string with
+            # gnutls.strerror()
+            self.code = code
+            if message is None and code is not None:
+                message = GnuTLS.strerror(code)
+            return super(GnuTLS.Error, self).__init__(
+                message, *args)
+    
+    class CertificateSecurityError(Error):
+        pass
+    
+    # Classes
+    class Credentials(object):
+        def __init__(self):
+            self._c_object = gnutls.certificate_credentials_t()
+            gnutls.certificate_allocate_credentials(
+                ctypes.byref(self._c_object))
+            self.type = gnutls.CRD_CERTIFICATE
+        
+        def __del__(self):
+            gnutls.certificate_free_credentials(self._c_object)
+    
+    class ClientSession(object):
+        def __init__(self, socket, credentials = None):
+            self._c_object = gnutls.session_t()
+            gnutls.init(ctypes.byref(self._c_object), gnutls.CLIENT)
+            gnutls.set_default_priority(self._c_object)
+            gnutls.transport_set_ptr(self._c_object, socket.fileno())
+            gnutls.handshake_set_private_extensions(self._c_object,
+                                                    True)
+            self.socket = socket
+            if credentials is None:
+                credentials = gnutls.Credentials()
+            gnutls.credentials_set(self._c_object, credentials.type,
+                                   ctypes.cast(credentials._c_object,
+                                               ctypes.c_void_p))
+            self.credentials = credentials
+        
+        def __del__(self):
+            gnutls.deinit(self._c_object)
+        
+        def handshake(self):
+            return gnutls.handshake(self._c_object)
+        
+        def send(self, data):
+            data = bytes(data)
+            data_len = len(data)
+            while data_len > 0:
+                data_len -= gnutls.record_send(self._c_object,
+                                               data[-data_len:],
+                                               data_len)
+        
+        def bye(self):
+            return gnutls.bye(self._c_object, gnutls.SHUT_RDWR)
+    
+    # Error handling functions
+    def _error_code(result):
+        """A function to raise exceptions on errors, suitable
+        for the 'restype' attribute on ctypes functions"""
+        if result >= 0:
+            return result
+        if result == gnutls.E_NO_CERTIFICATE_FOUND:
+            raise gnutls.CertificateSecurityError(code = result)
+        raise gnutls.Error(code = result)
+    
+    def _retry_on_error(result, func, arguments):
+        """A function to retry on some errors, suitable
+        for the 'errcheck' attribute on ctypes functions"""
+        while result < 0:
+            if result not in (gnutls.E_INTERRUPTED, gnutls.E_AGAIN):
+                return _error_code(result)
+            result = func(*arguments)
+        return result
+    
+    # Unless otherwise indicated, the function declarations below are
+    # all from the gnutls/gnutls.h C header file.
+    
+    # Functions
+    priority_set_direct = _library.gnutls_priority_set_direct
+    priority_set_direct.argtypes = [session_t, ctypes.c_char_p,
+                                    ctypes.POINTER(ctypes.c_char_p)]
+    priority_set_direct.restype = _error_code
+    
+    init = _library.gnutls_init
+    init.argtypes = [ctypes.POINTER(session_t), ctypes.c_int]
+    init.restype = _error_code
+    
+    set_default_priority = _library.gnutls_set_default_priority
+    set_default_priority.argtypes = [session_t]
+    set_default_priority.restype = _error_code
+    
+    record_send = _library.gnutls_record_send
+    record_send.argtypes = [session_t, ctypes.c_void_p,
+                            ctypes.c_size_t]
+    record_send.restype = ctypes.c_ssize_t
+    record_send.errcheck = _retry_on_error
+    
+    certificate_allocate_credentials = (
+        _library.gnutls_certificate_allocate_credentials)
+    certificate_allocate_credentials.argtypes = [
+        ctypes.POINTER(certificate_credentials_t)]
+    certificate_allocate_credentials.restype = _error_code
+    
+    certificate_free_credentials = (
+        _library.gnutls_certificate_free_credentials)
+    certificate_free_credentials.argtypes = [certificate_credentials_t]
+    certificate_free_credentials.restype = None
+    
+    handshake_set_private_extensions = (
+        _library.gnutls_handshake_set_private_extensions)
+    handshake_set_private_extensions.argtypes = [session_t,
+                                                 ctypes.c_int]
+    handshake_set_private_extensions.restype = None
+    
+    credentials_set = _library.gnutls_credentials_set
+    credentials_set.argtypes = [session_t, credentials_type_t,
+                                ctypes.c_void_p]
+    credentials_set.restype = _error_code
+    
+    strerror = _library.gnutls_strerror
+    strerror.argtypes = [ctypes.c_int]
+    strerror.restype = ctypes.c_char_p
+    
+    certificate_type_get = _library.gnutls_certificate_type_get
+    certificate_type_get.argtypes = [session_t]
+    certificate_type_get.restype = _error_code
+    
+    certificate_get_peers = _library.gnutls_certificate_get_peers
+    certificate_get_peers.argtypes = [session_t,
+                                      ctypes.POINTER(ctypes.c_uint)]
+    certificate_get_peers.restype = ctypes.POINTER(datum_t)
+    
+    global_set_log_level = _library.gnutls_global_set_log_level
+    global_set_log_level.argtypes = [ctypes.c_int]
+    global_set_log_level.restype = None
+    
+    global_set_log_function = _library.gnutls_global_set_log_function
+    global_set_log_function.argtypes = [log_func]
+    global_set_log_function.restype = None
+    
+    deinit = _library.gnutls_deinit
+    deinit.argtypes = [session_t]
+    deinit.restype = None
+    
+    handshake = _library.gnutls_handshake
+    handshake.argtypes = [session_t]
+    handshake.restype = _error_code
+    handshake.errcheck = _retry_on_error
+    
+    transport_set_ptr = _library.gnutls_transport_set_ptr
+    transport_set_ptr.argtypes = [session_t, transport_ptr_t]
+    transport_set_ptr.restype = None
+    
+    bye = _library.gnutls_bye
+    bye.argtypes = [session_t, close_request_t]
+    bye.restype = _error_code
+    bye.errcheck = _retry_on_error
+    
+    check_version = _library.gnutls_check_version
+    check_version.argtypes = [ctypes.c_char_p]
+    check_version.restype = ctypes.c_char_p
+    
+    # All the function declarations below are from gnutls/openpgp.h
+    
+    openpgp_crt_init = _library.gnutls_openpgp_crt_init
+    openpgp_crt_init.argtypes = [ctypes.POINTER(openpgp_crt_t)]
+    openpgp_crt_init.restype = _error_code
+    
+    openpgp_crt_import = _library.gnutls_openpgp_crt_import
+    openpgp_crt_import.argtypes = [openpgp_crt_t,
+                                   ctypes.POINTER(datum_t),
+                                   openpgp_crt_fmt_t]
+    openpgp_crt_import.restype = _error_code
+    
+    openpgp_crt_verify_self = _library.gnutls_openpgp_crt_verify_self
+    openpgp_crt_verify_self.argtypes = [openpgp_crt_t, ctypes.c_uint,
+                                        ctypes.POINTER(ctypes.c_uint)]
+    openpgp_crt_verify_self.restype = _error_code
+    
+    openpgp_crt_deinit = _library.gnutls_openpgp_crt_deinit
+    openpgp_crt_deinit.argtypes = [openpgp_crt_t]
+    openpgp_crt_deinit.restype = None
+    
+    openpgp_crt_get_fingerprint = (
+        _library.gnutls_openpgp_crt_get_fingerprint)
+    openpgp_crt_get_fingerprint.argtypes = [openpgp_crt_t,
+                                            ctypes.c_void_p,
+                                            ctypes.POINTER(
+                                                ctypes.c_size_t)]
+    openpgp_crt_get_fingerprint.restype = _error_code
+    
+    # Remove non-public functions
+    del _error_code, _retry_on_error
+# Create the global "gnutls" object, simulating a module
+gnutls = GnuTLS()
 
 def call_pipe(connection,       # : multiprocessing.Connection
               func, *args, **kwargs):
@@ -1880,13 +2140,7 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
             logger.debug("Pipe FD: %d",
                          self.server.child_pipe.fileno())
             
-            session = gnutls.connection.ClientSession(
-                self.request, gnutls.connection .X509Credentials())
-            
-            # Note: gnutls.connection.X509Credentials is really a
-            # generic GnuTLS certificate credentials object so long as
-            # no X.509 keys are added to it.  Therefore, we can use it
-            # here despite using OpenPGP certificates.
+            session = gnutls.ClientSession(self.request)
             
             #priority = ':'.join(("NONE", "+VERS-TLS1.1",
             #                      "+AES-256-CBC", "+SHA1",
@@ -1896,8 +2150,8 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
             priority = self.server.gnutls_priority
             if priority is None:
                 priority = "NORMAL"
-            gnutls.library.functions.gnutls_priority_set_direct(
-                session._c_object, priority, None)
+            gnutls.priority_set_direct(session._c_object, priority,
+                                       None)
             
             # Start communication using the Mandos protocol
             # Get protocol number
@@ -1913,7 +2167,7 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
             # Start GnuTLS connection
             try:
                 session.handshake()
-            except gnutls.errors.GNUTLSError as error:
+            except gnutls.Error as error:
                 logger.warning("Handshake failed: %s", error)
                 # Do not run session.bye() here: the session is not
                 # established.  Just abandon the request.
@@ -1925,8 +2179,7 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
                 try:
                     fpr = self.fingerprint(
                         self.peer_certificate(session))
-                except (TypeError,
-                        gnutls.errors.GNUTLSError) as error:
+                except (TypeError, gnutls.Error) as error:
                     logger.warning("Bad certificate: %s", error)
                     return
                 logger.debug("Fingerprint: %s", fpr)
@@ -1990,18 +2243,12 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
                     else:
                         delay -= time2 - time
                 
-                sent_size = 0
-                while sent_size < len(client.secret):
-                    try:
-                        sent = session.send(client.secret[sent_size:])
-                    except gnutls.errors.GNUTLSError as error:
-                        logger.warning("gnutls send failed",
-                                       exc_info=error)
-                        return
-                    logger.debug("Sent: %d, remaining: %d", sent,
-                                 len(client.secret) - (sent_size
-                                                       + sent))
-                    sent_size += sent
+                try:
+                    session.send(client.secret)
+                except gnutls.Error as error:
+                    logger.warning("gnutls send failed",
+                                   exc_info = error)
+                    return
                 
                 logger.info("Sending secret to %s", client.name)
                 # bump the timeout using extended_timeout
@@ -2015,7 +2262,7 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
                     client.approvals_pending -= 1
                 try:
                     session.bye()
-                except gnutls.errors.GNUTLSError as error:
+                except gnutls.Error as error:
                     logger.warning("GnuTLS bye failed",
                                    exc_info=error)
     
@@ -2023,18 +2270,15 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
     def peer_certificate(session):
         "Return the peer's OpenPGP certificate as a bytestring"
         # If not an OpenPGP certificate...
-        if (gnutls.library.functions.gnutls_certificate_type_get(
-                session._c_object)
-            != gnutls.library.constants.GNUTLS_CRT_OPENPGP):
-            # ...do the normal thing
-            return session.peer_certificate
+        if (gnutls.certificate_type_get(session._c_object)
+            != gnutls.CRT_OPENPGP):
+            # ...return invalid data
+            return b""
         list_size = ctypes.c_uint(1)
-        cert_list = (gnutls.library.functions
-                     .gnutls_certificate_get_peers
+        cert_list = (gnutls.certificate_get_peers
                      (session._c_object, ctypes.byref(list_size)))
         if not bool(cert_list) and list_size.value != 0:
-            raise gnutls.errors.GNUTLSError("error getting peer"
-                                            " certificate")
+            raise gnutls.Error("error getting peer certificate")
         if list_size.value == 0:
             return None
         cert = cert_list[0]
@@ -2044,34 +2288,31 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
     def fingerprint(openpgp):
         "Convert an OpenPGP bytestring to a hexdigit fingerprint"
         # New GnuTLS "datum" with the OpenPGP public key
-        datum = gnutls.library.types.gnutls_datum_t(
+        datum = gnutls.datum_t(
             ctypes.cast(ctypes.c_char_p(openpgp),
                         ctypes.POINTER(ctypes.c_ubyte)),
             ctypes.c_uint(len(openpgp)))
         # New empty GnuTLS certificate
-        crt = gnutls.library.types.gnutls_openpgp_crt_t()
-        gnutls.library.functions.gnutls_openpgp_crt_init(
-            ctypes.byref(crt))
+        crt = gnutls.openpgp_crt_t()
+        gnutls.openpgp_crt_init(ctypes.byref(crt))
         # Import the OpenPGP public key into the certificate
-        gnutls.library.functions.gnutls_openpgp_crt_import(
-            crt, ctypes.byref(datum),
-            gnutls.library.constants.GNUTLS_OPENPGP_FMT_RAW)
+        gnutls.openpgp_crt_import(crt, ctypes.byref(datum),
+                                  gnutls.OPENPGP_FMT_RAW)
         # Verify the self signature in the key
         crtverify = ctypes.c_uint()
-        gnutls.library.functions.gnutls_openpgp_crt_verify_self(
-            crt, 0, ctypes.byref(crtverify))
+        gnutls.openpgp_crt_verify_self(crt, 0,
+                                       ctypes.byref(crtverify))
         if crtverify.value != 0:
-            gnutls.library.functions.gnutls_openpgp_crt_deinit(crt)
-            raise gnutls.errors.CertificateSecurityError(
-                "Verify failed")
+            gnutls.openpgp_crt_deinit(crt)
+            raise gnutls.CertificateSecurityError("Verify failed")
         # New buffer for the fingerprint
         buf = ctypes.create_string_buffer(20)
         buf_len = ctypes.c_size_t()
         # Get the fingerprint from the certificate into the buffer
-        gnutls.library.functions.gnutls_openpgp_crt_get_fingerprint(
-            crt, ctypes.byref(buf), ctypes.byref(buf_len))
+        gnutls.openpgp_crt_get_fingerprint(crt, ctypes.byref(buf),
+                                           ctypes.byref(buf_len))
         # Deinit the certificate
-        gnutls.library.functions.gnutls_openpgp_crt_deinit(crt)
+        gnutls.openpgp_crt_deinit(crt)
         # Convert the buffer to a Python bytestring
         fpr = ctypes.string_at(buf, buf_len.value)
         # Convert the bytestring to hexadecimal notation
@@ -2703,14 +2944,13 @@ def main():
         
         # "Use a log level over 10 to enable all debugging options."
         # - GnuTLS manual
-        gnutls.library.functions.gnutls_global_set_log_level(11)
+        gnutls.global_set_log_level(11)
         
-        @gnutls.library.types.gnutls_log_func
+        @gnutls.log_func
         def debug_gnutls(level, string):
             logger.debug("GnuTLS: %s", string[:-1])
         
-        gnutls.library.functions.gnutls_global_set_log_function(
-            debug_gnutls)
+        gnutls.global_set_log_function(debug_gnutls)
         
         # Redirect stdin so all checkers get /dev/null
         null = os.open(os.devnull, os.O_NOCTTY | os.O_RDWR)
@@ -3064,7 +3304,8 @@ def main():
             # Don't signal the disabling
             client.disable(quiet=True)
             # Emit D-Bus signal for removal
-            mandos_dbus_service.client_removed_signal(client)
+            if use_dbus:
+                mandos_dbus_service.client_removed_signal(client)
         client_settings.clear()
     
     atexit.register(cleanup)
