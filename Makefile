@@ -14,6 +14,24 @@ WARN=-O -Wall -Wextra -Wdouble-promotion -Wformat=2 -Winit-self \
 # For info about _FORTIFY_SOURCE, see feature_test_macros(7)
 # and <http://gcc.gnu.org/ml/gcc-patches/2004-09/msg02055.html>.
 FORTIFY=-D_FORTIFY_SOURCE=2 -fstack-protector-all -fPIC
+# <https://developerblog.redhat.com/2014/10/16/gcc-undefined-behavior-sanitizer-ubsan/>
+# The sanitizing options are available in GCC 4.9 and above.
+ifeq ($(shell test $(shell $(CC) -dumpversion) \> 4.9-; echo $$?),0)
+SANITIZE:=-fsanitize=address -fsanitize=undefined -fsanitize=shift \
+	-fsanitize=integer-divide-by-zero -fsanitize=unreachable \
+	-fsanitize=vla-bound -fsanitize=null -fsanitize=return \
+	-fsanitize=signed-integer-overflow
+# GCC 5.3 has some more sanitizing options
+ifeq ($(shell test $(shell $(CC) -dumpversion) \> 5.3-; echo $$?),0)
+SANITIZE+=-fsanitize=bounds -fsanitize=alignment \
+	-fsanitize=object-size -fsanitize=float-divide-by-zero \
+	-fsanitize=float-cast-overflow -fsanitize=nonnull-attribute \
+	-fsanitize=returns-nonnull-attribute -fsanitize=bool \
+	-fsanitize=enum
+endif
+else
+SANITIZE:=
+endif
 LINK_FORTIFY_LD=-z relro -z now
 LINK_FORTIFY=
 
@@ -73,9 +91,9 @@ LIBNL3_CFLAGS=$(shell pkg-config --cflags-only-I libnl-route-3.0)
 LIBNL3_LIBS=$(shell pkg-config --libs libnl-route-3.0)
 
 # Do not change these two
-CFLAGS+=$(WARN) $(DEBUG) $(FORTIFY) $(COVERAGE) $(OPTIMIZE) \
-	$(LANGUAGE) $(GNUTLS_CFLAGS) $(AVAHI_CFLAGS) $(GPGME_CFLAGS) \
-	-DVERSION='"$(version)"'
+CFLAGS+=$(WARN) $(DEBUG) $(FORTIFY) $(SANITIZE) $(COVERAGE) \
+	$(OPTIMIZE) $(LANGUAGE) $(GNUTLS_CFLAGS) $(AVAHI_CFLAGS) \
+	$(GPGME_CFLAGS) -DVERSION='"$(version)"'
 LDFLAGS+=-Xlinker --as-needed $(COVERAGE) $(LINK_FORTIFY) $(foreach flag,$(LINK_FORTIFY_LD),-Xlinker $(flag))
 
 # Commands to format a DocBook <refentry> document into a manual page

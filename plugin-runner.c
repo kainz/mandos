@@ -2,8 +2,8 @@
 /*
  * Mandos plugin runner - Run Mandos plugins
  *
- * Copyright © 2008-2015 Teddy Hogeborn
- * Copyright © 2008-2015 Björn Påhlsson
+ * Copyright © 2008-2016 Teddy Hogeborn
+ * Copyright © 2008-2016 Björn Påhlsson
  * 
  * This program is free software: you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -701,8 +701,7 @@ int main(int argc, char *argv[]){
 	custom_argc += 1;
 	{
 	  char **new_argv = realloc(custom_argv, sizeof(char *)
-				    * ((unsigned int)
-				       custom_argc + 1));
+				    * ((size_t)custom_argc + 1));
 	  if(new_argv == NULL){
 	    error(0, errno, "realloc");
 	    exitstatus = EX_OSERR;
