@@ -513,7 +513,7 @@ static void debuggnutls(__attribute__((unused)) int level,
   fprintf_plus(stderr, "GnuTLS: %s", string);
 }
 
-__attribute__((nonnull, warn_unused_result))
+__attribute__((nonnull(1, 2, 4), warn_unused_result))
 static int init_gnutls_global(const char *pubkeyfilename,
 			      const char *seckeyfilename,
 			      const char *dhparamsfilename,
