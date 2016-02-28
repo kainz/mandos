@@ -151,8 +151,19 @@ class PGPEngine(object):
     
     def __init__(self):
         self.tempdir = tempfile.mkdtemp(prefix="mandos-")
+        self.gpg = "gpg"
+        try:
+            output = subprocess.check_output(["gpgconf"])
+            for line in output.splitlines():
+                name, text, path = line.split(":")
+                if name == "gpg":
+                    self.gpg = path
+                    break
+        except OSError as e:
+            if e.errno != errno.ENOENT:
+                raise
         self.gnupgargs = ['--batch',
-                          '--home', self.tempdir,
+                          '--homedir', self.tempdir,
                           '--force-mdc',
                           '--quiet',
                           '--no-use-agent']
@@ -197,7 +208,7 @@ class PGPEngine(object):
                 dir=self.tempdir) as passfile:
             passfile.write(passphrase)
             passfile.flush()
-            proc = subprocess.Popen(['gpg', '--symmetric',
+            proc = subprocess.Popen([self.gpg, '--symmetric',
                                      '--passphrase-file',
                                      passfile.name]
                                     + self.gnupgargs,
@@ -215,7 +226,7 @@ class PGPEngine(object):
                 dir = self.tempdir) as passfile:
             passfile.write(passphrase)
             passfile.flush()
-            proc = subprocess.Popen(['gpg', '--decrypt',
+            proc = subprocess.Popen([self.gpg, '--decrypt',
                                      '--passphrase-file',
                                      passfile.name]
                                     + self.gnupgargs,
