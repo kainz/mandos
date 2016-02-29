@@ -57,12 +57,16 @@
 #include <sys/socket.h>		/* socket(), struct sockaddr_in6,
 				   inet_pton(), connect(),
 				   getnameinfo() */
-#include <fcntl.h>		/* open(), unlinkat() */
+#include <fcntl.h>		/* open(), unlinkat(), AT_REMOVEDIR */
 #include <dirent.h>		/* opendir(), struct dirent, readdir()
 				 */
 #include <inttypes.h>		/* PRIu16, PRIdMAX, intmax_t,
 				   strtoimax() */
-#include <errno.h>		/* perror(), errno,
+#include <errno.h>		/* perror(), errno, EINTR, EINVAL,
+				   EAI_SYSTEM, ENETUNREACH,
+				   EHOSTUNREACH, ECONNREFUSED, EPROTO,
+				   EIO, ENOENT, ENXIO, ENOMEM, EISDIR,
+				   ENOTEMPTY,
 				   program_invocation_short_name */
 #include <time.h>		/* nanosleep(), time(), sleep() */
 #include <net/if.h>		/* ioctl, ifreq, SIOCGIFFLAGS, IFF_UP,
@@ -513,7 +517,7 @@ static void debuggnutls(__attribute__((unused)) int level,
   fprintf_plus(stderr, "GnuTLS: %s", string);
 }
 
-__attribute__((nonnull, warn_unused_result))
+__attribute__((nonnull(1, 2, 4), warn_unused_result))
 static int init_gnutls_global(const char *pubkeyfilename,
 			      const char *seckeyfilename,
 			      const char *dhparamsfilename,
@@ -523,13 +527,6 @@ static int init_gnutls_global(const char *pubkeyfilename,
   
   if(debug){
     fprintf_plus(stderr, "Initializing GnuTLS\n");
-  }
-  
-  ret = gnutls_global_init();
-  if(ret != GNUTLS_E_SUCCESS){
-    fprintf_plus(stderr, "GnuTLS global_init: %s\n",
-		 safer_gnutls_strerror(ret));
-    return -1;
   }
   
   if(debug){
@@ -545,7 +542,6 @@ static int init_gnutls_global(const char *pubkeyfilename,
   if(ret != GNUTLS_E_SUCCESS){
     fprintf_plus(stderr, "GnuTLS memory error: %s\n",
 		 safer_gnutls_strerror(ret));
-    gnutls_global_deinit();
     return -1;
   }
   
@@ -755,7 +751,6 @@ static int init_gnutls_global(const char *pubkeyfilename,
  globalfail:
   
   gnutls_certificate_free_credentials(mc->cred);
-  gnutls_global_deinit();
   gnutls_dh_params_deinit(mc->dh_params);
   return -1;
 }
@@ -1914,18 +1909,8 @@ void run_network_hooks(const char *mode, const char *interface,
       return;
     }
   }
-#ifdef __GLIBC__
-#if __GLIBC_PREREQ(2, 15)
   int numhooks = scandirat(hookdir_fd, ".", &direntries,
 			   runnable_hook, alphasort);
-#else  /* not __GLIBC_PREREQ(2, 15) */
-  int numhooks = scandir(hookdir, &direntries, runnable_hook,
-			 alphasort);
-#endif	/* not __GLIBC_PREREQ(2, 15) */
-#else	/* not __GLIBC__ */
-  int numhooks = scandir(hookdir, &direntries, runnable_hook,
-			 alphasort);
-#endif	/* not __GLIBC__ */
   if(numhooks == -1){
     perror_plus("scandir");
     return;
@@ -2976,7 +2961,6 @@ int main(int argc, char *argv[]){
   
   if(gnutls_initialized){
     gnutls_certificate_free_credentials(mc.cred);
-    gnutls_global_deinit();
     gnutls_dh_params_deinit(mc.dh_params);
   }
   
@@ -3044,51 +3028,65 @@ int main(int argc, char *argv[]){
   free(interfaces_to_take_down);
   free(interfaces_hooks);
   
-  /* Removes the GPGME temp directory and all files inside */
-  if(tempdir != NULL){
+  void clean_dir_at(int base, const char * const dirname,
+		    uintmax_t level){
     struct dirent **direntries = NULL;
-    int tempdir_fd = (int)TEMP_FAILURE_RETRY(open(tempdir, O_RDONLY
-						  | O_NOFOLLOW
-						  | O_DIRECTORY
-						  | O_PATH));
-    if(tempdir_fd == -1){
+    int dret;
+    int dir_fd = (int)TEMP_FAILURE_RETRY(openat(base, dirname,
+						O_RDONLY
+						| O_NOFOLLOW
+						| O_DIRECTORY
+						| O_PATH));
+    if(dir_fd == -1){
       perror_plus("open");
-    } else {
-#ifdef __GLIBC__
-#if __GLIBC_PREREQ(2, 15)
-      int numentries = scandirat(tempdir_fd, ".", &direntries,
-				 notdotentries, alphasort);
-#else  /* not __GLIBC_PREREQ(2, 15) */
-      int numentries = scandir(tempdir, &direntries, notdotentries,
-			       alphasort);
-#endif	/* not __GLIBC_PREREQ(2, 15) */
-#else	/* not __GLIBC__ */
-      int numentries = scandir(tempdir, &direntries, notdotentries,
-			       alphasort);
-#endif	/* not __GLIBC__ */
-      if(numentries >= 0){
-	for(int i = 0; i < numentries; i++){
-	  ret = unlinkat(tempdir_fd, direntries[i]->d_name, 0);
-	  if(ret == -1){
-	    fprintf_plus(stderr, "unlinkat(open(\"%s\", O_RDONLY),"
-			 " \"%s\", 0): %s\n", tempdir,
+    }
+    int numentries = scandirat(dir_fd, ".", &direntries,
+			       notdotentries, alphasort);
+    if(numentries >= 0){
+      for(int i = 0; i < numentries; i++){
+	if(debug){
+	  fprintf_plus(stderr, "Unlinking \"%s/%s\"\n",
+		       dirname, direntries[i]->d_name);
+	}
+	dret = unlinkat(dir_fd, direntries[i]->d_name, 0);
+	if(dret == -1){
+	  if(errno == EISDIR){
+	      dret = unlinkat(dir_fd, direntries[i]->d_name,
+			      AT_REMOVEDIR);
+	  }	    
+	  if((dret == -1) and (errno == ENOTEMPTY)
+	     and (strcmp(direntries[i]->d_name, "private-keys-v1.d")
+		  == 0) and (level == 0)){
+	    /* Recurse only in this special case */
+	    clean_dir_at(dir_fd, direntries[i]->d_name, level+1);
+	    dret = 0;
+	  }
+	  if(dret == -1){
+	    fprintf_plus(stderr, "unlink(\"%s/%s\"): %s\n", dirname,
 			 direntries[i]->d_name, strerror(errno));
 	  }
-	  free(direntries[i]);
 	}
-	
-	/* need to clean even if 0 because man page doesn't specify */
-	free(direntries);
-	if(numentries == -1){
-	  perror_plus("scandir");
-	}
-	ret = rmdir(tempdir);
-	if(ret == -1 and errno != ENOENT){
-	  perror_plus("rmdir");
-	}
+	free(direntries[i]);
       }
-      close(tempdir_fd);
+      
+      /* need to clean even if 0 because man page doesn't specify */
+      free(direntries);
+      if(numentries == -1){
+	perror_plus("scandirat");
+      }
+      dret = unlinkat(base, dirname, AT_REMOVEDIR);
+      if(dret == -1 and errno != ENOENT){
+	perror_plus("rmdir");
+      }
+    } else {
+      perror_plus("scandirat");
     }
+    close(dir_fd);
+  }
+  
+  /* Removes the GPGME temp directory and all files inside */
+  if(tempdir != NULL){
+    clean_dir_at(-1, tempdir, 0);
   }
   
   if(quit_now){
