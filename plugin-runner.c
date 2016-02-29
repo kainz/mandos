@@ -891,18 +891,8 @@ int main(int argc, char *argv[]){
     return 1;
   }
   
-#ifdef __GLIBC__
-#if __GLIBC_PREREQ(2, 15)
   int numplugins = scandirat(dir_fd, ".", &direntries, good_name,
 			     alphasort);
-#else  /* not __GLIBC_PREREQ(2, 15) */
-  int numplugins = scandir(plugindir != NULL ? plugindir : PDIR,
-			   &direntries, good_name, alphasort);
-#endif	/* not __GLIBC_PREREQ(2, 15) */
-#else	/* not __GLIBC__ */
-  int numplugins = scandir(plugindir != NULL ? plugindir : PDIR,
-			   &direntries, good_name, alphasort);
-#endif	/* not __GLIBC__ */
   if(numplugins == -1){
     error(0, errno, "Could not scan plugin dir");
     direntries = NULL;
@@ -1114,20 +1104,7 @@ int main(int argc, char *argv[]){
       goto fallback;
     }
     
-#if defined (__GNUC__) and defined (__GLIBC__)
-#if not __GLIBC_PREREQ(2, 16)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wsign-conversion"
-#endif
-#endif
-    FD_SET(new_plugin->fd, &rfds_all); /* Spurious warning from
-					  -Wconversion in GNU libc
-					  before 2.16 */
-#if defined (__GNUC__) and defined (__GLIBC__)
-#if not __GLIBC_PREREQ(2, 16)
-#pragma GCC diagnostic pop
-#endif
-#endif
+    FD_SET(new_plugin->fd, &rfds_all);
     
     if(maxfd < new_plugin->fd){
       maxfd = new_plugin->fd;
@@ -1189,20 +1166,7 @@ int main(int argc, char *argv[]){
 	  }
 	  
 	  /* Remove the plugin */
-#if defined (__GNUC__) and defined (__GLIBC__)
-#if not __GLIBC_PREREQ(2, 16)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wsign-conversion"
-#endif
-#endif
-	  FD_CLR(proc->fd, &rfds_all); /* Spurious warning from
-					  -Wconversion in GNU libc
-					  before 2.16 */
-#if defined (__GNUC__) and defined (__GLIBC__)
-#if not __GLIBC_PREREQ(2, 16)
-#pragma GCC diagnostic pop
-#endif
-#endif
+	  FD_CLR(proc->fd, &rfds_all);
 	  
 	  /* Block signal while modifying process_list */
 	  ret = (int)TEMP_FAILURE_RETRY(sigprocmask
@@ -1248,23 +1212,7 @@ int main(int argc, char *argv[]){
       }
       
       /* This process has not completed.  Does it have any output? */
-#if defined (__GNUC__) and defined (__GLIBC__)
-#if not __GLIBC_PREREQ(2, 16)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wsign-conversion"
-#endif
-#endif
-      if(proc->eof or not FD_ISSET(proc->fd, &rfds)){ /* Spurious
-							 warning from
-							 -Wconversion
-							 in GNU libc
-							 before
-							 2.16 */
-#if defined (__GNUC__) and defined (__GLIBC__)
-#if not __GLIBC_PREREQ(2, 16)
-#pragma GCC diagnostic pop
-#endif
-#endif
+      if(proc->eof or not FD_ISSET(proc->fd, &rfds)){
 	/* This process had nothing to say at this time */
 	proc = proc->next;
 	continue;
