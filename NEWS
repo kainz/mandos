@@ -1,6 +1,12 @@
 This NEWS file records noteworthy changes, very tersely.
 See the manual for detailed information.
 
+Version 1.7.3 (2016-02-29)
+* Client
+** Bug fix: Remove new type of keyring directory user by GnuPG 2.1.
+** Bug fix: Remove "nonnull" attribute from a function argument, which
+   would otherwise generate a spurious runtime warning.
+
 Version 1.7.2 (2016-02-28)
 * Server
 ** Stop using python-gnutls library; it was not updated to GnuTLS 3.3.
