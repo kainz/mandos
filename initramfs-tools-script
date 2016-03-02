@@ -94,7 +94,9 @@ unset device
 # If we are connecting directly, run "configure_networking" (from
 # /scripts/functions); it needs IPOPTS and DEVICE
 if [ "${connect+set}" = set ]; then
+    set +e			# Required by library functions
     configure_networking
+    set -e
     if [ -n "$connect" ]; then
 	cat <<-EOF >>/conf/conf.d/mandos/plugin-runner.conf
 	
