@@ -48,7 +48,7 @@ version=1.7.3
 SED=sed
 
 USER=$(firstword $(subst :, ,$(shell getent passwd _mandos || getent passwd nobody || echo 65534)))
-GROUP=$(firstword $(subst :, ,$(shell getent group _mandos || getent group nobody || echo 65534)))
+GROUP=$(firstword $(subst :, ,$(shell getent group _mandos || getent group nogroup || echo 65534)))
 
 ## Use these settings for a traditional /usr/local install
 # PREFIX=$(DESTDIR)/usr/local
