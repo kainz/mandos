@@ -2922,10 +2922,12 @@ def main():
             logger.error("Could not open file %r", pidfilename,
                          exc_info=e)
     
-    for name in ("_mandos", "mandos", "nobody"):
+    for name, group in (("_mandos", "_mandos"),
+                        ("mandos", "mandos"),
+                        ("nobody", "nogroup")):
         try:
             uid = pwd.getpwnam(name).pw_uid
-            gid = pwd.getpwnam(name).pw_gid
+            gid = pwd.getpwnam(group).pw_gid
             break
         except KeyError:
             continue
