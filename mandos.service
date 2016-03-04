@@ -21,6 +21,13 @@ KillMode=mixed
 ## bind() on the socket, and also won't announce the ZeroConf service.
 #ExecStart=/usr/sbin/mandos --foreground --socket=0
 #StandardInput=socket
+# Restrict what the Mandos daemon can do.  Note that this also affects
+# "checker" programs!
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=full
+ProtectHome=yes
+CapabilityBoundingSet=CAP_SETUID CAP_DAC_OVERRIDE CAP_NET_RAW
 
 [Install]
 WantedBy=multi-user.target
