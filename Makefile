@@ -15,23 +15,19 @@ WARN=-O -Wall -Wextra -Wdouble-promotion -Wformat=2 -Winit-self \
 # and <http://gcc.gnu.org/ml/gcc-patches/2004-09/msg02055.html>.
 FORTIFY=-D_FORTIFY_SOURCE=2 -fstack-protector-all -fPIC
 # <https://developerblog.redhat.com/2014/10/16/gcc-undefined-behavior-sanitizer-ubsan/>
-# The sanitizing options are available in GCC 4.9 and above.
-ifeq ($(shell test $(shell $(CC) -dumpversion) \> 4.9-; echo $$?),0)
-SANITIZE:=-fsanitize=address -fsanitize=undefined -fsanitize=shift \
-	-fsanitize=integer-divide-by-zero -fsanitize=unreachable \
-	-fsanitize=vla-bound -fsanitize=null -fsanitize=return \
-	-fsanitize=signed-integer-overflow
-# GCC 5.3 has some more sanitizing options
-ifeq ($(shell test $(shell $(CC) -dumpversion) \> 5.3-; echo $$?),0)
-SANITIZE+=-fsanitize=bounds -fsanitize=alignment \
-	-fsanitize=object-size -fsanitize=float-divide-by-zero \
-	-fsanitize=float-cast-overflow -fsanitize=nonnull-attribute \
-	-fsanitize=returns-nonnull-attribute -fsanitize=bool \
-	-fsanitize=enum
-endif
-else
-SANITIZE:=
-endif
+ALL_SANITIZE_OPTIONS:=-fsanitize=address -fsanitize=undefined \
+        -fsanitize=shift -fsanitize=integer-divide-by-zero \
+        -fsanitize=unreachable -fsanitize=vla-bound -fsanitize=null \
+        -fsanitize=return -fsanitize=signed-integer-overflow \
+        -fsanitize=bounds -fsanitize=alignment \
+        -fsanitize=object-size -fsanitize=float-divide-by-zero \
+        -fsanitize=float-cast-overflow -fsanitize=nonnull-attribute \
+        -fsanitize=returns-nonnull-attribute -fsanitize=bool \
+        -fsanitize=enum
+# Check which sanitizing options can be used
+SANITIZE:=$(foreach option,$(ALL_SANITIZE_OPTIONS),$(shell \
+	echo 'int main(){}' | $(CC) --language=c $(option) /dev/stdin \
+	-o /dev/null >/dev/null 2>&1 && echo $(option)))
 LINK_FORTIFY_LD=-z relro -z now
 LINK_FORTIFY=
 
