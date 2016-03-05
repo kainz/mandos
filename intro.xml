@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
-<!ENTITY TIMESTAMP "2016-02-28">
+<!ENTITY TIMESTAMP "2016-03-05">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -377,6 +377,11 @@
       <manvolnum>8mandos</manvolnum></citerefentry> to learn the
       plugin requirements.
     </para>
+  </refsect1>
+  
+  <refsect1 id="bugs">
+    <title>BUGS</title>
+    <xi:include href="bugs.xml"/>
   </refsect1>
   
   <refsect1 id="see_also">

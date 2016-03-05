@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY COMMANDNAME "splashy">
-<!ENTITY TIMESTAMP "2016-02-28">
+<!ENTITY TIMESTAMP "2016-03-05">
 <!ENTITY % common SYSTEM "../common.ent">
 %common;
 ]>
@@ -209,6 +209,7 @@
       is ugly, but necessary as long as it does not support aborting a
       password request.
     </para>
+    <xi:include href="../bugs.xml"/>
   </refsect1>
   
   <refsect1 id="example">
