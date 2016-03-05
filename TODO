@@ -74,9 +74,6 @@
 ** TODO D-Bus server properties; address, port, interface, etc.		  :2:
 ** TODO [#C] In Python 3.3, use shlex.quote() instead of re.escape()
 
-* mandos.xml
-** Add mandos contact info in manual pages
-
 * mandos-ctl
 *** Handle "no D-Bus server" and/or "no Mandos server found" better
 *** [#B] --dump option
@@ -87,6 +84,7 @@
   arguments.
 
 * mandos-monitor
+** TODO --servicename						       :BUGS:
 ** TODO help should be toggleable
 ** Urwid client data displayer
    Better view of client data in the listing
