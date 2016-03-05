@@ -77,9 +77,9 @@ import codecs
 import dbus
 import dbus.service
 try:
-    import gobject
+    from gi.repository import GObject
 except ImportError:
-    from gi.repository import GObject as gobject
+    import gobject as GObject
 import avahi
 from dbus.mainloop.glib import DBusGMainLoop
 import ctypes
@@ -715,17 +715,17 @@ class Client(object):
     checker:    subprocess.Popen(); a running checker process used
                                     to see if the client lives.
                                     'None' if no process is running.
-    checker_callback_tag: a gobject event source tag, or None
+    checker_callback_tag: a GObject event source tag, or None
     checker_command: string; External command which is run to check
                      if client lives.  %() expansions are done at
                      runtime with vars(self) as dict, so that for
                      instance %(name)s can be used in the command.
-    checker_initiator_tag: a gobject event source tag, or None
+    checker_initiator_tag: a GObject event source tag, or None
     created:    datetime.datetime(); (UTC) object creation
     client_structure: Object describing what attributes a client has
                       and is used for storing the client at exit
     current_checker_command: string; current running checker_command
-    disable_initiator_tag: a gobject event source tag, or None
+    disable_initiator_tag: a GObject event source tag, or None
     enabled:    bool()
     fingerprint: string (40 or 32 hexadecimal digits); used to
                  uniquely identify the client
@@ -885,17 +885,17 @@ class Client(object):
         if not quiet:
             logger.info("Disabling client %s", self.name)
         if getattr(self, "disable_initiator_tag", None) is not None:
-            gobject.source_remove(self.disable_initiator_tag)
+            GObject.source_remove(self.disable_initiator_tag)
             self.disable_initiator_tag = None
         self.expires = None
         if getattr(self, "checker_initiator_tag", None) is not None:
-            gobject.source_remove(self.checker_initiator_tag)
+            GObject.source_remove(self.checker_initiator_tag)
             self.checker_initiator_tag = None
         self.stop_checker()
         self.enabled = False
         if not quiet:
             self.send_changedstate()
-        # Do not run this again if called by a gobject.timeout_add
+        # Do not run this again if called by a GObject.timeout_add
         return False
     
     def __del__(self):
@@ -905,14 +905,14 @@ class Client(object):
         # Schedule a new checker to be started an 'interval' from now,
         # and every interval from then on.
         if self.checker_initiator_tag is not None:
-            gobject.source_remove(self.checker_initiator_tag)
-        self.checker_initiator_tag = gobject.timeout_add(
+            GObject.source_remove(self.checker_initiator_tag)
+        self.checker_initiator_tag = GObject.timeout_add(
             int(self.interval.total_seconds() * 1000),
             self.start_checker)
         # Schedule a disable() when 'timeout' has passed
         if self.disable_initiator_tag is not None:
-            gobject.source_remove(self.disable_initiator_tag)
-        self.disable_initiator_tag = gobject.timeout_add(
+            GObject.source_remove(self.disable_initiator_tag)
+        self.disable_initiator_tag = GObject.timeout_add(
             int(self.timeout.total_seconds() * 1000), self.disable)
         # Also start a new checker *right now*.
         self.start_checker()
@@ -954,10 +954,10 @@ class Client(object):
         if timeout is None:
             timeout = self.timeout
         if self.disable_initiator_tag is not None:
-            gobject.source_remove(self.disable_initiator_tag)
+            GObject.source_remove(self.disable_initiator_tag)
             self.disable_initiator_tag = None
         if getattr(self, "enabled", False):
-            self.disable_initiator_tag = gobject.timeout_add(
+            self.disable_initiator_tag = GObject.timeout_add(
                 int(timeout.total_seconds() * 1000), self.disable)
             self.expires = datetime.datetime.utcnow() + timeout
     
@@ -1018,16 +1018,16 @@ class Client(object):
                 args = (pipe[1], subprocess.call, command),
                 kwargs = popen_args)
             self.checker.start()
-            self.checker_callback_tag = gobject.io_add_watch(
-                pipe[0].fileno(), gobject.IO_IN,
+            self.checker_callback_tag = GObject.io_add_watch(
+                pipe[0].fileno(), GObject.IO_IN,
                 self.checker_callback, pipe[0], command)
-        # Re-run this periodically if run by gobject.timeout_add
+        # Re-run this periodically if run by GObject.timeout_add
         return True
     
     def stop_checker(self):
         """Force the checker process, if any, to stop."""
         if self.checker_callback_tag:
-            gobject.source_remove(self.checker_callback_tag)
+            GObject.source_remove(self.checker_callback_tag)
             self.checker_callback_tag = None
         if getattr(self, "checker", None) is None:
             return
@@ -1807,7 +1807,7 @@ class ClientDBus(Client, DBusObjectWithProperties):
     
     def approve(self, value=True):
         self.approved = value
-        gobject.timeout_add(int(self.approval_duration.total_seconds()
+        GObject.timeout_add(int(self.approval_duration.total_seconds()
                                 * 1000), self._reset_approved)
         self.send_changedstate()
     
@@ -2024,8 +2024,8 @@ class ClientDBus(Client, DBusObjectWithProperties):
                 if (getattr(self, "disable_initiator_tag", None)
                     is None):
                     return
-                gobject.source_remove(self.disable_initiator_tag)
-                self.disable_initiator_tag = gobject.timeout_add(
+                GObject.source_remove(self.disable_initiator_tag)
+                self.disable_initiator_tag = GObject.timeout_add(
                     int((self.expires - now).total_seconds() * 1000),
                     self.disable)
     
@@ -2051,8 +2051,8 @@ class ClientDBus(Client, DBusObjectWithProperties):
             return
         if self.enabled:
             # Reschedule checker run
-            gobject.source_remove(self.checker_initiator_tag)
-            self.checker_initiator_tag = gobject.timeout_add(
+            GObject.source_remove(self.checker_initiator_tag)
+            self.checker_initiator_tag = GObject.timeout_add(
                 value, self.start_checker)
             self.start_checker() # Start one now, too
     
@@ -2462,7 +2462,7 @@ class MandosServer(IPv6_TCPServer):
         gnutls_priority GnuTLS priority string
         use_dbus:       Boolean; to emit D-Bus signals or not
     
-    Assumes a gobject.MainLoop event loop.
+    Assumes a GObject.MainLoop event loop.
     """
     
     def __init__(self, server_address, RequestHandlerClass,
@@ -2493,9 +2493,9 @@ class MandosServer(IPv6_TCPServer):
     
     def add_pipe(self, parent_pipe, proc):
         # Call "handle_ipc" for both data and EOF events
-        gobject.io_add_watch(
+        GObject.io_add_watch(
             parent_pipe.fileno(),
-            gobject.IO_IN | gobject.IO_HUP,
+            GObject.IO_IN | GObject.IO_HUP,
             functools.partial(self.handle_ipc,
                               parent_pipe = parent_pipe,
                               proc = proc))
@@ -2505,7 +2505,7 @@ class MandosServer(IPv6_TCPServer):
                    proc = None,
                    client_object=None):
         # error, or the other end of multiprocessing.Pipe has closed
-        if condition & (gobject.IO_ERR | gobject.IO_HUP):
+        if condition & (GObject.IO_ERR | GObject.IO_HUP):
             # Wait for other process to exit
             proc.join()
             return False
@@ -2532,9 +2532,9 @@ class MandosServer(IPv6_TCPServer):
                 parent_pipe.send(False)
                 return False
             
-            gobject.io_add_watch(
+            GObject.io_add_watch(
                 parent_pipe.fileno(),
-                gobject.IO_IN | gobject.IO_HUP,
+                GObject.IO_IN | GObject.IO_HUP,
                 functools.partial(self.handle_ipc,
                                   parent_pipe = parent_pipe,
                                   proc = proc,
@@ -2965,14 +2965,14 @@ def main():
         # Close all input and output, do double fork, etc.
         daemon()
     
-    # multiprocessing will use threads, so before we use gobject we
-    # need to inform gobject that threads will be used.
-    gobject.threads_init()
+    # multiprocessing will use threads, so before we use GObject we
+    # need to inform GObject that threads will be used.
+    GObject.threads_init()
     
     global main_loop
     # From the Avahi example code
     DBusGMainLoop(set_as_default=True)
-    main_loop = gobject.MainLoop()
+    main_loop = GObject.MainLoop()
     bus = dbus.SystemBus()
     # End of Avahi example code
     if use_dbus:
@@ -3347,7 +3347,7 @@ def main():
                 sys.exit(1)
             # End of Avahi example code
         
-        gobject.io_add_watch(tcp_server.fileno(), gobject.IO_IN,
+        GObject.io_add_watch(tcp_server.fileno(), GObject.IO_IN,
                              lambda *args, **kwargs:
                              (tcp_server.handle_request
                               (*args[2:], **kwargs) or True))
