@@ -1,6 +1,16 @@
 This NEWS file records noteworthy changes, very tersely.
 See the manual for detailed information.
 
+Version 1.7.4 (2016-03-05)
+* Client
+** Bug fix: Tolerate errors from configure_networking (Debian Bug
+   #816513)
+** Compilation: Only use sanitizing options which work with the
+   compiler used when building.  This should fix compilation with GCC
+   4.9 on mips, mipsel, and s390x.
+* Server
+** Add extra security restrictions in systemd service file.
+
 Version 1.7.3 (2016-02-29)
 * Client
 ** Bug fix: Remove new type of keyring directory user by GnuPG 2.1.
