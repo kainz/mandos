@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY COMMANDNAME "mandos-monitor">
-<!ENTITY TIMESTAMP "2016-02-28">
+<!ENTITY TIMESTAMP "2016-03-05">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -199,9 +199,10 @@
     <title>BUGS</title>
     <para>
       This program can currently only be used to monitor and control a
-      Mandos server with the default D-Bus service name of
-      <quote>Mandos</quote>.
+      Mandos server with the default D-Bus bus name of
+      <quote>se.recompile.Mandos</quote>.
     </para>
+    <xi:include href="bugs.xml"/>
   </refsect1>
   
   <refsect1 id="example">

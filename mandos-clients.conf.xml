@@ -3,7 +3,7 @@
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY CONFNAME "mandos-clients.conf">
 <!ENTITY CONFPATH "<filename>/etc/mandos/clients.conf</filename>">
-<!ENTITY TIMESTAMP "2016-02-28">
+<!ENTITY TIMESTAMP "2016-03-05">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -463,6 +463,7 @@
       <literal>%(<replaceable>foo</replaceable>)s</literal> is
       obscure.
     </para>
+    <xi:include href="bugs.xml"/>
   </refsect1>
   
   <refsect1 id="example">
