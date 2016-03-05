@@ -817,54 +817,54 @@ static void empty_log(__attribute__((unused)) AvahiLogLevel level,
 
 /* Set effective uid to 0, return errno */
 __attribute__((warn_unused_result))
-error_t raise_privileges(void){
-  error_t old_errno = errno;
-  error_t ret_errno = 0;
+int raise_privileges(void){
+  int old_errno = errno;
+  int ret = 0;
   if(seteuid(0) == -1){
-    ret_errno = errno;
+    ret = errno;
   }
   errno = old_errno;
-  return ret_errno;
+  return ret;
 }
 
 /* Set effective and real user ID to 0.  Return errno. */
 __attribute__((warn_unused_result))
-error_t raise_privileges_permanently(void){
-  error_t old_errno = errno;
-  error_t ret_errno = raise_privileges();
-  if(ret_errno != 0){
+int raise_privileges_permanently(void){
+  int old_errno = errno;
+  int ret = raise_privileges();
+  if(ret != 0){
     errno = old_errno;
-    return ret_errno;
+    return ret;
   }
   if(setuid(0) == -1){
-    ret_errno = errno;
+    ret = errno;
   }
   errno = old_errno;
-  return ret_errno;
+  return ret;
 }
 
 /* Set effective user ID to unprivileged saved user ID */
 __attribute__((warn_unused_result))
-error_t lower_privileges(void){
-  error_t old_errno = errno;
-  error_t ret_errno = 0;
+int lower_privileges(void){
+  int old_errno = errno;
+  int ret = 0;
   if(seteuid(uid) == -1){
-    ret_errno = errno;
+    ret = errno;
   }
   errno = old_errno;
-  return ret_errno;
+  return ret;
 }
 
 /* Lower privileges permanently */
 __attribute__((warn_unused_result))
-error_t lower_privileges_permanently(void){
-  error_t old_errno = errno;
-  error_t ret_errno = 0;
+int lower_privileges_permanently(void){
+  int old_errno = errno;
+  int ret = 0;
   if(setuid(uid) == -1){
-    ret_errno = errno;
+    ret = errno;
   }
   errno = old_errno;
-  return ret_errno;
+  return ret;
 }
 
 /* Helper function to add_local_route() and delete_local_route() */
@@ -1623,13 +1623,13 @@ static void handle_sigterm(int sig){
 __attribute__((nonnull, warn_unused_result))
 bool get_flags(const char *ifname, struct ifreq *ifr){
   int ret;
-  error_t ret_errno;
+  int old_errno;
   
   int s = socket(PF_INET6, SOCK_DGRAM, IPPROTO_IP);
   if(s < 0){
-    ret_errno = errno;
+    old_errno = errno;
     perror_plus("socket");
-    errno = ret_errno;
+    errno = old_errno;
     return false;
   }
   strncpy(ifr->ifr_name, ifname, IF_NAMESIZE);
@@ -1637,9 +1637,9 @@ bool get_flags(const char *ifname, struct ifreq *ifr){
   ret = ioctl(s, SIOCGIFFLAGS, ifr);
   if(ret == -1){
     if(debug){
-      ret_errno = errno;
+      old_errno = errno;
       perror_plus("ioctl SIOCGIFFLAGS");
-      errno = ret_errno;
+      errno = old_errno;
     }
     return false;
   }
@@ -2071,9 +2071,9 @@ void run_network_hooks(const char *mode, const char *interface,
 }
 
 __attribute__((nonnull, warn_unused_result))
-error_t bring_up_interface(const char *const interface,
-			   const float delay){
-  error_t old_errno = errno;
+int bring_up_interface(const char *const interface,
+		       const float delay){
+  int old_errno = errno;
   int ret;
   struct ifreq network;
   unsigned int if_index = if_nametoindex(interface);
@@ -2089,7 +2089,8 @@ error_t bring_up_interface(const char *const interface,
   }
   
   if(not interface_is_up(interface)){
-    error_t ret_errno = 0, ioctl_errno = 0;
+    int ret_errno = 0;
+    int ioctl_errno = 0;
     if(not get_flags(interface, &network)){
       ret_errno = errno;
       fprintf_plus(stderr, "Failed to get flags for interface "
@@ -2198,8 +2199,8 @@ error_t bring_up_interface(const char *const interface,
 }
 
 __attribute__((nonnull, warn_unused_result))
-error_t take_down_interface(const char *const interface){
-  error_t old_errno = errno;
+int take_down_interface(const char *const interface){
+  int old_errno = errno;
   struct ifreq network;
   unsigned int if_index = if_nametoindex(interface);
   if(if_index == 0){
@@ -2208,7 +2209,8 @@ error_t take_down_interface(const char *const interface){
     return ENXIO;
   }
   if(interface_is_up(interface)){
-    error_t ret_errno = 0, ioctl_errno = 0;
+    int ret_errno = 0;
+    int ioctl_errno = 0;
     if(not get_flags(interface, &network) and debug){
       ret_errno = errno;
       fprintf_plus(stderr, "Failed to get flags for interface "
@@ -2464,14 +2466,14 @@ int main(int argc, char *argv[]){
 			 .args_doc = "",
 			 .doc = "Mandos client -- Get and decrypt"
 			 " passwords from a Mandos server" };
-    ret = argp_parse(&argp, argc, argv,
-		     ARGP_IN_ORDER | ARGP_NO_HELP, 0, NULL);
-    switch(ret){
+    ret_errno = argp_parse(&argp, argc, argv,
+			   ARGP_IN_ORDER | ARGP_NO_HELP, 0, NULL);
+    switch(ret_errno){
     case 0:
       break;
     case ENOMEM:
     default:
-      errno = ret;
+      errno = ret_errno;
       perror_plus("argp_parse");
       exitcode = EX_OSERR;
       goto end;
@@ -2486,9 +2488,9 @@ int main(int argc, char *argv[]){
        <http://bugs.debian.org/633582> */
     
     /* Re-raise privileges */
-    ret_errno = raise_privileges();
-    if(ret_errno != 0){
-      errno = ret_errno;
+    ret = raise_privileges();
+    if(ret != 0){
+      errno = ret;
       perror_plus("Failed to raise privileges");
     } else {
       struct stat st;
@@ -2558,9 +2560,9 @@ int main(int argc, char *argv[]){
       }
       
       /* Lower privileges */
-      ret_errno = lower_privileges();
-      if(ret_errno != 0){
-	errno = ret_errno;
+      ret = lower_privileges();
+      if(ret != 0){
+	errno = ret;
 	perror_plus("Failed to lower privileges");
       }
     }
@@ -2894,7 +2896,7 @@ int main(int argc, char *argv[]){
     
     /* Allocate a new server */
     mc.server = avahi_server_new(avahi_simple_poll_get(simple_poll),
-				 &config, NULL, NULL, &ret_errno);
+				 &config, NULL, NULL, &ret);
     
     /* Free the Avahi configuration data */
     avahi_server_config_free(&config);
@@ -2903,7 +2905,7 @@ int main(int argc, char *argv[]){
   /* Check if creating the Avahi server object succeeded */
   if(mc.server == NULL){
     fprintf_plus(stderr, "Failed to create Avahi server: %s\n",
-		 avahi_strerror(ret_errno));
+		 avahi_strerror(ret));
     exitcode = EX_UNAVAILABLE;
     goto end;
   }
@@ -2989,9 +2991,9 @@ int main(int argc, char *argv[]){
   
   /* Re-raise privileges */
   {
-    ret_errno = raise_privileges();
-    if(ret_errno != 0){
-      errno = ret_errno;
+    ret = raise_privileges();
+    if(ret != 0){
+      errno = ret;
       perror_plus("Failed to raise privileges");
     } else {
       
@@ -3005,9 +3007,9 @@ int main(int argc, char *argv[]){
 	while((interface=argz_next(interfaces_to_take_down,
 				   interfaces_to_take_down_size,
 				   interface))){
-	  ret_errno = take_down_interface(interface);
-	  if(ret_errno != 0){
-	    errno = ret_errno;
+	  ret = take_down_interface(interface);
+	  if(ret != 0){
+	    errno = ret;
 	    perror_plus("Failed to take down interface");
 	  }
 	}
@@ -3018,9 +3020,9 @@ int main(int argc, char *argv[]){
       }
     }
     
-    ret_errno = lower_privileges_permanently();
-    if(ret_errno != 0){
-      errno = ret_errno;
+    ret = lower_privileges_permanently();
+    if(ret != 0){
+      errno = ret;
       perror_plus("Failed to lower privileges permanently");
     }
   }
