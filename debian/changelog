@@ -1,3 +1,15 @@
+mandos (1.7.4-1) unstable; urgency=medium
+
+  * New upstream release.
+  * initramfs-tools-script: Fix "Call to configure_network in initramfs
+    script broken due to set -e" by surrounding call by "set +x" and "set
+    -e" (Closes: #816513)
+  * debian/control: (Source: mandos/Build-Depends-Indep): Change
+    "python-gobject | python-gi" to "python-gi | python-gobject"
+    (Package: mandos/Depends): - '' -
+
+ -- Teddy Hogeborn <teddy@recompile.se>  Sat, 05 Mar 2016 23:10:07 +0100
+
 mandos (1.7.3-1) unstable; urgency=medium
 
   * New upstream release.
