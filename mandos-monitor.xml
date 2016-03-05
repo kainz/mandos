@@ -199,8 +199,8 @@
     <title>BUGS</title>
     <para>
       This program can currently only be used to monitor and control a
-      Mandos server with the default D-Bus service name of
-      <quote>Mandos</quote>.
+      Mandos server with the default D-Bus bus name of
+      <quote>se.recompile.Mandos</quote>.
     </para>
     <xi:include href="bugs.xml"/>
   </refsect1>
