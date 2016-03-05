@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE legalnotice PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<para>
+  Please report bugs to the Mandos development mailing list:
+  <email>mandos-dev@recompile.se</email> (subscription required).
+  Note that this list is public.  The developers can be reached
+  privately at <email>mandos@recompile.se</email> (OpenPGP key
+  fingerprint <literal>153A 37F1 0BBA 0435 987F 2C4A 7223 2973 CA34
+  C2C4</literal> for encrypted mail).
+</para>

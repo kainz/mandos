@@ -40,9 +40,9 @@ import urwid
 
 from dbus.mainloop.glib import DBusGMainLoop
 try:
-    import gobject
+    from gi.repository import GObject
 except ImportError:
-    from gi.repository import GObject as gobject
+    import gobject as GObject
 
 import dbus
 
@@ -172,11 +172,11 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
         """
         if flag and self._update_timer_callback_tag is None:
             # Will update the shown timer value every second
-            self._update_timer_callback_tag = (gobject.timeout_add
+            self._update_timer_callback_tag = (GObject.timeout_add
                                                (1000,
                                                 self.update_timer))
         elif not (flag or self._update_timer_callback_tag is None):
-            gobject.source_remove(self._update_timer_callback_tag)
+            GObject.source_remove(self._update_timer_callback_tag)
             self._update_timer_callback_tag = None
     
     def checker_completed(self, exitstatus, condition, command):
@@ -309,14 +309,14 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
             self.update_hook()
     
     def update_timer(self):
-        """called by gobject. Will indefinitely loop until
-        gobject.source_remove() on tag is called"""
+        """called by GObject. Will indefinitely loop until
+        GObject.source_remove() on tag is called"""
         self.update()
         return True             # Keep calling this
     
     def delete(self, **kwargs):
         if self._update_timer_callback_tag is not None:
-            gobject.source_remove(self._update_timer_callback_tag)
+            GObject.source_remove(self._update_timer_callback_tag)
             self._update_timer_callback_tag = None
         for match in self.match_objects:
             match.remove()
@@ -465,7 +465,7 @@ class UserInterface(object):
                               "q: Quit  ?: Help"))
         
         self.busname = domain + '.Mandos'
-        self.main_loop = gobject.MainLoop()
+        self.main_loop = GObject.MainLoop()
     
     def client_not_found(self, fingerprint, address):
         self.log_message("Client with address {} and fingerprint {}"
@@ -640,13 +640,13 @@ class UserInterface(object):
                             path=path)
         
         self.refresh()
-        self._input_callback_tag = (gobject.io_add_watch
+        self._input_callback_tag = (GObject.io_add_watch
                                     (sys.stdin.fileno(),
-                                     gobject.IO_IN,
+                                     GObject.IO_IN,
                                      self.process_input))
         self.main_loop.run()
         # Main loop has finished, we should close everything now
-        gobject.source_remove(self._input_callback_tag)
+        GObject.source_remove(self._input_callback_tag)
         self.screen.stop()
     
     def stop(self):
