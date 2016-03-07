@@ -487,7 +487,7 @@ class GnuTLS(object):
     openpgp_crt_t = ctypes.POINTER(openpgp_crt_int)
     openpgp_crt_fmt_t = ctypes.c_int # gnutls/openpgp.h
     log_func = ctypes.CFUNCTYPE(None, ctypes.c_int, ctypes.c_char_p)
-    credentials_type_t = ctypes.c_int # 
+    credentials_type_t = ctypes.c_int
     transport_ptr_t = ctypes.c_void_p
     close_request_t = ctypes.c_int
     
