@@ -2937,7 +2937,12 @@ def main():
     try:
         os.setgid(gid)
         os.setuid(uid)
+        if debug:
+            logger.debug("Did setuid/setgid to {}:{}".format(uid,
+                                                             gid))
     except OSError as error:
+        logger.warning("Failed to setuid/setgid to {}:{}: {}"
+                       .format(uid, gid, os.strerror(error.errno)))
         if error.errno != errno.EPERM:
             raise
     

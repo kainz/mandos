@@ -34,6 +34,19 @@ case "$1" in
 		--home /nonexistent --no-create-home --group \
 		--disabled-password --gecos "Mandos password system" \
 		_mandos
+	elif dpkg --compare-versions "$2" eq 1.7.4-1 \
+		|| dpkg --compare-versions "$2" eq "1.7.4-1~bpo8+1"
+	then
+	    start=no
+	    if ! [ -f /var/lib/mandos/clients.pickle ]; then
+		invoke-rc.d mandos stop
+		start=yes
+	    fi
+	    chown _mandos:_mandos /var/lib/mandos/clients.pickle \
+		  2>/dev/null || :
+	    if [ "$start" = yes ]; then
+		invoke-rc.d mandos start
+	    fi
 	fi
 	chown _mandos:_mandos /var/lib/mandos
 	;;
