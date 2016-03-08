@@ -28,6 +28,9 @@ PrivateDevices=yes
 ProtectSystem=full
 ProtectHome=yes
 CapabilityBoundingSet=CAP_KILL CAP_SETGID CAP_SETUID CAP_DAC_OVERRIDE CAP_NET_RAW
+# Bug workaround; the daemon does not stop on SIGTERM until poked via
+# D-Bus; cause is unknown at this time
+ExecStop=/bin/kill -TERM $MAINPID ; /usr/sbin/mandos-ctl >/dev/null 2>&1
 
 [Install]
 WantedBy=multi-user.target
