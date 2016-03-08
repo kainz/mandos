@@ -1,6 +1,11 @@
 This NEWS file records noteworthy changes, very tersely.
 See the manual for detailed information.
 
+Version 1.7.5 (2016-03-08)
+* Server
+** Fix security restrictions in systemd service file.
+** Work around bug where stopping server would time out
+
 Version 1.7.4 (2016-03-05)
 * Client
 ** Bug fix: Tolerate errors from configure_networking (Debian Bug
