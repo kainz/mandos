@@ -1,3 +1,12 @@
+mandos (1.7.5-1) unstable; urgency=high
+
+  * New upstream release.
+  * debian/mandos.postinst (configure): If old version was 1.7.4-1 or
+    1.7.4-1~bpo8+1, fix situation where clients.pickle file is owned by
+    root.
+
+ -- Teddy Hogeborn <teddy@recompile.se>  Tue, 08 Mar 2016 01:09:55 +0100
+
 mandos (1.7.4-1) unstable; urgency=medium
 
   * New upstream release.
