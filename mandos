@@ -34,7 +34,10 @@
 from __future__ import (division, absolute_import, print_function,
                         unicode_literals)
 
-from future_builtins import *
+try:
+    from future_builtins import *
+except ImportError:
+    pass
 
 try:
     import SocketServer as socketserver
@@ -80,7 +83,6 @@ try:
     from gi.repository import GObject
 except ImportError:
     import gobject as GObject
-import avahi
 from dbus.mainloop.glib import DBusGMainLoop
 import ctypes
 import ctypes.util
@@ -119,6 +121,22 @@ except (OSError, AttributeError):
         return interface_index
 
 
+def copy_function(func):
+    """Make a copy of a function"""
+    if sys.version_info.major == 2:
+        return types.FunctionType(func.func_code,
+                                  func.func_globals,
+                                  func.func_name,
+                                  func.func_defaults,
+                                  func.func_closure)
+    else:
+        return types.FunctionType(func.__code__,
+                                  func.__globals__,
+                                  func.__name__,
+                                  func.__defaults__,
+                                  func.__closure__)
+
+
 def initlogger(debug, level=logging.WARNING):
     """init logger and add loglevel"""
     
@@ -155,7 +173,7 @@ class PGPEngine(object):
         try:
             output = subprocess.check_output(["gpgconf"])
             for line in output.splitlines():
-                name, text, path = line.split(":")
+                name, text, path = line.split(b":")
                 if name == "gpg":
                     self.gpg = path
                     break
@@ -238,6 +256,30 @@ class PGPEngine(object):
             raise PGPError(err)
         return decrypted_plaintext
 
+# Pretend that we have an Avahi module
+class Avahi(object):
+    """This isn't so much a class as it is a module-like namespace.
+    It is instantiated once, and simulates having an Avahi module."""
+    IF_UNSPEC = -1              # avahi-common/address.h
+    PROTO_UNSPEC = -1           # avahi-common/address.h
+    PROTO_INET = 0              # avahi-common/address.h
+    PROTO_INET6 = 1             # avahi-common/address.h
+    DBUS_NAME = "org.freedesktop.Avahi"
+    DBUS_INTERFACE_ENTRY_GROUP = DBUS_NAME + ".EntryGroup"
+    DBUS_INTERFACE_SERVER = DBUS_NAME + ".Server"
+    DBUS_PATH_SERVER = "/"
+    def string_array_to_txt_array(self, t):
+        return dbus.Array((dbus.ByteArray(s.encode("utf-8"))
+                           for s in t), signature="ay")
+    ENTRY_GROUP_ESTABLISHED = 2 # avahi-common/defs.h
+    ENTRY_GROUP_COLLISION = 3   # avahi-common/defs.h
+    ENTRY_GROUP_FAILURE = 4     # avahi-common/defs.h
+    SERVER_INVALID = 0          # avahi-common/defs.h
+    SERVER_REGISTERING = 1      # avahi-common/defs.h
+    SERVER_RUNNING = 2          # avahi-common/defs.h
+    SERVER_COLLISION = 3        # avahi-common/defs.h
+    SERVER_FAILURE = 4          # avahi-common/defs.h
+avahi = Avahi()
 
 class AvahiError(Exception):
     def __init__(self, value, *args, **kwargs):
@@ -447,7 +489,7 @@ class GnuTLS(object):
     
     _library = ctypes.cdll.LoadLibrary(
         ctypes.util.find_library("gnutls"))
-    _need_version = "3.3.0"
+    _need_version = b"3.3.0"
     def __init__(self):
         # Need to use class name "GnuTLS" here, since this method is
         # called before the assignment to the "gnutls" global variable
@@ -794,7 +836,9 @@ class Client(object):
             client["fingerprint"] = (section["fingerprint"].upper()
                                      .replace(" ", ""))
             if "secret" in section:
-                client["secret"] = section["secret"].decode("base64")
+                client["secret"] = codecs.decode(section["secret"]
+                                                 .encode("utf-8"),
+                                                 "base64")
             elif "secfile" in section:
                 with open(os.path.expanduser(os.path.expandvars
                                              (section["secfile"])),
@@ -853,7 +897,7 @@ class Client(object):
         self.changedstate = multiprocessing_manager.Condition(
             multiprocessing_manager.Lock())
         self.client_structure = [attr
-                                 for attr in self.__dict__.iterkeys()
+                                 for attr in self.__dict__.keys()
                                  if not attr.startswith("_")]
         self.client_structure.append("client_structure")
         
@@ -1507,32 +1551,22 @@ def alternate_dbus_interfaces(alt_interface_names, deprecate=True):
                 interface_names.add(alt_interface)
                 # Is this a D-Bus signal?
                 if getattr(attribute, "_dbus_is_signal", False):
+                    # Extract the original non-method undecorated
+                    # function by black magic
                     if sys.version_info.major == 2:
-                        # Extract the original non-method undecorated
-                        # function by black magic
                         nonmethod_func = (dict(
                             zip(attribute.func_code.co_freevars,
                                 attribute.__closure__))
                                           ["func"].cell_contents)
                     else:
-                        nonmethod_func = attribute
+                        nonmethod_func = (dict(
+                            zip(attribute.__code__.co_freevars,
+                                attribute.__closure__))
+                                          ["func"].cell_contents)
                     # Create a new, but exactly alike, function
                     # object, and decorate it to be a new D-Bus signal
                     # with the alternate D-Bus interface name
-                    if sys.version_info.major == 2:
-                        new_function = types.FunctionType(
-                            nonmethod_func.func_code,
-                            nonmethod_func.func_globals,
-                            nonmethod_func.func_name,
-                            nonmethod_func.func_defaults,
-                            nonmethod_func.func_closure)
-                    else:
-                        new_function = types.FunctionType(
-                            nonmethod_func.__code__,
-                            nonmethod_func.__globals__,
-                            nonmethod_func.__name__,
-                            nonmethod_func.__defaults__,
-                            nonmethod_func.__closure__)
+                    new_function = copy_function(nonmethod_func)
                     new_function = (dbus.service.signal(
                         alt_interface,
                         attribute._dbus_signature)(new_function))
@@ -1577,11 +1611,7 @@ def alternate_dbus_interfaces(alt_interface_names, deprecate=True):
                             alt_interface,
                             attribute._dbus_in_signature,
                             attribute._dbus_out_signature)
-                        (types.FunctionType(attribute.func_code,
-                                            attribute.func_globals,
-                                            attribute.func_name,
-                                            attribute.func_defaults,
-                                            attribute.func_closure)))
+                        (copy_function(attribute)))
                     # Copy annotations, if any
                     try:
                         attr[attrname]._dbus_annotations = dict(
@@ -1599,12 +1629,7 @@ def alternate_dbus_interfaces(alt_interface_names, deprecate=True):
                         attribute._dbus_access,
                         attribute._dbus_get_args_options
                         ["byte_arrays"])
-                                      (types.FunctionType(
-                                          attribute.func_code,
-                                          attribute.func_globals,
-                                          attribute.func_name,
-                                          attribute.func_defaults,
-                                          attribute.func_closure)))
+                                      (copy_function(attribute)))
                     # Copy annotations, if any
                     try:
                         attr[attrname]._dbus_annotations = dict(
@@ -1619,11 +1644,7 @@ def alternate_dbus_interfaces(alt_interface_names, deprecate=True):
                     # to the class.
                     attr[attrname] = (
                         dbus_interface_annotations(alt_interface)
-                        (types.FunctionType(attribute.func_code,
-                                            attribute.func_globals,
-                                            attribute.func_name,
-                                            attribute.func_defaults,
-                                            attribute.func_closure)))
+                        (copy_function(attribute)))
             if deprecate:
                 # Deprecate all alternate interfaces
                 iname="_AlternateDBusNames_interface_annotation{}"
@@ -1642,8 +1663,12 @@ def alternate_dbus_interfaces(alt_interface_names, deprecate=True):
             if interface_names:
                 # Replace the class with a new subclass of it with
                 # methods, signals, etc. as created above.
-                cls = type(b"{}Alternate".format(cls.__name__),
-                           (cls, ), attr)
+                if sys.version_info.major == 2:
+                    cls = type(b"{}Alternate".format(cls.__name__),
+                               (cls, ), attr)
+                else:
+                    cls = type("{}Alternate".format(cls.__name__),
+                               (cls, ), attr)
         return cls
     
     return wrapper
@@ -2518,7 +2543,7 @@ class MandosServer(IPv6_TCPServer):
             fpr = request[1]
             address = request[2]
             
-            for c in self.clients.itervalues():
+            for c in self.clients.values():
                 if c.fingerprint == fpr:
                     client = c
                     break
@@ -3027,8 +3052,47 @@ def main():
     if server_settings["restore"]:
         try:
             with open(stored_state_path, "rb") as stored_state:
-                clients_data, old_client_settings = pickle.load(
-                    stored_state)
+                if sys.version_info.major == 2:                
+                    clients_data, old_client_settings = pickle.load(
+                        stored_state)
+                else:
+                    bytes_clients_data, bytes_old_client_settings = (
+                        pickle.load(stored_state, encoding = "bytes"))
+                    ### Fix bytes to strings
+                    ## clients_data
+                    # .keys()
+                    clients_data = { (key.decode("utf-8")
+                                      if isinstance(key, bytes)
+                                      else key): value
+                                     for key, value in
+                                     bytes_clients_data.items() }
+                    for key in clients_data:
+                        value = { (k.decode("utf-8")
+                                   if isinstance(k, bytes) else k): v
+                                  for k, v in
+                                  clients_data[key].items() }
+                        clients_data[key] = value
+                        # .client_structure
+                        value["client_structure"] = [
+                            (s.decode("utf-8")
+                             if isinstance(s, bytes)
+                             else s) for s in
+                            value["client_structure"] ]
+                        # .name & .host
+                        for k in ("name", "host"):
+                            if isinstance(value[k], bytes):
+                                value[k] = value[k].decode("utf-8")
+                    ## old_client_settings
+                    # .keys
+                    old_client_settings = {
+                        (key.decode("utf-8")
+                         if isinstance(key, bytes)
+                         else key): value
+                        for key, value in
+                        bytes_old_client_settings.items() }
+                    # .host
+                    for value in old_client_settings.values():
+                        value["host"] = value["host"].decode("utf-8")
             os.remove(stored_state_path)
         except IOError as e:
             if e.errno == errno.ENOENT:
@@ -3173,7 +3237,7 @@ def main():
             def GetAllClients(self):
                 "D-Bus method"
                 return dbus.Array(c.dbus_object_path for c in
-                                  tcp_server.clients.itervalues())
+                                  tcp_server.clients.values())
             
             @dbus_annotations({"org.freedesktop.DBus.Deprecated":
                                "true"})
@@ -3184,13 +3248,13 @@ def main():
                 return dbus.Dictionary(
                     { c.dbus_object_path: c.GetAll(
                         "se.recompile.Mandos.Client")
-                      for c in tcp_server.clients.itervalues() },
+                      for c in tcp_server.clients.values() },
                     signature="oa{sv}")
             
             @dbus.service.method(_interface, in_signature="o")
             def RemoveClient(self, object_path):
                 "D-Bus method"
-                for c in tcp_server.clients.itervalues():
+                for c in tcp_server.clients.values():
                     if c.dbus_object_path == object_path:
                         del tcp_server.clients[c.name]
                         c.remove_from_connection()
@@ -3256,7 +3320,7 @@ def main():
         # removed/edited, old secret will thus be unrecovable.
         clients = {}
         with PGPEngine() as pgp:
-            for client in tcp_server.clients.itervalues():
+            for client in tcp_server.clients.values():
                 key = client_settings[client.name]["secret"]
                 client.encrypted_secret = pgp.encrypt(client.secret,
                                                       key)
@@ -3286,7 +3350,8 @@ def main():
                     prefix='clients-',
                     dir=os.path.dirname(stored_state_path),
                     delete=False) as stored_state:
-                pickle.dump((clients, client_settings), stored_state)
+                pickle.dump((clients, client_settings), stored_state,
+                            protocol = 2)
                 tempname = stored_state.name
             os.rename(tempname, stored_state_path)
         except (IOError, OSError) as e:
@@ -3317,7 +3382,7 @@ def main():
     
     atexit.register(cleanup)
     
-    for client in tcp_server.clients.itervalues():
+    for client in tcp_server.clients.values():
         if use_dbus:
             # Emit D-Bus signal for adding
             mandos_dbus_service.client_added_signal(client)

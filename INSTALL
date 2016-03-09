@@ -52,8 +52,8 @@
     + ssh-keyscan from OpenSSH http://www.openssh.com/
     
     Package names:
-    avahi-daemon python python-avahi python-dbus python-gobject
-    python-urwid pkg-config fping ssh-client
+    avahi-daemon python python-dbus python-gi python-urwid pkg-config
+    fping ssh-client
     
 *** Mandos Client
     + GNU C Library 2.16 https://gnu.org/software/libc/
