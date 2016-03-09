@@ -9,7 +9,7 @@ Build-Depends: debhelper (>= 9), docbook-xml, docbook-xsl,
 	| gnutls-dev (>= 3.3.0), xsltproc, pkg-config,
 	libnl-route-3-dev
 Build-Depends-Indep: systemd, python (>= 2.7), python (<< 3),
-	python-dbus, python-avahi, python-gi | python-gobject
+	python-dbus, python-gi | python-gobject
 Standards-Version: 3.9.7
 Vcs-Bzr: http://ftp.recompile.se/pub/mandos/trunk
 Vcs-Browser: http://bzr.recompile.se/loggerhead/mandos/trunk/files
@@ -19,7 +19,7 @@ Package: mandos
 Architecture: all
 Depends: ${misc:Depends}, python (>= 2.7), python (<< 3),
 	libgnutls28-dev (>= 3.3.0) | libgnutls30 (>= 3.3.0),
-	python-dbus, python-avahi, python-gi | python-gobject,
+	python-dbus, python-gi | python-gobject,
 	avahi-daemon, adduser, python-urwid, gnupg
 Recommends: ssh-client | fping
 Description: server giving encrypted passwords to Mandos clients
