@@ -3066,6 +3066,7 @@ def main():
                                       else key): value
                                      for key, value in
                                      bytes_clients_data.items() }
+                    del bytes_clients_data
                     for key in clients_data:
                         value = { (k.decode("utf-8")
                                    if isinstance(k, bytes) else k): v
@@ -3083,16 +3084,19 @@ def main():
                             if isinstance(value[k], bytes):
                                 value[k] = value[k].decode("utf-8")
                     ## old_client_settings
-                    # .keys
+                    # .keys()
                     old_client_settings = {
                         (key.decode("utf-8")
                          if isinstance(key, bytes)
                          else key): value
                         for key, value in
                         bytes_old_client_settings.items() }
+                    del bytes_old_client_settings
                     # .host
                     for value in old_client_settings.values():
-                        value["host"] = value["host"].decode("utf-8")
+                        if isinstance(value["host"], bytes):
+                            value["host"] = (value["host"]
+                                             .decode("utf-8"))
             os.remove(stored_state_path)
         except IOError as e:
             if e.errno == errno.ENOENT:
