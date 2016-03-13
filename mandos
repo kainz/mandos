@@ -3200,8 +3200,9 @@ def main():
         del pidfile
         del pidfilename
     
-    signal.signal(signal.SIGHUP, lambda signum, frame: sys.exit())
-    signal.signal(signal.SIGTERM, lambda signum, frame: sys.exit())
+    for termsig in (signal.SIGHUP, signal.SIGTERM):
+        GLib.unix_signal_add(GLib.PRIORITY_HIGH, termsig,
+                             lambda: main_loop.quit() and False)
     
     if use_dbus:
         
