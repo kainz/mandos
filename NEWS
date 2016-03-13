@@ -1,6 +1,11 @@
 This NEWS file records noteworthy changes, very tersely.
 See the manual for detailed information.
 
+Version 1.7.6 (2016-03-13)
+* Server
+** Fix bug where stopping server would time out
+** Make server runnable with Python 3
+
 Version 1.7.5 (2016-03-08)
 * Server
 ** Fix security restrictions in systemd service file.
