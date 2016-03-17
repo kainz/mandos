@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY COMMANDNAME "plugin-runner">
-<!ENTITY TIMESTAMP "2016-03-05">
+<!ENTITY TIMESTAMP "2016-03-17">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -541,6 +541,26 @@
 	      This file name is the default; the file to read for
 	      arguments can be changed using the
 	      <option>--config-file</option> option.
+	    </para>
+	  </listitem>
+	</varlistentry>
+	<varlistentry>
+	  <term><filename class="directory"
+	  >/lib/mandos/plugins.d</filename></term>
+	  <listitem>
+	    <para>
+	      The default plugin directory; can be changed by the
+	      <option>--plugin-dir</option> option.
+	    </para>
+	  </listitem>
+	</varlistentry>
+	<varlistentry>
+	  <term><filename class="directory"
+	  >/lib/mandos/plugin-helpers</filename></term>
+	  <listitem>
+	    <para>
+	      The default plugin helper directory; can be changed by
+	      the <option>--plugin-helper-dir</option> option.
 	    </para>
 	  </listitem>
 	</varlistentry>
