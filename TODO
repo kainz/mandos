@@ -37,8 +37,6 @@
 ** kernel command line option for debug info
 
 * mandos (server)
-** TODO Fix bug: it does not exit on SIGTERM until poked via D-Bus
-** TODO Convert to Python 3 by using own Avahi module, same as GnuTLS
 ** TODO [#B] --notify-command
    This would allow the mandos.service to use
    --notify-command="systemd-notify --pid READY=1"
