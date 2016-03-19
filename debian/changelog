@@ -1,3 +1,20 @@
+mandos (1.7.7-1) unstable; urgency=medium
+
+  * New upstream release.
+  * debian/mandos-client.postinst (configure): If older version, fix
+    permissions on plugin helper directory.  Also fix permissions on
+    plugin helper local override directory (/etc/mandos/plugin-helpers),
+    but only if not listed by "dpkg-statoverride".
+  * debian/rules (override_dh_fixperms-arch): Exclude plugin helper
+    directory from dh_fixperms.
+  * debian/mandos.postinst (configure): Fix state directory permissions,
+    but only if not listed by "dpkg-statoverride".
+  * debian/mandos-client.lintian-overrides: Do not warn about permissions
+    on plugin helper directory.
+  * debian/mandos.dirs (usr/lib/tmpfiles.d): Added.
+
+ -- Teddy Hogeborn <teddy@recompile.se>  Sat, 19 Mar 2016 22:58:49 +0100
+
 mandos (1.7.6-1) unstable; urgency=medium
 
   * New upstream release.
