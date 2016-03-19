@@ -96,6 +96,10 @@ case "$1" in
 		 >/dev/null 2>&1; then
 		chmod u=rwx,go= -- "$PLUGINHELPERDIR"
 	    fi
+	    if ! dpkg-statoverride --list /etc/mandos/plugin-helpers \
+		 >/dev/null 2>&1; then
+		chmod u=rwx,go= -- /etc/mandos/plugin-helpers
+	    fi
 	fi
 	;;
     abort-upgrade|abort-deconfigure|abort-remove)
