@@ -37,8 +37,7 @@
 #include <sys/select.h>		/* fd_set, select(), FD_ZERO(),
 				   FD_SET(), FD_ISSET(), FD_CLR */
 #include <sys/wait.h>		/* wait(), waitpid(), WIFEXITED(),
-				   WEXITSTATUS(), WTERMSIG(),
-				   WCOREDUMP() */
+				   WEXITSTATUS(), WTERMSIG() */
 #include <sys/stat.h>		/* struct stat, fstat(), S_ISREG() */
 #include <iso646.h>		/* and, or, not */
 #include <dirent.h>		/* struct dirent, scandirat() */
@@ -1159,9 +1158,6 @@ int main(int argc, char *argv[]){
 		      (intmax_t) (proc->pid),
 		      WTERMSIG(proc->status),
 		      strsignal(WTERMSIG(proc->status)));
-	    } else if(WCOREDUMP(proc->status)){
-	      fprintf(stderr, "Plugin %s [%" PRIdMAX "] dumped"
-		      " core\n", proc->name, (intmax_t) (proc->pid));
 	    }
 	  }
 	  

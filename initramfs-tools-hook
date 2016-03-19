@@ -75,10 +75,10 @@ HOOKDIR="${MANDOSDIR}/network-hooks.d"
 
 # Make directories
 install --directory --mode=u=rwx,go=rx "${DESTDIR}${CONFDIR}" \
-	"${DESTDIR}${MANDOSDIR}" "${DESTDIR}${HOOKDIR}" \
-	"${DESTDIR}${PLUGINHELPERDIR}"
+	"${DESTDIR}${MANDOSDIR}" "${DESTDIR}${HOOKDIR}"
 install --owner=${mandos_user} --group=${mandos_group} --directory \
-    --mode=u=rwx "${DESTDIR}${PLUGINDIR}"
+	--mode=u=rwx "${DESTDIR}${PLUGINDIR}" \
+	"${DESTDIR}${PLUGINHELPERDIR}"
 
 # Copy the Mandos plugin runner
 copy_exec "$libdir"/mandos/plugin-runner "${MANDOSDIR}"

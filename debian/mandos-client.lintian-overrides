@@ -8,6 +8,8 @@ mandos-client binary: non-standard-dir-perm etc/keys/mandos/ 0700 != 0755
 # allow anyone to run them.
 #
 mandos-client binary: non-standard-dir-perm usr/lib/*/mandos/plugins.d/ 0700 != 0755
+# Likewise for helper executables for plugins
+mandos-client binary: non-standard-dir-perm usr/lib/*/mandos/plugin-helpers/ 0700 != 0755
 
 # These binaries must be setuid root, since they need root powers, but
 # are started by plugin-runner(8mandos), which runs all plugins as
@@ -26,3 +28,5 @@ mandos-client binary: setuid-binary usr/lib/*/mandos/plugins.d/plymouth 4755 roo
 # /usr/lib/<arch>/mandos/plugins.d, and must be likewise protected.
 #
 mandos-client binary: non-standard-dir-perm etc/mandos/plugins.d/ 0700 != 0755
+# Likewise for plugin-helpers directory
+mandos-client binary: non-standard-dir-perm etc/mandos/plugin-helpers/ 0700 != 0755

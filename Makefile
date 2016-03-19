@@ -75,6 +75,7 @@ LIBDIR=$(shell \
 ##
 
 SYSTEMD=$(DESTDIR)$(shell pkg-config systemd --variable=systemdsystemunitdir)
+TMPFILES=$(DESTDIR)$(shell pkg-config systemd --variable=tmpfilesdir)
 
 GNUTLS_CFLAGS=$(shell pkg-config --cflags-only-I gnutls)
 GNUTLS_LIBS=$(shell pkg-config --libs gnutls)
@@ -337,6 +338,10 @@ install-server: doc
 	elif install --directory --mode=u=rwx $(STATEDIR); then \
 		chown -- $(USER):$(GROUP) $(STATEDIR) || :; \
 	fi
+	if [ "$(TMPFILES)" != "$(DESTDIR)" -a -d "$(TMPFILES)" ]; then \
+		install --mode=u=rw,go=r tmpfiles.d-mandos.conf \
+			$(TMPFILES)/mandos.conf; \
+	fi
 	install --mode=u=rwx,go=rx mandos $(PREFIX)/sbin/mandos
 	install --mode=u=rwx,go=rx --target-directory=$(PREFIX)/sbin \
 		mandos-ctl
@@ -378,8 +383,8 @@ install-client-nokey: all doc
 		$(LIBDIR)/mandos/plugin-helpers
 	if [ "$(CONFDIR)" != "$(LIBDIR)/mandos" ]; then \
 		install --mode=u=rwx \
-			--directory "$(CONFDIR)/plugins.d"; \
-		install --directory "$(CONFDIR)/plugin-helpers"; \
+			--directory "$(CONFDIR)/plugins.d" \
+			"$(CONFDIR)/plugin-helpers"; \
 	fi
 	install --mode=u=rwx,go=rx --directory \
 		"$(CONFDIR)/network-hooks.d"
@@ -405,7 +410,7 @@ install-client-nokey: all doc
 	install --mode=u=rwxs,go=rx \
 		--target-directory=$(LIBDIR)/mandos/plugins.d \
 		plugins.d/plymouth
-	install --mode=u=rwxs,go=rx \
+	install --mode=u=rwx,go=rx \
 		--target-directory=$(LIBDIR)/mandos/plugin-helpers \
 		plugin-helpers/mandos-client-iprouteadddel
 	install initramfs-tools-hook \
