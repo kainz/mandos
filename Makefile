@@ -75,6 +75,7 @@ LIBDIR=$(shell \
 ##
 
 SYSTEMD=$(DESTDIR)$(shell pkg-config systemd --variable=systemdsystemunitdir)
+TMPFILES=$(DESTDIR)$(shell pkg-config systemd --variable=tmpfilesdir)
 
 GNUTLS_CFLAGS=$(shell pkg-config --cflags-only-I gnutls)
 GNUTLS_LIBS=$(shell pkg-config --libs gnutls)
@@ -336,6 +337,10 @@ install-server: doc
 		:; \
 	elif install --directory --mode=u=rwx $(STATEDIR); then \
 		chown -- $(USER):$(GROUP) $(STATEDIR) || :; \
+	fi
+	if [ "$(TMPFILES)" != "$(DESTDIR)" -a -d "$(TMPFILES)" ]; then \
+		install --mode=u=rwx,go=r tmpfiles.d-mandos.conf \
+			$(TMPFILES)/mandos.conf; \
 	fi
 	install --mode=u=rwx,go=rx mandos $(PREFIX)/sbin/mandos
 	install --mode=u=rwx,go=rx --target-directory=$(PREFIX)/sbin \
