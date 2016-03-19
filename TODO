@@ -67,12 +67,12 @@
 ** TODO Remove D-Bus interfaces with old domain name			  :2:
 ** TODO Remove old string_to_delta format				  :2:
 ** TODO http://0pointer.de/blog/projects/stateless.html
-*** tmpfiles snippet to create /var/lib/mandos with right user+perms
 *** File in /usr/lib/sysusers.d to create user+group "_mandos"
 ** TODO Error handling on error parsing config files
 ** TODO init.d script error handling
 ** TODO D-Bus server properties; address, port, interface, etc.		  :2:
-** TODO [#C] In Python 3.3, use shlex.quote() instead of re.escape()
+** Python 3								  :2:
+*** TODO [#C] In Python 3.3, use shlex.quote() instead of re.escape()
 
 * mandos-ctl
 *** Handle "no D-Bus server" and/or "no Mandos server found" better
