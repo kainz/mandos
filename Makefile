@@ -383,8 +383,8 @@ install-client-nokey: all doc
 		$(LIBDIR)/mandos/plugin-helpers
 	if [ "$(CONFDIR)" != "$(LIBDIR)/mandos" ]; then \
 		install --mode=u=rwx \
-			--directory "$(CONFDIR)/plugins.d"; \
-		install --directory "$(CONFDIR)/plugin-helpers"; \
+			--directory "$(CONFDIR)/plugins.d" \
+			"$(CONFDIR)/plugin-helpers"; \
 	fi
 	install --mode=u=rwx,go=rx --directory \
 		"$(CONFDIR)/network-hooks.d"
