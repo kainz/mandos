@@ -90,6 +90,13 @@ case "$1" in
 	create_key "$@"
 	create_dh_params "$@" || :
 	update_initramfs "$@"
+	if dpkg --compare-versions "$2" lt-nl "1.7.7-1"; then
+	    PLUGINHELPERDIR=/usr/lib/$(dpkg-architecture -qDEB_HOST_MULTIARCH 2>/dev/null)/mandos/plugin-helpers
+	    if ! dpkg-statoverride --list "$PLUGINHELPERDIR" \
+		 >/dev/null 2>&1; then
+		chmod u=rwx,go= -- "$PLUGINHELPERDIR"
+	    fi
+	fi
 	;;
     abort-upgrade|abort-deconfigure|abort-remove)
 	;;
