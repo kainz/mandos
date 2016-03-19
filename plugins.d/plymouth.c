@@ -174,11 +174,15 @@ bool exec_and_wait(pid_t *pid_return, const char *path,
       }
     }
     
-    char **new_argv = NULL;
+    char **new_argv = malloc(sizeof(const char *));
+    if(new_argv == NULL){
+      error_plus(0, errno, "malloc");
+      _exit(EX_OSERR);
+    }
     char **tmp;
     int i = 0;
     for (; argv[i]!=NULL; i++){
-      tmp = realloc(new_argv, sizeof(const char *) * ((size_t)i + 1));
+      tmp = realloc(new_argv, sizeof(const char *) * ((size_t)i + 2));
       if(tmp == NULL){
 	error_plus(0, errno, "realloc");
 	free(new_argv);
