@@ -48,7 +48,11 @@ case "$1" in
 		invoke-rc.d mandos start
 	    fi
 	fi
-	chown _mandos:_mandos /var/lib/mandos
+	if ! dpkg-statoverride --list "/var/lib/mandos" >/dev/null \
+	     2>&1; then
+	    chown _mandos:_mandos /var/lib/mandos
+	    chmod u=rwx,go= /var/lib/mandos
+	fi
 	;;
     
     abort-upgrade|abort-deconfigure|abort-remove)
