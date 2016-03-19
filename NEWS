@@ -1,6 +1,10 @@
 This NEWS file records noteworthy changes, very tersely.
 See the manual for detailed information.
 
+Version 1.7.7 (2016-03-19)
+* Client
+** Fix bug in Plymouth client, broken since 1.7.2
+
 Version 1.7.6 (2016-03-13)
 * Server
 ** Fix bug where stopping server would time out
