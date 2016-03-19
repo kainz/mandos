@@ -339,7 +339,7 @@ install-server: doc
 		chown -- $(USER):$(GROUP) $(STATEDIR) || :; \
 	fi
 	if [ "$(TMPFILES)" != "$(DESTDIR)" -a -d "$(TMPFILES)" ]; then \
-		install --mode=u=rwx,go=r tmpfiles.d-mandos.conf \
+		install --mode=u=rw,go=r tmpfiles.d-mandos.conf \
 			$(TMPFILES)/mandos.conf; \
 	fi
 	install --mode=u=rwx,go=rx mandos $(PREFIX)/sbin/mandos
