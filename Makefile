@@ -405,7 +405,7 @@ install-client-nokey: all doc
 	install --mode=u=rwxs,go=rx \
 		--target-directory=$(LIBDIR)/mandos/plugins.d \
 		plugins.d/plymouth
-	install --mode=u=rwxs,go=rx \
+	install --mode=u=rwx,go=rx \
 		--target-directory=$(LIBDIR)/mandos/plugin-helpers \
 		plugin-helpers/mandos-client-iprouteadddel
 	install initramfs-tools-hook \
