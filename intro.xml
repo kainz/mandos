@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
-<!ENTITY TIMESTAMP "2016-03-05">
+<!ENTITY TIMESTAMP "2016-03-22">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -417,7 +417,7 @@
     <variablelist>
       <varlistentry>
 	<term>
-	  <ulink url="http://www.recompile.se/mandos">Mandos</ulink>
+	  <ulink url="https://www.recompile.se/mandos">Mandos</ulink>
 	</term>
 	<listitem>
 	  <para>
