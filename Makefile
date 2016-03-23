@@ -436,6 +436,8 @@ install-client-nokey: all doc
 		> $(MANDIR)/man8/askpass-fifo.8mandos.gz
 	gzip --best --to-stdout plugins.d/plymouth.8mandos \
 		> $(MANDIR)/man8/plymouth.8mandos.gz
+	gzip --best --to-stdout intro.8mandos \
+		> $(MANDIR)/man8/intro.8mandos.gz
 
 install-client: install-client-nokey
 # Post-installation stuff
