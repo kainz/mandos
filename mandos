@@ -180,8 +180,10 @@ class PGPEngine(object):
         self.gnupgargs = ['--batch',
                           '--homedir', self.tempdir,
                           '--force-mdc',
-                          '--quiet',
-                          '--no-use-agent']
+                          '--quiet']
+        # Only GPG version 1 has the --no-use-agent option.
+        if self.gpg == "gpg" or self.gpg.endswith("/gpg"):
+            self.gnupgargs.append("--no-use-agent")
     
     def __enter__(self):
         return self
