@@ -2174,7 +2174,8 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
             priority = self.server.gnutls_priority
             if priority is None:
                 priority = "NORMAL"
-            gnutls.priority_set_direct(session._c_object, priority,
+            gnutls.priority_set_direct(session._c_object,
+                                       priority.encode("utf-8"),
                                        None)
             
             # Start communication using the Mandos protocol
