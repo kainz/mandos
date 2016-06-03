@@ -3309,13 +3309,17 @@ def main():
         
         mandos_dbus_service = MandosDBusService()
     
+    # Save modules to variables to exempt the modules from being
+    # unloaded before the function registered with atexit() is run.
+    mp = multiprocessing
+    wn = wnull
     def cleanup():
         "Cleanup function; run on exit"
         if zeroconf:
             service.cleanup()
         
-        multiprocessing.active_children()
-        wnull.close()
+        mp.active_children()
+        wn.close()
         if not (tcp_server.clients or client_settings):
             return
         
