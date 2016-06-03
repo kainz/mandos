@@ -43,9 +43,9 @@ packaging which are not also in the manual.
   automatically detected.  If this should result in incorrect
   interfaces, edit the DEVICE setting in the
   "/etc/initramfs-tools/initramfs.conf" file.  (The default setting is
-  empty, meaning it will autodetect the interface.)  *If* the DEVICE
+  empty, meaning it will autodetect the interfaces.)  *If* the DEVICE
   setting is changed, it will be necessary to update the initrd image
-  by running the command
+  by running this command:
   
 	update-initramfs -k all -u
   
@@ -106,4 +106,4 @@ packaging which are not also in the manual.
   policy or other reasons, simply replace the existing dhparams.pem
   file and update the initital RAM disk image.
 
- -- Teddy Hogeborn <teddy@recompile.se>, Sun, 12 Jul 2015 03:24:24 +0200
+ -- Teddy Hogeborn <teddy@recompile.se>, Tue,  5 Apr 2016 08:53:39 +0200
