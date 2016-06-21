@@ -1,6 +1,17 @@
 This NEWS file records noteworthy changes, very tersely.
 See the manual for detailed information.
 
+Version 1.7.8 (2016-06-21)
+* Client
+** Include intro(8mandos) man page
+** mandos-keygen: Use ECDSA SSH keys by default
+** Bug fix: Work with GnuPG 2 when booting (Debian bug #819982)
+   by copying /usr/bin/gpg-agent into initramfs
+* Server
+** Bug fix: Work with GnuPG 2 (don't use --no-use-agent option)
+** Bug fix: Make the --interface option work when using Python 2.7
+   by trying harder to find SO_BINDTODEVICE
+
 Version 1.7.7 (2016-03-19)
 * Client
 ** Fix bug in Plymouth client, broken since 1.7.2
