@@ -90,7 +90,7 @@ packaging which are not also in the manual.
   "mandos=connect:<IP_ADDRESS>:<PORT_NUMBER>" on the kernel command
   line.
   
-  For very advanced users, it it possible to specify simply
+  For very advanced users, it is possible to specify simply
   "mandos=connect" on the kernel command line to make the system only
   set up the network (using the data in the "ip=" option) and not pass
   any extra "--connect" options to mandos-client at boot.  For this to
@@ -106,4 +106,4 @@ packaging which are not also in the manual.
   policy or other reasons, simply replace the existing dhparams.pem
   file and update the initital RAM disk image.
 
- -- Teddy Hogeborn <teddy@recompile.se>, Tue,  5 Apr 2016 08:53:39 +0200
+ -- Teddy Hogeborn <teddy@recompile.se>, Tue, 21 Jun 2016 21:43:49 +0200
