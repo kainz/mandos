@@ -40,6 +40,8 @@
 ** TODO [#B] --notify-command
    This would allow the mandos.service to use
    --notify-command="systemd-notify --pid --ready"
+** TODO [#B] python-systemd
+*** import systemd.daemon; systemd.daemon.notify()
 ** TODO [#B] Log level							  :BUGS:
 *** TODO /etc/mandos/clients.d/*.conf
     Watch this directory and add/remove/update clients?

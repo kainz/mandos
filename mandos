@@ -86,13 +86,30 @@ import ctypes.util
 import xml.dom.minidom
 import inspect
 
+# Try to find the value of SO_BINDTODEVICE:
 try:
+    # This is where SO_BINDTODEVICE is in Python 3.3 (or 3.4?) and
+    # newer, and it is also the most natural place for it:
     SO_BINDTODEVICE = socket.SO_BINDTODEVICE
 except AttributeError:
     try:
+        # This is where SO_BINDTODEVICE was up to and including Python
+        # 2.6, and also 3.2:
         from IN import SO_BINDTODEVICE
     except ImportError:
-        SO_BINDTODEVICE = None
+        # In Python 2.7 it seems to have been removed entirely.
+        # Try running the C preprocessor:
+        try:
+            cc = subprocess.Popen(["cc", "--language=c", "-E",
+                                   "/dev/stdin"],
+                                  stdin=subprocess.PIPE,
+                                  stdout=subprocess.PIPE)
+            stdout = cc.communicate(
+                "#include <sys/socket.h>\nSO_BINDTODEVICE\n")[0]
+            SO_BINDTODEVICE = int(stdout.splitlines()[-1])
+        except (OSError, ValueError, IndexError):
+            # No value found
+            SO_BINDTODEVICE = None
 
 if sys.version_info.major == 2:
     str = unicode
@@ -180,8 +197,10 @@ class PGPEngine(object):
         self.gnupgargs = ['--batch',
                           '--homedir', self.tempdir,
                           '--force-mdc',
-                          '--quiet',
-                          '--no-use-agent']
+                          '--quiet']
+        # Only GPG version 1 has the --no-use-agent option.
+        if self.gpg == "gpg" or self.gpg.endswith("/gpg"):
+            self.gnupgargs.append("--no-use-agent")
     
     def __enter__(self):
         return self
@@ -2172,7 +2191,8 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
             priority = self.server.gnutls_priority
             if priority is None:
                 priority = "NORMAL"
-            gnutls.priority_set_direct(session._c_object, priority,
+            gnutls.priority_set_direct(session._c_object,
+                                       priority.encode("utf-8"),
                                        None)
             
             # Start communication using the Mandos protocol
@@ -2435,27 +2455,27 @@ class IPv6_TCPServer(MultiprocessingMixInWithPipe,
         bind to an address or port if they were not specified."""
         if self.interface is not None:
             if SO_BINDTODEVICE is None:
-                logger.error("SO_BINDTODEVICE does not exist;"
-                             " cannot bind to interface %s",
-                             self.interface)
-            else:
-                try:
-                    self.socket.setsockopt(
-                        socket.SOL_SOCKET, SO_BINDTODEVICE,
-                        (self.interface + "\0").encode("utf-8"))
-                except socket.error as error:
-                    if error.errno == errno.EPERM:
-                        logger.error("No permission to bind to"
-                                     " interface %s", self.interface)
-                    elif error.errno == errno.ENOPROTOOPT:
-                        logger.error("SO_BINDTODEVICE not available;"
-                                     " cannot bind to interface %s",
-                                     self.interface)
-                    elif error.errno == errno.ENODEV:
-                        logger.error("Interface %s does not exist,"
-                                     " cannot bind", self.interface)
-                    else:
-                        raise
+                # Fall back to a hard-coded value which seems to be
+                # common enough.
+                logger.warning("SO_BINDTODEVICE not found, trying 25")
+                SO_BINDTODEVICE = 25
+            try:
+                self.socket.setsockopt(
+                    socket.SOL_SOCKET, SO_BINDTODEVICE,
+                    (self.interface + "\0").encode("utf-8"))
+            except socket.error as error:
+                if error.errno == errno.EPERM:
+                    logger.error("No permission to bind to"
+                                 " interface %s", self.interface)
+                elif error.errno == errno.ENOPROTOOPT:
+                    logger.error("SO_BINDTODEVICE not available;"
+                                 " cannot bind to interface %s",
+                                 self.interface)
+                elif error.errno == errno.ENODEV:
+                    logger.error("Interface %s does not exist,"
+                                 " cannot bind", self.interface)
+                else:
+                    raise
         # Only bind(2) the socket if we really need to.
         if self.server_address[0] or self.server_address[1]:
             if not self.server_address[0]:
@@ -3307,13 +3327,17 @@ def main():
         
         mandos_dbus_service = MandosDBusService()
     
+    # Save modules to variables to exempt the modules from being
+    # unloaded before the function registered with atexit() is run.
+    mp = multiprocessing
+    wn = wnull
     def cleanup():
         "Cleanup function; run on exit"
         if zeroconf:
             service.cleanup()
         
-        multiprocessing.active_children()
-        wnull.close()
+        mp.active_children()
+        wn.close()
         if not (tcp_server.clients or client_settings):
             return
         
