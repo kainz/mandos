@@ -186,6 +186,11 @@ if dpkg --compare-versions "$libgpgme11_version" ge 1.5.0-0.1; then
 	    copy_exec /usr/bin/gpgconf
 	fi
 	gpg="`/usr/bin/gpgconf|sed --quiet --expression='s/^gpg:[^:]*://p'`"
+	gpgagent="`/usr/bin/gpgconf|sed --quiet --expression='s/^gpg-agent:[^:]*://p'`"
+	# Newer versions of GnuPG 2 requires the gpg-agent binary
+	if [ -e "$gpgagent" ] && [ ! -e "${DESTDIR}$gpgagent" ]; then
+	    copy_exec "$gpgagent"
+	fi
     fi
 elif dpkg --compare-versions "$libgpgme11_version" ge 1.4.1-0.1; then
     gpg=/usr/bin/gpg2
