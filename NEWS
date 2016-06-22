@@ -1,6 +1,10 @@
 This NEWS file records noteworthy changes, very tersely.
 See the manual for detailed information.
 
+Version 1.7.9 (2016-06-22)
+* Client
+** Do not include intro(8mandos) man page
+
 Version 1.7.8 (2016-06-21)
 * Client
 ** Include intro(8mandos) man page
