@@ -1,6 +1,13 @@
 This NEWS file records noteworthy changes, very tersely.
 See the manual for detailed information.
 
+Version 1.7.10 (2016-06-23)
+* Client
+** Security fix: restrict permissions of /etc/mandos/plugin-helpers
+* Server
+** Bug fix: Make the --interface flag work with Python 2.7 when "cc"
+   is not installed
+
 Version 1.7.9 (2016-06-22)
 * Client
 ** Do not include intro(8mandos) man page
