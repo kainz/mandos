@@ -1,3 +1,14 @@
+mandos (1.7.10-1) unstable; urgency=high
+
+  * New upstream release.
+  * debian/rules (override_dh_fixperms-arch): Also exclude
+    "etc/mandos/plugin-helpers" from changes by dh_fixperms.
+  * debian/mandos-client.postinst: Fix the permissions of
+    "/etc/mandos/plugin-helpers" for those systems which had a fresh
+    install of an older version.
+
+ -- Teddy Hogeborn <teddy@recompile.se>  Thu, 23 Jun 2016 22:00:29 +0200
+
 mandos (1.7.9-1) unstable; urgency=medium
 
   * New upstream release.
