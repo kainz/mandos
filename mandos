@@ -2453,6 +2453,7 @@ class IPv6_TCPServer(MultiprocessingMixInWithPipe,
         """This overrides the normal server_bind() function
         to bind to an interface if one was specified, and also NOT to
         bind to an address or port if they were not specified."""
+        global SO_BINDTODEVICE
         if self.interface is not None:
             if SO_BINDTODEVICE is None:
                 # Fall back to a hard-coded value which seems to be
