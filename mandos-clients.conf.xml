@@ -3,7 +3,7 @@
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY CONFNAME "mandos-clients.conf">
 <!ENTITY CONFPATH "<filename>/etc/mandos/clients.conf</filename>">
-<!ENTITY TIMESTAMP "2016-03-05">
+<!ENTITY TIMESTAMP "2016-06-23">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -230,7 +230,7 @@
 	  <para>
 	    This option sets the OpenPGP fingerprint that identifies
 	    the public key that clients authenticate themselves with
-	    through TLS.  The string needs to be in hexidecimal form,
+	    through TLS.  The string needs to be in hexadecimal form,
 	    but spaces or upper/lower case are not significant.
 	  </para>
 	</listitem>
