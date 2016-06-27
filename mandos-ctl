@@ -39,6 +39,7 @@ import re
 import os
 import collections
 import doctest
+import json
 
 import dbus
 
@@ -280,6 +281,8 @@ def main():
                         help="Select all clients")
     parser.add_argument("-v", "--verbose", action="store_true",
                         help="Print all fields")
+    parser.add_argument("-j", "--dump-json", action="store_true",
+                        help="Dump client data in JSON format")
     parser.add_argument("-e", "--enable", action="store_true",
                         help="Enable client")
     parser.add_argument("-d", "--disable", action="store_true",
@@ -328,11 +331,12 @@ def main():
     if has_actions(options) and not (options.client or options.all):
         parser.error("Options require clients names or --all.")
     if options.verbose and has_actions(options):
-        parser.error("--verbose can only be used alone or with"
-                     " --all.")
+        parser.error("--verbose can only be used alone.")
+    if options.dump_json and (options.verbose or has_actions(options)):
+        parser.error("--dump-json can only be used alone.")
     if options.all and not has_actions(options):
         parser.error("--all requires an action.")
-
+    
     if options.check:
         fail_count, test_count = doctest.testmod()
         sys.exit(os.EX_OK if fail_count == 0 else 1)
@@ -389,7 +393,7 @@ def main():
                 sys.exit(1)
     
     if not has_actions(options) and clients:
-        if options.verbose:
+        if options.verbose or options.dump_json:
             keywords = ("Name", "Enabled", "Timeout", "LastCheckedOK",
                         "Created", "Interval", "Host", "Fingerprint",
                         "CheckerRunning", "LastEnabled",
@@ -400,7 +404,15 @@ def main():
         else:
             keywords = defaultkeywords
         
-        print_clients(clients.values(), keywords)
+        if options.dump_json:
+            json.dump({client["Name"]: {key: client[key]
+                                        for key in keywords }
+                       for client in clients.values() },
+                      fp = sys.stdout, indent = 4,
+                      separators = (',', ': '))
+            print()
+        else:
+            print_clients(clients.values(), keywords)
     else:
         # Process each client in the list by all selected options
         for client in clients:
