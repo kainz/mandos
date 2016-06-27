@@ -78,7 +78,6 @@
 
 * mandos-ctl
 *** Handle "no D-Bus server" and/or "no Mandos server found" better
-*** [#B] --dump option
 ** TODO Remove old string_to_delta format				  :2:
 
 * TODO mandos-dispatch
