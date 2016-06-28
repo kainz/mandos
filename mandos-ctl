@@ -65,7 +65,9 @@ tablewords = {
     "ApprovalDelay": "Approval Delay",
     "ApprovalDuration": "Approval Duration",
     "Checker": "Checker",
-    "ExtendedTimeout": "Extended Timeout"
+    "ExtendedTimeout": "Extended Timeout",
+    "Expires": "Expires",
+    "LastCheckerStatus": "Last Checker Status",
 }
 defaultkeywords = ("Name", "Enabled", "Timeout", "LastCheckedOK")
 domain = "se.recompile"
@@ -400,7 +402,8 @@ def main():
                         "ApprovalPending", "ApprovedByDefault",
                         "LastApprovalRequest", "ApprovalDelay",
                         "ApprovalDuration", "Checker",
-                        "ExtendedTimeout")
+                        "ExtendedTimeout", "Expires",
+                        "LastCheckerStatus")
         else:
             keywords = defaultkeywords
         
