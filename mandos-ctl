@@ -405,7 +405,11 @@ def main():
             keywords = defaultkeywords
         
         if options.dump_json:
-            json.dump({client["Name"]: {key: client[key]
+            json.dump({client["Name"]: {key:
+                                        bool(client[key])
+                                        if isinstance(client[key],
+                                                      dbus.Boolean)
+                                        else client[key]
                                         for key in keywords }
                        for client in clients.values() },
                       fp = sys.stdout, indent = 4,
