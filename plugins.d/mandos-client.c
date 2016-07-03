@@ -1423,6 +1423,7 @@ static int start_mandos_communication(const char *ip, in_port_t port,
 					       &decrypted_buffer, mc);
     if(decrypted_buffer_size >= 0){
       
+      clearerr(stdout);
       written = 0;
       while(written < (size_t) decrypted_buffer_size){
 	if(quit_now){
@@ -1443,6 +1444,16 @@ static int start_mandos_communication(const char *ip, in_port_t port,
 	  goto mandos_end;
 	}
 	written += (size_t)ret;
+      }
+      ret = fflush(stdout);
+      if(ret != 0){
+	int e = errno;
+	if(debug){
+	  fprintf_plus(stderr, "Error writing encrypted data: %s\n",
+		       strerror(errno));
+	}
+	errno = e;
+	goto mandos_end;
       }
       retval = 0;
     }
