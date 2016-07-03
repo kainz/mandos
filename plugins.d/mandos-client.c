@@ -1237,7 +1237,7 @@ static int start_mandos_communication(const char *ip, in_port_t port,
 	   with an explicit route added with the server's address.
 	   
 	   Avahi bug reference:
-	   http://lists.freedesktop.org/archives/avahi/2010-February/001833.html
+	   https://lists.freedesktop.org/archives/avahi/2010-February/001833.html
 	   https://bugs.debian.org/587961
 	*/
 	if(debug){
@@ -2496,7 +2496,7 @@ int main(int argc, char *argv[]){
   
   {
     /* Work around Debian bug #633582:
-       <http://bugs.debian.org/633582> */
+       <https://bugs.debian.org/633582> */
     
     /* Re-raise privileges */
     ret = raise_privileges();
