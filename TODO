@@ -72,7 +72,7 @@
 ** TODO Save state periodically to recover better from hard shutdowns
 ** TODO CheckerCompleted method, deprecate CheckedOK
 ** TODO Secret Service API?
-   http://standards.freedesktop.org/secret-service/
+   https://standards.freedesktop.org/secret-service/
 ** TODO Remove D-Bus interfaces with old domain name			  :2:
 ** TODO Remove old string_to_delta format				  :2:
 ** TODO http://0pointer.de/blog/projects/stateless.html

@@ -12,7 +12,7 @@ WARN=-O -Wall -Wextra -Wdouble-promotion -Wformat=2 -Winit-self \
 	-Wvolatile-register-var -Woverlength-strings
 #DEBUG=-ggdb3
 # For info about _FORTIFY_SOURCE, see feature_test_macros(7)
-# and <http://gcc.gnu.org/ml/gcc-patches/2004-09/msg02055.html>.
+# and <https://gcc.gnu.org/ml/gcc-patches/2004-09/msg02055.html>.
 FORTIFY=-D_FORTIFY_SOURCE=2 -fstack-protector-all -fPIC
 # <https://developerblog.redhat.com/2014/10/16/gcc-undefined-behavior-sanitizer-ubsan/>
 ALL_SANITIZE_OPTIONS:=-fsanitize=address -fsanitize=undefined \
