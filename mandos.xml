@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY COMMANDNAME "mandos">
-<!ENTITY TIMESTAMP "2016-03-05">
+<!ENTITY TIMESTAMP "2016-07-03">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -707,7 +707,7 @@
       </varlistentry>
       <varlistentry>
 	<term>
-	  <ulink url="http://gnutls.org/">GnuTLS</ulink>
+	  <ulink url="https://gnutls.org/">GnuTLS</ulink>
 	</term>
       <listitem>
 	<para>
