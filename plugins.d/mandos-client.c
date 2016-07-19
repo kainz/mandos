@@ -47,7 +47,8 @@
 				   strtof(), abort() */
 #include <stdbool.h>		/* bool, false, true */
 #include <string.h>		/* strcmp(), strlen(), strerror(),
-				   asprintf(), strncpy() */
+				   asprintf(), strncpy(), strsignal()
+				*/
 #include <sys/ioctl.h>		/* ioctl */
 #include <sys/types.h>		/* socket(), inet_pton(), sockaddr,
 				   sockaddr_in6, PF_INET6,
@@ -2957,7 +2958,13 @@ int main(int argc, char *argv[]){
  end:
   
   if(debug){
-    fprintf_plus(stderr, "%s exiting\n", argv[0]);
+    if(signal_received){
+      fprintf_plus(stderr, "%s exiting due to signal %d: %s\n",
+		   argv[0], signal_received,
+		   strsignal(signal_received));
+    } else {
+      fprintf_plus(stderr, "%s exiting\n", argv[0]);
+    }
   }
   
   /* Cleanup things */
