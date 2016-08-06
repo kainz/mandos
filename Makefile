@@ -10,12 +10,12 @@ WARN=-O -Wall -Wextra -Wdouble-promotion -Wformat=2 -Winit-self \
 	-Wmissing-format-attribute -Wnormalized=nfc -Wpacked \
 	-Wredundant-decls -Wnested-externs -Winline -Wvla \
 	-Wvolatile-register-var -Woverlength-strings
-#DEBUG=-ggdb3
+#DEBUG=-ggdb3 -fsanitize=address 
 # For info about _FORTIFY_SOURCE, see feature_test_macros(7)
 # and <https://gcc.gnu.org/ml/gcc-patches/2004-09/msg02055.html>.
 FORTIFY=-D_FORTIFY_SOURCE=2 -fstack-protector-all -fPIC
 # <https://developerblog.redhat.com/2014/10/16/gcc-undefined-behavior-sanitizer-ubsan/>
-ALL_SANITIZE_OPTIONS:=-fsanitize=address -fsanitize=undefined \
+ALL_SANITIZE_OPTIONS:=-fsanitize=leak -fsanitize=undefined \
         -fsanitize=shift -fsanitize=integer-divide-by-zero \
         -fsanitize=unreachable -fsanitize=vla-bound -fsanitize=null \
         -fsanitize=return -fsanitize=signed-integer-overflow \
