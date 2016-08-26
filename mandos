@@ -507,8 +507,11 @@ class GnuTLS(object):
     """This isn't so much a class as it is a module-like namespace.
     It is instantiated once, and simulates having a GnuTLS module."""
 
-    _library = ctypes.cdll.LoadLibrary(
-        ctypes.util.find_library("gnutls"))
+    library = ctypes.util.find_library("gnutls")
+    if library is None:
+        library = ctypes.util.find_library("gnutls-deb0")
+    _library = ctypes.cdll.LoadLibrary(library)
+    del library
     _need_version = b"3.3.0"
 
     def __init__(self):
