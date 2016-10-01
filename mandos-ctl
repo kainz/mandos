@@ -75,7 +75,7 @@ busname = domain + ".Mandos"
 server_path = "/"
 server_interface = domain + ".Mandos"
 client_interface = domain + ".Mandos.Client"
-version = "1.7.10"
+version = "1.7.11"
 
 
 try:
