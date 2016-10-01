@@ -1,3 +1,11 @@
+mandos (1.7.11-1) unstable; urgency=high
+
+  * New upstream release.
+  * debian/control (Source: mandos/Vcs-Bzr): Change to use HTTPS.
+    (Vcs-Browser): - '' -
+
+ -- Teddy Hogeborn <teddy@recompile.se>  Sat, 01 Oct 2016 16:20:48 +0200
+
 mandos (1.7.10-1) unstable; urgency=high
 
   * New upstream release.

@@ -1,6 +1,15 @@
 This NEWS file records noteworthy changes, very tersely.
 See the manual for detailed information.
 
+Version 1.7.11 (2016-10-01)
+* Client
+** Security fix: Don't compile with AddressSanitizer
+* Server
+** Bug fix: Find GnuTLS library when gnutls28-dev is not installed
+** Bug fix: Include "Expires" and "Last Checker Status" in mandos-ctl
+   verbose output
+** New option for mandos-ctl: --dump-json
+
 Version 1.7.10 (2016-06-23)
 * Client
 ** Security fix: restrict permissions of /etc/mandos/plugin-helpers
