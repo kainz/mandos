@@ -1,11 +1,11 @@
 #!/usr/bin/python
 # -*- mode: python; coding: utf-8 -*-
-# 
+#
 # Mandos Monitor - Control and monitor the Mandos server
-# 
+#
 # Copyright © 2008-2016 Teddy Hogeborn
 # Copyright © 2008-2016 Björn Påhlsson
-# 
+#
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
@@ -15,13 +15,13 @@
 #     but WITHOUT ANY WARRANTY; without even the implied warranty of
 #     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #     GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see
 # <http://www.gnu.org/licenses/>.
-# 
+#
 # Contact the authors at <mandos@recompile.se>.
-# 
+#
 
 from __future__ import (division, absolute_import, print_function,
                         unicode_literals)
@@ -39,6 +39,7 @@ import re
 import os
 import collections
 import doctest
+import json
 
 import dbus
 
@@ -64,7 +65,9 @@ tablewords = {
     "ApprovalDelay": "Approval Delay",
     "ApprovalDuration": "Approval Duration",
     "Checker": "Checker",
-    "ExtendedTimeout": "Extended Timeout"
+    "ExtendedTimeout": "Extended Timeout",
+    "Expires": "Expires",
+    "LastCheckerStatus": "Last Checker Status",
 }
 defaultkeywords = ("Name", "Enabled", "Timeout", "LastCheckedOK")
 domain = "se.recompile"
@@ -80,18 +83,19 @@ try:
 except AttributeError:
     dbus.OBJECT_MANAGER_IFACE = "org.freedesktop.DBus.ObjectManager"
 
+
 def milliseconds_to_string(ms):
     td = datetime.timedelta(0, 0, 0, ms)
-    return ("{days}{hours:02}:{minutes:02}:{seconds:02}".format(
-        days = "{}T".format(td.days) if td.days else "",
-        hours = td.seconds // 3600,
-        minutes = (td.seconds % 3600) // 60,
-        seconds = td.seconds % 60))
+    return ("{days}{hours:02}:{minutes:02}:{seconds:02}"
+            .format(days="{}T".format(td.days) if td.days else "",
+                    hours=td.seconds // 3600,
+                    minutes=(td.seconds % 3600) // 60,
+                    seconds=td.seconds % 60))
 
 
 def rfc3339_duration_to_delta(duration):
     """Parse an RFC 3339 "duration" and return a datetime.timedelta
-    
+
     >>> rfc3339_duration_to_delta("P7D")
     datetime.timedelta(7)
     >>> rfc3339_duration_to_delta("PT60S")
@@ -107,14 +111,14 @@ def rfc3339_duration_to_delta(duration):
     >>> rfc3339_duration_to_delta("P1DT3M20S")
     datetime.timedelta(1, 200)
     """
-    
+
     # Parsing an RFC 3339 duration with regular expressions is not
     # possible - there would have to be multiple places for the same
     # values, like seconds.  The current code, while more esoteric, is
     # cleaner without depending on a parsing library.  If Python had a
     # built-in library for parsing we would use it, but we'd like to
     # avoid excessive use of external libraries.
-    
+
     # New type for defining tokens, syntax, and semantics all-in-one
     Token = collections.namedtuple("Token", (
         "regexp",  # To match token; if "value" is not None, must have
@@ -153,11 +157,14 @@ def rfc3339_duration_to_delta(duration):
                            frozenset((token_year, token_month,
                                       token_day, token_time,
                                       token_week)))
-    # Define starting values
-    value = datetime.timedelta() # Value so far
+    # Define starting values:
+    # Value so far
+    value = datetime.timedelta()
     found_token = None
-    followers = frozenset((token_duration, )) # Following valid tokens
-    s = duration                # String left to parse
+    # Following valid tokens
+    followers = frozenset((token_duration, ))
+    # String left to parse
+    s = duration
     # Loop until end token is found
     while found_token is not token_end:
         # Search for any currently valid tokens
@@ -187,7 +194,7 @@ def rfc3339_duration_to_delta(duration):
 
 def string_to_delta(interval):
     """Parse a string and return a datetime.timedelta
-    
+
     >>> string_to_delta('7d')
     datetime.timedelta(7)
     >>> string_to_delta('60s')
@@ -201,15 +208,15 @@ def string_to_delta(interval):
     >>> string_to_delta('5m 30s')
     datetime.timedelta(0, 330)
     """
-    
+
     try:
         return rfc3339_duration_to_delta(interval)
     except ValueError:
         pass
-    
+
     value = datetime.timedelta(0)
     regexp = re.compile(r"(\d+)([dsmhw]?)")
-    
+
     for num, suffix in regexp.findall(interval):
         if suffix == "d":
             value += datetime.timedelta(int(num))
@@ -234,20 +241,20 @@ def print_clients(clients, keywords):
                        "ApprovalDuration", "ExtendedTimeout"):
             return milliseconds_to_string(value)
         return str(value)
-    
+
     # Create format string to print table rows
     format_string = " ".join("{{{key}:{width}}}".format(
-        width = max(len(tablewords[key]),
-                    max(len(valuetostring(client[key], key))
-                        for client in clients)),
-        key = key)
+        width=max(len(tablewords[key]),
+                  max(len(valuetostring(client[key], key))
+                      for client in clients)),
+        key=key)
                              for key in keywords)
     # Print header line
     print(format_string.format(**tablewords))
     for client in clients:
-        print(format_string.format(**{
-            key: valuetostring(client[key], key)
-            for key in keywords }))
+        print(format_string
+              .format(**{key: valuetostring(client[key], key)
+                         for key in keywords}))
 
 
 def has_actions(options):
@@ -274,12 +281,14 @@ def has_actions(options):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--version", action="version",
-                        version = "%(prog)s {}".format(version),
+                        version="%(prog)s {}".format(version),
                         help="show version number and exit")
     parser.add_argument("-a", "--all", action="store_true",
                         help="Select all clients")
     parser.add_argument("-v", "--verbose", action="store_true",
                         help="Print all fields")
+    parser.add_argument("-j", "--dump-json", action="store_true",
+                        help="Dump client data in JSON format")
     parser.add_argument("-e", "--enable", action="store_true",
                         help="Enable client")
     parser.add_argument("-d", "--disable", action="store_true",
@@ -324,58 +333,61 @@ def main():
                         help="Run self-test")
     parser.add_argument("client", nargs="*", help="Client name")
     options = parser.parse_args()
-    
+
     if has_actions(options) and not (options.client or options.all):
         parser.error("Options require clients names or --all.")
     if options.verbose and has_actions(options):
-        parser.error("--verbose can only be used alone or with"
-                     " --all.")
+        parser.error("--verbose can only be used alone.")
+    if options.dump_json and (options.verbose
+                              or has_actions(options)):
+        parser.error("--dump-json can only be used alone.")
     if options.all and not has_actions(options):
         parser.error("--all requires an action.")
 
     if options.check:
         fail_count, test_count = doctest.testmod()
         sys.exit(os.EX_OK if fail_count == 0 else 1)
-    
+
     try:
         bus = dbus.SystemBus()
         mandos_dbus_objc = bus.get_object(busname, server_path)
     except dbus.exceptions.DBusException:
         print("Could not connect to Mandos server", file=sys.stderr)
         sys.exit(1)
-    
+
     mandos_serv = dbus.Interface(mandos_dbus_objc,
-                                 dbus_interface = server_interface)
+                                 dbus_interface=server_interface)
     mandos_serv_object_manager = dbus.Interface(
-        mandos_dbus_objc, dbus_interface = dbus.OBJECT_MANAGER_IFACE)
-    
-    #block stderr since dbus library prints to stderr
+        mandos_dbus_objc, dbus_interface=dbus.OBJECT_MANAGER_IFACE)
+
+    # block stderr since dbus library prints to stderr
     null = os.open(os.path.devnull, os.O_RDWR)
     stderrcopy = os.dup(sys.stderr.fileno())
     os.dup2(null, sys.stderr.fileno())
     os.close(null)
     try:
         try:
-            mandos_clients = { path: ifs_and_props[client_interface]
-                               for path, ifs_and_props in
-                               mandos_serv_object_manager
-                               .GetManagedObjects().items()
-                               if client_interface in ifs_and_props }
+            mandos_clients = {path: ifs_and_props[client_interface]
+                              for path, ifs_and_props in
+                              mandos_serv_object_manager
+                              .GetManagedObjects().items()
+                              if client_interface in ifs_and_props}
         finally:
-            #restore stderr
+            # restore stderr
             os.dup2(stderrcopy, sys.stderr.fileno())
             os.close(stderrcopy)
     except dbus.exceptions.DBusException as e:
-        print("Access denied: Accessing mandos server through D-Bus: {}"
-              .format(e), file=sys.stderr)
+        print("Access denied: "
+              "Accessing mandos server through D-Bus: {}".format(e),
+              file=sys.stderr)
         sys.exit(1)
-    
+
     # Compile dict of (clients: properties) to process
-    clients={}
-    
+    clients = {}
+
     if options.all or not options.client:
-        clients = { bus.get_object(busname, path): properties
-                    for path, properties in mandos_clients.items() }
+        clients = {bus.get_object(busname, path): properties
+                   for path, properties in mandos_clients.items()}
     else:
         for name in options.client:
             for path, client in mandos_clients.items():
@@ -387,36 +399,49 @@ def main():
                 print("Client not found on server: {!r}"
                       .format(name), file=sys.stderr)
                 sys.exit(1)
-    
+
     if not has_actions(options) and clients:
-        if options.verbose:
+        if options.verbose or options.dump_json:
             keywords = ("Name", "Enabled", "Timeout", "LastCheckedOK",
                         "Created", "Interval", "Host", "Fingerprint",
                         "CheckerRunning", "LastEnabled",
                         "ApprovalPending", "ApprovedByDefault",
                         "LastApprovalRequest", "ApprovalDelay",
                         "ApprovalDuration", "Checker",
-                        "ExtendedTimeout")
+                        "ExtendedTimeout", "Expires",
+                        "LastCheckerStatus")
         else:
             keywords = defaultkeywords
-        
-        print_clients(clients.values(), keywords)
+
+        if options.dump_json:
+            json.dump({client["Name"]: {key:
+                                        bool(client[key])
+                                        if isinstance(client[key],
+                                                      dbus.Boolean)
+                                        else client[key]
+                                        for key in keywords}
+                       for client in clients.values()},
+                      fp=sys.stdout, indent=4,
+                      separators=(',', ': '))
+            print()
+        else:
+            print_clients(clients.values(), keywords)
     else:
         # Process each client in the list by all selected options
         for client in clients:
-            
+
             def set_client_prop(prop, value):
                 """Set a Client D-Bus property"""
                 client.Set(client_interface, prop, value,
                            dbus_interface=dbus.PROPERTIES_IFACE)
-            
+
             def set_client_prop_ms(prop, value):
                 """Set a Client D-Bus property, converted
                 from a string to milliseconds."""
                 set_client_prop(prop,
                                 string_to_delta(value).total_seconds()
                                 * 1000)
-            
+
             if options.remove:
                 mandos_serv.RemoveClient(client.__dbus_object_path__)
             if options.enable:
@@ -430,11 +455,11 @@ def main():
             if options.stop_checker:
                 set_client_prop("CheckerRunning", dbus.Boolean(False))
             if options.is_enabled:
-                sys.exit(0 if client.Get(client_interface,
-                                         "Enabled",
-                                         dbus_interface=
-                                         dbus.PROPERTIES_IFACE)
-                         else 1)
+                if client.Get(client_interface, "Enabled",
+                              dbus_interface=dbus.PROPERTIES_IFACE):
+                    sys.exit(0)
+                else:
+                    sys.exit(1)
             if options.checker is not None:
                 set_client_prop("Checker", options.checker)
             if options.host is not None:

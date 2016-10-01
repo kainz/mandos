@@ -38,12 +38,12 @@
     "man -l mandos.8".
     
 *** Mandos Server
-    + GnuTLS 3.3          http://www.gnutls.org/
+    + GnuTLS 3.3          https://www.gnutls.org/
     + Avahi 0.6.16        http://www.avahi.org/
     + Python 2.7          https://www.python.org/
-    + dbus-python 0.82.4  http://dbus.freedesktop.org/doc/dbus-python/
+    + dbus-python 0.82.4 https://dbus.freedesktop.org/doc/dbus-python/
     + PyGObject 3.7.1     https://wiki.gnome.org/Projects/PyGObject
-    + pkg-config  http://www.freedesktop.org/wiki/Software/pkg-config/
+    + pkg-config https://www.freedesktop.org/wiki/Software/pkg-config/
     + Urwid 1.0.1         http://urwid.org/
       (Only needed by the "mandos-monitor" tool.)
     
@@ -59,11 +59,11 @@
     + GNU C Library 2.16 https://gnu.org/software/libc/
     + initramfs-tools 0.85i
                         https://tracker.debian.org/pkg/initramfs-tools
-    + GnuTLS 3.3        http://www.gnutls.org/
+    + GnuTLS 3.3        https://www.gnutls.org/
     + Avahi 0.6.16      http://www.avahi.org/
     + GnuPG 1.4.9       https://www.gnupg.org/
     + GPGME 1.1.6       https://www.gnupg.org/related_software/gpgme/
-    + pkg-config  http://www.freedesktop.org/wiki/Software/pkg-config/
+    + pkg-config https://www.freedesktop.org/wiki/Software/pkg-config/
     
     Strongly recommended:
     + OpenSSH           http://www.openssh.com/
