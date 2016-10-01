@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY COMMANDNAME "mandos-ctl">
-<!ENTITY TIMESTAMP "2016-03-05">
+<!ENTITY TIMESTAMP "2016-06-27">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -52,109 +52,111 @@
   <refnamediv>
     <refname><command>&COMMANDNAME;</command></refname>
     <refpurpose>
-      Control the operation of the Mandos server
+      Control or query the operation of the Mandos server
     </refpurpose>
   </refnamediv>
   
   <refsynopsisdiv>
     <cmdsynopsis>
       <command>&COMMANDNAME;</command>
-      <group>
-	<arg choice="plain"><option>--enable</option></arg>
-	<arg choice="plain"><option>-e</option></arg>
+      <group choice="req">
+	<group>
+	  <arg choice="plain"><option>--enable</option></arg>
+	  <arg choice="plain"><option>-e</option></arg>
+	  <sbr/>
+	  <arg choice="plain"><option>--disable</option></arg>
+	  <arg choice="plain"><option>-d</option></arg>
+	</group>
 	<sbr/>
-	<arg choice="plain"><option>--disable</option></arg>
-	<arg choice="plain"><option>-d</option></arg>
-      </group>
-      <sbr/>
-      <group>
-	<arg choice="plain"><option>--bump-timeout</option></arg>
-	<arg choice="plain"><option>-b</option></arg>
-      </group>
-      <sbr/>
-      <group>
-	<arg choice="plain"><option>--start-checker</option></arg>
-      </group>
-      <sbr/>
-      <group>
-	<arg choice="plain"><option>--stop-checker</option></arg>
-      </group>
-      <sbr/>
-      <group>
-	<arg choice="plain"><option>--remove</option></arg>
-	<arg choice="plain"><option>-r</option></arg>
-      </group>
-      <sbr/>
-      <group>
-	<arg choice="plain"><option>--checker
-	<replaceable>COMMAND</replaceable></option></arg>
-	<arg choice="plain"><option>-c
-	<replaceable>COMMAND</replaceable></option></arg>
-      </group>
-      <sbr/>
-      <group>
-	<arg choice="plain"><option>--timeout
-	<replaceable>TIME</replaceable></option></arg>
-	<arg choice="plain"><option>-t
-	<replaceable>TIME</replaceable></option></arg>
-      </group>
-      <sbr/>
-      <group>
-	<arg choice="plain"><option>--extended-timeout
-	<replaceable>TIME</replaceable></option></arg>
-      </group>
-      <sbr/>
-      <group>
-	<arg choice="plain"><option>--interval
-	<replaceable>TIME</replaceable></option></arg>
-	<arg choice="plain"><option>-i
-	<replaceable>TIME</replaceable></option></arg>
-      </group>
-      <sbr/>
-      <group>
-	<arg choice="plain"><option>--approve-by-default</option
-        ></arg>
+	<group>
+	  <arg choice="plain"><option>--bump-timeout</option></arg>
+	  <arg choice="plain"><option>-b</option></arg>
+	</group>
 	<sbr/>
-	<arg choice="plain"><option>--deny-by-default</option></arg>
-      </group>
-      <sbr/>
-      <group>
-	<arg choice="plain"><option>--approval-delay
-	<replaceable>TIME</replaceable></option></arg>
-      </group>
-      <sbr/>
-      <group>
-	<arg choice="plain"><option>--approval-duration
-	<replaceable>TIME</replaceable></option></arg>
-      </group>
-      <sbr/>
-      <group>
-	<arg choice="plain"><option>--interval
-	<replaceable>TIME</replaceable></option></arg>
-	<arg choice="plain"><option>-i
-	<replaceable>TIME</replaceable></option></arg>
-      </group>
-      <sbr/>
-      <group>
-	<arg choice="plain"><option>--host
-	<replaceable>STRING</replaceable></option></arg>
-	<arg choice="plain"><option>-H
-	<replaceable>STRING</replaceable></option></arg>
-      </group>
-      <sbr/>
-      <group>
-	<arg choice="plain"><option>--secret
-	<replaceable>FILENAME</replaceable></option></arg>
-	<arg choice="plain"><option>-s
-	<replaceable>FILENAME</replaceable></option></arg>
-      </group>
-      <sbr/>
-      <group>
-	<arg choice="plain"><option>--approve</option></arg>
-	<arg choice="plain"><option>-A</option></arg>
+	<group>
+	  <arg choice="plain"><option>--start-checker</option></arg>
+	</group>
 	<sbr/>
-	<arg choice="plain"><option>--deny</option></arg>
-	<arg choice="plain"><option>-D</option></arg>
+	<group>
+	  <arg choice="plain"><option>--stop-checker</option></arg>
+	</group>
+	<sbr/>
+	<group>
+	  <arg choice="plain"><option>--remove</option></arg>
+	  <arg choice="plain"><option>-r</option></arg>
+	</group>
+	<sbr/>
+	<group>
+	  <arg choice="plain"><option>--checker
+	  <replaceable>COMMAND</replaceable></option></arg>
+	  <arg choice="plain"><option>-c
+	  <replaceable>COMMAND</replaceable></option></arg>
+	</group>
+	<sbr/>
+	<group>
+	  <arg choice="plain"><option>--timeout
+	  <replaceable>TIME</replaceable></option></arg>
+	  <arg choice="plain"><option>-t
+	  <replaceable>TIME</replaceable></option></arg>
+	</group>
+	<sbr/>
+	<group>
+	  <arg choice="plain"><option>--extended-timeout
+	  <replaceable>TIME</replaceable></option></arg>
+	</group>
+	<sbr/>
+	<group>
+	  <arg choice="plain"><option>--interval
+	  <replaceable>TIME</replaceable></option></arg>
+	  <arg choice="plain"><option>-i
+	  <replaceable>TIME</replaceable></option></arg>
+	</group>
+	<sbr/>
+	<group>
+	  <arg choice="plain"><option>--approve-by-default</option
+          ></arg>
+	  <sbr/>
+	  <arg choice="plain"><option>--deny-by-default</option></arg>
+	</group>
+	<sbr/>
+	<group>
+	  <arg choice="plain"><option>--approval-delay
+	  <replaceable>TIME</replaceable></option></arg>
+	</group>
+	<sbr/>
+	<group>
+	  <arg choice="plain"><option>--approval-duration
+	  <replaceable>TIME</replaceable></option></arg>
+	</group>
+	<sbr/>
+	<group>
+	  <arg choice="plain"><option>--interval
+	  <replaceable>TIME</replaceable></option></arg>
+	  <arg choice="plain"><option>-i
+	  <replaceable>TIME</replaceable></option></arg>
+	</group>
+	<sbr/>
+	<group>
+	  <arg choice="plain"><option>--host
+	  <replaceable>STRING</replaceable></option></arg>
+	  <arg choice="plain"><option>-H
+	  <replaceable>STRING</replaceable></option></arg>
+	</group>
+	<sbr/>
+	<group>
+	  <arg choice="plain"><option>--secret
+	  <replaceable>FILENAME</replaceable></option></arg>
+	  <arg choice="plain"><option>-s
+	  <replaceable>FILENAME</replaceable></option></arg>
+	</group>
+	<sbr/>
+	<group>
+	  <arg choice="plain"><option>--approve</option></arg>
+	  <arg choice="plain"><option>-A</option></arg>
+	  <sbr/>
+	  <arg choice="plain"><option>--deny</option></arg>
+	  <arg choice="plain"><option>-D</option></arg>
+	</group>
       </group>
       <sbr/>
       <group choice="req">
@@ -168,8 +170,11 @@
     <cmdsynopsis>
       <command>&COMMANDNAME;</command>
       <group>
-	<arg choice="plain"><option>--verbose</option></arg>
-	<arg choice="plain"><option>-v</option></arg>
+	  <arg choice="plain"><option>--verbose</option></arg>
+	  <arg choice="plain"><option>-v</option></arg>
+	  <sbr/>
+	  <arg choice="plain"><option>--dump-json</option></arg>
+	  <arg choice="plain"><option>-j</option></arg>
       </group>
       <group>
 	<arg rep='repeat' choice='plain'>
@@ -208,9 +213,10 @@
   <refsect1 id="description">
     <title>DESCRIPTION</title>
     <para>
-      <command>&COMMANDNAME;</command> is a program to control the
-      operation of the Mandos server <citerefentry><refentrytitle
-      >mandos</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+      <command>&COMMANDNAME;</command> is a program to control or
+      query the operation of the Mandos server
+      <citerefentry><refentrytitle>mandos</refentrytitle><manvolnum
+      >8</manvolnum></citerefentry>.
     </para>
     <para>
       This program can be used to change client settings, approve or
@@ -469,6 +475,16 @@
 	<listitem>
 	  <para>
 	    Show all client settings, not just a subset.
+	  </para>
+	</listitem>
+      </varlistentry>
+      
+      <varlistentry>
+	<term><option>--dump-json</option></term>
+	<term><option>-j</option></term>
+	<listitem>
+	  <para>
+	    Dump client settings as JSON to standard output.
 	  </para>
 	</listitem>
       </varlistentry>

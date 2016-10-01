@@ -47,7 +47,8 @@
 				   strtof(), abort() */
 #include <stdbool.h>		/* bool, false, true */
 #include <string.h>		/* strcmp(), strlen(), strerror(),
-				   asprintf(), strncpy() */
+				   asprintf(), strncpy(), strsignal()
+				*/
 #include <sys/ioctl.h>		/* ioctl */
 #include <sys/types.h>		/* socket(), inet_pton(), sockaddr,
 				   sockaddr_in6, PF_INET6,
@@ -1237,7 +1238,7 @@ static int start_mandos_communication(const char *ip, in_port_t port,
 	   with an explicit route added with the server's address.
 	   
 	   Avahi bug reference:
-	   http://lists.freedesktop.org/archives/avahi/2010-February/001833.html
+	   https://lists.freedesktop.org/archives/avahi/2010-February/001833.html
 	   https://bugs.debian.org/587961
 	*/
 	if(debug){
@@ -1423,6 +1424,7 @@ static int start_mandos_communication(const char *ip, in_port_t port,
 					       &decrypted_buffer, mc);
     if(decrypted_buffer_size >= 0){
       
+      clearerr(stdout);
       written = 0;
       while(written < (size_t) decrypted_buffer_size){
 	if(quit_now){
@@ -1443,6 +1445,16 @@ static int start_mandos_communication(const char *ip, in_port_t port,
 	  goto mandos_end;
 	}
 	written += (size_t)ret;
+      }
+      ret = fflush(stdout);
+      if(ret != 0){
+	int e = errno;
+	if(debug){
+	  fprintf_plus(stderr, "Error writing encrypted data: %s\n",
+		       strerror(errno));
+	}
+	errno = e;
+	goto mandos_end;
       }
       retval = 0;
     }
@@ -2485,7 +2497,7 @@ int main(int argc, char *argv[]){
   
   {
     /* Work around Debian bug #633582:
-       <http://bugs.debian.org/633582> */
+       <https://bugs.debian.org/633582> */
     
     /* Re-raise privileges */
     ret = raise_privileges();
@@ -2946,7 +2958,13 @@ int main(int argc, char *argv[]){
  end:
   
   if(debug){
-    fprintf_plus(stderr, "%s exiting\n", argv[0]);
+    if(signal_received){
+      fprintf_plus(stderr, "%s exiting due to signal %d: %s\n",
+		   argv[0], signal_received,
+		   strsignal(signal_received));
+    } else {
+      fprintf_plus(stderr, "%s exiting\n", argv[0]);
+    }
   }
   
   /* Cleanup things */
