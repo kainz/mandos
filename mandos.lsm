@@ -1,7 +1,7 @@
 Begin4
 Title:		Mandos
-Version:	1.7.11
-Entered-date:	2016-10-01
+Version:	1.7.12
+Entered-date:	2016-10-05
 Description:	The Mandos system allows computers to have encrypted
 		root file systems and at the same time be capable of
 		remote and/or unattended reboots.
@@ -12,9 +12,9 @@ Author:		teddy@recompile.se (Teddy Hogeborn),
 Maintained-by:	teddy@recompile.se (Teddy Hogeborn),
 		belorn@recompile.se (Björn Påhlsson)
 Primary-site:	https://www.recompile.se/mandos
-		173K mandos_1.7.11.orig.tar.gz
+		173K mandos_1.7.12.orig.tar.gz
 Alternate-site:	ftp://ftp.recompile.se/pub/mandos
-		173K mandos_1.7.11.orig.tar.gz
+		173K mandos_1.7.12.orig.tar.gz
 Platforms:	Requires GCC, GNU libC, Avahi, GnuPG, Python 2.7, and
 		various other libraries.  While made for Debian
 		GNU/Linux, it is probably portable to other
