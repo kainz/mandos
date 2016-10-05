@@ -626,6 +626,7 @@ static int init_gnutls_global(const char *pubkeyfilename,
 		     safer_gnutls_strerror(ret));
 	dhparamsfilename = NULL;
       }
+      free(params.data);
     } while(false);
   }
   if(dhparamsfilename == NULL){
