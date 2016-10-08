@@ -218,6 +218,7 @@ if [ "$mode" = keygen ]; then
 	#Handle: <no-spaces>
 	#%pubring pubring.gpg
 	#%secring secring.gpg
+	%no-protection
 	%commit
 	EOF
     
