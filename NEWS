@@ -1,6 +1,11 @@
 This NEWS file records noteworthy changes, very tersely.
 See the manual for detailed information.
 
+Version 1.7.13 (2016-10-08)
+* Client
+** Minor bug fix: Don't ask for passphrase or fail when generating
+   keys using GnuPG 2.1 in a chrooted environment.
+
 Version 1.7.12 (2016-10-05)
 * Client
 ** Bug fix: Don't crash after exit() when using DH parameters file

@@ -1,3 +1,11 @@
+mandos (1.7.13-1) unstable; urgency=medium
+
+  * New upstream release.
+  * Fix "fails to install noninteractively" by using the "%no-protection"
+    statement in the GnuPG batch parameter file. (Closes: #840001)
+
+ -- Teddy Hogeborn <teddy@recompile.se>  Sat, 08 Oct 2016 06:31:07 +0200
+
 mandos (1.7.12-1) unstable; urgency=medium
 
   * New upstream release.
