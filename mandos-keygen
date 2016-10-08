@@ -218,6 +218,7 @@ if [ "$mode" = keygen ]; then
 	#Handle: <no-spaces>
 	#%pubring pubring.gpg
 	#%secring secring.gpg
+	%no-protection
 	%commit
 	EOF
     
@@ -324,10 +325,10 @@ if [ "$mode" = password ]; then
 	    cat "$PASSFILE"
 	else
 	    tty --quiet && stty -echo
-	    echo -n "Enter passphrase: " >&2
+	    echo -n "Enter passphrase: " >/dev/tty
 	    read first
 	    tty --quiet && echo >&2
-	    echo -n "Repeat passphrase: " >&2
+	    echo -n "Repeat passphrase: " >/dev/tty
 	    read second
 	    if tty --quiet; then
 		echo >&2
