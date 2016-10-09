@@ -57,6 +57,7 @@ create_key(){
 	return 0
     fi
     mandos-keygen
+    gpg-connect-agent KILLAGENT /bye || :
 }
 
 create_dh_params(){
