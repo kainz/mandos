@@ -20,7 +20,7 @@ Architecture: all
 Depends: ${misc:Depends}, python (>= 2.7), python (<< 3),
 	libgnutls28-dev (>= 3.3.0) | libgnutls30 (>= 3.3.0),
 	python-dbus, python-gi, avahi-daemon, adduser, python-urwid,
-	gnupg, systemd-sysv | lsb-base (>= 3.0-6)
+	gnupg2 | gnupg, systemd-sysv | lsb-base (>= 3.0-6)
 Recommends: ssh-client | fping
 Description: server giving encrypted passwords to Mandos clients
  This is the server part of the Mandos system, which allows
