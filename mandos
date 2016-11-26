@@ -1460,6 +1460,7 @@ class DBusObjectWithProperties(DBusObjectWithAnnotations):
                          exc_info=error)
         return xmlstring
 
+
 try:
     dbus.OBJECT_MANAGER_IFACE
 except AttributeError:
