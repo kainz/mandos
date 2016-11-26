@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
-<!ENTITY TIMESTAMP "2016-03-22">
+<!ENTITY TIMESTAMP "2016-11-27">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -77,6 +77,8 @@
   <refsect1 id="introduction">
     <title>INTRODUCTION</title>
     <para>
+      <!-- This paragraph is a combination and paraphrase of two
+           quotes from the 1995 movie “The Usual Suspects”. -->
       You know how it is.  You’ve heard of it happening.  The Man
       comes and takes away your servers, your friends’ servers, the
       servers of everybody in the same hosting facility. The servers
