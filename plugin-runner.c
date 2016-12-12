@@ -792,7 +792,7 @@ int main(int argc, char *argv[]){
   }
   
   if(debug){
-    for(plugin *p = plugin_list; p != NULL; p=p->next){
+    for(plugin *p = plugin_list; p != NULL; p = p->next){
       fprintf(stderr, "Plugin: %s has %d arguments\n",
 	      p->name ? p->name : "Global", p->argc - 1);
       for(char **a = p->argv; *a != NULL; a++){
