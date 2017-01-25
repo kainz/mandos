@@ -8,7 +8,7 @@ After=network.target
 ## If the server is configured to not use ZeroConf, these two lines
 ## become unnecessary and should be removed or commented out.
 After=avahi-daemon.service
-RequisiteOverridable=avahi-daemon.service
+Requisite=avahi-daemon.service
 
 [Service]
 ## If the server's D-Bus interface is disabled, the "BusName" setting
