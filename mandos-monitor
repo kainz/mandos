@@ -733,6 +733,7 @@ class UserInterface(object):
                 self.refresh()
         return True
 
+
 ui = UserInterface()
 try:
     ui.run()

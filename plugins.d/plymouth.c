@@ -181,7 +181,7 @@ bool exec_and_wait(pid_t *pid_return, const char *path,
     }
     char **tmp;
     int i = 0;
-    for (; argv[i]!=NULL; i++){
+    for (; argv[i] != NULL; i++){
       tmp = realloc(new_argv, sizeof(const char *) * ((size_t)i + 2));
       if(tmp == NULL){
 	error_plus(0, errno, "realloc");

@@ -515,12 +515,11 @@ class GnuTLS(object):
     _need_version = b"3.3.0"
 
     def __init__(self):
-        # Need to use class name "GnuTLS" here, since this method is
-        # called before the assignment to the "gnutls" global variable
-        # happens.
-        if GnuTLS.check_version(self._need_version) is None:
-            raise GnuTLS.Error("Needs GnuTLS {} or later"
-                               .format(self._need_version))
+        # Need to use "self" here, since this method is called before
+        # the assignment to the "gnutls" global variable happens.
+        if self.check_version(self._need_version) is None:
+            raise self.Error("Needs GnuTLS {} or later"
+                             .format(self._need_version))
 
     # Unless otherwise indicated, the constants and types below are
     # all from the gnutls/gnutls.h C header file.
@@ -1460,6 +1459,7 @@ class DBusObjectWithProperties(DBusObjectWithAnnotations):
             logger.error("Failed to override Introspection method",
                          exc_info=error)
         return xmlstring
+
 
 try:
     dbus.OBJECT_MANAGER_IFACE

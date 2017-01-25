@@ -1079,8 +1079,9 @@ static int start_mandos_communication(const char *ip, in_port_t port,
     bool match = false;
     {
       char *interface = NULL;
-      while((interface=argz_next(mc->interfaces, mc->interfaces_size,
-				 interface))){
+      while((interface = argz_next(mc->interfaces,
+				   mc->interfaces_size,
+				   interface))){
 	if(if_nametoindex(interface) == (unsigned int)if_index){
 	  match = true;
 	  break;
@@ -2196,7 +2197,7 @@ int bring_up_interface(const char *const interface,
   
   /* Sleep checking until interface is running.
      Check every 0.25s, up to total time of delay */
-  for(int i=0; i < delay * 4; i++){
+  for(int i = 0; i < delay * 4; i++){
     if(interface_is_running(interface)){
       break;
     }
@@ -3023,9 +3024,9 @@ int main(int argc, char *argv[]){
       /* Take down the network interfaces which were brought up */
       {
 	char *interface = NULL;
-	while((interface=argz_next(interfaces_to_take_down,
-				   interfaces_to_take_down_size,
-				   interface))){
+	while((interface = argz_next(interfaces_to_take_down,
+				     interfaces_to_take_down_size,
+				     interface))){
 	  ret = take_down_interface(interface);
 	  if(ret != 0){
 	    errno = ret;

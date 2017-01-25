@@ -283,15 +283,17 @@ check:	all
 run-client: all keydir/seckey.txt keydir/pubkey.txt
 	@echo "###################################################################"
 	@echo "# The following error messages are harmless and can be safely     #"
-	@echo "# ignored.  The messages are caused by not running as root, but   #"
-	@echo "# you should NOT run \"make run-client\" as root unless you also    #"
-	@echo "# unpacked and compiled Mandos as root, which is NOT recommended. #"
+	@echo "# ignored:                                                        #"
 	@echo "# From plugin-runner: setgid: Operation not permitted             #"
 	@echo "#                     setuid: Operation not permitted             #"
 	@echo "# From askpass-fifo:  mkfifo: Permission denied                   #"
 	@echo "# From mandos-client:                                             #"
 	@echo "#             Failed to raise privileges: Operation not permitted #"
 	@echo "#             Warning: network hook \"*\" exited with status *      #"
+	@echo "#                                                                 #"
+	@echo "# (The messages are caused by not running as root, but you should #"
+	@echo "# NOT run \"make run-client\" as root unless you also unpacked and  #"
+	@echo "# compiled Mandos as root, which is also NOT recommended.)        #"
 	@echo "###################################################################"
 # We set GNOME_KEYRING_CONTROL to block pam_gnome_keyring
 	./plugin-runner --plugin-dir=plugins.d \
