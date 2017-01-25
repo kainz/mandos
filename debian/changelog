@@ -1,3 +1,14 @@
+mandos (1.7.14-1) unstable; urgency=medium
+
+  * New upstream release.
+  * debian/mandos-client.postinst (create_key): Stop GPG agent after
+    running mandos-keygen.
+  * debian/control (Package: mandos/Depends): Add "systemd-sysv | lsb-base
+    (>= 3.0-6)", change "gnupg" to "gnupg2 | gnupg", and change
+    "libgpgme11-dev" to "libgpgme-dev | libgpgme11-dev".
+
+ -- Teddy Hogeborn <teddy@recompile.se>  Wed, 25 Jan 2017 20:36:03 +0100
+
 mandos (1.7.13-1) unstable; urgency=medium
 
   * New upstream release.
