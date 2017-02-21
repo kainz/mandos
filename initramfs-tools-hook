@@ -142,7 +142,7 @@ done
 for conf in /etc/initramfs-tools/conf.d/*; do
     if [ -n `basename \"$conf\" | grep '^[[:alnum:]][[:alnum:]\._-]*$' \
 	| grep -v '\.dpkg-.*$'` ]; then
-	[ -f ${conf} ] && . ${conf}
+	[ -f "${conf}" ] && . "${conf}"
     fi
 done
 export DEVICE

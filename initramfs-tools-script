@@ -57,7 +57,7 @@ test -w /conf/conf.d
 # Get DEVICE from /conf/initramfs.conf and other files
 . /conf/initramfs.conf
 for conf in /conf/conf.d/*; do
-    [ -f ${conf} ] && . ${conf}
+    [ -f "${conf}" ] && . "${conf}"
 done
 if [ -e /conf/param.conf ]; then
     . /conf/param.conf
