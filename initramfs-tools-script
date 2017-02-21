@@ -115,7 +115,7 @@ test -x "$mandos"
 # parse /conf/conf.d/cryptroot.  Format:
 # target=sda2_crypt,source=/dev/sda2,key=none,keyscript=/foo/bar/baz
 exec 3>/conf/conf.d/cryptroot.mandos
-while read options; do
+while read -r options; do
     newopts=""
     # Split option line on commas
     old_ifs="$IFS"
