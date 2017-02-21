@@ -1494,7 +1494,6 @@ static int start_mandos_communication(const char *ip, in_port_t port,
   return retval;
 }
 
-__attribute__((nonnull))
 static void resolve_callback(AvahiSServiceResolver *r,
 			     AvahiIfIndex interface,
 			     AvahiProtocol proto,
