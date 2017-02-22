@@ -2883,7 +2883,8 @@ def main():
     # Convert the SafeConfigParser object to a dict
     server_settings = server_config.defaults()
     # Use the appropriate methods on the non-string config options
-    for option in ("debug", "use_dbus", "use_ipv6", "foreground"):
+    for option in ("debug", "use_dbus", "use_ipv6", "restore",
+                   "foreground", "zeroconf"):
         server_settings[option] = server_config.getboolean("DEFAULT",
                                                            option)
     if server_settings["port"]:
