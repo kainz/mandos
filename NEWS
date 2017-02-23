@@ -1,6 +1,12 @@
 This NEWS file records noteworthy changes, very tersely.
 See the manual for detailed information.
 
+Version 1.7.15 (2017-02-23)
+* Server
+** Bug fix: Respect the mandos.conf "zeroconf" and "restore" options
+* Client
+** Bug fix in mandos-keygen: Handle backslashes in passphrases
+
 Version 1.7.14 (2017-01-25)
 * Server
 ** Use "Requisite" instead of "RequisiteOverridable" in systemd
