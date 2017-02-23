@@ -1,3 +1,14 @@
+mandos (1.7.15-1) unstable; urgency=medium
+
+  * New upstream release.
+  * Upstream release fixes "Seems not to be honoring zeroconf option at
+    mandos.conf" (Closes: #855589)
+  * debian/mandos.lintian-overrides (mandos): Add new line
+    "init.d-script-needs-depends-on-lsb-base etc/init.d/mandos (line 49)".
+  * debian/copyright: Update copyright year to 2017.
+
+ -- Teddy Hogeborn <teddy@recompile.se>  Thu, 23 Feb 2017 21:29:36 +0100
+
 mandos (1.7.14-1) unstable; urgency=medium
 
   * New upstream release.
