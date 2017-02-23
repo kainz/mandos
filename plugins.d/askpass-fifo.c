@@ -2,8 +2,8 @@
 /*
  * Askpass-FIFO - Read a password from a FIFO and output it
  * 
- * Copyright © 2008-2016 Teddy Hogeborn
- * Copyright © 2008-2016 Björn Påhlsson
+ * Copyright © 2008-2017 Teddy Hogeborn
+ * Copyright © 2008-2017 Björn Påhlsson
  * 
  * This program is free software: you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as

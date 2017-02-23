@@ -119,5 +119,16 @@
 
 * [[http://www.undeadly.org/cgi?action=article&sid=20110530221728][OpenBSD]]
 
+* TODO Use raw public keys (RFC 7250) for TLS communications 		  :2:
+** Support for this is planned for GnuTLS version 3.6
+   https://gitlab.com/gnutls/gnutls/issues/26
+** Rationale
+*** The client key is used both for communication and encryption
+    Using raw keys in GnuTLS instead uses separate keys for
+    communication and password decryption.
+*** GnuTLS 3.5.9 has deprecated the OpenPGP functions
+    The functions are still available, but deprecated:
+    https://gitlab.com/gnutls/gnutls/issues/102
+
 
 #+STARTUP: showall
