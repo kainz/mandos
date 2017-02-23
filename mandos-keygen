@@ -2,8 +2,8 @@
 # 
 # Mandos key generator - create a new OpenPGP key for a Mandos client
 # 
-# Copyright © 2008-2016 Teddy Hogeborn
-# Copyright © 2008-2016 Björn Påhlsson
+# Copyright © 2008-2017 Teddy Hogeborn
+# Copyright © 2008-2017 Björn Påhlsson
 # 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -326,10 +326,10 @@ if [ "$mode" = password ]; then
 	else
 	    tty --quiet && stty -echo
 	    echo -n "Enter passphrase: " >/dev/tty
-	    read first
+	    read -r first
 	    tty --quiet && echo >&2
 	    echo -n "Repeat passphrase: " >/dev/tty
-	    read second
+	    read -r second
 	    if tty --quiet; then
 		echo >&2
 		stty echo

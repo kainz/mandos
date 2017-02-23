@@ -9,8 +9,8 @@
  * "browse_callback", and parts of "main".
  * 
  * Everything else is
- * Copyright © 2008-2016 Teddy Hogeborn
- * Copyright © 2008-2016 Björn Påhlsson
+ * Copyright © 2008-2017 Teddy Hogeborn
+ * Copyright © 2008-2017 Björn Påhlsson
  * 
  * This program is free software: you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -1494,7 +1494,6 @@ static int start_mandos_communication(const char *ip, in_port_t port,
   return retval;
 }
 
-__attribute__((nonnull))
 static void resolve_callback(AvahiSServiceResolver *r,
 			     AvahiIfIndex interface,
 			     AvahiProtocol proto,
