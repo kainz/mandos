@@ -215,6 +215,12 @@ bool conflict_detection(void){
   if(ret == -1){
     error_plus(1, errno, "scandir");
   }
+  {
+    int i = ret;
+    while(i--){
+      free(direntries[i]);
+    }
+  }
   free(direntries);
   return ret > 0;
 }
