@@ -38,7 +38,6 @@ import datetime
 import re
 import os
 import collections
-import doctest
 import json
 
 import dbus
@@ -345,6 +344,7 @@ def main():
         parser.error("--all requires an action.")
 
     if options.check:
+        import doctest
         fail_count, test_count = doctest.testmod()
         sys.exit(os.EX_OK if fail_count == 0 else 1)
 
