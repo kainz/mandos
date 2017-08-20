@@ -29,7 +29,7 @@ if [ -e "$CONFIG" ]; then
     . "$CONFIG"
 fi
 
-if [ -z "$BRIDGE" -o -z "$PORT_ADDRESSES" ]; then
+if [ -z "$BRIDGE" ] || [ -z "$PORT_ADDRESSES" ]; then
     exit
 fi
 

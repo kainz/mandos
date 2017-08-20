@@ -161,8 +161,8 @@ if [ "$mode" = keygen ]; then
 	[Nn][Oo]|[Ff][Aa][Ll][Ss][Ee]|*) FORCE=0;;
     esac
     
-    if [ \( -e "$SECKEYFILE" -o -e "$PUBKEYFILE" \) \
-	-a "$FORCE" -eq 0 ]; then
+    if { [ -e "$SECKEYFILE" ] || [ -e "$PUBKEYFILE" ]; } \
+	&& [ "$FORCE" -eq 0 ]; then
 	echo "Refusing to overwrite old key files; use --force" >&2
 	exit 1
     fi
