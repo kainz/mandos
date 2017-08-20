@@ -113,10 +113,24 @@ mandos=/lib/mandos/plugin-runner
 test -x "$mandos"
 
 # parse /conf/conf.d/cryptroot.  Format:
-# target=sda2_crypt,source=/dev/sda2,key=none,keyscript=/foo/bar/baz
+# target=sda2_crypt,source=/dev/sda2,rootdev,key=none,keyscript=/foo/bar/baz
+# Is the root device specially marked?
+changeall=yes
+while read -r options; do
+    case "$options" in
+	rootdev,*|*,rootdev,*|*,rootdev)
+	    # If the root device is specially marked, don't change all
+	    # lines in crypttab by default.
+	    changeall=no
+	    ;;
+    esac
+done < /conf/conf.d/cryptroot
+
 exec 3>/conf/conf.d/cryptroot.mandos
 while read -r options; do
     newopts=""
+    keyscript=""
+    changethis="$changeall"
     # Split option line on commas
     old_ifs="$IFS"
     IFS="$IFS,"
@@ -128,6 +142,16 @@ while read -r options; do
 		newopts="$newopts,$opt"
 		;;
 	    "") : ;;
+	    # Always use Mandos on the root device, if marked
+	    rootdev)
+		changethis=yes
+		newopts="$newopts,$opt"
+		;;
+	    # Don't use Mandos on resume device, if marked
+	    resumedev)
+		changethis=no
+		newopts="$newopts,$opt"
+		;;
 	    *)
 		newopts="$newopts,$opt"
 		;;
@@ -136,7 +160,7 @@ while read -r options; do
     IFS="$old_ifs"
     unset old_ifs
     # If there was no keyscript option, add one.
-    if [ -z "$keyscript" ]; then
+    if [ "$changethis" = yes ] && [ -z "$keyscript" ]; then
 	replace_cryptroot=yes
 	newopts="$newopts,keyscript=$mandos"
     fi
