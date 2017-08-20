@@ -28,6 +28,8 @@ PrivateDevices=yes
 ProtectSystem=full
 ProtectHome=yes
 CapabilityBoundingSet=CAP_KILL CAP_SETGID CAP_SETUID CAP_DAC_OVERRIDE CAP_NET_RAW
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
 
 [Install]
 WantedBy=multi-user.target
