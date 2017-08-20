@@ -5,19 +5,20 @@
  * Copyright © 2008-2017 Teddy Hogeborn
  * Copyright © 2008-2017 Björn Påhlsson
  * 
- * This program is free software: you can redistribute it and/or
- * modify it under the terms of the GNU General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License, or (at your option) any later version.
+ * This file is part of Mandos.
  * 
- * This program is distributed in the hope that it will be useful, but
+ * Mandos is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * Mandos is distributed in the hope that it will be useful, but
  * WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
  * 
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see
- * <http://www.gnu.org/licenses/>.
+ * along with Mandos.  If not, see <http://www.gnu.org/licenses/>.
  * 
  * Contact the authors at <mandos@recompile.se>.
  */
@@ -214,6 +215,12 @@ bool conflict_detection(void){
   ret = scandir("/proc", &direntries, is_plymouth, alphasort);
   if(ret == -1){
     error_plus(1, errno, "scandir");
+  }
+  {
+    int i = ret;
+    while(i--){
+      free(direntries[i]);
+    }
   }
   free(direntries);
   return ret > 0;
