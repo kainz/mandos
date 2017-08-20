@@ -1,3 +1,13 @@
+mandos (1.7.16-1) unstable; urgency=medium
+
+  * New upstream release.
+  * debian/copyright (License): Use program name explicitly.
+    (Format): Use https in URL.
+  * debian/control (Priority): Change from "extra" to "optional".
+    (Standards-Version): Update to "4.0.1".
+
+ -- Teddy Hogeborn <teddy@recompile.se>  Sun, 20 Aug 2017 21:05:26 +0200
+
 mandos (1.7.15-1) unstable; urgency=medium
 
   * New upstream release.
