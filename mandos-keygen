@@ -289,8 +289,9 @@ if [ "$mode" = password ]; then
 	for ssh_keytype in ecdsa-sha2-nistp256 ed25519 rsa; do
 	    set +e
 	    ssh_fingerprint="`ssh-keyscan -t $ssh_keytype localhost 2>/dev/null`"
+	    err=$?
 	    set -e
-	    if [ $? -ne 0 ]; then
+	    if [ $err -ne 0 ]; then
 		ssh_fingerprint=""
 		continue
 	    fi
