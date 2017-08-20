@@ -1,6 +1,11 @@
 This NEWS file records noteworthy changes, very tersely.
 See the manual for detailed information.
 
+Version 1.7.16 (2017-08-20)
+* Client
+** Bug fix: ignore "resumedev" entries in initramfs' cryptroot file
+** Bug fix in plymouth plugin: fix memory leak, avoid warning output
+
 Version 1.7.15 (2017-02-23)
 * Server
 ** Bug fix: Respect the mandos.conf "zeroconf" and "restore" options
