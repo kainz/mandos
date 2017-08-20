@@ -10,7 +10,7 @@ Build-Depends: debhelper (>= 9), docbook-xml, docbook-xsl,
 	xsltproc, pkg-config, libnl-route-3-dev
 Build-Depends-Indep: systemd, python (>= 2.7), python (<< 3),
 	python-dbus, python-gi
-Standards-Version: 3.9.8
+Standards-Version: 4.0.1
 Vcs-Bzr: https://ftp.recompile.se/pub/mandos/trunk
 Vcs-Browser: https://bzr.recompile.se/loggerhead/mandos/trunk/files
 Homepage: https://www.recompile.se/mandos
