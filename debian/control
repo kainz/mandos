@@ -1,6 +1,6 @@
 Source: mandos
 Section: admin
-Priority: extra
+Priority: optional
 Maintainer: Mandos Maintainers <mandos@recompile.se>
 Uploaders: Teddy Hogeborn <teddy@recompile.se>,
 	   Björn Påhlsson <belorn@recompile.se>
