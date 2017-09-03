@@ -57,9 +57,11 @@
 sig_atomic_t interrupted_by_signal = 0;
 
 /* Used by Ubuntu 11.04 (Natty Narwahl) */
-const char plymouth_old_pid[] = "/dev/.initramfs/plymouth.pid";
+const char plymouth_old_old_pid[] = "/dev/.initramfs/plymouth.pid";
 /* Used by Ubuntu 11.10 (Oneiric Ocelot) */
-const char plymouth_pid[] = "/run/initramfs/plymouth.pid";
+const char plymouth_old_pid[] = "/run/initramfs/plymouth.pid";
+/* Used by Debian 9 (stretch) */
+const char plymouth_pid[] = "/run/plymouth/pid";
 
 const char plymouth_path[] = "/bin/plymouth";
 const char plymouthd_path[] = "/sbin/plymouthd";
@@ -283,6 +285,17 @@ pid_t get_pid(void){
   /* Try the old pid file location */
   if(proc_id == 0){
     pidfile = fopen(plymouth_old_pid, "r");
+    if(pidfile != NULL){
+      ret = fscanf(pidfile, "%" SCNuMAX, &proc_id);
+      if(ret != 1){
+	proc_id = 0;
+      }
+      fclose(pidfile);
+    }
+  }
+  /* Try the old old pid file location */
+  if(proc_id == 0){
+    pidfile = fopen(plymouth_old_old_pid, "r");
     if(pidfile != NULL){
       ret = fscanf(pidfile, "%" SCNuMAX, &proc_id);
       if(ret != 1){
