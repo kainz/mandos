@@ -299,9 +299,14 @@ pid_t get_pid(void){
       error_plus(0, errno, "scandir");
     }
     if(ret > 0){
-      ret = sscanf(direntries[0]->d_name, "%" SCNuMAX, &proc_id);
-      if(ret < 0){
-	error_plus(0, errno, "sscanf");
+      for(int i = ret-1; i >= 0; i--){
+	if(proc_id == 0){
+	  ret = sscanf(direntries[i]->d_name, "%" SCNuMAX, &proc_id);
+	  if(ret < 0){
+	    error_plus(0, errno, "sscanf");
+	  }
+	}
+	free(direntries[i]);
       }
     }
     /* scandir might preallocate for this variable (man page unclear).
