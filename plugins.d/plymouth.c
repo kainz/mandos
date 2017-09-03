@@ -317,7 +317,7 @@ pid_t get_pid(void){
   return 0;
 }
 
-const char * const * getargv(pid_t pid){
+char **getargv(pid_t pid){
   int cl_fd;
   char *cmdline_filename;
   ssize_t sret;
@@ -384,7 +384,7 @@ const char * const * getargv(pid_t pid){
     return NULL;
   }
   argz_extract(cmdline, cmdline_len, argv); /* Create argv */
-  return (const char * const *)argv;
+  return argv;
 }
 
 int main(__attribute__((unused))int argc,
@@ -465,11 +465,10 @@ int main(__attribute__((unused))int argc,
   }
   kill_and_wait(plymouth_command_pid);
   
-  const char * const *plymouthd_argv;
+  char **plymouthd_argv = NULL;
   pid_t pid = get_pid();
   if(pid == 0){
     error_plus(0, 0, "plymouthd pid not found");
-    plymouthd_argv = plymouthd_default_argv;
   } else {
     plymouthd_argv = getargv(pid);
   }
@@ -478,10 +477,21 @@ int main(__attribute__((unused))int argc,
 		       { plymouth_path, "quit", NULL },
 		       false, false);
   if(not bret){
+    if(plymouthd_argv != NULL){
+      free(*plymouthd_argv);
+      free(plymouthd_argv);
+    }
     exit(EXIT_FAILURE);
   }
-  bret = exec_and_wait(NULL, plymouthd_path, plymouthd_argv,
+  bret = exec_and_wait(NULL, plymouthd_path,
+		       (plymouthd_argv != NULL)
+		       ? (const char * const *)plymouthd_argv
+		       : plymouthd_default_argv,
 		       false, true);
+  if(plymouthd_argv != NULL){
+    free(*plymouthd_argv);
+    free(plymouthd_argv);
+  }
   if(not bret){
     exit(EXIT_FAILURE);
   }
