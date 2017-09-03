@@ -282,7 +282,7 @@ pid_t get_pid(void){
   }
   /* Try the old pid file location */
   if(proc_id == 0){
-    pidfile = fopen(plymouth_pid, "r");
+    pidfile = fopen(plymouth_old_pid, "r");
     if(pidfile != NULL){
       ret = fscanf(pidfile, "%" SCNuMAX, &proc_id);
       if(ret != 1){
