@@ -7,6 +7,7 @@ Uploaders: Teddy Hogeborn <teddy@recompile.se>,
 Build-Depends: debhelper (>= 9), docbook-xml, docbook-xsl,
 	libavahi-core-dev, libgpgme-dev | libgpgme11-dev,
 	libgnutls28-dev (>= 3.3.0) | gnutls-dev (>= 3.3.0),
+	libgnutls28-dev (<< 3.6.0) | libgnutls30 (<< 3.6.0),
 	xsltproc, pkg-config, libnl-route-3-dev
 Build-Depends-Indep: systemd, python (>= 2.7), python (<< 3),
 	python-dbus, python-gi
@@ -19,6 +20,7 @@ Package: mandos
 Architecture: all
 Depends: ${misc:Depends}, python (>= 2.7), python (<< 3),
 	libgnutls28-dev (>= 3.3.0) | libgnutls30 (>= 3.3.0),
+	libgnutls28-dev (<< 3.6.0) | libgnutls30 (<< 3.6.0),
 	python-dbus, python-gi, avahi-daemon, adduser, python-urwid,
 	gnupg2 | gnupg, systemd-sysv | lsb-base (>= 3.0-6)
 Recommends: ssh-client | fping
