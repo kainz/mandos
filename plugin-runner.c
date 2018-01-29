@@ -313,6 +313,7 @@ static bool print_out_password(const char *buffer, size_t length){
 __attribute__((nonnull))
 static void free_plugin(plugin *plugin_node){
   
+  free(plugin_node->name);
   for(char **arg = plugin_node->argv; *arg != NULL; arg++){
     free(*arg);
   }
