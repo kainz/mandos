@@ -2579,7 +2579,7 @@ class MandosServer(IPv6_TCPServer):
         command = request[0]
 
         if command == 'init':
-            fpr = request[1]
+            fpr = request[1].decode("ascii")
             address = request[2]
 
             for c in self.clients.values():
