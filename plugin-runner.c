@@ -2,8 +2,8 @@
 /*
  * Mandos plugin runner - Run Mandos plugins
  *
- * Copyright © 2008-2017 Teddy Hogeborn
- * Copyright © 2008-2017 Björn Påhlsson
+ * Copyright © 2008-2018 Teddy Hogeborn
+ * Copyright © 2008-2018 Björn Påhlsson
  * 
  * This file is part of Mandos.
  * 
