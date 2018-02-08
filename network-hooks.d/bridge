@@ -6,8 +6,8 @@
 # configuration file(s) should be copied into the
 # /etc/mandos/network-hooks.d directory.
 # 
-# Copyright © 2012 Teddy Hogeborn
-# Copyright © 2012 Björn Påhlsson
+# Copyright © 2012-2018 Teddy Hogeborn
+# Copyright © 2012-2018 Björn Påhlsson
 # 
 # Copying and distribution of this file, with or without modification,
 # are permitted in any medium without royalty provided the copyright

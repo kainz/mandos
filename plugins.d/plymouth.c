@@ -2,8 +2,8 @@
 /*
  * Plymouth - Read a password from Plymouth and output it
  * 
- * Copyright © 2010-2017 Teddy Hogeborn
- * Copyright © 2010-2017 Björn Påhlsson
+ * Copyright © 2010-2018 Teddy Hogeborn
+ * Copyright © 2010-2018 Björn Påhlsson
  * 
  * This file is part of Mandos.
  * 
