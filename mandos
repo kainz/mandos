@@ -496,8 +496,7 @@ class AvahiService(object):
 class AvahiServiceToSyslog(AvahiService):
     def rename(self, *args, **kwargs):
         """Add the new name to the syslog messages"""
-        ret = super(AvahiServiceToSyslog, self).rename(self, *args,
-                                                       **kwargs)
+        ret = super(AvahiServiceToSyslog, self).rename(*args, **kwargs)
         syslogger.setFormatter(logging.Formatter(
             'Mandos ({}) [%(process)d]: %(levelname)s: %(message)s'
             .format(self.name)))
