@@ -1,3 +1,28 @@
+mandos (1.7.17-1) unstable; urgency=medium
+
+  * New upstream release.
+  * Fix "fails with "LeakSanitizer has encountered a fatal error""
+    by fixing memory leak in plugin-runner (Closes: #886595)
+  * debian/control (Build-Depends): Also depend on "libgnutls28-dev (<<
+    3.6.0) | libgnutls30 (<< 3.6.0)".
+    (Package: mandos/Depends): - '' -
+  * debian/compat: Change to "10".
+  * debian/watch (version): Change to "4".
+    (opts/pgpsigurlmangle): Remove.
+    (opts/pgpmode): New; set to "auto".
+    (URL): Change to "https://ftp.recompile.se/pub/@PACKAGE@/@PACKAGE@
+    @ANY_VERSION@(?:\.orig)?@ARCHIVE_EXT@".
+  * debian/copyright: Update copyright year to 2018.
+  * debian/rules: Support the "noopt" and "parallel" DEB_BUILD_OPTIONS.
+    (override_dh_fixperms-arch): Use the DEB_HOST_MULTIARCH
+    variable directly instead of shelling out to "dpkg-architecture".
+  * debian/control (Standards-Version): Update to "4.1.3".
+    (Build-Depends): Change version of debhelper dependency to ">= 10".
+  * debian/mandos.lintian-overrides
+    (init.d-script-needs-depends-on-lsb-base): Change line number to "46".
+
+ -- Teddy Hogeborn <teddy@recompile.se>  Sat, 10 Feb 2018 19:09:50 +0100
+
 mandos (1.7.16-1) unstable; urgency=medium
 
   * New upstream release.

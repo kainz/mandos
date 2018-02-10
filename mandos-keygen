@@ -23,7 +23,7 @@
 # Contact the authors at <mandos@recompile.se>.
 # 
 
-VERSION="1.7.16"
+VERSION="1.7.17"
 
 KEYDIR="/etc/keys/mandos"
 KEYTYPE=RSA
