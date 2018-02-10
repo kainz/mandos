@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY COMMANDNAME "splashy">
-<!ENTITY TIMESTAMP "2017-02-23">
+<!ENTITY TIMESTAMP "2018-02-08">
 <!ENTITY % common SYSTEM "../common.ent">
 %common;
 ]>
@@ -41,6 +41,7 @@
       <year>2015</year>
       <year>2016</year>
       <year>2017</year>
+      <year>2018</year>
       <holder>Teddy Hogeborn</holder>
       <holder>Björn Påhlsson</holder>
     </copyright>
