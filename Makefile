@@ -1,4 +1,4 @@
-WARN=-O -Wall -Wextra -Wdouble-promotion -Wformat=2 -Winit-self \
+WARN:=-O -Wall -Wextra -Wdouble-promotion -Wformat=2 -Winit-self \
 	-Wmissing-include-dirs -Wswitch-default -Wswitch-enum \
 	-Wunused -Wuninitialized -Wstrict-overflow=5 \
 	-Wsuggest-attribute=pure -Wsuggest-attribute=const \
@@ -10,10 +10,10 @@ WARN=-O -Wall -Wextra -Wdouble-promotion -Wformat=2 -Winit-self \
 	-Wmissing-format-attribute -Wnormalized=nfc -Wpacked \
 	-Wredundant-decls -Wnested-externs -Winline -Wvla \
 	-Wvolatile-register-var -Woverlength-strings
-#DEBUG=-ggdb3 -fsanitize=address 
+#DEBUG:=-ggdb3 -fsanitize=address 
 # For info about _FORTIFY_SOURCE, see feature_test_macros(7)
 # and <https://gcc.gnu.org/ml/gcc-patches/2004-09/msg02055.html>.
-FORTIFY=-D_FORTIFY_SOURCE=2 -fstack-protector-all -fPIC
+FORTIFY:=-D_FORTIFY_SOURCE=2 -fstack-protector-all -fPIC
 # <https://developerblog.redhat.com/2014/10/16/gcc-undefined-behavior-sanitizer-ubsan/>
 ALL_SANITIZE_OPTIONS:=-fsanitize=leak -fsanitize=undefined \
         -fsanitize=shift -fsanitize=integer-divide-by-zero \
@@ -28,8 +28,8 @@ ALL_SANITIZE_OPTIONS:=-fsanitize=leak -fsanitize=undefined \
 SANITIZE:=$(foreach option,$(ALL_SANITIZE_OPTIONS),$(shell \
 	echo 'int main(){}' | $(CC) --language=c $(option) /dev/stdin \
 	-o /dev/null >/dev/null 2>&1 && echo $(option)))
-LINK_FORTIFY_LD=-z relro -z now
-LINK_FORTIFY=
+LINK_FORTIFY_LD:=-z relro -z now
+LINK_FORTIFY:=
 
 # If BROKEN_PIE is set, do not build with -pie
 ifndef BROKEN_PIE
@@ -37,33 +37,33 @@ FORTIFY += -fPIE
 LINK_FORTIFY += -pie
 endif
 #COVERAGE=--coverage
-OPTIMIZE=-Os -fno-strict-aliasing
-LANGUAGE=-std=gnu11
-htmldir=man
-version=1.7.16
-SED=sed
+OPTIMIZE:=-Os -fno-strict-aliasing
+LANGUAGE:=-std=gnu11
+htmldir:=man
+version:=1.7.16
+SED:=sed
 
-USER=$(firstword $(subst :, ,$(shell getent passwd _mandos || getent passwd nobody || echo 65534)))
-GROUP=$(firstword $(subst :, ,$(shell getent group _mandos || getent group nogroup || echo 65534)))
+USER:=$(firstword $(subst :, ,$(shell getent passwd _mandos || getent passwd nobody || echo 65534)))
+GROUP:=$(firstword $(subst :, ,$(shell getent group _mandos || getent group nogroup || echo 65534)))
 
 ## Use these settings for a traditional /usr/local install
-# PREFIX=$(DESTDIR)/usr/local
-# CONFDIR=$(DESTDIR)/etc/mandos
-# KEYDIR=$(DESTDIR)/etc/mandos/keys
-# MANDIR=$(PREFIX)/man
-# INITRAMFSTOOLS=$(DESTDIR)/etc/initramfs-tools
-# STATEDIR=$(DESTDIR)/var/lib/mandos
-# LIBDIR=$(PREFIX)/lib
+# PREFIX:=$(DESTDIR)/usr/local
+# CONFDIR:=$(DESTDIR)/etc/mandos
+# KEYDIR:=$(DESTDIR)/etc/mandos/keys
+# MANDIR:=$(PREFIX)/man
+# INITRAMFSTOOLS:=$(DESTDIR)/etc/initramfs-tools
+# STATEDIR:=$(DESTDIR)/var/lib/mandos
+# LIBDIR:=$(PREFIX)/lib
 ##
 
 ## These settings are for a package-type install
-PREFIX=$(DESTDIR)/usr
-CONFDIR=$(DESTDIR)/etc/mandos
-KEYDIR=$(DESTDIR)/etc/keys/mandos
-MANDIR=$(PREFIX)/share/man
-INITRAMFSTOOLS=$(DESTDIR)/usr/share/initramfs-tools
-STATEDIR=$(DESTDIR)/var/lib/mandos
-LIBDIR=$(shell \
+PREFIX:=$(DESTDIR)/usr
+CONFDIR:=$(DESTDIR)/etc/mandos
+KEYDIR:=$(DESTDIR)/etc/keys/mandos
+MANDIR:=$(PREFIX)/share/man
+INITRAMFSTOOLS:=$(DESTDIR)/usr/share/initramfs-tools
+STATEDIR:=$(DESTDIR)/var/lib/mandos
+LIBDIR:=$(shell \
 	for d in \
 	"/usr/lib/`dpkg-architecture -qDEB_HOST_MULTIARCH 2>/dev/null`" \
 	"`rpm --eval='%{_libdir}' 2>/dev/null`" /usr/lib; do \
@@ -74,18 +74,18 @@ LIBDIR=$(shell \
 	done)
 ##
 
-SYSTEMD=$(DESTDIR)$(shell pkg-config systemd --variable=systemdsystemunitdir)
-TMPFILES=$(DESTDIR)$(shell pkg-config systemd --variable=tmpfilesdir)
+SYSTEMD:=$(DESTDIR)$(shell pkg-config systemd --variable=systemdsystemunitdir)
+TMPFILES:=$(DESTDIR)$(shell pkg-config systemd --variable=tmpfilesdir)
 
-GNUTLS_CFLAGS=$(shell pkg-config --cflags-only-I gnutls)
-GNUTLS_LIBS=$(shell pkg-config --libs gnutls)
-AVAHI_CFLAGS=$(shell pkg-config --cflags-only-I avahi-core)
-AVAHI_LIBS=$(shell pkg-config --libs avahi-core)
-GPGME_CFLAGS=$(shell gpgme-config --cflags; getconf LFS_CFLAGS)
-GPGME_LIBS=$(shell gpgme-config --libs; getconf LFS_LIBS; \
+GNUTLS_CFLAGS:=$(shell pkg-config --cflags-only-I gnutls)
+GNUTLS_LIBS:=$(shell pkg-config --libs gnutls)
+AVAHI_CFLAGS:=$(shell pkg-config --cflags-only-I avahi-core)
+AVAHI_LIBS:=$(shell pkg-config --libs avahi-core)
+GPGME_CFLAGS:=$(shell gpgme-config --cflags; getconf LFS_CFLAGS)
+GPGME_LIBS:=$(shell gpgme-config --libs; getconf LFS_LIBS; \
 	getconf LFS_LDFLAGS)
-LIBNL3_CFLAGS=$(shell pkg-config --cflags-only-I libnl-route-3.0)
-LIBNL3_LIBS=$(shell pkg-config --libs libnl-route-3.0)
+LIBNL3_CFLAGS:=$(shell pkg-config --cflags-only-I libnl-route-3.0)
+LIBNL3_LIBS:=$(shell pkg-config --libs libnl-route-3.0)
 
 # Do not change these two
 CFLAGS+=$(WARN) $(DEBUG) $(FORTIFY) $(SANITIZE) $(COVERAGE) \
@@ -117,25 +117,25 @@ DOCBOOKTOHTML=$(strip xsltproc --nonet --xinclude \
 	/usr/share/xml/docbook/stylesheet/nwalsh/xhtml/docbook.xsl \
 	$<; $(HTMLPOST) $@)
 # Fix citerefentry links
-HTMLPOST=$(SED) --in-place \
+HTMLPOST:=$(SED) --in-place \
 	--expression='s/\(<a class="citerefentry" href="\)\("><span class="citerefentry"><span class="refentrytitle">\)\([^<]*\)\(<\/span>(\)\([^)]*\)\()<\/span><\/a>\)/\1\3.\5\2\3\4\5\6/g'
 
-PLUGINS=plugins.d/password-prompt plugins.d/mandos-client \
+PLUGINS:=plugins.d/password-prompt plugins.d/mandos-client \
 	plugins.d/usplash plugins.d/splashy plugins.d/askpass-fifo \
 	plugins.d/plymouth
-PLUGIN_HELPERS=plugin-helpers/mandos-client-iprouteadddel
-CPROGS=plugin-runner $(PLUGINS) $(PLUGIN_HELPERS)
-PROGS=mandos mandos-keygen mandos-ctl mandos-monitor $(CPROGS)
-DOCS=mandos.8 mandos-keygen.8 mandos-monitor.8 mandos-ctl.8 \
+PLUGIN_HELPERS:=plugin-helpers/mandos-client-iprouteadddel
+CPROGS:=plugin-runner $(PLUGINS) $(PLUGIN_HELPERS)
+PROGS:=mandos mandos-keygen mandos-ctl mandos-monitor $(CPROGS)
+DOCS:=mandos.8 mandos-keygen.8 mandos-monitor.8 mandos-ctl.8 \
 	mandos.conf.5 mandos-clients.conf.5 plugin-runner.8mandos \
 	plugins.d/mandos-client.8mandos \
 	plugins.d/password-prompt.8mandos plugins.d/usplash.8mandos \
 	plugins.d/splashy.8mandos plugins.d/askpass-fifo.8mandos \
 	plugins.d/plymouth.8mandos intro.8mandos
 
-htmldocs=$(addsuffix .xhtml,$(DOCS))
+htmldocs:=$(addsuffix .xhtml,$(DOCS))
 
-objects=$(addsuffix .o,$(CPROGS))
+objects:=$(addsuffix .o,$(CPROGS))
 
 all: $(PROGS) mandos.lsm
 

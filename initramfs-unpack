@@ -2,8 +2,8 @@
 # 
 # Initramfs unpacker - unpacks initramfs images into /tmp
 # 
-# Copyright © 2013 Teddy Hogeborn
-# Copyright © 2013 Björn Påhlsson
+# Copyright © 2013-2018 Teddy Hogeborn
+# Copyright © 2013-2018 Björn Påhlsson
 # 
 # This file is part of Mandos.
 #

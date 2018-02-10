@@ -11,8 +11,8 @@
 # "AvahiService" class, and some lines in "main".
 #
 # Everything else is
-# Copyright © 2008-2017 Teddy Hogeborn
-# Copyright © 2008-2017 Björn Påhlsson
+# Copyright © 2008-2018 Teddy Hogeborn
+# Copyright © 2008-2018 Björn Påhlsson
 #
 # This file is part of Mandos.
 #
@@ -496,7 +496,7 @@ class AvahiService(object):
 class AvahiServiceToSyslog(AvahiService):
     def rename(self, *args, **kwargs):
         """Add the new name to the syslog messages"""
-        ret = AvahiService.rename(self, *args, **kwargs)
+        ret = super(AvahiServiceToSyslog, self).rename(*args, **kwargs)
         syslogger.setFormatter(logging.Formatter(
             'Mandos ({}) [%(process)d]: %(levelname)s: %(message)s'
             .format(self.name)))
@@ -2578,7 +2578,7 @@ class MandosServer(IPv6_TCPServer):
         command = request[0]
 
         if command == 'init':
-            fpr = request[1]
+            fpr = request[1].decode("ascii")
             address = request[2]
 
             for c in self.clients.values():

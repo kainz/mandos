@@ -2,8 +2,8 @@
 /*
  * Plymouth - Read a password from Plymouth and output it
  * 
- * Copyright © 2010-2017 Teddy Hogeborn
- * Copyright © 2010-2017 Björn Påhlsson
+ * Copyright © 2010-2018 Teddy Hogeborn
+ * Copyright © 2010-2018 Björn Påhlsson
  * 
  * This file is part of Mandos.
  * 
@@ -57,9 +57,11 @@
 sig_atomic_t interrupted_by_signal = 0;
 
 /* Used by Ubuntu 11.04 (Natty Narwahl) */
-const char plymouth_old_pid[] = "/dev/.initramfs/plymouth.pid";
+const char plymouth_old_old_pid[] = "/dev/.initramfs/plymouth.pid";
 /* Used by Ubuntu 11.10 (Oneiric Ocelot) */
-const char plymouth_pid[] = "/run/initramfs/plymouth.pid";
+const char plymouth_old_pid[] = "/run/initramfs/plymouth.pid";
+/* Used by Debian 9 (stretch) */
+const char plymouth_pid[] = "/run/plymouth/pid";
 
 const char plymouth_path[] = "/bin/plymouth";
 const char plymouthd_path[] = "/sbin/plymouthd";
@@ -282,7 +284,18 @@ pid_t get_pid(void){
   }
   /* Try the old pid file location */
   if(proc_id == 0){
-    pidfile = fopen(plymouth_pid, "r");
+    pidfile = fopen(plymouth_old_pid, "r");
+    if(pidfile != NULL){
+      ret = fscanf(pidfile, "%" SCNuMAX, &proc_id);
+      if(ret != 1){
+	proc_id = 0;
+      }
+      fclose(pidfile);
+    }
+  }
+  /* Try the old old pid file location */
+  if(proc_id == 0){
+    pidfile = fopen(plymouth_old_old_pid, "r");
     if(pidfile != NULL){
       ret = fscanf(pidfile, "%" SCNuMAX, &proc_id);
       if(ret != 1){
@@ -299,9 +312,14 @@ pid_t get_pid(void){
       error_plus(0, errno, "scandir");
     }
     if(ret > 0){
-      ret = sscanf(direntries[0]->d_name, "%" SCNuMAX, &proc_id);
-      if(ret < 0){
-	error_plus(0, errno, "sscanf");
+      for(int i = ret-1; i >= 0; i--){
+	if(proc_id == 0){
+	  ret = sscanf(direntries[i]->d_name, "%" SCNuMAX, &proc_id);
+	  if(ret < 0){
+	    error_plus(0, errno, "sscanf");
+	  }
+	}
+	free(direntries[i]);
       }
     }
     /* scandir might preallocate for this variable (man page unclear).
@@ -317,7 +335,7 @@ pid_t get_pid(void){
   return 0;
 }
 
-const char * const * getargv(pid_t pid){
+char **getargv(pid_t pid){
   int cl_fd;
   char *cmdline_filename;
   ssize_t sret;
@@ -384,7 +402,7 @@ const char * const * getargv(pid_t pid){
     return NULL;
   }
   argz_extract(cmdline, cmdline_len, argv); /* Create argv */
-  return (const char * const *)argv;
+  return argv;
 }
 
 int main(__attribute__((unused))int argc,
@@ -465,11 +483,10 @@ int main(__attribute__((unused))int argc,
   }
   kill_and_wait(plymouth_command_pid);
   
-  const char * const *plymouthd_argv;
+  char **plymouthd_argv = NULL;
   pid_t pid = get_pid();
   if(pid == 0){
     error_plus(0, 0, "plymouthd pid not found");
-    plymouthd_argv = plymouthd_default_argv;
   } else {
     plymouthd_argv = getargv(pid);
   }
@@ -478,10 +495,21 @@ int main(__attribute__((unused))int argc,
 		       { plymouth_path, "quit", NULL },
 		       false, false);
   if(not bret){
+    if(plymouthd_argv != NULL){
+      free(*plymouthd_argv);
+      free(plymouthd_argv);
+    }
     exit(EXIT_FAILURE);
   }
-  bret = exec_and_wait(NULL, plymouthd_path, plymouthd_argv,
+  bret = exec_and_wait(NULL, plymouthd_path,
+		       (plymouthd_argv != NULL)
+		       ? (const char * const *)plymouthd_argv
+		       : plymouthd_default_argv,
 		       false, true);
+  if(plymouthd_argv != NULL){
+    free(*plymouthd_argv);
+    free(plymouthd_argv);
+  }
   if(not bret){
     exit(EXIT_FAILURE);
   }
