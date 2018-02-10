@@ -2,4 +2,4 @@
 # it, so it must be kept unreadable for non-root users.
 #
 mandos binary: non-standard-file-perm etc/mandos/clients.conf 0600 != 0644
-mandos: init.d-script-needs-depends-on-lsb-base etc/init.d/mandos (line 49)
+mandos: init.d-script-needs-depends-on-lsb-base etc/init.d/mandos (line 46)
