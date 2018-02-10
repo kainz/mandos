@@ -4,7 +4,7 @@ Priority: optional
 Maintainer: Mandos Maintainers <mandos@recompile.se>
 Uploaders: Teddy Hogeborn <teddy@recompile.se>,
 	   Björn Påhlsson <belorn@recompile.se>
-Build-Depends: debhelper (>= 9), docbook-xml, docbook-xsl,
+Build-Depends: debhelper (>= 10), docbook-xml, docbook-xsl,
 	libavahi-core-dev, libgpgme-dev | libgpgme11-dev,
 	libgnutls28-dev (>= 3.3.0) | gnutls-dev (>= 3.3.0),
 	libgnutls28-dev (<< 3.6.0) | libgnutls30 (<< 3.6.0),
