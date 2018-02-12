@@ -1,6 +1,11 @@
 This NEWS file records noteworthy changes, very tersely.
 See the manual for detailed information.
 
+Version 1.7.18 (2018-02-12)
+* Client
+** Bug fix: Revert faulty fix for a nonexistent bug in the
+   plugin-runner
+
 Version 1.7.17 (2018-02-10)
 * Client
 ** Bug fix: Fix a memory leak in the plugin-runner
