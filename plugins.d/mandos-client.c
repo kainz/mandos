@@ -3095,9 +3095,6 @@ int main(int argc, char *argv[]){
       
       /* need to clean even if 0 because man page doesn't specify */
       free(direntries);
-      if(numentries == -1){
-	perror_plus("scandirat");
-      }
       dret = unlinkat(base, dirname, AT_REMOVEDIR);
       if(dret == -1 and errno != ENOENT){
 	perror_plus("rmdir");
