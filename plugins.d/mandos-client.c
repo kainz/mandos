@@ -3062,6 +3062,7 @@ int main(int argc, char *argv[]){
 						| O_PATH));
     if(dir_fd == -1){
       perror_plus("open");
+      return;
     }
     int numentries = scandirat(dir_fd, ".", &direntries,
 			       notdotentries, alphasort);
