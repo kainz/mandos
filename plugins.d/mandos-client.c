@@ -1923,19 +1923,20 @@ void run_network_hooks(const char *mode, const char *interface,
       return;
     }
   }
-  int numhooks = scandirat(hookdir_fd, ".", &direntries,
-			   runnable_hook, alphasort);
-  if(numhooks == -1){
-    perror_plus("scandir");
-    return;
-  }
-  struct dirent *direntry;
-  int ret;
   int devnull = (int)TEMP_FAILURE_RETRY(open("/dev/null", O_RDONLY));
   if(devnull == -1){
     perror_plus("open(\"/dev/null\", O_RDONLY)");
     return;
   }
+  int numhooks = scandirat(hookdir_fd, ".", &direntries,
+			   runnable_hook, alphasort);
+  if(numhooks == -1){
+    perror_plus("scandir");
+    close(devnull);
+    return;
+  }
+  struct dirent *direntry;
+  int ret;
   for(int i = 0; i < numhooks; i++){
     direntry = direntries[i];
     if(debug){
