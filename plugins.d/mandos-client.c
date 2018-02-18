@@ -3083,7 +3083,7 @@ int main(int argc, char *argv[]){
 	    clean_dir_at(dir_fd, direntries[i]->d_name, level+1);
 	    dret = 0;
 	  }
-	  if(dret == -1){
+	  if((dret == -1) and (errno != ENOENT)){
 	    fprintf_plus(stderr, "unlink(\"%s/%s\"): %s\n", dirname,
 			 direntries[i]->d_name, strerror(errno));
 	  }
