@@ -23,8 +23,7 @@
  * Contact the authors at <mandos@recompile.se>.
  */
 
-#define _GNU_SOURCE		/* asprintf(),
-				   program_invocation_short_name */
+#define _GNU_SOURCE		/* program_invocation_short_name */
 #include <stdbool.h>		/* bool, false, true */
 #include <stdio.h>		/* fprintf(), stderr, FILE, vfprintf */
 #include <errno.h>		/* program_invocation_short_name,
@@ -244,7 +243,7 @@ int main(int argc, char *argv[]){
   }
   /* Set interface index number on nexthop object */
   rtnl_route_nh_set_ifindex(nexthop, ifindex);
-  /* Set route tu use nexthop object */
+  /* Set route to use nexthop object */
   rtnl_route_add_nexthop(route, nexthop);
   /* Add or delete route? */
   if(arguments.add){
