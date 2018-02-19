@@ -613,6 +613,7 @@ static int init_gnutls_global(const char *pubkeyfilename,
 	}
 	params.size += (unsigned int)bytes_read;
       }
+      close(dhpfile);
       if(params.data == NULL){
 	dhparamsfilename = NULL;
       }
@@ -1655,8 +1656,10 @@ bool get_flags(const char *ifname, struct ifreq *ifr){
       perror_plus("ioctl SIOCGIFFLAGS");
       errno = old_errno;
     }
+    close(s);
     return false;
   }
+  close(s);
   return true;
 }
 
