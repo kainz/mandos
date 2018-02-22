@@ -1,6 +1,12 @@
 This NEWS file records noteworthy changes, very tersely.
 See the manual for detailed information.
 
+Version 1.7.19 (2018-02-22)
+* Client
+** Do not print "unlink(...): No such file or directory".
+** Bug fixes: Fix file descriptor leaks.
+** Bug fix: Don't use leak sanitizer with leaking libraries.
+
 Version 1.7.18 (2018-02-12)
 * Client
 ** Bug fix: Revert faulty fix for a nonexistent bug in the
