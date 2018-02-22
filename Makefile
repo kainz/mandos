@@ -253,8 +253,12 @@ mandos.lsm: Makefile
 		--expression='s/\(mandos_\)[0-9.]\+\(\.orig\.tar\.gz\)/\1$(version)\2/' \
 		$@)
 
+# Need to add the GnuTLS, Avahi and GPGME libraries, and can't use
+# -fsanitize=leak because GnuTLS and GPGME both leak memory.
 plugins.d/mandos-client: plugins.d/mandos-client.c
-	$(LINK.c) $^ -lrt $(GNUTLS_LIBS) $(AVAHI_LIBS) $(strip\
+	$(CC) $(filter-out -fsanitize=leak,$(CFLAGS)) $(strip\
+		) $(CPPFLAGS) $(LDFLAGS) $(TARGET_ARCH) $^ $(strip\
+		) -lrt $(GNUTLS_LIBS) $(AVAHI_LIBS) $(strip\
 		) $(GPGME_LIBS) $(LOADLIBES) $(LDLIBS) -o $@
 
 plugin-helpers/mandos-client-iprouteadddel: plugin-helpers/mandos-client-iprouteadddel.c
