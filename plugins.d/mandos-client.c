@@ -613,7 +613,10 @@ static int init_gnutls_global(const char *pubkeyfilename,
 	}
 	params.size += (unsigned int)bytes_read;
       }
-      close(dhpfile);
+      ret = close(dhpfile);
+      if(ret == -1){
+	perror_plus("close");
+      }
       if(params.data == NULL){
 	dhparamsfilename = NULL;
       }
@@ -1656,10 +1659,18 @@ bool get_flags(const char *ifname, struct ifreq *ifr){
       perror_plus("ioctl SIOCGIFFLAGS");
       errno = old_errno;
     }
-    close(s);
+    if((close(s) == -1) and debug){
+      old_errno = errno;
+      perror_plus("close");
+      errno = old_errno;
+    }
     return false;
   }
-  close(s);
+  if((close(s) == -1) and debug){
+    old_errno = errno;
+    perror_plus("close");
+    errno = old_errno;
+  }
   return true;
 }
 
