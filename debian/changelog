@@ -1,3 +1,11 @@
+mandos (1.7.19-1) unstable; urgency=medium
+
+  * New upstream release.
+  * Fix "fails with "LeakSanitizer has encountered a fatal error"" by not
+    using LeakSanitizer in affected binary (Closes: #886595)
+
+ -- Teddy Hogeborn <teddy@recompile.se>  Thu, 22 Feb 2018 19:47:59 +0100
+
 mandos (1.7.18-1) unstable; urgency=medium
 
   * New upstream release.
