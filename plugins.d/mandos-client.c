@@ -613,6 +613,10 @@ static int init_gnutls_global(const char *pubkeyfilename,
 	}
 	params.size += (unsigned int)bytes_read;
       }
+      ret = close(dhpfile);
+      if(ret == -1){
+	perror_plus("close");
+      }
       if(params.data == NULL){
 	dhparamsfilename = NULL;
       }
@@ -1655,7 +1659,17 @@ bool get_flags(const char *ifname, struct ifreq *ifr){
       perror_plus("ioctl SIOCGIFFLAGS");
       errno = old_errno;
     }
+    if((close(s) == -1) and debug){
+      old_errno = errno;
+      perror_plus("close");
+      errno = old_errno;
+    }
     return false;
+  }
+  if((close(s) == -1) and debug){
+    old_errno = errno;
+    perror_plus("close");
+    errno = old_errno;
   }
   return true;
 }
@@ -1923,19 +1937,20 @@ void run_network_hooks(const char *mode, const char *interface,
       return;
     }
   }
-  int numhooks = scandirat(hookdir_fd, ".", &direntries,
-			   runnable_hook, alphasort);
-  if(numhooks == -1){
-    perror_plus("scandir");
-    return;
-  }
-  struct dirent *direntry;
-  int ret;
   int devnull = (int)TEMP_FAILURE_RETRY(open("/dev/null", O_RDONLY));
   if(devnull == -1){
     perror_plus("open(\"/dev/null\", O_RDONLY)");
     return;
   }
+  int numhooks = scandirat(hookdir_fd, ".", &direntries,
+			   runnable_hook, alphasort);
+  if(numhooks == -1){
+    perror_plus("scandir");
+    close(devnull);
+    return;
+  }
+  struct dirent *direntry;
+  int ret;
   for(int i = 0; i < numhooks; i++){
     direntry = direntries[i];
     if(debug){
@@ -3061,6 +3076,7 @@ int main(int argc, char *argv[]){
 						| O_PATH));
     if(dir_fd == -1){
       perror_plus("open");
+      return;
     }
     int numentries = scandirat(dir_fd, ".", &direntries,
 			       notdotentries, alphasort);
@@ -3083,7 +3099,7 @@ int main(int argc, char *argv[]){
 	    clean_dir_at(dir_fd, direntries[i]->d_name, level+1);
 	    dret = 0;
 	  }
-	  if(dret == -1){
+	  if((dret == -1) and (errno != ENOENT)){
 	    fprintf_plus(stderr, "unlink(\"%s/%s\"): %s\n", dirname,
 			 direntries[i]->d_name, strerror(errno));
 	  }
@@ -3093,9 +3109,6 @@ int main(int argc, char *argv[]){
       
       /* need to clean even if 0 because man page doesn't specify */
       free(direntries);
-      if(numentries == -1){
-	perror_plus("scandirat");
-      }
       dret = unlinkat(base, dirname, AT_REMOVEDIR);
       if(dret == -1 and errno != ENOENT){
 	perror_plus("rmdir");

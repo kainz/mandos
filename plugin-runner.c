@@ -583,6 +583,7 @@ int main(int argc, char *argv[]){
       if(arg[0] == '\0'){
 	break;
       }
+      /* FALLTHROUGH */
     default:
       return ARGP_ERR_UNKNOWN;
     }
