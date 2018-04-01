@@ -310,6 +310,81 @@ static bool init_gpgme(const char * const seckey,
 		   gpgme_strsource(rc), gpgme_strerror(rc));
       return false;
     }
+    {
+      gpgme_import_result_t import_result
+	= gpgme_op_import_result(mc->ctx);
+      if((import_result->imported < 1
+	  or import_result->not_imported > 0)
+	 and import_result->unchanged == 0){
+	fprintf_plus(stderr, "bad gpgme_op_import_results:\n");
+	fprintf_plus(stderr,
+		     "The total number of considered keys: %d\n",
+		     import_result->considered);
+	fprintf_plus(stderr,
+		     "The number of keys without user ID: %d\n",
+		     import_result->no_user_id);
+	fprintf_plus(stderr,
+		     "The total number of imported keys: %d\n",
+		     import_result->imported);
+	fprintf_plus(stderr, "The number of imported RSA keys: %d\n",
+		     import_result->imported_rsa);
+	fprintf_plus(stderr, "The number of unchanged keys: %d\n",
+		     import_result->unchanged);
+	fprintf_plus(stderr, "The number of new user IDs: %d\n",
+		     import_result->new_user_ids);
+	fprintf_plus(stderr, "The number of new sub keys: %d\n",
+		     import_result->new_sub_keys);
+	fprintf_plus(stderr, "The number of new signatures: %d\n",
+		     import_result->new_signatures);
+	fprintf_plus(stderr, "The number of new revocations: %d\n",
+		     import_result->new_revocations);
+	fprintf_plus(stderr,
+		     "The total number of secret keys read: %d\n",
+		     import_result->secret_read);
+	fprintf_plus(stderr,
+		     "The number of imported secret keys: %d\n",
+		     import_result->secret_imported);
+	fprintf_plus(stderr,
+		     "The number of unchanged secret keys: %d\n",
+		     import_result->secret_unchanged);
+	fprintf_plus(stderr, "The number of keys not imported: %d\n",
+		     import_result->not_imported);
+	for(gpgme_import_status_t import_status
+	      = import_result->imports;
+	    import_status != NULL;
+	    import_status = import_status->next){
+	  fprintf_plus(stderr, "Import status for key: %s\n",
+		       import_status->fpr);
+	  if(import_status->result != GPG_ERR_NO_ERROR){
+	    fprintf_plus(stderr, "Import result: %s: %s\n",
+			 gpgme_strsource(import_status->result),
+			 gpgme_strerror(import_status->result));
+	  }
+	  fprintf_plus(stderr, "Key status:\n");
+	  fprintf_plus(stderr,
+		       import_status->status & GPGME_IMPORT_NEW
+		       ? "The key was new.\n"
+		       : "The key was not new.\n");
+	  fprintf_plus(stderr,
+		       import_status->status & GPGME_IMPORT_UID
+		       ? "The key contained new user IDs.\n"
+		       : "The key did not contain new user IDs.\n");
+	  fprintf_plus(stderr,
+		       import_status->status & GPGME_IMPORT_SIG
+		       ? "The key contained new signatures.\n"
+		       : "The key did not contain new signatures.\n");
+	  fprintf_plus(stderr,
+		       import_status->status & GPGME_IMPORT_SUBKEY
+		       ? "The key contained new sub keys.\n"
+		       : "The key did not contain new sub keys.\n");
+	  fprintf_plus(stderr,
+		       import_status->status & GPGME_IMPORT_SECRET
+		       ? "The key contained a secret key.\n"
+		       : "The key did not contain a secret key.\n");
+	}
+	return false;
+      }
+    }
     
     ret = close(fd);
     if(ret == -1){
