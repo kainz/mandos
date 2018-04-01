@@ -424,8 +424,8 @@ static ssize_t pgp_packet_decrypt(const char *cryptotext,
 	  fprintf_plus(stderr, "Unsupported algorithm: %s\n",
 		       result->unsupported_algorithm);
 	}
-	fprintf_plus(stderr, "Wrong key usage: %u\n",
-		     result->wrong_key_usage);
+	fprintf_plus(stderr, "Wrong key usage: %s\n",
+		     result->wrong_key_usage ? "Yes" : "No");
 	if(result->file_name != NULL){
 	  fprintf_plus(stderr, "File name: %s\n", result->file_name);
 	}
