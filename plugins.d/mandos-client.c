@@ -420,8 +420,10 @@ static ssize_t pgp_packet_decrypt(const char *cryptotext,
       if(result == NULL){
 	fprintf_plus(stderr, "gpgme_op_decrypt_result failed\n");
       } else {
-	fprintf_plus(stderr, "Unsupported algorithm: %s\n",
-		     result->unsupported_algorithm);
+	if(result->unsupported_algorithm != NULL) {
+	  fprintf_plus(stderr, "Unsupported algorithm: %s\n",
+		       result->unsupported_algorithm);
+	}
 	fprintf_plus(stderr, "Wrong key usage: %u\n",
 		     result->wrong_key_usage);
 	if(result->file_name != NULL){
