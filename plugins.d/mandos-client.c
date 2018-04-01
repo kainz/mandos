@@ -356,9 +356,8 @@ static bool init_gpgme(const char * const seckey,
   /* Create new GPGME "context" */
   rc = gpgme_new(&(mc->ctx));
   if(rc != GPG_ERR_NO_ERROR){
-    fprintf_plus(stderr, "Mandos plugin mandos-client: "
-		 "bad gpgme_new: %s: %s\n", gpgme_strsource(rc),
-		 gpgme_strerror(rc));
+    fprintf_plus(stderr, "bad gpgme_new: %s: %s\n",
+		 gpgme_strsource(rc), gpgme_strerror(rc));
     return false;
   }
   
@@ -400,8 +399,7 @@ static ssize_t pgp_packet_decrypt(const char *cryptotext,
   /* Create new empty GPGME data buffer for the plaintext */
   rc = gpgme_data_new(&dh_plain);
   if(rc != GPG_ERR_NO_ERROR){
-    fprintf_plus(stderr, "Mandos plugin mandos-client: "
-		 "bad gpgme_data_new: %s: %s\n",
+    fprintf_plus(stderr, "bad gpgme_data_new: %s: %s\n",
 		 gpgme_strsource(rc), gpgme_strerror(rc));
     gpgme_data_release(dh_crypto);
     return -1;
