@@ -502,17 +502,14 @@ static ssize_t pgp_packet_decrypt(const char *cryptotext,
 	if(result->file_name != NULL){
 	  fprintf_plus(stderr, "File name: %s\n", result->file_name);
 	}
-	gpgme_recipient_t recipient;
-	recipient = result->recipients;
-	while(recipient != NULL){
+
+	for(gpgme_recipient_t r = result->recipients; r != NULL;
+	    r = r->next){
 	  fprintf_plus(stderr, "Public key algorithm: %s\n",
-		       gpgme_pubkey_algo_name
-		       (recipient->pubkey_algo));
-	  fprintf_plus(stderr, "Key ID: %s\n", recipient->keyid);
+		       gpgme_pubkey_algo_name(r->pubkey_algo));
+	  fprintf_plus(stderr, "Key ID: %s\n", r->keyid);
 	  fprintf_plus(stderr, "Secret key available: %s\n",
-		       recipient->status == GPG_ERR_NO_SECKEY
-		       ? "No" : "Yes");
-	  recipient = recipient->next;
+		       r->status == GPG_ERR_NO_SECKEY ? "No" : "Yes");
 	}
       }
     }
