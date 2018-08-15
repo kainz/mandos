@@ -89,8 +89,7 @@ LIBNL3_LIBS:=$(shell pkg-config --libs libnl-route-3.0)
 
 # Do not change these two
 CFLAGS+=$(WARN) $(DEBUG) $(FORTIFY) $(SANITIZE) $(COVERAGE) \
-	$(OPTIMIZE) $(LANGUAGE) $(GNUTLS_CFLAGS) $(AVAHI_CFLAGS) \
-	$(GPGME_CFLAGS) -DVERSION='"$(version)"'
+	$(OPTIMIZE) $(LANGUAGE) -DVERSION='"$(version)"'
 LDFLAGS+=-Xlinker --as-needed $(COVERAGE) $(LINK_FORTIFY) $(foreach flag,$(LINK_FORTIFY_LD),-Xlinker $(flag))
 
 # Commands to format a DocBook <refentry> document into a manual page
@@ -257,6 +256,7 @@ mandos.lsm: Makefile
 # -fsanitize=leak because GnuTLS and GPGME both leak memory.
 plugins.d/mandos-client: plugins.d/mandos-client.c
 	$(CC) $(filter-out -fsanitize=leak,$(CFLAGS)) $(strip\
+	) $(GNUTLS_CFLAGS) $(AVAHI_CFLAGS) $(GPGME_CFLAGS) $(strip\
 		) $(CPPFLAGS) $(LDFLAGS) $(TARGET_ARCH) $^ $(strip\
 		) -lrt $(GNUTLS_LIBS) $(AVAHI_LIBS) $(strip\
 		) $(GPGME_LIBS) $(LOADLIBES) $(LDLIBS) -o $@
