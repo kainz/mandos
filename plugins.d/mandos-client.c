@@ -272,6 +272,58 @@ bool add_server(const char *ip, in_port_t port, AvahiIfIndex if_index,
   return true;
 }
 
+/* Set effective uid to 0, return errno */
+__attribute__((warn_unused_result))
+int raise_privileges(void){
+  int old_errno = errno;
+  int ret = 0;
+  if(seteuid(0) == -1){
+    ret = errno;
+  }
+  errno = old_errno;
+  return ret;
+}
+
+/* Set effective and real user ID to 0.  Return errno. */
+__attribute__((warn_unused_result))
+int raise_privileges_permanently(void){
+  int old_errno = errno;
+  int ret = raise_privileges();
+  if(ret != 0){
+    errno = old_errno;
+    return ret;
+  }
+  if(setuid(0) == -1){
+    ret = errno;
+  }
+  errno = old_errno;
+  return ret;
+}
+
+/* Set effective user ID to unprivileged saved user ID */
+__attribute__((warn_unused_result))
+int lower_privileges(void){
+  int old_errno = errno;
+  int ret = 0;
+  if(seteuid(uid) == -1){
+    ret = errno;
+  }
+  errno = old_errno;
+  return ret;
+}
+
+/* Lower privileges permanently */
+__attribute__((warn_unused_result))
+int lower_privileges_permanently(void){
+  int old_errno = errno;
+  int ret = 0;
+  if(setuid(uid) == -1){
+    ret = errno;
+  }
+  errno = old_errno;
+  return ret;
+}
+
 /* 
  * Initialize GPGME.
  */
@@ -297,6 +349,56 @@ static bool init_gpgme(const char * const seckey,
       return false;
     }
     
+    /* Workaround for systems without a real-time clock; see also
+       Debian bug #894495: <https://bugs.debian.org/894495> */
+    do {
+      {
+	time_t currtime = time(NULL);
+	if(currtime != (time_t)-1){
+	  struct tm tm;
+	  if(gmtime_r(&currtime, &tm) == NULL) {
+	    perror_plus("gmtime_r");
+	    break;
+	  }
+	  if(tm.tm_year != 70 or tm.tm_mon != 0){
+	    break;
+	  }
+	  if(debug){
+	    fprintf_plus(stderr, "System clock is January 1970");
+	  }
+	} else {
+	  if(debug){
+	    fprintf_plus(stderr, "System clock is invalid");
+	  }
+	}
+      }
+      struct stat keystat;
+      ret = fstat(fd, &keystat);
+      if(ret != 0){
+	perror_plus("fstat");
+	break;
+      }
+      ret = raise_privileges();
+      if(ret != 0){
+	errno = ret;
+	perror_plus("Failed to raise privileges");
+	break;
+      }
+      if(debug){
+	fprintf_plus(stderr,
+		     "Setting system clock to key file mtime");
+      }
+      time_t keytime = keystat.st_mtim.tv_sec;
+      if(stime(&keytime) != 0){
+	perror_plus("stime");
+      }
+      ret = lower_privileges();
+      if(ret != 0){
+	errno = ret;
+	perror_plus("Failed to lower privileges");
+      }
+    } while(false);
+
     rc = gpgme_data_new_from_fd(&pgp_data, fd);
     if(rc != GPG_ERR_NO_ERROR){
       fprintf_plus(stderr, "bad gpgme_data_new_from_fd: %s: %s\n",
@@ -893,58 +995,6 @@ static int init_gnutls_session(gnutls_session_t *session,
 /* Avahi log function callback */
 static void empty_log(__attribute__((unused)) AvahiLogLevel level,
 		      __attribute__((unused)) const char *txt){}
-
-/* Set effective uid to 0, return errno */
-__attribute__((warn_unused_result))
-int raise_privileges(void){
-  int old_errno = errno;
-  int ret = 0;
-  if(seteuid(0) == -1){
-    ret = errno;
-  }
-  errno = old_errno;
-  return ret;
-}
-
-/* Set effective and real user ID to 0.  Return errno. */
-__attribute__((warn_unused_result))
-int raise_privileges_permanently(void){
-  int old_errno = errno;
-  int ret = raise_privileges();
-  if(ret != 0){
-    errno = old_errno;
-    return ret;
-  }
-  if(setuid(0) == -1){
-    ret = errno;
-  }
-  errno = old_errno;
-  return ret;
-}
-
-/* Set effective user ID to unprivileged saved user ID */
-__attribute__((warn_unused_result))
-int lower_privileges(void){
-  int old_errno = errno;
-  int ret = 0;
-  if(seteuid(uid) == -1){
-    ret = errno;
-  }
-  errno = old_errno;
-  return ret;
-}
-
-/* Lower privileges permanently */
-__attribute__((warn_unused_result))
-int lower_privileges_permanently(void){
-  int old_errno = errno;
-  int ret = 0;
-  if(setuid(uid) == -1){
-    ret = errno;
-  }
-  errno = old_errno;
-  return ret;
-}
 
 /* Helper function to add_local_route() and delete_local_route() */
 __attribute__((nonnull, warn_unused_result))
