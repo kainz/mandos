@@ -2365,7 +2365,8 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
                                        ctypes.byref(crtverify))
         if crtverify.value != 0:
             gnutls.openpgp_crt_deinit(crt)
-            raise gnutls.CertificateSecurityError("Verify failed")
+            raise gnutls.CertificateSecurityError(code
+                                                  =crtverify.value)
         # New buffer for the fingerprint
         buf = ctypes.create_string_buffer(20)
         buf_len = ctypes.c_size_t()
