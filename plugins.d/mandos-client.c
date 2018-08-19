@@ -272,6 +272,58 @@ bool add_server(const char *ip, in_port_t port, AvahiIfIndex if_index,
   return true;
 }
 
+/* Set effective uid to 0, return errno */
+__attribute__((warn_unused_result))
+int raise_privileges(void){
+  int old_errno = errno;
+  int ret = 0;
+  if(seteuid(0) == -1){
+    ret = errno;
+  }
+  errno = old_errno;
+  return ret;
+}
+
+/* Set effective and real user ID to 0.  Return errno. */
+__attribute__((warn_unused_result))
+int raise_privileges_permanently(void){
+  int old_errno = errno;
+  int ret = raise_privileges();
+  if(ret != 0){
+    errno = old_errno;
+    return ret;
+  }
+  if(setuid(0) == -1){
+    ret = errno;
+  }
+  errno = old_errno;
+  return ret;
+}
+
+/* Set effective user ID to unprivileged saved user ID */
+__attribute__((warn_unused_result))
+int lower_privileges(void){
+  int old_errno = errno;
+  int ret = 0;
+  if(seteuid(uid) == -1){
+    ret = errno;
+  }
+  errno = old_errno;
+  return ret;
+}
+
+/* Lower privileges permanently */
+__attribute__((warn_unused_result))
+int lower_privileges_permanently(void){
+  int old_errno = errno;
+  int ret = 0;
+  if(setuid(uid) == -1){
+    ret = errno;
+  }
+  errno = old_errno;
+  return ret;
+}
+
 /* 
  * Initialize GPGME.
  */
@@ -297,6 +349,56 @@ static bool init_gpgme(const char * const seckey,
       return false;
     }
     
+    /* Workaround for systems without a real-time clock; see also
+       Debian bug #894495: <https://bugs.debian.org/894495> */
+    do {
+      {
+	time_t currtime = time(NULL);
+	if(currtime != (time_t)-1){
+	  struct tm tm;
+	  if(gmtime_r(&currtime, &tm) == NULL) {
+	    perror_plus("gmtime_r");
+	    break;
+	  }
+	  if(tm.tm_year != 70 or tm.tm_mon != 0){
+	    break;
+	  }
+	  if(debug){
+	    fprintf_plus(stderr, "System clock is January 1970");
+	  }
+	} else {
+	  if(debug){
+	    fprintf_plus(stderr, "System clock is invalid");
+	  }
+	}
+      }
+      struct stat keystat;
+      ret = fstat(fd, &keystat);
+      if(ret != 0){
+	perror_plus("fstat");
+	break;
+      }
+      ret = raise_privileges();
+      if(ret != 0){
+	errno = ret;
+	perror_plus("Failed to raise privileges");
+	break;
+      }
+      if(debug){
+	fprintf_plus(stderr,
+		     "Setting system clock to key file mtime");
+      }
+      time_t keytime = keystat.st_mtim.tv_sec;
+      if(stime(&keytime) != 0){
+	perror_plus("stime");
+      }
+      ret = lower_privileges();
+      if(ret != 0){
+	errno = ret;
+	perror_plus("Failed to lower privileges");
+      }
+    } while(false);
+
     rc = gpgme_data_new_from_fd(&pgp_data, fd);
     if(rc != GPG_ERR_NO_ERROR){
       fprintf_plus(stderr, "bad gpgme_data_new_from_fd: %s: %s\n",
@@ -309,6 +411,81 @@ static bool init_gpgme(const char * const seckey,
       fprintf_plus(stderr, "bad gpgme_op_import: %s: %s\n",
 		   gpgme_strsource(rc), gpgme_strerror(rc));
       return false;
+    }
+    {
+      gpgme_import_result_t import_result
+	= gpgme_op_import_result(mc->ctx);
+      if((import_result->imported < 1
+	  or import_result->not_imported > 0)
+	 and import_result->unchanged == 0){
+	fprintf_plus(stderr, "bad gpgme_op_import_results:\n");
+	fprintf_plus(stderr,
+		     "The total number of considered keys: %d\n",
+		     import_result->considered);
+	fprintf_plus(stderr,
+		     "The number of keys without user ID: %d\n",
+		     import_result->no_user_id);
+	fprintf_plus(stderr,
+		     "The total number of imported keys: %d\n",
+		     import_result->imported);
+	fprintf_plus(stderr, "The number of imported RSA keys: %d\n",
+		     import_result->imported_rsa);
+	fprintf_plus(stderr, "The number of unchanged keys: %d\n",
+		     import_result->unchanged);
+	fprintf_plus(stderr, "The number of new user IDs: %d\n",
+		     import_result->new_user_ids);
+	fprintf_plus(stderr, "The number of new sub keys: %d\n",
+		     import_result->new_sub_keys);
+	fprintf_plus(stderr, "The number of new signatures: %d\n",
+		     import_result->new_signatures);
+	fprintf_plus(stderr, "The number of new revocations: %d\n",
+		     import_result->new_revocations);
+	fprintf_plus(stderr,
+		     "The total number of secret keys read: %d\n",
+		     import_result->secret_read);
+	fprintf_plus(stderr,
+		     "The number of imported secret keys: %d\n",
+		     import_result->secret_imported);
+	fprintf_plus(stderr,
+		     "The number of unchanged secret keys: %d\n",
+		     import_result->secret_unchanged);
+	fprintf_plus(stderr, "The number of keys not imported: %d\n",
+		     import_result->not_imported);
+	for(gpgme_import_status_t import_status
+	      = import_result->imports;
+	    import_status != NULL;
+	    import_status = import_status->next){
+	  fprintf_plus(stderr, "Import status for key: %s\n",
+		       import_status->fpr);
+	  if(import_status->result != GPG_ERR_NO_ERROR){
+	    fprintf_plus(stderr, "Import result: %s: %s\n",
+			 gpgme_strsource(import_status->result),
+			 gpgme_strerror(import_status->result));
+	  }
+	  fprintf_plus(stderr, "Key status:\n");
+	  fprintf_plus(stderr,
+		       import_status->status & GPGME_IMPORT_NEW
+		       ? "The key was new.\n"
+		       : "The key was not new.\n");
+	  fprintf_plus(stderr,
+		       import_status->status & GPGME_IMPORT_UID
+		       ? "The key contained new user IDs.\n"
+		       : "The key did not contain new user IDs.\n");
+	  fprintf_plus(stderr,
+		       import_status->status & GPGME_IMPORT_SIG
+		       ? "The key contained new signatures.\n"
+		       : "The key did not contain new signatures.\n");
+	  fprintf_plus(stderr,
+		       import_status->status & GPGME_IMPORT_SUBKEY
+		       ? "The key contained new sub keys.\n"
+		       : "The key did not contain new sub keys.\n");
+	  fprintf_plus(stderr,
+		       import_status->status & GPGME_IMPORT_SECRET
+		       ? "The key contained a secret key.\n"
+		       : "The key did not contain a secret key.\n");
+	}
+	return false;
+      }
     }
     
     ret = close(fd);
@@ -356,9 +533,8 @@ static bool init_gpgme(const char * const seckey,
   /* Create new GPGME "context" */
   rc = gpgme_new(&(mc->ctx));
   if(rc != GPG_ERR_NO_ERROR){
-    fprintf_plus(stderr, "Mandos plugin mandos-client: "
-		 "bad gpgme_new: %s: %s\n", gpgme_strsource(rc),
-		 gpgme_strerror(rc));
+    fprintf_plus(stderr, "bad gpgme_new: %s: %s\n",
+		 gpgme_strsource(rc), gpgme_strerror(rc));
     return false;
   }
   
@@ -400,8 +576,7 @@ static ssize_t pgp_packet_decrypt(const char *cryptotext,
   /* Create new empty GPGME data buffer for the plaintext */
   rc = gpgme_data_new(&dh_plain);
   if(rc != GPG_ERR_NO_ERROR){
-    fprintf_plus(stderr, "Mandos plugin mandos-client: "
-		 "bad gpgme_data_new: %s: %s\n",
+    fprintf_plus(stderr, "bad gpgme_data_new: %s: %s\n",
 		 gpgme_strsource(rc), gpgme_strerror(rc));
     gpgme_data_release(dh_crypto);
     return -1;
@@ -420,24 +595,23 @@ static ssize_t pgp_packet_decrypt(const char *cryptotext,
       if(result == NULL){
 	fprintf_plus(stderr, "gpgme_op_decrypt_result failed\n");
       } else {
-	fprintf_plus(stderr, "Unsupported algorithm: %s\n",
-		     result->unsupported_algorithm);
-	fprintf_plus(stderr, "Wrong key usage: %u\n",
-		     result->wrong_key_usage);
+	if(result->unsupported_algorithm != NULL) {
+	  fprintf_plus(stderr, "Unsupported algorithm: %s\n",
+		       result->unsupported_algorithm);
+	}
+	fprintf_plus(stderr, "Wrong key usage: %s\n",
+		     result->wrong_key_usage ? "Yes" : "No");
 	if(result->file_name != NULL){
 	  fprintf_plus(stderr, "File name: %s\n", result->file_name);
 	}
-	gpgme_recipient_t recipient;
-	recipient = result->recipients;
-	while(recipient != NULL){
+
+	for(gpgme_recipient_t r = result->recipients; r != NULL;
+	    r = r->next){
 	  fprintf_plus(stderr, "Public key algorithm: %s\n",
-		       gpgme_pubkey_algo_name
-		       (recipient->pubkey_algo));
-	  fprintf_plus(stderr, "Key ID: %s\n", recipient->keyid);
+		       gpgme_pubkey_algo_name(r->pubkey_algo));
+	  fprintf_plus(stderr, "Key ID: %s\n", r->keyid);
 	  fprintf_plus(stderr, "Secret key available: %s\n",
-		       recipient->status == GPG_ERR_NO_SECKEY
-		       ? "No" : "Yes");
-	  recipient = recipient->next;
+		       r->status == GPG_ERR_NO_SECKEY ? "No" : "Yes");
 	}
       }
     }
@@ -821,58 +995,6 @@ static int init_gnutls_session(gnutls_session_t *session,
 /* Avahi log function callback */
 static void empty_log(__attribute__((unused)) AvahiLogLevel level,
 		      __attribute__((unused)) const char *txt){}
-
-/* Set effective uid to 0, return errno */
-__attribute__((warn_unused_result))
-int raise_privileges(void){
-  int old_errno = errno;
-  int ret = 0;
-  if(seteuid(0) == -1){
-    ret = errno;
-  }
-  errno = old_errno;
-  return ret;
-}
-
-/* Set effective and real user ID to 0.  Return errno. */
-__attribute__((warn_unused_result))
-int raise_privileges_permanently(void){
-  int old_errno = errno;
-  int ret = raise_privileges();
-  if(ret != 0){
-    errno = old_errno;
-    return ret;
-  }
-  if(setuid(0) == -1){
-    ret = errno;
-  }
-  errno = old_errno;
-  return ret;
-}
-
-/* Set effective user ID to unprivileged saved user ID */
-__attribute__((warn_unused_result))
-int lower_privileges(void){
-  int old_errno = errno;
-  int ret = 0;
-  if(seteuid(uid) == -1){
-    ret = errno;
-  }
-  errno = old_errno;
-  return ret;
-}
-
-/* Lower privileges permanently */
-__attribute__((warn_unused_result))
-int lower_privileges_permanently(void){
-  int old_errno = errno;
-  int ret = 0;
-  if(setuid(uid) == -1){
-    ret = errno;
-  }
-  errno = old_errno;
-  return ret;
-}
 
 /* Helper function to add_local_route() and delete_local_route() */
 __attribute__((nonnull, warn_unused_result))
