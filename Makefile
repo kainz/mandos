@@ -396,6 +396,8 @@ install-client-nokey: all doc
 		"$(CONFDIR)/network-hooks.d"
 	install --mode=u=rwx,go=rx \
 		--target-directory=$(LIBDIR)/mandos plugin-runner
+	install --mode=u=rwx,go=rx \
+		--target-directory=$(LIBDIR)/mandos mandos-to-cryptroot-unlock
 	install --mode=u=rwx,go=rx --target-directory=$(PREFIX)/sbin \
 		mandos-keygen
 	install --mode=u=rwx,go=rx \
@@ -425,6 +427,8 @@ install-client-nokey: all doc
 		$(INITRAMFSTOOLS)/conf-hooks.d/mandos
 	install initramfs-tools-script \
 		$(INITRAMFSTOOLS)/scripts/init-premount/mandos
+	install initramfs-tools-script-stop \
+		$(INITRAMFSTOOLS)/scripts/local-premount/mandos
 	install --mode=u=rw,go=r plugin-runner.conf $(CONFDIR)
 	gzip --best --to-stdout mandos-keygen.8 \
 		> $(MANDIR)/man8/mandos-keygen.8.gz
