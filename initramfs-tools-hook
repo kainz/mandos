@@ -80,6 +80,8 @@ install --owner=${mandos_user} --group=${mandos_group} --directory \
 	--mode=u=rwx "${DESTDIR}${PLUGINDIR}" \
 	"${DESTDIR}${PLUGINHELPERDIR}"
 
+copy_exec "$libdir"/mandos/mandos-to-cryptroot-unlock "${MANDOSDIR}"
+
 # Copy the Mandos plugin runner
 copy_exec "$libdir"/mandos/plugin-runner "${MANDOSDIR}"
 
@@ -250,8 +252,8 @@ fi
 # initrd; it is intended to affect the initrd.img file itself, since
 # it now contains secret key files.  There is, however, no other way
 # to set the permission of the initrd.img file without a race
-# condition.  This umask is set by "initramfs-tools-hook-conf",
-# installed as "/usr/share/initramfs-tools/conf-hooks.d/mandos".)
+# condition.  This umask is set by "initramfs-tools-conf", installed
+# as "/usr/share/initramfs-tools/conf.d/mandos-conf".)
 # 
 for full in "${MANDOSDIR}" "${CONFDIR}"; do
     while [ "$full" != "/" ]; do

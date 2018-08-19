@@ -1,0 +1,17 @@
+# -*- shell-script -*-
+
+# Since the initramfs image will contain key files, we need to
+# restrict permissions on it by setting UMASK here.
+# 
+# The proper place to set UMASK is (according to
+# /etc/cryptsetup-initramfs/conf-hook), in
+# /etc/initramfs-tools/initramfs.conf, which we shouldn't edit.  The
+# corresponding directory for drop-in files from packages is
+# /usr/share/initramfs-tools/conf.d, and this file will be installed
+# there as "mandos-conf".
+# 
+# This setting of UMASK will have unfortunate unintended side effects
+# on the files *inside* the initramfs, but these are later fixed by
+# "initramfs-tools-hook", installed as
+# "/usr/share/initramfs-tools/hooks/mandos".
+UMASK=0027

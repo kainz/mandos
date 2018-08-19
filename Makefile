@@ -89,8 +89,7 @@ LIBNL3_LIBS:=$(shell pkg-config --libs libnl-route-3.0)
 
 # Do not change these two
 CFLAGS+=$(WARN) $(DEBUG) $(FORTIFY) $(SANITIZE) $(COVERAGE) \
-	$(OPTIMIZE) $(LANGUAGE) $(GNUTLS_CFLAGS) $(AVAHI_CFLAGS) \
-	$(GPGME_CFLAGS) -DVERSION='"$(version)"'
+	$(OPTIMIZE) $(LANGUAGE) -DVERSION='"$(version)"'
 LDFLAGS+=-Xlinker --as-needed $(COVERAGE) $(LINK_FORTIFY) $(foreach flag,$(LINK_FORTIFY_LD),-Xlinker $(flag))
 
 # Commands to format a DocBook <refentry> document into a manual page
@@ -257,6 +256,7 @@ mandos.lsm: Makefile
 # -fsanitize=leak because GnuTLS and GPGME both leak memory.
 plugins.d/mandos-client: plugins.d/mandos-client.c
 	$(CC) $(filter-out -fsanitize=leak,$(CFLAGS)) $(strip\
+	) $(GNUTLS_CFLAGS) $(AVAHI_CFLAGS) $(GPGME_CFLAGS) $(strip\
 		) $(CPPFLAGS) $(LDFLAGS) $(TARGET_ARCH) $^ $(strip\
 		) -lrt $(GNUTLS_LIBS) $(AVAHI_LIBS) $(strip\
 		) $(GPGME_LIBS) $(LOADLIBES) $(LDLIBS) -o $@
@@ -396,6 +396,8 @@ install-client-nokey: all doc
 		"$(CONFDIR)/network-hooks.d"
 	install --mode=u=rwx,go=rx \
 		--target-directory=$(LIBDIR)/mandos plugin-runner
+	install --mode=u=rwx,go=rx \
+		--target-directory=$(LIBDIR)/mandos mandos-to-cryptroot-unlock
 	install --mode=u=rwx,go=rx --target-directory=$(PREFIX)/sbin \
 		mandos-keygen
 	install --mode=u=rwx,go=rx \
@@ -421,10 +423,12 @@ install-client-nokey: all doc
 		plugin-helpers/mandos-client-iprouteadddel
 	install initramfs-tools-hook \
 		$(INITRAMFSTOOLS)/hooks/mandos
-	install --mode=u=rw,go=r initramfs-tools-hook-conf \
-		$(INITRAMFSTOOLS)/conf-hooks.d/mandos
+	install --mode=u=rw,go=r initramfs-tools-conf \
+		$(INITRAMFSTOOLS)/conf.d/mandos-conf
 	install initramfs-tools-script \
 		$(INITRAMFSTOOLS)/scripts/init-premount/mandos
+	install initramfs-tools-script-stop \
+		$(INITRAMFSTOOLS)/scripts/local-premount/mandos
 	install --mode=u=rw,go=r plugin-runner.conf $(CONFDIR)
 	gzip --best --to-stdout mandos-keygen.8 \
 		> $(MANDIR)/man8/mandos-keygen.8.gz
