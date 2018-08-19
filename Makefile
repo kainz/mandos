@@ -423,8 +423,6 @@ install-client-nokey: all doc
 		plugin-helpers/mandos-client-iprouteadddel
 	install initramfs-tools-hook \
 		$(INITRAMFSTOOLS)/hooks/mandos
-	install --mode=u=rw,go=r initramfs-tools-hook-conf \
-		$(INITRAMFSTOOLS)/conf-hooks.d/mandos
 	install --mode=u=rw,go=r initramfs-tools-conf \
 		$(INITRAMFSTOOLS)/conf.d/mandos-conf
 	install initramfs-tools-script \

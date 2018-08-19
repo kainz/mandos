@@ -42,7 +42,7 @@ Description: server giving encrypted passwords to Mandos clients
 Package: mandos-client
 Architecture: linux-any
 Depends: ${shlibs:Depends}, ${misc:Depends}, adduser, cryptsetup,
-	initramfs-tools, dpkg-dev (>=1.16.0)
+	initramfs-tools (>= 0.99), dpkg-dev (>=1.16.0)
 Recommends: ssh, gnutls-bin | openssl
 Breaks: dropbear (<= 0.53.1-1)
 Enhances: cryptsetup
