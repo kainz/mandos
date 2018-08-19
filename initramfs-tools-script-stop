@@ -1,0 +1,65 @@
+#!/bin/sh -e
+# 
+# Script to wait for plugin-runner to exit before continuing boot
+# 
+# Copyright © 2018 Teddy Hogeborn
+# Copyright © 2018 Björn Påhlsson
+# 
+# This file is part of Mandos.
+# 
+# Mandos is free software: you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+# 
+#     Mandos is distributed in the hope that it will be useful, but
+#     WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with Mandos.  If not, see <http://www.gnu.org/licenses/>.
+# 
+# Contact the authors at <mandos@recompile.se>.
+# 
+# This script will run in the initrd environment at boot and remove
+# the file keeping the dummy plugin running, forcing plugin-runner to
+# exit if it is still running.
+
+# This script should be installed as
+# "/usr/share/initramfs-tools/scripts/local-premount/mandos" which will
+# eventually be "/scripts/local-premount/mandos" in the initrd.img
+# file.
+
+PREREQ=""
+prereqs()
+{
+    echo "$PREREQ"
+}
+
+case $1 in
+prereqs)
+	prereqs
+	exit 0
+	;;
+esac
+
+. /scripts/functions
+
+pid=$(cat /run/mandos-plugin-runner.pid 2>/dev/null)
+
+# If the dummy plugin is running, removing this file should force the
+# dummy plugin to exit successfully, thereby making plugin-runner shut
+# down all its other plugins and then exit itself.
+rm -f /run/mandos-keep-running >/dev/null 2>&1
+
+# Wait for exit of plugin-runner, if still running
+if [ -n "$pid" ]; then
+    while :; do
+	case "$(readlink /proc/"$pid"/exe 2>/dev/null)" in
+	    */plugin-runner) sleep 1;;
+	    *) break;;
+	esac
+    done
+    rm -f /run/mandos-plugin-runner.pid >/dev/null 2>&1
+fi

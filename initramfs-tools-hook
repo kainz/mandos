@@ -80,6 +80,8 @@ install --owner=${mandos_user} --group=${mandos_group} --directory \
 	--mode=u=rwx "${DESTDIR}${PLUGINDIR}" \
 	"${DESTDIR}${PLUGINHELPERDIR}"
 
+copy_exec "$libdir"/mandos/mandos-to-cryptroot-unlock "${MANDOSDIR}"
+
 # Copy the Mandos plugin runner
 copy_exec "$libdir"/mandos/plugin-runner "${MANDOSDIR}"
 

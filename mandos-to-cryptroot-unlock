@@ -1,0 +1,82 @@
+#!/bin/sh
+# 
+# Script to get password from plugin-runner to cryptroot-unlock
+# 
+# Copyright © 2018 Teddy Hogeborn
+# Copyright © 2018 Björn Påhlsson
+# 
+# This file is part of Mandos.
+# 
+# Mandos is free software: you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+# 
+#     Mandos is distributed in the hope that it will be useful, but
+#     WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with Mandos.  If not, see <http://www.gnu.org/licenses/>.
+# 
+# Contact the authors at <mandos@recompile.se>.
+
+# This script is made to run in the initramfs, and must not be run in
+# the normal system environment.
+
+# Temporary file for the password
+passfile=$(mktemp -p /run -t mandos.XXXXXX)
+trap "rm -f -- $passfile 2>/dev/null" EXIT
+
+# Disable the plugins which conflict with "askpass" as distributed by
+# cryptsetup.
+cat <<-EOF >>/conf/conf.d/mandos/plugin-runner.conf
+
+	--disable=askpass-fifo
+	--disable=password-prompt
+	--disable=plymouth
+EOF
+
+# In case a password is retrieved by other means than by plugin-runner
+# (such as typing it on the console into the prompt given by the
+# "askpass" program), this dummy plugin will be made to exit
+# successfully, thereby forcing plugin-runner to stop all its plugins
+# and also exit itself.
+cat <<-EOF > /lib/mandos/plugins.d/dummy
+	#!/bin/sh
+	
+	while [ -e /run/mandos-keep-running ]; do
+	    sleep 1
+	done
+	
+	# exit successfully to force plugin-runner to finish
+	exit 0
+EOF
+chmod u=rwx,go=rx /lib/mandos/plugins.d/dummy
+
+# This file is the flag which keeps the dummy plugin running
+touch /run/mandos-keep-running
+
+# Keep running plugin-runner and trying any password, until either a
+# password is accepted by cryptroot-unlock, or plugin-runner fails, or
+# the file /run/mandos-keep-running has been removed.
+while type cryptroot-unlock >/dev/null 2>&1; do
+    /lib/mandos/plugin-runner > "$passfile" &
+    echo $! > /run/mandos-plugin-runner.pid
+    wait %% || break
+
+    # Try this password ten times (or ten seconds)
+    for loop in 1 2 3 4 5 6 7 8 9 10; do
+	if [ -e /run/mandos-keep-running ]; then
+	    cryptroot-unlock < "$passfile" >/dev/null 2>&1 && break 2
+	    sleep 1
+	else
+	    break 2
+	fi
+    done
+done
+
+exec >/dev/null 2>&1
+
+rm -f /run/mandos-plugin-runner.pid /run/mandos-keep-running
