@@ -1,3 +1,24 @@
+mandos (1.7.20-1) unstable; urgency=medium
+
+  * New upstream release.
+  * Fix "[tethys] mandos-client: Mandos client fails while booting but
+    works from chroot into unpacked initramfs" by setting system clock if
+    necessary (Closes: #894495)
+  * Fix "initramfs boot script assumes internal cryptsetup implementation
+    details and is now broken" by only using documented
+    interfaces (Closes: #904899)
+  * debian/mandos-client.dirs: Add
+    "usr/share/initramfs-tools/scripts/local-premount" and
+    "usr/share/initramfs-tools/conf.d", and remove
+    "usr/share/initramfs-tools/conf-hooks.d".
+  * debian/control (mandos-client/Depends): Add "(>= 0.99)" to dependency
+    on "initramfs-tools".
+  * debian/control (Source: mandos/Rules-Requires-Root): New; set to
+    "binary-targets".
+    (Standards-Version): Update to "4.2.0".
+
+ -- Teddy Hogeborn <teddy@recompile.se>  Sun, 19 Aug 2018 22:14:04 +0200
+
 mandos (1.7.19-1) unstable; urgency=medium
 
   * New upstream release.
