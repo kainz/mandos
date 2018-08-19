@@ -9,5 +9,3 @@ if [ -e "${outfile}" ] \
     rm "${outfile}"
     (umask 027; touch "${outfile}")
 fi
-
-UMASK=027
