@@ -1093,7 +1093,12 @@ int main(int argc, char *argv[]){
     
     new_plugin->pid = pid;
     new_plugin->fd = pipefd[0];
-    
+
+    if(debug){
+      fprintf(stderr, "Plugin %s started (PID %" PRIdMAX ")\n",
+	      new_plugin->name, (intmax_t) (new_plugin->pid));
+    }
+
     /* Unblock SIGCHLD so signal handler can be run if this process
        has already completed */
     ret = (int)TEMP_FAILURE_RETRY(sigprocmask(SIG_UNBLOCK,
