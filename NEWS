@@ -1,6 +1,19 @@
 This NEWS file records noteworthy changes, very tersely.
 See the manual for detailed information.
 
+Version 1.7.20 (2018-08-19)
+* Client
+** Fix: Adapt to the Debian cryptsetup package 2.0.3 or later.
+   Important: in that version or later, the plugins "askpass-fifo",
+   "password-prompt", and "plymouth" will no longer be run, since they
+   would conflict with what cryptsetup is doing.  Other plugins, such
+   as mandos-client and any user-supplied plugins, will still run.
+** Better error message if failing to decrypt secret data
+** Check for (and report) any key import failure from GPGME
+** Better error message if self-signature verification fails
+** Set system clock if not set; required by GnuPG for key import
+** When debugging plugin-runner, it will now show starting plugins
+
 Version 1.7.19 (2018-02-22)
 * Client
 ** Do not print "unlink(...): No such file or directory".
