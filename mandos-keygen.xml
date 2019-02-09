@@ -190,9 +190,9 @@
       TLS and OpenPGP keys used by
       <citerefentry><refentrytitle>mandos-client</refentrytitle>
       <manvolnum>8mandos</manvolnum></citerefentry>.  The keys are
-      normally written to /etc/mandos for later installation into the
-      initrd image, but this, and most other things, can be changed
-      with command line options.
+      normally written to /etc/keys/mandos for later installation into
+      the initrd image, but this, and most other things, can be
+      changed with command line options.
     </para>
     <para>
       This program can also be used with the
@@ -235,8 +235,8 @@
 	<replaceable>DIRECTORY</replaceable></option></term>
 	<listitem>
 	  <para>
-	    Target directory for key files.  Default is
-	    <filename class="directory">/etc/mandos</filename>.
+	    Target directory for key files.  Default is <filename
+	    class="directory">/etc/keys/mandos</filename>.
 	  </para>
 	</listitem>
       </varlistentry>
@@ -354,8 +354,8 @@
 	<listitem>
 	  <para>
 	    Prompt for a password and encrypt it with the key already
-	    present in either <filename>/etc/mandos</filename> or the
-	    directory specified with the <option>--dir</option>
+	    present in either <filename>/etc/keys/mandos</filename> or
+	    the directory specified with the <option>--dir</option>
 	    option.  Outputs, on standard output, a section suitable
 	    for inclusion in <citerefentry><refentrytitle
 	    >mandos-clients.conf</refentrytitle><manvolnum
@@ -441,7 +441,7 @@
     </para>
     <variablelist>
       <varlistentry>
-	<term><filename>/etc/mandos/seckey.txt</filename></term>
+	<term><filename>/etc/keys/mandos/seckey.txt</filename></term>
 	<listitem>
 	  <para>
 	    OpenPGP secret key file which will be created or
@@ -450,7 +450,7 @@
 	</listitem>
       </varlistentry>
       <varlistentry>
-	<term><filename>/etc/mandos/pubkey.txt</filename></term>
+	<term><filename>/etc/keys/mandos/pubkey.txt</filename></term>
 	<listitem>
 	  <para>
 	    OpenPGP public key file which will be created or
@@ -515,9 +515,9 @@
     </informalexample>
     <informalexample>
       <para>
-	Prompt for a password, encrypt it with the key in <filename
-	class="directory">/etc/mandos</filename> and output a section
-	suitable for <filename>clients.conf</filename>.
+	Prompt for a password, encrypt it with the keys in <filename
+	class="directory">/etc/keys/mandos</filename> and output a
+	section suitable for <filename>clients.conf</filename>.
       </para>
       <para>
 	<userinput>&COMMANDNAME; --password</userinput>
@@ -525,7 +525,7 @@
     </informalexample>
     <informalexample>
       <para>
-	Prompt for a password, encrypt it with the key in the
+	Prompt for a password, encrypt it with the keys in the
 	<filename>client-key</filename> directory and output a section
 	suitable for <filename>clients.conf</filename>.
       </para>
