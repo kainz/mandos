@@ -186,9 +186,9 @@
 	    >--</option> %%(host)s</literal></quote>.  Note that
 	    <command>mandos-keygen</command>, when generating output
 	    to be inserted into this file, normally looks for an SSH
-	    server on the Mandos client, and, if it find one, outputs
+	    server on the Mandos client, and, if it finds one, outputs
 	    a <option>checker</option> option to check for the
-	    client’s key fingerprint – this is more secure against
+	    client’s SSH key fingerprint – this is more secure against
 	    spoofing.
 	  </para>
 	  <para>
