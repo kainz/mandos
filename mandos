@@ -514,6 +514,7 @@ class GnuTLS(object):
     _library = ctypes.cdll.LoadLibrary(library)
     del library
     _need_version = b"3.3.0"
+    _tls_rawpk_version = b"3.6.6"
 
     def __init__(self):
         # Need to use "self" here, since this method is called before
@@ -530,10 +531,16 @@ class GnuTLS(object):
     E_INTERRUPTED = -52
     E_AGAIN = -28
     CRT_OPENPGP = 2
+    CRT_RAWPK = 3
     CLIENT = 2
     SHUT_RDWR = 0
     CRD_CERTIFICATE = 1
     E_NO_CERTIFICATE_FOUND = -49
+    X509_FMT_DER = 0
+    NO_TICKETS = 1<<10
+    ENABLE_RAWPK = 1<<18
+    CTYPE_PEERS = 3
+    KEYID_USE_SHA256 = 1        # gnutls/x509.h
     OPENPGP_FMT_RAW = 0         # gnutls/openpgp.h
 
     # Types
@@ -593,7 +600,13 @@ class GnuTLS(object):
     class ClientSession(object):
         def __init__(self, socket, credentials=None):
             self._c_object = gnutls.session_t()
-            gnutls.init(ctypes.byref(self._c_object), gnutls.CLIENT)
+            gnutls_flags = gnutls.CLIENT
+            if gnutls.check_version("3.5.6"):
+                gnutls_flags |= gnutls.NO_TICKETS
+            if gnutls.has_rawpk:
+                gnutls_flags |= gnutls.ENABLE_RAWPK
+            gnutls.init(ctypes.byref(self._c_object), gnutls_flags)
+            del gnutls_flags
             gnutls.set_default_priority(self._c_object)
             gnutls.transport_set_ptr(self._c_object, socket.fileno())
             gnutls.handshake_set_private_extensions(self._c_object,
@@ -731,34 +744,69 @@ class GnuTLS(object):
     check_version.argtypes = [ctypes.c_char_p]
     check_version.restype = ctypes.c_char_p
 
-    # All the function declarations below are from gnutls/openpgp.h
+    has_rawpk = bool(check_version(_tls_rawpk_version))
 
-    openpgp_crt_init = _library.gnutls_openpgp_crt_init
-    openpgp_crt_init.argtypes = [ctypes.POINTER(openpgp_crt_t)]
-    openpgp_crt_init.restype = _error_code
+    if has_rawpk:
+        # Types
+        class pubkey_st(ctypes.Structure):
+            _fields = []
+        pubkey_t = ctypes.POINTER(pubkey_st)
 
-    openpgp_crt_import = _library.gnutls_openpgp_crt_import
-    openpgp_crt_import.argtypes = [openpgp_crt_t,
-                                   ctypes.POINTER(datum_t),
-                                   openpgp_crt_fmt_t]
-    openpgp_crt_import.restype = _error_code
+        x509_crt_fmt_t = ctypes.c_int
 
-    openpgp_crt_verify_self = _library.gnutls_openpgp_crt_verify_self
-    openpgp_crt_verify_self.argtypes = [openpgp_crt_t, ctypes.c_uint,
-                                        ctypes.POINTER(ctypes.c_uint)]
-    openpgp_crt_verify_self.restype = _error_code
+        # All the function declarations below are from gnutls/abstract.h
+        pubkey_init = _library.gnutls_pubkey_init
+        pubkey_init.argtypes = [ctypes.POINTER(pubkey_t)]
+        pubkey_init.restype = _error_code
 
-    openpgp_crt_deinit = _library.gnutls_openpgp_crt_deinit
-    openpgp_crt_deinit.argtypes = [openpgp_crt_t]
-    openpgp_crt_deinit.restype = None
+        pubkey_import = _library.gnutls_pubkey_import
+        pubkey_import.argtypes = [pubkey_t, ctypes.POINTER(datum_t),
+                                  x509_crt_fmt_t]
+        pubkey_import.restype = _error_code
 
-    openpgp_crt_get_fingerprint = (
-        _library.gnutls_openpgp_crt_get_fingerprint)
-    openpgp_crt_get_fingerprint.argtypes = [openpgp_crt_t,
-                                            ctypes.c_void_p,
-                                            ctypes.POINTER(
-                                                ctypes.c_size_t)]
-    openpgp_crt_get_fingerprint.restype = _error_code
+        pubkey_get_key_id = _library.gnutls_pubkey_get_key_id
+        pubkey_get_key_id.argtypes = [pubkey_t, ctypes.c_int,
+                                      ctypes.POINTER(ctypes.c_ubyte),
+                                      ctypes.POINTER(ctypes.c_size_t)]
+        pubkey_get_key_id.restype = _error_code
+
+        pubkey_deinit = _library.gnutls_pubkey_deinit
+        pubkey_deinit.argtypes = [pubkey_t]
+        pubkey_deinit.restype = None
+    else:
+        # All the function declarations below are from gnutls/openpgp.h
+
+        openpgp_crt_init = _library.gnutls_openpgp_crt_init
+        openpgp_crt_init.argtypes = [ctypes.POINTER(openpgp_crt_t)]
+        openpgp_crt_init.restype = _error_code
+
+        openpgp_crt_import = _library.gnutls_openpgp_crt_import
+        openpgp_crt_import.argtypes = [openpgp_crt_t,
+                                       ctypes.POINTER(datum_t),
+                                       openpgp_crt_fmt_t]
+        openpgp_crt_import.restype = _error_code
+
+        openpgp_crt_verify_self = _library.gnutls_openpgp_crt_verify_self
+        openpgp_crt_verify_self.argtypes = [openpgp_crt_t, ctypes.c_uint,
+                                            ctypes.POINTER(ctypes.c_uint)]
+        openpgp_crt_verify_self.restype = _error_code
+
+        openpgp_crt_deinit = _library.gnutls_openpgp_crt_deinit
+        openpgp_crt_deinit.argtypes = [openpgp_crt_t]
+        openpgp_crt_deinit.restype = None
+
+        openpgp_crt_get_fingerprint = (
+            _library.gnutls_openpgp_crt_get_fingerprint)
+        openpgp_crt_get_fingerprint.argtypes = [openpgp_crt_t,
+                                                ctypes.c_void_p,
+                                                ctypes.POINTER(
+                                                    ctypes.c_size_t)]
+        openpgp_crt_get_fingerprint.restype = _error_code
+
+    if check_version("3.6.4"):
+        certificate_type_get2 = _library.gnutls_certificate_type_get2
+        certificate_type_get2.argtypes = [session_t, ctypes.c_int]
+        certificate_type_get2.restype = _error_code
 
     # Remove non-public functions
     del _error_code, _retry_on_error
@@ -800,7 +848,9 @@ class Client(object):
     disable_initiator_tag: a GLib event source tag, or None
     enabled:    bool()
     fingerprint: string (40 or 32 hexadecimal digits); used to
-                 uniquely identify the client
+                 uniquely identify an OpenPGP client
+    key_id: string (64 hexadecimal digits); used to uniquely identify
+            a client using raw public keys
     host:       string; available for use by the checker command
     interval:   datetime.timedelta(); How often to start a new checker
     last_approval_request: datetime.datetime(); (UTC) or None
@@ -824,7 +874,7 @@ class Client(object):
     """
 
     runtime_expansions = ("approval_delay", "approval_duration",
-                          "created", "enabled", "expires",
+                          "created", "enabled", "expires", "key_id",
                           "fingerprint", "host", "interval",
                           "last_approval_request", "last_checked_ok",
                           "last_enabled", "name", "timeout")
@@ -860,9 +910,11 @@ class Client(object):
             client["enabled"] = config.getboolean(client_name,
                                                   "enabled")
 
-            # Uppercase and remove spaces from fingerprint for later
-            # comparison purposes with return value from the
-            # fingerprint() function
+            # Uppercase and remove spaces from key_id and fingerprint
+            # for later comparison purposes with return value from the
+            # key_id() and fingerprint() functions
+            client["key_id"] = (section.get("key_id", "").upper()
+                                .replace(" ", ""))
             client["fingerprint"] = (section["fingerprint"].upper()
                                      .replace(" ", ""))
             if "secret" in section:
@@ -912,6 +964,7 @@ class Client(object):
             self.expires = None
 
         logger.debug("Creating client %r", self.name)
+        logger.debug("  Key ID: %s", self.key_id)
         logger.debug("  Fingerprint: %s", self.fingerprint)
         self.created = settings.get("created",
                                     datetime.datetime.utcnow())
@@ -1999,6 +2052,13 @@ class ClientDBus(Client, DBusObjectWithProperties):
     def Name_dbus_property(self):
         return dbus.String(self.name)
 
+    # KeyID - property
+    @dbus_annotations(
+        {"org.freedesktop.DBus.Property.EmitsChangedSignal": "const"})
+    @dbus_service_property(_interface, signature="s", access="read")
+    def KeyID_dbus_property(self):
+        return dbus.String(self.key_id)
+
     # Fingerprint - property
     @dbus_annotations(
         {"org.freedesktop.DBus.Property.EmitsChangedSignal": "const"})
@@ -2160,11 +2220,11 @@ class ClientDBus(Client, DBusObjectWithProperties):
 
 
 class ProxyClient(object):
-    def __init__(self, child_pipe, fpr, address):
+    def __init__(self, child_pipe, key_id, fpr, address):
         self._pipe = child_pipe
-        self._pipe.send(('init', fpr, address))
+        self._pipe.send(('init', key_id, fpr, address))
         if not self._pipe.recv():
-            raise KeyError(fpr)
+            raise KeyError(key_id or fpr)
 
     def __getattribute__(self, name):
         if name == '_pipe':
@@ -2237,16 +2297,28 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
 
             approval_required = False
             try:
-                try:
-                    fpr = self.fingerprint(
-                        self.peer_certificate(session))
-                except (TypeError, gnutls.Error) as error:
-                    logger.warning("Bad certificate: %s", error)
-                    return
-                logger.debug("Fingerprint: %s", fpr)
+                if gnutls.has_rawpk:
+                    fpr = ""
+                    try:
+                        key_id = self.key_id(
+                            self.peer_certificate(session))
+                    except (TypeError, gnutls.Error) as error:
+                        logger.warning("Bad certificate: %s", error)
+                        return
+                    logger.debug("Key ID: %s", key_id)
+
+                else:
+                    key_id = ""
+                    try:
+                        fpr = self.fingerprint(
+                            self.peer_certificate(session))
+                    except (TypeError, gnutls.Error) as error:
+                        logger.warning("Bad certificate: %s", error)
+                        return
+                    logger.debug("Fingerprint: %s", fpr)
 
                 try:
-                    client = ProxyClient(child_pipe, fpr,
+                    client = ProxyClient(child_pipe, key_id, fpr,
                                          self.client_address)
                 except KeyError:
                     return
@@ -2329,10 +2401,20 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
 
     @staticmethod
     def peer_certificate(session):
-        "Return the peer's OpenPGP certificate as a bytestring"
-        # If not an OpenPGP certificate...
-        if (gnutls.certificate_type_get(session._c_object)
-            != gnutls.CRT_OPENPGP):
+        "Return the peer's certificate as a bytestring"
+        try:
+            cert_type = gnutls.certificate_type_get2(session._c_object,
+                                                     gnutls.CTYPE_PEERS)
+        except AttributeError:
+            cert_type = gnutls.certificate_type_get(session._c_object)
+        if gnutls.has_rawpk:
+            valid_cert_types = frozenset((gnutls.CRT_RAWPK,))
+        else:
+            valid_cert_types = frozenset((gnutls.CRT_OPENPGP,))
+        # If not a valid certificate type...
+        if cert_type not in valid_cert_types:
+            logger.info("Cert type %r not in %r", cert_type,
+                        valid_cert_types)
             # ...return invalid data
             return b""
         list_size = ctypes.c_uint(1)
@@ -2344,6 +2426,40 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
             return None
         cert = cert_list[0]
         return ctypes.string_at(cert.data, cert.size)
+
+    @staticmethod
+    def key_id(certificate):
+        "Convert a certificate bytestring to a hexdigit key ID"
+        # New GnuTLS "datum" with the public key
+        datum = gnutls.datum_t(
+            ctypes.cast(ctypes.c_char_p(certificate),
+                        ctypes.POINTER(ctypes.c_ubyte)),
+            ctypes.c_uint(len(certificate)))
+        # XXX all these need to be created in the gnutls "module"
+        # New empty GnuTLS certificate
+        pubkey = gnutls.pubkey_t()
+        gnutls.pubkey_init(ctypes.byref(pubkey))
+        # Import the raw public key into the certificate
+        gnutls.pubkey_import(pubkey,
+                             ctypes.byref(datum),
+                             gnutls.X509_FMT_DER)
+        # New buffer for the key ID
+        buf = ctypes.create_string_buffer(32)
+        buf_len = ctypes.c_size_t(len(buf))
+        # Get the key ID from the raw public key into the buffer
+        gnutls.pubkey_get_key_id(pubkey,
+                                 gnutls.KEYID_USE_SHA256,
+                                 ctypes.cast(ctypes.byref(buf),
+                                             ctypes.POINTER(ctypes.c_ubyte)),
+                                 ctypes.byref(buf_len))
+        # Deinit the certificate
+        gnutls.pubkey_deinit(pubkey)
+
+        # Convert the buffer to a Python bytestring
+        key_id = ctypes.string_at(buf, buf_len.value)
+        # Convert the bytestring to hexadecimal notation
+        hex_key_id = binascii.hexlify(key_id).upper()
+        return hex_key_id
 
     @staticmethod
     def fingerprint(openpgp):
@@ -2579,19 +2695,23 @@ class MandosServer(IPv6_TCPServer):
         command = request[0]
 
         if command == 'init':
-            fpr = request[1].decode("ascii")
-            address = request[2]
+            key_id = request[1].decode("ascii")
+            fpr = request[2].decode("ascii")
+            address = request[3]
 
             for c in self.clients.values():
-                if c.fingerprint == fpr:
+                if key_id and c.key_id == key_id:
+                    client = c
+                    break
+                if fpr and c.fingerprint == fpr:
                     client = c
                     break
             else:
-                logger.info("Client not found for fingerprint: %s, ad"
-                            "dress: %s", fpr, address)
+                logger.info("Client not found for key ID: %s, address"
+                            ": %s", key_id or fpr, address)
                 if self.use_dbus:
                     # Emit D-Bus signal
-                    mandos_dbus_service.ClientNotFound(fpr,
+                    mandos_dbus_service.ClientNotFound(key_id or fpr,
                                                        address[0])
                 parent_pipe.send(False)
                 return False
@@ -2860,13 +2980,17 @@ def main():
         sys.exit(os.EX_OK if fail_count == 0 else 1)
 
     # Default values for config file for server-global settings
+    if gnutls.has_rawpk:
+        priority = ("SECURE128:!CTYPE-X.509:+CTYPE-RAWPK:!RSA"
+                    ":!VERS-ALL:+VERS-TLS1.3:%PROFILE_ULTRA")
+    else:
+        priority = ("SECURE256:!CTYPE-X.509:+CTYPE-OPENPGP:!RSA"
+                    ":+SIGN-DSA-SHA256")
     server_defaults = {"interface": "",
                        "address": "",
                        "port": "",
                        "debug": "False",
-                       "priority":
-                       "SECURE256:!CTYPE-X.509:+CTYPE-OPENPGP:!RSA"
-                       ":+SIGN-DSA-SHA256",
+                       "priority": priority,
                        "servicename": "Mandos",
                        "use_dbus": "True",
                        "use_ipv6": "True",
@@ -2877,6 +3001,7 @@ def main():
                        "foreground": "False",
                        "zeroconf": "True",
                        }
+    del priority
 
     # Parse config file for server-global settings
     server_config = configparser.SafeConfigParser(server_defaults)
@@ -3126,6 +3251,10 @@ def main():
                         for k in ("name", "host"):
                             if isinstance(value[k], bytes):
                                 value[k] = value[k].decode("utf-8")
+                        if not value.has_key("key_id"):
+                            value["key_id"] = ""
+                        elif not value.has_key("fingerprint"):
+                            value["fingerprint"] = ""
                     #  old_client_settings
                     # .keys()
                     old_client_settings = {
@@ -3268,7 +3397,7 @@ def main():
                 pass
 
             @dbus.service.signal(_interface, signature="ss")
-            def ClientNotFound(self, fingerprint, address):
+            def ClientNotFound(self, key_id, address):
                 "D-Bus signal"
                 pass
 

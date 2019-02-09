@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY COMMANDNAME "mandos-keygen">
-<!ENTITY TIMESTAMP "2018-02-08">
+<!ENTITY TIMESTAMP "2019-02-10">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -127,6 +127,13 @@
       </group>
       <sbr/>
       <group>
+	<arg choice="plain"><option>--tls-keytype
+	<replaceable>KEYTYPE</replaceable></option></arg>
+	<arg choice="plain"><option>-T
+	<replaceable>KEYTYPE</replaceable></option></arg>
+      </group>
+      <sbr/>
+      <group>
 	<arg choice="plain"><option>--force</option></arg>
 	<arg choice="plain"><option>-f</option></arg>
       </group>
@@ -180,9 +187,9 @@
     <title>DESCRIPTION</title>
     <para>
       <command>&COMMANDNAME;</command> is a program to generate the
-      OpenPGP key used by
+      TLS and OpenPGP keys used by
       <citerefentry><refentrytitle>mandos-client</refentrytitle>
-      <manvolnum>8mandos</manvolnum></citerefentry>.  The key is
+      <manvolnum>8mandos</manvolnum></citerefentry>.  The keys are
       normally written to /etc/mandos for later installation into the
       initrd image, but this, and most other things, can be changed
       with command line options.
@@ -241,7 +248,7 @@
 	<replaceable>TYPE</replaceable></option></term>
 	<listitem>
 	  <para>
-	    Key type.  Default is <quote>RSA</quote>.
+	    OpenPGP key type.  Default is <quote>RSA</quote>.
 	  </para>
 	</listitem>
       </varlistentry>
@@ -253,7 +260,7 @@
 	<replaceable>BITS</replaceable></option></term>
 	<listitem>
 	  <para>
-	    Key length in bits.  Default is 4096.
+	    OpenPGP key length in bits.  Default is 4096.
 	  </para>
 	</listitem>
       </varlistentry>
@@ -265,8 +272,7 @@
 	<replaceable>KEYTYPE</replaceable></option></term>
 	<listitem>
 	  <para>
-	    Subkey type.  Default is <quote>RSA</quote> (Elgamal
-	    encryption-only).
+	    OpenPGP subkey type.  Default is <quote>RSA</quote>
 	  </para>
 	</listitem>
       </varlistentry>
@@ -278,7 +284,7 @@
 	<replaceable>BITS</replaceable></option></term>
 	<listitem>
 	  <para>
-	    Subkey length in bits.  Default is 4096.
+	    OpenPGP subkey length in bits.  Default is 4096.
 	  </para>
 	</listitem>
       </varlistentry>
@@ -317,6 +323,18 @@
 	    Key expire time.  Default is no expiration.  See
 	    <citerefentry><refentrytitle>gpg</refentrytitle>
 	    <manvolnum>1</manvolnum></citerefentry> for syntax.
+	  </para>
+	</listitem>
+      </varlistentry>
+      
+      <varlistentry>
+	<term><option>--tls-keytype
+	<replaceable>KEYTYPE</replaceable></option></term>
+	<term><option>-T
+	<replaceable>KEYTYPE</replaceable></option></term>
+	<listitem>
+	  <para>
+	    TLS key type.  Default is <quote>ed25519</quote>
 	  </para>
 	</listitem>
       </varlistentry>
@@ -383,9 +401,9 @@
     <title>OVERVIEW</title>
     <xi:include href="overview.xml"/>
     <para>
-      This program is a small utility to generate new OpenPGP keys for
-      new Mandos clients, and to generate sections for inclusion in
-      <filename>clients.conf</filename> on the server.
+      This program is a small utility to generate new TLS and OpenPGP
+      keys for new Mandos clients, and to generate sections for
+      inclusion in <filename>clients.conf</filename> on the server.
     </para>
   </refsect1>
   
@@ -437,6 +455,22 @@
 	  <para>
 	    OpenPGP public key file which will be created or
 	    overwritten.
+	  </para>
+	</listitem>
+      </varlistentry>
+      <varlistentry>
+	<term><filename>/etc/keys/mandos/tls-privkey.pem</filename></term>
+	<listitem>
+	  <para>
+	    Private key file which will be created or overwritten.
+	  </para>
+	</listitem>
+      </varlistentry>
+      <varlistentry>
+	<term><filename>/etc/keys/mandos/tls-pubkey.pem</filename></term>
+	<listitem>
+	  <para>
+	    Public key file which will be created or overwritten.
 	  </para>
 	</listitem>
       </varlistentry>

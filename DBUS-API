@@ -27,9 +27,9 @@ This file documents the D-Bus interface to the Mandos server.
     Removes a client
    
 ** Signals:
-*** ClientNotFound(s: Fingerprint, s: Address)
-    A client connected from Address using Fingerprint, but was
-    rejected because it was not found in the server.  The fingerprint
+*** ClientNotFound(s: KeyID, s: Address)
+    A client connected from Address using KeyID, but was
+    rejected because it was not found in the server.  The key ID
     is represented as a string of hexadecimal digits.  The address is
     an IPv4 or IPv6 address in its normal string format.
 
@@ -66,6 +66,7 @@ This file documents the D-Bus interface to the Mandos server.
    | Expires (f)             | s    | Read       | N/A                 |
    | ExtendedTimeout (a)     | t    | Read/Write | extended_timeout    |
    | Fingerprint             | s    | Read       | fingerprint         |
+   | KeyID                   | s    | Read       | key_id              |
    | Host                    | s    | Read/Write | host                |
    | Interval (a)            | t    | Read/Write | interval            |
    | LastApprovalRequest (g) | s    | Read       | N/A                 |

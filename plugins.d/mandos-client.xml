@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY COMMANDNAME "mandos-client">
-<!ENTITY TIMESTAMP "2018-02-08">
+<!ENTITY TIMESTAMP "2019-02-09">
 <!ENTITY % common SYSTEM "../common.ent">
 %common;
 ]>
@@ -95,6 +95,20 @@
 	<replaceable>FILE</replaceable></option></arg>
       </group>
       <sbr/>
+      <group>
+	<arg choice="plain"><option>--tls-privkey
+	<replaceable>FILE</replaceable></option></arg>
+	<arg choice="plain"><option>-t
+	<replaceable>FILE</replaceable></option></arg>
+      </group>
+      <sbr/>
+      <group>
+	<arg choice="plain"><option>--tls-pubkey
+	<replaceable>FILE</replaceable></option></arg>
+	<arg choice="plain"><option>-T
+	<replaceable>FILE</replaceable></option></arg>
+      </group>
+      <sbr/>
       <arg>
 	<option>--priority <replaceable>STRING</replaceable></option>
       </arg>
@@ -154,10 +168,10 @@
       brings up network interfaces, uses the interfaces’ IPv6
       link-local addresses to get network connectivity, uses Zeroconf
       to find servers on the local network, and communicates with
-      servers using TLS with an OpenPGP key to ensure authenticity and
-      confidentiality.  This client program keeps running, trying all
-      servers on the network, until it receives a satisfactory reply
-      or a TERM signal.  After all servers have been tried, all
+      servers using TLS with a raw public key to ensure authenticity
+      and confidentiality.  This client program keeps running, trying
+      all servers on the network, until it receives a satisfactory
+      reply or a TERM signal.  After all servers have been tried, all
       servers are periodically retried.  If no servers are found it
       will wait indefinitely for new servers to appear.
     </para>
@@ -307,6 +321,34 @@
       </varlistentry>
       
       <varlistentry>
+	<term><option>--tls-pubkey=<replaceable
+	>FILE</replaceable></option></term>
+	<term><option>-T
+	<replaceable>FILE</replaceable></option></term>
+	<listitem>
+	  <para>
+	    TLS raw public key file name.  The default name is
+	    <quote><filename>/conf/conf.d/mandos/tls-pubkey.pem</filename
+	    ></quote>.
+	  </para>
+	</listitem>
+      </varlistentry>
+
+      <varlistentry>
+	<term><option>--tls-privkey=<replaceable
+	>FILE</replaceable></option></term>
+	<term><option>-t
+	<replaceable>FILE</replaceable></option></term>
+	<listitem>
+	  <para>
+	    TLS secret key file name.  The default name is
+	    <quote><filename>/conf/conf.d/mandos/tls-privkey.pem</filename
+	    ></quote>.
+	  </para>
+	</listitem>
+      </varlistentry>
+
+      <varlistentry>
 	<term><option>--priority=<replaceable
 	>STRING</replaceable></option></term>
 	<listitem>
@@ -322,9 +364,10 @@
 	  <para>
 	    Sets the number of bits to use for the prime number in the
 	    TLS Diffie-Hellman key exchange.  The default value is
-	    selected automatically based on the OpenPGP key.  Note
-	    that if the <option>--dh-params</option> option is used,
-	    the values from that file will be used instead.
+	    selected automatically based on the GnuTLS security
+	    profile set in its priority string.  Note that if the
+	    <option>--dh-params</option> option is used, the values
+	    from that file will be used instead.
 	  </para>
 	</listitem>
       </varlistentry>
@@ -682,6 +725,20 @@
 	</listitem>
       </varlistentry>
       <varlistentry>
+	<term><filename>/conf/conf.d/mandos/tls-pubkey.pem</filename
+	></term>
+	<term><filename>/conf/conf.d/mandos/tls-privkey.pem</filename
+	></term>
+	<listitem>
+	  <para>
+	    Public and private raw key files, in <quote>PEM</quote>
+	    format.  These are the default file names, they can be
+	    changed with the <option>--tls-pubkey</option> and
+	    <option>--tls-privkey</option> options.
+	  </para>
+	</listitem>
+      </varlistentry>
+      <varlistentry>
 	<term><filename
 	class="directory">/lib/mandos/network-hooks.d</filename></term>
 	<listitem>
@@ -729,18 +786,18 @@
     </informalexample>
     <informalexample>
       <para>
-	Run in debug mode, and use a custom key:
+	Run in debug mode, and use custom keys:
       </para>
       <para>
 
 <!-- do not wrap this line -->
-<userinput>&COMMANDNAME; --debug --pubkey keydir/pubkey.txt --seckey keydir/seckey.txt</userinput>
+<userinput>&COMMANDNAME; --debug --pubkey keydir/pubkey.txt --seckey keydir/seckey.txt --tls-pubkey keydir/tls-pubkey.pem --tls-privkey keydir/tls-privkey.pem</userinput>
 
       </para>
     </informalexample>
     <informalexample>
       <para>
-	Run in debug mode, with a custom key, and do not use Zeroconf
+	Run in debug mode, with custom keys, and do not use Zeroconf
 	to locate a server; connect directly to the IPv6 link-local
 	address <quote><systemitem class="ipaddress"
 	>fe80::aede:48ff:fe71:f6f2</systemitem></quote>, port 4711,
@@ -749,7 +806,7 @@
       <para>
 
 <!-- do not wrap this line -->
-<userinput>&COMMANDNAME; --debug --pubkey keydir/pubkey.txt --seckey keydir/seckey.txt --connect fe80::aede:48ff:fe71:f6f2:4711 --interface eth2</userinput>
+<userinput>&COMMANDNAME; --debug --pubkey keydir/pubkey.txt --seckey keydir/seckey.txt --tls-pubkey keydir/tls-pubkey.pem --tls-privkey keydir/tls-privkey.pem --connect fe80::aede:48ff:fe71:f6f2:4711 --interface eth2</userinput>
 
       </para>
     </informalexample>
@@ -779,12 +836,12 @@
     <para>
       The only remaining weak point is that someone with physical
       access to the client hard drive might turn off the client
-      computer, read the OpenPGP keys directly from the hard drive,
-      and communicate with the server.  To safeguard against this, the
-      server is supposed to notice the client disappearing and stop
-      giving out the encrypted data.  Therefore, it is important to
-      set the timeout and checker interval values tightly on the
-      server.  See <citerefentry><refentrytitle
+      computer, read the OpenPGP and TLS keys directly from the hard
+      drive, and communicate with the server.  To safeguard against
+      this, the server is supposed to notice the client disappearing
+      and stop giving out the encrypted data.  Therefore, it is
+      important to set the timeout and checker interval values tightly
+      on the server.  See <citerefentry><refentrytitle
       >mandos</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
     </para>
     <para>
@@ -850,7 +907,7 @@
 	<para>
 	  GnuTLS is the library this client uses to implement TLS for
 	  communicating securely with the server, and at the same time
-	  send the public OpenPGP key to the server.
+	  send the public key to the server.
 	</para>
       </listitem>
       </varlistentry>
@@ -922,13 +979,28 @@
       </varlistentry>
       <varlistentry>
 	<term>
+	  RFC 7250: <citetitle>Using Raw Public Keys in Transport
+	  Layer Security (TLS) and Datagram Transport Layer Security
+	  (DTLS)</citetitle>
+	</term>
+      <listitem>
+	<para>
+	  This is implemented by GnuTLS in version 3.6.6 and is, if
+	  present, used by this program so that raw public keys can be
+	  used.
+	</para>
+      </listitem>
+      </varlistentry>
+      <varlistentry>
+	<term>
 	  RFC 6091: <citetitle>Using OpenPGP Keys for Transport Layer
 	  Security</citetitle>
 	</term>
       <listitem>
 	<para>
-	  This is implemented by GnuTLS and used by this program so
-	  that OpenPGP keys can be used.
+	  This is implemented by GnuTLS before version 3.6.0 and is,
+	  if present, used by this program so that OpenPGP keys can be
+	  used.
 	</para>
       </listitem>
       </varlistentry>
