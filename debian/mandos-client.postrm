@@ -44,6 +44,8 @@ case "$1" in
 	rm --force /etc/mandos/plugin-runner.conf \
 	    /etc/keys/mandos/pubkey.txt \
 	    /etc/keys/mandos/seckey.txt \
+	    /etc/keys/mandos/tls-privkey.pem \
+	    /etc/keys/mandos/tls-pubkey.pem \
 	    /etc/keys/mandos/dhparams.pem 2>/dev/null
 	update_initramfs
 	;;
