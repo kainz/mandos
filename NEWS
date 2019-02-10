@@ -1,6 +1,10 @@
 This NEWS file records noteworthy changes, very tersely.
 See the manual for detailed information.
 
+Version 1.8.2 (2019-02-10)
+* Client
+** In mandos-keygen, ignore failures to remove files in some cases.
+
 Version 1.8.1 (2019-02-10)
 * Client
 ** Only generate TLS keys using GnuTLS' certtool, of sufficient
