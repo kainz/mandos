@@ -40,7 +40,7 @@ endif
 OPTIMIZE:=-Os -fno-strict-aliasing
 LANGUAGE:=-std=gnu11
 htmldir:=man
-version:=1.8.0
+version:=1.8.1
 SED:=sed
 
 USER:=$(firstword $(subst :, ,$(shell getent passwd _mandos || getent passwd nobody || echo 65534)))
