@@ -9,8 +9,8 @@
  * "browse_callback", and parts of "main".
  * 
  * Everything else is
- * Copyright © 2008-2018 Teddy Hogeborn
- * Copyright © 2008-2018 Björn Påhlsson
+ * Copyright © 2008-2019 Teddy Hogeborn
+ * Copyright © 2008-2019 Björn Påhlsson
  * 
  * This file is part of Mandos.
  * 
@@ -123,9 +123,15 @@
 				   gnutls_*
 				   init_gnutls_session(),
 				   GNUTLS_* */
+#if GNUTLS_VERSION_NUMBER < 0x030600
 #include <gnutls/openpgp.h>
 			 /* gnutls_certificate_set_openpgp_key_file(),
 			    GNUTLS_OPENPGP_FMT_BASE64 */
+#elif GNUTLS_VERSION_NUMBER >= 0x030606
+#include <gnutls/x509.h>	/* gnutls_pkcs_encrypt_flags_t,
+				 GNUTLS_PKCS_PLAIN,
+				 GNUTLS_PKCS_NULL_PASSWORD */
+#endif
 
 /* GPGME */
 #include <gpgme.h> 		/* All GPGME types, constants and
@@ -139,6 +145,8 @@
 #define PATHDIR "/conf/conf.d/mandos"
 #define SECKEY "seckey.txt"
 #define PUBKEY "pubkey.txt"
+#define TLS_PRIVKEY "tls-privkey.pem"
+#define TLS_PUBKEY "tls-pubkey.pem"
 #define HOOKDIR "/lib/mandos/network-hooks.d"
 
 bool debug = false;
@@ -699,7 +707,6 @@ static int init_gnutls_global(const char *pubkeyfilename,
 			      const char *dhparamsfilename,
 			      mandos_context *mc){
   int ret;
-  unsigned int uret;
   
   if(debug){
     fprintf_plus(stderr, "Initializing GnuTLS\n");
@@ -722,18 +729,34 @@ static int init_gnutls_global(const char *pubkeyfilename,
   }
   
   if(debug){
-    fprintf_plus(stderr, "Attempting to use OpenPGP public key %s and"
-		 " secret key %s as GnuTLS credentials\n",
+    fprintf_plus(stderr, "Attempting to use public key %s and"
+		 " private key %s as GnuTLS credentials\n",
 		 pubkeyfilename,
 		 seckeyfilename);
   }
   
+#if GNUTLS_VERSION_NUMBER >= 0x030606
+  ret = gnutls_certificate_set_rawpk_key_file
+    (mc->cred, pubkeyfilename, seckeyfilename,
+     GNUTLS_X509_FMT_PEM,	/* format */
+     NULL,			/* pass */
+     /* key_usage */
+     GNUTLS_KEY_DIGITAL_SIGNATURE | GNUTLS_KEY_KEY_ENCIPHERMENT,
+     NULL, 			/* names */
+     0,				/* names_length */
+     /* privkey_flags */
+     GNUTLS_PKCS_PLAIN | GNUTLS_PKCS_NULL_PASSWORD,
+     0);			/* pkcs11_flags */
+#elif GNUTLS_VERSION_NUMBER < 0x030600
   ret = gnutls_certificate_set_openpgp_key_file
     (mc->cred, pubkeyfilename, seckeyfilename,
      GNUTLS_OPENPGP_FMT_BASE64);
+#else
+#error "Needs GnuTLS 3.6.6 or later, or before 3.6.0"
+#endif
   if(ret != GNUTLS_E_SUCCESS){
     fprintf_plus(stderr,
-		 "Error[%d] while reading the OpenPGP key pair ('%s',"
+		 "Error[%d] while reading the key pair ('%s',"
 		 " '%s')\n", ret, pubkeyfilename, seckeyfilename);
     fprintf_plus(stderr, "The GnuTLS error is: %s\n",
 		 safer_gnutls_strerror(ret));
@@ -810,6 +833,7 @@ static int init_gnutls_global(const char *pubkeyfilename,
   }
   if(dhparamsfilename == NULL){
     if(mc->dh_bits == 0){
+#if GNUTLS_VERSION_NUMBER < 0x030600
       /* Find out the optimal number of DH bits */
       /* Try to read the private key file */
       gnutls_datum_t buffer = { .data = NULL, .size = 0 };
@@ -895,7 +919,7 @@ static int init_gnutls_global(const char *pubkeyfilename,
 	  }
 	}
       }
-      uret = gnutls_sec_param_to_pk_bits(GNUTLS_PK_DH, sec_param);
+      unsigned int uret = gnutls_sec_param_to_pk_bits(GNUTLS_PK_DH, sec_param);
       if(uret != 0){
 	mc->dh_bits = uret;
 	if(debug){
@@ -913,19 +937,22 @@ static int init_gnutls_global(const char *pubkeyfilename,
 		     safer_gnutls_strerror(ret));
 	goto globalfail;
       }
-    } else if(debug){
-      fprintf_plus(stderr, "DH bits explicitly set to %u\n",
-		   mc->dh_bits);
-    }
-    ret = gnutls_dh_params_generate2(mc->dh_params, mc->dh_bits);
-    if(ret != GNUTLS_E_SUCCESS){
-      fprintf_plus(stderr, "Error in GnuTLS prime generation (%u"
-		   " bits): %s\n", mc->dh_bits,
-		   safer_gnutls_strerror(ret));
-      goto globalfail;
+#endif
+    } else {			/* dh_bits != 0 */
+      if(debug){
+	fprintf_plus(stderr, "DH bits explicitly set to %u\n",
+		     mc->dh_bits);
+      }
+      ret = gnutls_dh_params_generate2(mc->dh_params, mc->dh_bits);
+      if(ret != GNUTLS_E_SUCCESS){
+	fprintf_plus(stderr, "Error in GnuTLS prime generation (%u"
+		     " bits): %s\n", mc->dh_bits,
+		     safer_gnutls_strerror(ret));
+	goto globalfail;
+      }
+      gnutls_certificate_set_dh_params(mc->cred, mc->dh_params);
     }
   }
-  gnutls_certificate_set_dh_params(mc->cred, mc->dh_params);
   
   return 0;
   
@@ -942,7 +969,14 @@ static int init_gnutls_session(gnutls_session_t *session,
   int ret;
   /* GnuTLS session creation */
   do {
-    ret = gnutls_init(session, GNUTLS_SERVER);
+    ret = gnutls_init(session, (GNUTLS_SERVER
+#if GNUTLS_VERSION_NUMBER >= 0x030506
+				| GNUTLS_NO_TICKETS
+#endif
+#if GNUTLS_VERSION_NUMBER >= 0x030606
+				| GNUTLS_ENABLE_RAWPK
+#endif
+				));
     if(quit_now){
       return -1;
     }
@@ -2427,8 +2461,16 @@ int take_down_interface(const char *const interface){
 
 int main(int argc, char *argv[]){
   mandos_context mc = { .server = NULL, .dh_bits = 0,
+#if GNUTLS_VERSION_NUMBER >= 0x030606
+			.priority = "SECURE128:!CTYPE-X.509"
+			":+CTYPE-RAWPK:!RSA:!VERS-ALL:+VERS-TLS1.3"
+			":%PROFILE_ULTRA",
+#elif GNUTLS_VERSION_NUMBER < 0x030600
 			.priority = "SECURE256:!CTYPE-X.509"
 			":+CTYPE-OPENPGP:!RSA:+SIGN-DSA-SHA256",
+#else
+#error "Needs GnuTLS 3.6.6 or later, or before 3.6.0"
+#endif
 			.current_server = NULL, .interfaces = NULL,
 			.interfaces_size = 0 };
   AvahiSServiceBrowser *sb = NULL;
@@ -2445,6 +2487,10 @@ int main(int argc, char *argv[]){
   AvahiIfIndex if_index = AVAHI_IF_UNSPEC;
   const char *seckey = PATHDIR "/" SECKEY;
   const char *pubkey = PATHDIR "/" PUBKEY;
+#if GNUTLS_VERSION_NUMBER >= 0x030606
+  const char *tls_privkey = PATHDIR "/" TLS_PRIVKEY;
+  const char *tls_pubkey = PATHDIR "/" TLS_PUBKEY;
+#endif
   const char *dh_params_file = NULL;
   char *interfaces_hooks = NULL;
   
@@ -2498,7 +2544,23 @@ int main(int argc, char *argv[]){
       { .name = "pubkey", .key = 'p',
 	.arg = "FILE",
 	.doc = "OpenPGP public key file base name",
-	.group = 2 },
+	.group = 1 },
+      { .name = "tls-privkey", .key = 't',
+	.arg = "FILE",
+#if GNUTLS_VERSION_NUMBER >= 0x030606
+	.doc = "TLS private key file base name",
+#else
+	.doc = "Dummy; ignored (requires GnuTLS 3.6.6)",
+#endif
+	.group = 1 },
+      { .name = "tls-pubkey", .key = 'T',
+	.arg = "FILE",
+#if GNUTLS_VERSION_NUMBER >= 0x030606
+	.doc = "TLS public key file base name",
+#else
+	.doc = "Dummy; ignored (requires GnuTLS 3.6.6)",
+#endif
+	.group = 1 },
       { .name = "dh-bits", .key = 129,
 	.arg = "BITS",
 	.doc = "Bit length of the prime number used in the"
@@ -2559,6 +2621,16 @@ int main(int argc, char *argv[]){
 	break;
       case 'p':			/* --pubkey */
 	pubkey = arg;
+	break;
+      case 't':			/* --tls-privkey */
+#if GNUTLS_VERSION_NUMBER >= 0x030606
+	tls_privkey = arg;
+#endif
+	break;
+      case 'T':			/* --tls-pubkey */
+#if GNUTLS_VERSION_NUMBER >= 0x030606
+	tls_pubkey = arg;
+#endif
 	break;
       case 129:			/* --dh-bits */
 	errno = 0;
@@ -2919,7 +2991,13 @@ int main(int argc, char *argv[]){
     goto end;
   }
   
+#if GNUTLS_VERSION_NUMBER >= 0x030606
+  ret = init_gnutls_global(tls_pubkey, tls_privkey, dh_params_file, &mc);
+#elif GNUTLS_VERSION_NUMBER < 0x030600
   ret = init_gnutls_global(pubkey, seckey, dh_params_file, &mc);
+#else
+#error "Needs GnuTLS 3.6.6 or later, or before 3.6.0"
+#endif
   if(ret == -1){
     fprintf_plus(stderr, "init_gnutls_global failed\n");
     exitcode = EX_UNAVAILABLE;

@@ -3,8 +3,8 @@
 #
 # Mandos Monitor - Control and monitor the Mandos server
 #
-# Copyright © 2008-2018 Teddy Hogeborn
-# Copyright © 2008-2018 Björn Påhlsson
+# Copyright © 2008-2019 Teddy Hogeborn
+# Copyright © 2008-2019 Björn Påhlsson
 #
 # This file is part of Mandos.
 #
@@ -58,6 +58,7 @@ tablewords = {
     "Interval": "Interval",
     "Host": "Host",
     "Fingerprint": "Fingerprint",
+    "KeyID": "Key ID",
     "CheckerRunning": "Check Is Running",
     "LastEnabled": "Last Enabled",
     "ApprovalPending": "Approval Is Pending",
@@ -404,12 +405,12 @@ def main():
     if not has_actions(options) and clients:
         if options.verbose or options.dump_json:
             keywords = ("Name", "Enabled", "Timeout", "LastCheckedOK",
-                        "Created", "Interval", "Host", "Fingerprint",
-                        "CheckerRunning", "LastEnabled",
-                        "ApprovalPending", "ApprovedByDefault",
-                        "LastApprovalRequest", "ApprovalDelay",
-                        "ApprovalDuration", "Checker",
-                        "ExtendedTimeout", "Expires",
+                        "Created", "Interval", "Host", "KeyID",
+                        "Fingerprint", "CheckerRunning",
+                        "LastEnabled", "ApprovalPending",
+                        "ApprovedByDefault", "LastApprovalRequest",
+                        "ApprovalDelay", "ApprovalDuration",
+                        "Checker", "ExtendedTimeout", "Expires",
                         "LastCheckerStatus")
         else:
             keywords = defaultkeywords

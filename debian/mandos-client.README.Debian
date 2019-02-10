@@ -25,7 +25,9 @@ packaging which are not also in the manual.
 	/usr/lib/$(dpkg-architecture -qDEB_HOST_MULTIARCH \
 	)/mandos/plugins.d/mandos-client \
 		--pubkey=/etc/keys/mandos/pubkey.txt \
-		--seckey=/etc/keys/mandos/seckey.txt; echo
+		--seckey=/etc/keys/mandos/seckey.txt \
+		--tls-privkey=/etc/keys/mandos/tls-privkey.pem \
+		--tls-pubkey=/etc/keys/mandos/tls-pubkey.pem; echo
   
   This command should retrieve the password from the server, decrypt
   it, and output it to standard output.  There it can be verified to
@@ -106,4 +108,4 @@ packaging which are not also in the manual.
   policy or other reasons, simply replace the existing dhparams.pem
   file and update the initital RAM disk image.
 
- -- Teddy Hogeborn <teddy@recompile.se>, Tue, 21 Jun 2016 21:43:49 +0200
+ -- Teddy Hogeborn <teddy@recompile.se>, Sat,  9 Feb 2019 15:08:04 +0100

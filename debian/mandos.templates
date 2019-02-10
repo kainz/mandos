@@ -1,0 +1,14 @@
+Template: mandos/key_id
+Type: note
+Description: New client option "key_id" is REQUIRED on server
+ A new "key_id" client option is REQUIRED in the clients.conf file, otherwise the client most likely will not reboot unattended.  This option:
+ .
+ key_id = <HEXSTRING>
+ .
+ must be added in the file /etc/mandos/clients.conf, right before the "fingerprint" option, for each Mandos client.  You must edit that file and add this option for all clients.  To see the correct key ID for each client, run this command (on each client):
+ .
+ mandos-keygen -F/dev/null|grep ^key_id
+ .
+ Note: the client must all also be using GnuTLS 3.6.6 or later; the server cannot serve passwords for both old and new clients!
+ .
+ Rationale: With GnuTLS 3.6.6, Mandos has been forced to stop using OpenPGP keys as TLS session keys.  A new TLS key pair will be generated on each client and will be used as identification, but the key ID of the public key needs to be added to this server, since this will now be used to identify the client to the server.

@@ -3,7 +3,7 @@
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY CONFNAME "mandos-clients.conf">
 <!ENTITY CONFPATH "<filename>/etc/mandos/clients.conf</filename>">
-<!ENTITY TIMESTAMP "2018-02-08">
+<!ENTITY TIMESTAMP "2019-02-10">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -43,6 +43,7 @@
       <year>2016</year>
       <year>2017</year>
       <year>2018</year>
+      <year>2019</year>
       <holder>Teddy Hogeborn</holder>
       <holder>Björn Påhlsson</holder>
     </copyright>
@@ -186,9 +187,9 @@
 	    >--</option> %%(host)s</literal></quote>.  Note that
 	    <command>mandos-keygen</command>, when generating output
 	    to be inserted into this file, normally looks for an SSH
-	    server on the Mandos client, and, if it find one, outputs
+	    server on the Mandos client, and, if it finds one, outputs
 	    a <option>checker</option> option to check for the
-	    client’s key fingerprint – this is more secure against
+	    client’s SSH key fingerprint – this is more secure against
 	    spoofing.
 	  </para>
 	  <para>
@@ -231,6 +232,22 @@
 	  </para>
 	  <para>
 	    This option sets the OpenPGP fingerprint that identifies
+	    the public key that clients authenticate themselves with
+	    through TLS.  The string needs to be in hexadecimal form,
+	    but spaces or upper/lower case are not significant.
+	  </para>
+	</listitem>
+      </varlistentry>
+      
+      <varlistentry>
+	<term><option>key_id<literal> = </literal
+	><replaceable>HEXSTRING</replaceable></option></term>
+	<listitem>
+	  <para>
+	    This option is <emphasis>optional</emphasis>.
+	  </para>
+	  <para>
+	    This option sets the certificate key ID that identifies
 	    the public key that clients authenticate themselves with
 	    through TLS.  The string needs to be in hexadecimal form,
 	    but spaces or upper/lower case are not significant.
@@ -314,9 +331,9 @@
 	  <para>
 	    If present, this option must be set to a string of
 	    base64-encoded binary data.  It will be decoded and sent
-	    to the client matching the above
-	    <option>fingerprint</option>.  This should, of course, be
-	    OpenPGP encrypted data, decryptable only by the client.
+	    to the client matching the above <option>key_id</option>
+	    or <option>fingerprint</option>.  This should, of course,
+	    be OpenPGP encrypted data, decryptable only by the client.
 	    The program <citerefentry><refentrytitle><command
 	    >mandos-keygen</command></refentrytitle><manvolnum
 	    >8</manvolnum></citerefentry> can, using its
@@ -417,6 +434,7 @@
 	<quote><literal>created</literal></quote>,
 	<quote><literal>enabled</literal></quote>,
 	<quote><literal>expires</literal></quote>,
+	<quote><literal>key_id</literal></quote>,
 	<quote><literal>fingerprint</literal></quote>,
 	<quote><literal>host</literal></quote>,
 	<quote><literal>interval</literal></quote>,
@@ -479,6 +497,7 @@ checker = fping -q -- %%(host)s
 
 # Client "foo"
 [foo]
+key_id = 788cd77115cd0bb7b2d5e0ae8496f6b48149d5e712c652076b1fd2d957ef7c1f
 fingerprint =  7788 2722 5BA7 DE53 9C5A  7CFA 59CF F7CD BD9A 5920
 secret =
         hQIOA6QdEjBs2L/HEAf/TCyrDe5Xnm9esa+Pb/vWF9CUqfn4srzVgSu234
@@ -501,6 +520,7 @@ interval = PT1M
 
 # Client "bar"
 [bar]
+key_id = F90C7A81D72D1EA69A51031A91FF8885F36C8B46D155C8C58709A4C99AE9E361
 fingerprint = 3e393aeaefb84c7e89e2f547b3a107558fca3a27
 secfile = /etc/mandos/bar-secret
 timeout = PT15M

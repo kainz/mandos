@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY COMMANDNAME "mandos">
-<!ENTITY TIMESTAMP "2018-02-08">
+<!ENTITY TIMESTAMP "2019-02-10">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -42,6 +42,7 @@
       <year>2016</year>
       <year>2017</year>
       <year>2018</year>
+      <year>2019</year>
       <holder>Teddy Hogeborn</holder>
       <holder>Björn Påhlsson</holder>
     </copyright>
@@ -361,11 +362,11 @@
       start a TLS protocol handshake with a slight quirk: the Mandos
       server program acts as a TLS <quote>client</quote> while the
       connecting Mandos client acts as a TLS <quote>server</quote>.
-      The Mandos client must supply an OpenPGP certificate, and the
-      fingerprint of this certificate is used by the Mandos server to
-      look up (in a list read from <filename>clients.conf</filename>
-      at start time) which binary blob to give the client.  No other
-      authentication or authorization is done by the server.
+      The Mandos client must supply a TLS public key, and the key ID
+      of this public key is used by the Mandos server to look up (in a
+      list read from <filename>clients.conf</filename> at start time)
+      which binary blob to give the client.  No other authentication
+      or authorization is done by the server.
     </para>
     <table>
       <title>Mandos Protocol (Version 1)</title><tgroup cols="3"><thead>
@@ -391,7 +392,7 @@
 	</emphasis></entry>
       </row>
       <row>
-	<entry>OpenPGP public key (part of TLS handshake)</entry>
+	<entry>Public key (part of TLS handshake)</entry>
 	<entry>-><!-- &rarr; --></entry>
       </row>
       <row>
@@ -586,10 +587,6 @@
     <para>
       There is no fine-grained control over logging and debug output.
     </para>
-    <para>
-      This server does not check the expire time of clients’ OpenPGP
-      keys.
-    </para>
     <xi:include href="bugs.xml"/>
   </refsect1>
   
@@ -646,12 +643,12 @@
       <title>CLIENTS</title>
       <para>
 	The server only gives out its stored data to clients which
-	does have the OpenPGP key of the stored fingerprint.  This is
-	guaranteed by the fact that the client sends its OpenPGP
-	public key in the TLS handshake; this ensures it to be
-	genuine.  The server computes the fingerprint of the key
-	itself and looks up the fingerprint in its list of
-	clients. The <filename>clients.conf</filename> file (see
+	does have the correct key ID of the stored key ID.  This is
+	guaranteed by the fact that the client sends its public key in
+	the TLS handshake; this ensures it to be genuine.  The server
+	computes the key ID of the key itself and looks up the key ID
+	in its list of clients. The <filename>clients.conf</filename>
+	file (see
 	<citerefentry><refentrytitle>mandos-clients.conf</refentrytitle>
 	<manvolnum>5</manvolnum></citerefentry>)
 	<emphasis>must</emphasis> be made non-readable by anyone
@@ -715,7 +712,7 @@
 	<para>
 	  GnuTLS is the library this server uses to implement TLS for
 	  communicating securely with the client, and at the same time
-	  confidently get the client’s public OpenPGP key.
+	  confidently get the client’s public key.
 	</para>
       </listitem>
       </varlistentry>
@@ -774,13 +771,28 @@
       </varlistentry>
       <varlistentry>
 	<term>
+	  RFC 7250: <citetitle>Using Raw Public Keys in Transport
+	  Layer Security (TLS) and Datagram Transport Layer Security
+	  (DTLS)</citetitle>
+	</term>
+      <listitem>
+	<para>
+	  This is implemented by GnuTLS version 3.6.6 and is, if
+	  present, used by this server so that raw public keys can be
+	  used.
+	</para>
+      </listitem>
+      </varlistentry>
+      <varlistentry>
+	<term>
 	  RFC 6091: <citetitle>Using OpenPGP Keys for Transport Layer
 	  Security (TLS) Authentication</citetitle>
 	</term>
       <listitem>
 	<para>
-	  This is implemented by GnuTLS and used by this server so
-	  that OpenPGP keys can be used.
+	  This is implemented by GnuTLS before version 3.6.0 and is,
+	  if present, used by this server so that OpenPGP keys can be
+	  used.
 	</para>
       </listitem>
       </varlistentry>
