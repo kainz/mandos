@@ -1,6 +1,6 @@
 Begin4
 Title:		Mandos
-Version:	1.8.1
+Version:	1.8.2
 Entered-date:	2019-02-10
 Description:	The Mandos system allows computers to have encrypted
 		root file systems and at the same time be capable of
@@ -12,9 +12,9 @@ Author:		teddy@recompile.se (Teddy Hogeborn),
 Maintained-by:	teddy@recompile.se (Teddy Hogeborn),
 		belorn@recompile.se (Björn Påhlsson)
 Primary-site:	https://www.recompile.se/mandos
-		182K mandos_1.8.1.orig.tar.gz
+		182K mandos_1.8.2.orig.tar.gz
 Alternate-site:	ftp://ftp.recompile.se/pub/mandos
-		182K mandos_1.8.1.orig.tar.gz
+		182K mandos_1.8.2.orig.tar.gz
 Platforms:	Requires GCC, GNU libC, Avahi, GnuPG, Python 2.7, and
 		various other libraries.  While made for Debian
 		GNU/Linux, it is probably portable to other
