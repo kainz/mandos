@@ -187,6 +187,7 @@ if [ "$mode" = keygen ]; then
     
     # Create temporary gpg batch file
     BATCHFILE="`mktemp -t mandos-keygen-batch.XXXXXXXXXX`"
+    TLS_PRIVKEYTMP="`mktemp -t mandos-keygen-privkey.XXXXXXXXXX`"
 fi
 
 if [ "$mode" = password ]; then
@@ -201,6 +202,7 @@ RINGDIR="`mktemp -d -t mandos-keygen-keyrings.XXXXXXXXXX`"
 trap "
 set +e; \
 test -n \"$SECFILE\" && shred --remove \"$SECFILE\"; \
+test -n \"$TLS_PRIVKEYTMP\" && shred --remove \"$TLS_PRIVKEYTMP\"; \
 shred --remove \"$RINGDIR\"/sec* 2>/dev/null;
 test -n \"$BATCHFILE\" && rm --force \"$BATCHFILE\"; \
 rm --recursive --force \"$RINGDIR\";
@@ -241,44 +243,37 @@ if [ "$mode" = keygen ]; then
 	echo -n "Started: "
 	date
     fi
-    
-    # Backup any old key files
-    if cp --backup=numbered --force "$TLS_PRIVKEYFILE" "$TLS_PRIVKEYFILE" \
-	2>/dev/null; then
-	shred --remove "$TLS_PRIVKEYFILE"
-    fi
-    if cp --backup=numbered --force "$TLS_PUBKEYFILE" "$TLS_PUBKEYFILE" \
-	2>/dev/null; then
-	rm --force "$TLS_PUBKEYFILE"
-    fi
 
-    ## Generate TLS private key
-
-    # First try certtool from GnuTLS
-    if ! certtool --generate-privkey --password='' \
-	 --outfile "$TLS_PRIVKEYFILE" --sec-param ultra \
-	 --key-type="$TLS_KEYTYPE" --pkcs8 --no-text 2>/dev/null; then
-	# Otherwise try OpenSSL
-	if ! openssl genpkey -algorithm X25519 -out \
-	     /etc/keys/mandos/tls-privkey.pem; then
-	    rm --force /etc/keys/mandos/tls-privkey.pem
-	    # None of the commands succeded; give up
-	    return 1
+    # Generate TLS private key
+    if certtool --generate-privkey --password='' \
+		--outfile "$TLS_PRIVKEYTMP" --sec-param ultra \
+		--key-type="$TLS_KEYTYPE" --pkcs8 --no-text 2>/dev/null; then
+	
+	# Backup any old key files
+	if cp --backup=numbered --force "$TLS_PRIVKEYFILE" "$TLS_PRIVKEYFILE" \
+	      2>/dev/null; then
+	    shred --remove "$TLS_PRIVKEYFILE"
 	fi
-    fi
-
-    ## TLS public key
-
-    # First try certtool from GnuTLS
-    if ! certtool --password='' --load-privkey="$TLS_PRIVKEYFILE" \
-	 --outfile="$TLS_PUBKEYFILE" --pubkey-info --no-text \
-	 2>/dev/null; then
-	# Otherwise try OpenSSL
-	if ! openssl pkey -in "$TLS_PRIVKEYFILE" \
-	     -out "$TLS_PUBKEYFILE" -pubout; then
+	if cp --backup=numbered --force "$TLS_PUBKEYFILE" "$TLS_PUBKEYFILE" \
+	      2>/dev/null; then
 	    rm --force "$TLS_PUBKEYFILE"
-	    # None of the commands succeded; give up
-	    return 1
+	fi
+	cp --archive "$TLS_PRIVKEYTMP" "$TLS_PRIVKEYFILE"
+	shred --remove "$TLS_PRIVKEYTMP"
+
+	## TLS public key
+
+	# First try certtool from GnuTLS
+	if ! certtool --password='' --load-privkey="$TLS_PRIVKEYFILE" \
+	     --outfile="$TLS_PUBKEYFILE" --pubkey-info --no-text \
+	     2>/dev/null; then
+	    # Otherwise try OpenSSL
+	    if ! openssl pkey -in "$TLS_PRIVKEYFILE" \
+		 -out "$TLS_PUBKEYFILE" -pubout; then
+		rm --force "$TLS_PUBKEYFILE"
+		# None of the commands succeded; give up
+		return 1
+	    fi
 	fi
     fi
     
@@ -369,16 +364,18 @@ if [ "$mode" = password ]; then
     
     test -n "$FINGERPRINT"
     
-    KEY_ID="$(certtool --key-id --hash=sha256 \
+    if [ -r "$TLS_PUBKEYFILE" ]; then
+       KEY_ID="$(certtool --key-id --hash=sha256 \
     		       --infile="$TLS_PUBKEYFILE" 2>/dev/null || :)"
 
-    if [ -z "$KEY_ID" ]; then
-	KEY_ID=$(openssl pkey -pubin -in /tmp/tls-pubkey.pem \
-			 -outform der \
-		     | openssl sha256 \
-		     | sed --expression='s/^.*[^[:xdigit:]]//')
+       if [ -z "$KEY_ID" ]; then
+	   KEY_ID=$(openssl pkey -pubin -in "$TLS_PUBKEYFILE" \
+			    -outform der \
+			| openssl sha256 \
+			| sed --expression='s/^.*[^[:xdigit:]]//')
+       fi
+       test -n "$KEY_ID"
     fi
-    test -n "$KEY_ID"
     
     FILECOMMENT="Encrypted password for a Mandos client"
     
@@ -419,7 +416,11 @@ if [ "$mode" = password ]; then
     cat <<-EOF
 	[$KEYNAME]
 	host = $KEYNAME
-	key_id = $KEY_ID
+	EOF
+    if [ -n "$KEY_ID" ]; then
+	echo "key_id = $KEY_ID"
+    fi
+    cat <<-EOF
 	fingerprint = $FINGERPRINT
 	secret =
 	EOF
