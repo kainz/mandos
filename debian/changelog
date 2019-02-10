@@ -1,3 +1,11 @@
+mandos (1.8.2-1) unstable; urgency=medium
+
+  * New upstream release.
+  * debian/mandos-client.postinst (create_keys): Ignore failure to remove
+                                                 bad keys.
+
+ -- Teddy Hogeborn <teddy@recompile.se>  Sun, 10 Feb 2019 11:44:56 +0100
+
 mandos (1.8.1-1) unstable; urgency=high
 
   * New upstream release.
