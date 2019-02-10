@@ -1,9 +1,9 @@
 #!/bin/sh -e
 # 
-# Mandos key generator - create a new OpenPGP key for a Mandos client
+# Mandos key generator - create new keys for a Mandos client
 # 
-# Copyright © 2008-2018 Teddy Hogeborn
-# Copyright © 2008-2018 Björn Påhlsson
+# Copyright © 2008-2019 Teddy Hogeborn
+# Copyright © 2008-2019 Björn Påhlsson
 # 
 # This file is part of Mandos.
 #
@@ -34,6 +34,7 @@ KEYNAME="`hostname --fqdn 2>/dev/null || hostname`"
 KEYEMAIL=""
 KEYCOMMENT=""
 KEYEXPIRE=0
+TLS_KEYTYPE=ed25519
 FORCE=no
 SSH=yes
 KEYCOMMENT_ORIG="$KEYCOMMENT"
@@ -44,8 +45,8 @@ if [ ! -d "$KEYDIR" ]; then
 fi
 
 # Parse options
-TEMP=`getopt --options vhpF:d:t:l:s:L:n:e:c:x:fS \
-    --longoptions version,help,password,passfile:,dir:,type:,length:,subtype:,sublength:,name:,email:,comment:,expire:,force,no-ssh \
+TEMP=`getopt --options vhpF:d:t:l:s:L:n:e:c:x:T:fS \
+    --longoptions version,help,password,passfile:,dir:,type:,length:,subtype:,sublength:,name:,email:,comment:,expire:,tls-keytype:,force,no-ssh \
     --name "$0" -- "$@"`
 
 help(){
@@ -63,21 +64,23 @@ Key creation options:
   -v, --version         Show program's version number and exit
   -h, --help            Show this help message and exit
   -d DIR, --dir DIR     Target directory for key files
-  -t TYPE, --type TYPE  Key type.  Default is RSA.
+  -t TYPE, --type TYPE  OpenPGP key type.  Default is RSA.
   -l BITS, --length BITS
-                        Key length in bits.  Default is 4096.
+                        OpenPGP key length in bits.  Default is 4096.
   -s TYPE, --subtype TYPE
-                        Subkey type.  Default is RSA.
+                        OpenPGP subkey type.  Default is RSA.
   -L BITS, --sublength BITS
-                        Subkey length in bits.  Default is 4096.
+                        OpenPGP subkey length in bits.  Default 4096.
   -n NAME, --name NAME  Name of key.  Default is the FQDN.
   -e ADDRESS, --email ADDRESS
-                        Email address of key.  Default is empty.
+                        Email address of OpenPGP key.  Default empty.
   -c TEXT, --comment TEXT
-                        Comment field for key.  The default is empty.
+                        Comment field for OpenPGP key.  Default empty.
   -x TIME, --expire TIME
-                        Key expire time.  Default is no expiration.
+                        OpenPGP key expire time.  Default is none.
                         See gpg(1) for syntax.
+  -T TYPE, --tls-keytype TYPE
+                        TLS key type.  Default is ed25519.
   -f, --force           Force overwriting old key files.
 
 Password creation options:
@@ -106,6 +109,7 @@ while :; do
 	-e|--email) KEYEMAIL="$2"; shift 2;;
 	-c|--comment) KEYCOMMENT="$2"; shift 2;;
 	-x|--expire) KEYEXPIRE="$2"; shift 2;;
+	-T|--tls-keytype) TLS_KEYTYPE="$2"; shift 2;;
 	-f|--force) FORCE=yes; shift;;
 	-S|--no-ssh) SSH=no; shift;;
 	-v|--version) echo "$0 $VERSION"; exit;;
@@ -121,6 +125,8 @@ fi
 
 SECKEYFILE="$KEYDIR/seckey.txt"
 PUBKEYFILE="$KEYDIR/pubkey.txt"
+TLS_PRIVKEYFILE="$KEYDIR/tls-privkey.pem"
+TLS_PUBKEYFILE="$KEYDIR/tls-pubkey.pem"
 
 # Check for some invalid values
 if [ ! -d "$KEYDIR" ]; then
@@ -163,7 +169,9 @@ if [ "$mode" = keygen ]; then
 	[Nn][Oo]|[Ff][Aa][Ll][Ss][Ee]|*) FORCE=0;;
     esac
     
-    if { [ -e "$SECKEYFILE" ] || [ -e "$PUBKEYFILE" ]; } \
+    if { [ -e "$SECKEYFILE" ] || [ -e "$PUBKEYFILE" ] \
+	     || [ -e "$TLS_PRIVKEYFILE" ] \
+	     || [ -e "$TLS_PUBKEYFILE" ]; } \
 	&& [ "$FORCE" -eq 0 ]; then
 	echo "Refusing to overwrite old key files; use --force" >&2
 	exit 1
@@ -232,6 +240,46 @@ if [ "$mode" = keygen ]; then
 	EOF
 	echo -n "Started: "
 	date
+    fi
+    
+    # Backup any old key files
+    if cp --backup=numbered --force "$TLS_PRIVKEYFILE" "$TLS_PRIVKEYFILE" \
+	2>/dev/null; then
+	shred --remove "$TLS_PRIVKEYFILE"
+    fi
+    if cp --backup=numbered --force "$TLS_PUBKEYFILE" "$TLS_PUBKEYFILE" \
+	2>/dev/null; then
+	rm --force "$TLS_PUBKEYFILE"
+    fi
+
+    ## Generate TLS private key
+
+    # First try certtool from GnuTLS
+    if ! certtool --generate-privkey --password='' \
+	 --outfile "$TLS_PRIVKEYFILE" --sec-param ultra \
+	 --key-type="$TLS_KEYTYPE" --pkcs8 --no-text 2>/dev/null; then
+	# Otherwise try OpenSSL
+	if ! openssl genpkey -algorithm X25519 -out \
+	     /etc/keys/mandos/tls-privkey.pem; then
+	    rm --force /etc/keys/mandos/tls-privkey.pem
+	    # None of the commands succeded; give up
+	    return 1
+	fi
+    fi
+
+    ## TLS public key
+
+    # First try certtool from GnuTLS
+    if ! certtool --password='' --load-privkey="$TLS_PRIVKEYFILE" \
+	 --outfile="$TLS_PUBKEYFILE" --pubkey-info --no-text \
+	 2>/dev/null; then
+	# Otherwise try OpenSSL
+	if ! openssl pkey -in "$TLS_PRIVKEYFILE" \
+	     -out "$TLS_PUBKEYFILE" -pubout; then
+	    rm --force "$TLS_PUBKEYFILE"
+	    # None of the commands succeded; give up
+	    return 1
+	fi
     fi
     
     # Make sure trustdb.gpg exists;
@@ -321,6 +369,17 @@ if [ "$mode" = password ]; then
     
     test -n "$FINGERPRINT"
     
+    KEY_ID="$(certtool --key-id --hash=sha256 \
+    		       --infile="$TLS_PUBKEYFILE" 2>/dev/null || :)"
+
+    if [ -z "$KEY_ID" ]; then
+	KEY_ID=$(openssl pkey -pubin -in /tmp/tls-pubkey.pem \
+			 -outform der \
+		     | openssl sha256 \
+		     | sed --expression='s/^.*[^[:xdigit:]]//')
+    fi
+    test -n "$KEY_ID"
+    
     FILECOMMENT="Encrypted password for a Mandos client"
     
     while [ ! -s "$SECFILE" ]; do
@@ -360,6 +419,7 @@ if [ "$mode" = password ]; then
     cat <<-EOF
 	[$KEYNAME]
 	host = $KEYNAME
+	key_id = $KEY_ID
 	fingerprint = $FINGERPRINT
 	secret =
 	EOF

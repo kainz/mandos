@@ -7,11 +7,12 @@ Uploaders: Teddy Hogeborn <teddy@recompile.se>,
 Build-Depends: debhelper (>= 10), docbook-xml, docbook-xsl,
 	libavahi-core-dev, libgpgme-dev | libgpgme11-dev,
 	libgnutls28-dev (>= 3.3.0) | gnutls-dev (>= 3.3.0),
-	libgnutls28-dev (<< 3.6.0) | libgnutls30 (<< 3.6.0),
+	libgnutls28-dev (<< 3.6.0) | libgnutls30 (<< 3.6.0)
+	| libgnutls30 (>= 3.6.6),
 	xsltproc, pkg-config, libnl-route-3-dev
 Build-Depends-Indep: systemd, python (>= 2.7), python (<< 3),
 	python-dbus, python-gi
-Standards-Version: 4.2.0
+Standards-Version: 4.3.0
 Vcs-Bzr: https://ftp.recompile.se/pub/mandos/trunk
 Vcs-Browser: https://bzr.recompile.se/loggerhead/mandos/trunk/files
 Homepage: https://www.recompile.se/mandos
@@ -21,9 +22,11 @@ Package: mandos
 Architecture: all
 Depends: ${misc:Depends}, python (>= 2.7), python (<< 3),
 	libgnutls28-dev (>= 3.3.0) | libgnutls30 (>= 3.3.0),
-	libgnutls28-dev (<< 3.6.0) | libgnutls30 (<< 3.6.0),
+	libgnutls28-dev (<< 3.6.0) | libgnutls30 (<< 3.6.0)
+	| libgnutls30 (>= 3.6.6),
 	python-dbus, python-gi, avahi-daemon, adduser, python-urwid,
-	gnupg2 | gnupg, systemd-sysv | lsb-base (>= 3.0-6)
+	gnupg2 | gnupg, systemd-sysv | lsb-base (>= 3.0-6),
+	debconf (>= 1.5.5) | debconf-2.0
 Recommends: ssh-client | fping
 Description: server giving encrypted passwords to Mandos clients
  This is the server part of the Mandos system, which allows
@@ -33,18 +36,21 @@ Description: server giving encrypted passwords to Mandos clients
  The computers run a small client program in the initial RAM
  disk environment which will communicate with a server over a
  network.  All network communication is encrypted using TLS.
- The clients are identified by the server using an OpenPGP
+ The clients are identified by the server using a TLS public
  key; each client has one unique to it.  The server sends the
  clients an encrypted password.  The encrypted password is
- decrypted by the clients using the same OpenPGP key, and the
+ decrypted by the clients using an OpenPGP key, and the
  password is then used to unlock the root file system,
  whereupon the computers can continue booting normally.
 
 Package: mandos-client
 Architecture: linux-any
-Depends: ${shlibs:Depends}, ${misc:Depends}, adduser, cryptsetup,
-	initramfs-tools (>= 0.99), dpkg-dev (>=1.16.0)
-Recommends: ssh, gnutls-bin | openssl
+Depends: ${shlibs:Depends}, ${misc:Depends}, adduser,
+	cryptsetup (<< 2:2.0.3-1) | cryptsetup-initramfs,
+	initramfs-tools (>= 0.99), dpkg-dev (>=1.16.0),
+	gnutls-bin (>= 3.6.6) | openssl (>= 1.1.0),
+	debconf (>= 1.5.5) | debconf-2.0
+Recommends: ssh
 Breaks: dropbear (<= 0.53.1-1)
 Enhances: cryptsetup
 Description: do unattended reboots with an encrypted root file system
@@ -55,9 +61,9 @@ Description: do unattended reboots with an encrypted root file system
  The computers run a small client program in the initial RAM
  disk environment which will communicate with a server over a
  network.  All network communication is encrypted using TLS.
- The clients are identified by the server using an OpenPGP
+ The clients are identified by the server using a TLS public
  key; each client has one unique to it.  The server sends the
  clients an encrypted password.  The encrypted password is
- decrypted by the clients using the same OpenPGP key, and the
+ decrypted by the clients using an OpenPGP key, and the
  password is then used to unlock the root file system,
  whereupon the computers can continue booting normally.

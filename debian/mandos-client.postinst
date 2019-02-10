@@ -15,6 +15,8 @@
 # If prerm fails during replacement due to conflict:
 #       <postinst> abort-remove in-favour <new-package> <version>
 
+. /usr/share/debconf/confmodule
+
 set -e
 
 # Update the initial RAM file system image
@@ -50,14 +52,68 @@ add_mandos_user(){
     fi
 }
 
-# Create client key pair
-create_key(){
-    if [ -r /etc/keys/mandos/pubkey.txt \
-	-a -r /etc/keys/mandos/seckey.txt ]; then
+# Create client key pairs
+create_keys(){
+    # If the OpenPGP key files do not exist, generate all keys using
+    # mandos-keygen
+    if ! [ -r /etc/keys/mandos/pubkey.txt \
+	      -a -r /etc/keys/mandos/seckey.txt ]; then
+	mandos-keygen
+	gpg-connect-agent KILLAGENT /bye || :
 	return 0
     fi
-    mandos-keygen
-    gpg-connect-agent KILLAGENT /bye || :
+
+    # If the TLS keys already exists, do nothing
+    if [ -r /etc/keys/mandos/tls-privkey.pem \
+	    -a -r /etc/keys/mandos/tls-pubkey.pem ]; then
+	return 0
+    fi
+
+    # If this is an upgrade from an old installation, the TLS keys
+    # will not exist; create them.
+
+    # First try certtool from GnuTLS
+    if ! certtool --generate-privkey --password='' \
+	 --outfile /etc/keys/mandos/tls-privkey.pem \
+	 --sec-param ultra --key-type=ed25519 --pkcs8 --no-text \
+	 2>/dev/null; then
+	# Otherwise try OpenSSL
+	if ! openssl genpkey -algorithm X25519 \
+	     -out /etc/keys/mandos/tls-privkey.pem; then
+	    rm --force /etc/keys/mandos/tls-privkey.pem
+	    # None of the commands succeded; give up
+	    return 1
+	fi
+    fi
+
+    local umask=$(umask)
+    umask 077
+    # First try certtool from GnuTLS
+    if ! certtool --password='' \
+	 --load-privkey=/etc/keys/mandos/tls-privkey.pem \
+	 --outfile=/etc/keys/mandos/tls-pubkey.pem --pubkey-info \
+	 --no-text 2>/dev/null; then
+	# Otherwise try OpenSSL
+	if ! openssl pkey -in /etc/keys/mandos/tls-privkey.pem \
+	     -out /etc/keys/mandos/tls-pubkey.pem -pubout; then
+	    rm --force /etc/keys/mandos/tls-pubkey.pem
+	    # None of the commands succeded; give up
+	    umask $umask
+	    return 1
+	fi
+    fi
+    umask $umask
+
+    key_id=$(mandos-keygen --passfile=/dev/null \
+		 | grep --regexp="^key_id[ =]")
+
+    db_version 2.0
+    db_fset mandos-client/key_id seen false
+    db_reset mandos-client/key_id
+    db_subst mandos-client/key_id key_id $key_id
+    db_input critical mandos-client/key_id || true
+    db_go
+    db_stop
 }
 
 create_dh_params(){
@@ -88,7 +144,7 @@ create_dh_params(){
 case "$1" in
     configure)
 	add_mandos_user "$@"
-	create_key "$@"
+	create_keys "$@"
 	create_dh_params "$@" || :
 	update_initramfs "$@"
 	if dpkg --compare-versions "$2" lt-nl "1.7.10-1"; then

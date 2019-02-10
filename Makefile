@@ -284,7 +284,7 @@ check:	all
 	./mandos-ctl --check
 
 # Run the client with a local config and key
-run-client: all keydir/seckey.txt keydir/pubkey.txt
+run-client: all keydir/seckey.txt keydir/pubkey.txt keydir/tls-privkey.pem keydir/tls-pubkey.pem
 	@echo "###################################################################"
 	@echo "# The following error messages are harmless and can be safely     #"
 	@echo "# ignored:                                                        #"
@@ -303,12 +303,12 @@ run-client: all keydir/seckey.txt keydir/pubkey.txt
 	./plugin-runner --plugin-dir=plugins.d \
 		--plugin-helper-dir=plugin-helpers \
 		--config-file=plugin-runner.conf \
-		--options-for=mandos-client:--seckey=keydir/seckey.txt,--pubkey=keydir/pubkey.txt,--network-hook-dir=network-hooks.d \
+		--options-for=mandos-client:--seckey=keydir/seckey.txt,--pubkey=keydir/pubkey.txt,--tls-privkey=keydir/tls-privkey.pem,--tls-pubkey=keydir/tls-pubkey.pem,--network-hook-dir=network-hooks.d \
 		--env-for=mandos-client:GNOME_KEYRING_CONTROL= \
 		$(CLIENTARGS)
 
 # Used by run-client
-keydir/seckey.txt keydir/pubkey.txt: mandos-keygen
+keydir/seckey.txt keydir/pubkey.txt keydir/tls-privkey.pem keydir/tls-pubkey.pem: mandos-keygen
 	install --directory keydir
 	./mandos-keygen --dir keydir --force
 
@@ -321,7 +321,7 @@ run-server: confdir/mandos.conf confdir/clients.conf statedir
 confdir/mandos.conf: mandos.conf
 	install --directory confdir
 	install --mode=u=rw,go=r $^ $@
-confdir/clients.conf: clients.conf keydir/seckey.txt
+confdir/clients.conf: clients.conf keydir/seckey.txt keydir/tls-pubkey.pem
 	install --directory confdir
 	install --mode=u=rw $< $@
 # Add a client password
@@ -508,7 +508,8 @@ purge-server: uninstall-server
 	-rmdir $(CONFDIR)
 
 purge-client: uninstall-client
-	-shred --remove $(KEYDIR)/seckey.txt
+	-shred --remove $(KEYDIR)/seckey.txt $(KEYDIR)/tls-privkey.pem
 	-rm --force $(CONFDIR)/plugin-runner.conf \
-		$(KEYDIR)/pubkey.txt $(KEYDIR)/seckey.txt
+		$(KEYDIR)/pubkey.txt $(KEYDIR)/seckey.txt \
+		$(KEYDIR)/tls-pubkey.txt $(KEYDIR)/tls-privkey.txt
 	-rmdir $(KEYDIR) $(CONFDIR)/plugins.d $(CONFDIR)

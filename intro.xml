@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
-<!ENTITY TIMESTAMP "2018-02-08">
+<!ENTITY TIMESTAMP "2019-02-10">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -38,6 +38,7 @@
       <year>2016</year>
       <year>2017</year>
       <year>2018</year>
+      <year>2019</year>
       <holder>Teddy Hogeborn</holder>
       <holder>Björn Påhlsson</holder>
     </copyright>
@@ -67,10 +68,10 @@
       The computers run a small client program in the initial RAM disk
       environment which will communicate with a server over a network.
       All network communication is encrypted using TLS.  The clients
-      are identified by the server using an OpenPGP key; each client
+      are identified by the server using a TLS public key; each client
       has one unique to it.  The server sends the clients an encrypted
       password.  The encrypted password is decrypted by the clients
-      using the same OpenPGP key, and the password is then used to
+      using a separate OpenPGP key, and the password is then used to
       unlock the root file system, whereupon the computers can
       continue booting normally.
     </para>
@@ -200,8 +201,8 @@
       <para>
 	No.  The server only gives out the passwords to clients which
 	have <emphasis>in the TLS handshake</emphasis> proven that
-	they do indeed hold the OpenPGP private key corresponding to
-	that client.
+	they do indeed hold the private key corresponding to that
+	client.
       </para>
     </refsect2>
     

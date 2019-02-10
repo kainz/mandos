@@ -8,10 +8,10 @@
   program in the initial <acronym>RAM</acronym> disk environment which
   will communicate with a server over a network.  All network
   communication is encrypted using <acronym>TLS</acronym>.  The
-  clients are identified by the server using an OpenPGP key; each
-  client has one unique to it.  The server sends the clients an
-  encrypted password.  The encrypted password is decrypted by the
-  clients using the same OpenPGP key, and the password is then used to
-  unlock the root file system, whereupon the computers can continue
-  booting normally.
+  clients are identified by the server using a TLS key; each client
+  has one unique to it.  The server sends the clients an encrypted
+  password.  The encrypted password is decrypted by the clients using
+  a separate OpenPGP key, and the password is then used to unlock the
+  root file system, whereupon the computers can continue booting
+  normally.
 </para>

@@ -30,3 +30,14 @@ mandos-client binary: setuid-binary usr/lib/*/mandos/plugins.d/plymouth 4755 roo
 mandos-client binary: non-standard-dir-perm etc/mandos/plugins.d/ 0700 != 0755
 # Likewise for plugin-helpers directory
 mandos-client binary: non-standard-dir-perm etc/mandos/plugin-helpers/ 0700 != 0755
+
+# The debconf templates is only used for displaying information
+# detected in the postinst, not for saving answers to questions, so we
+# don't need a .config file.
+mandos-client binary: no-debconf-config
+
+# The notice displayed from the postinst script really is critical
+mandos-client binary: postinst-uses-db-input
+
+# It is a really long line
+mandos-client binary: manpage-has-errors-from-man usr/share/man/man8/plugin-runner.8mandos.gz *: warning *: can't break line
