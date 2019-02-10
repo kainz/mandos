@@ -252,14 +252,14 @@ if [ "$mode" = keygen ]; then
 	# Backup any old key files
 	if cp --backup=numbered --force "$TLS_PRIVKEYFILE" "$TLS_PRIVKEYFILE" \
 	      2>/dev/null; then
-	    shred --remove "$TLS_PRIVKEYFILE"
+	    shred --remove "$TLS_PRIVKEYFILE" 2>/dev/null || :
 	fi
 	if cp --backup=numbered --force "$TLS_PUBKEYFILE" "$TLS_PUBKEYFILE" \
 	      2>/dev/null; then
 	    rm --force "$TLS_PUBKEYFILE"
 	fi
 	cp --archive "$TLS_PRIVKEYTMP" "$TLS_PRIVKEYFILE"
-	shred --remove "$TLS_PRIVKEYTMP"
+	shred --remove "$TLS_PRIVKEYTMP" 2>/dev/null || :
 
 	## TLS public key
 
@@ -296,7 +296,7 @@ if [ "$mode" = keygen ]; then
     # Backup any old key files
     if cp --backup=numbered --force "$SECKEYFILE" "$SECKEYFILE" \
 	2>/dev/null; then
-	shred --remove "$SECKEYFILE"
+	shred --remove "$SECKEYFILE" 2>/dev/null || :
     fi
     if cp --backup=numbered --force "$PUBKEYFILE" "$PUBKEYFILE" \
 	2>/dev/null; then
@@ -444,7 +444,7 @@ trap - EXIT
 set +e
 # Remove the password file, if any
 if [ -n "$SECFILE" ]; then
-    shred --remove "$SECFILE"
+    shred --remove "$SECFILE" 2>/dev/null
 fi
 # Remove the key rings
 shred --remove "$RINGDIR"/sec* 2>/dev/null
