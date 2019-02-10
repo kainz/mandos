@@ -71,8 +71,9 @@ create_keys(){
 	     --load-privkey=/etc/keys/mandos/tls-privkey.pem \
 	     --outfile=/dev/null --pubkey-info --no-text \
 	     2>/dev/null; then
-	    shred --remove -- /etc/keys/mandos/tls-privkey.pem
-	    rm -- /etc/keys/mandos/tls-pubkey.pem
+	    shred --remove -- /etc/keys/mandos/tls-privkey.pem \
+		  2>/dev/null || :
+	    rm --force -- /etc/keys/mandos/tls-pubkey.pem
 	fi
     fi
 
@@ -93,7 +94,7 @@ create_keys(){
 	local umask=$(umask)
 	umask 077
 	cp --archive "$TLS_PRIVKEYTMP" /etc/keys/mandos/tls-privkey.pem
-	shred --remove -- "$TLS_PRIVKEYTMP"
+	shred --remove -- "$TLS_PRIVKEYTMP" 2>/dev/null || :
 
 	# First try certtool from GnuTLS
 	if ! certtool --password='' \
@@ -122,7 +123,7 @@ create_keys(){
 	db_go
 	db_stop
     else
-	shred --remove -- "$TLS_PRIVKEYTMP"
+	shred --remove -- "$TLS_PRIVKEYTMP" 2>/dev/null || :
     fi
 }
 
