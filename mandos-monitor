@@ -444,7 +444,7 @@ class UserInterface(object):
         self.clients_dict = {}
 
         # We will add Text widgets to this list
-        self.log = []
+        self.log = urwid.SimpleListWalker([])
         self.max_log_length = max_log_length
 
         self.log_level = log_level
@@ -503,7 +503,7 @@ class UserInterface(object):
         if self.max_log_length:
             if len(self.log) > self.max_log_length:
                 del self.log[0:len(self.log)-self.max_log_length-1]
-        self.logbox.set_focus(len(self.logbox.body.contents),
+        self.logbox.set_focus(len(self.logbox.body.contents)-1,
                               coming_from="above")
         self.refresh()
 
