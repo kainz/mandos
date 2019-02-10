@@ -1,3 +1,14 @@
+mandos (1.8.1-1) unstable; urgency=high
+
+  * New upstream release.
+  * debian/mandos-client.postinst (create_keys): Remove any bad keys
+    created by 1.8.0-1. Only create TLS keys if certtool succeeds.
+  * debian/mandos.postinst (configure): Remove any bad keys from
+    clients.conf, and inform the user if any were found.
+  * debian/mandos.templates (mandos/removed_bad_key_ids): New message.
+
+ -- Teddy Hogeborn <teddy@recompile.se>  Sun, 10 Feb 2019 10:00:21 +0100
+
 mandos (1.8.0-1) unstable; urgency=medium
 
   * New upstream release.
