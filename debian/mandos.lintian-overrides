@@ -3,3 +3,11 @@
 #
 mandos binary: non-standard-file-perm etc/mandos/clients.conf 0600 != 0644
 mandos: init.d-script-needs-depends-on-lsb-base etc/init.d/mandos (line 46)
+
+# The debconf templates is only used for displaying information
+# detected in the postinst, not for saving answers to questions, so we
+# don't need a .config file.
+mandos binary: no-debconf-config
+
+# The notice displayed from the postinst script really is critical
+mandos binary: postinst-uses-db-input

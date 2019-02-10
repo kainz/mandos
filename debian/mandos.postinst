@@ -15,6 +15,8 @@
 # If prerm fails during replacement due to conflict:
 #       <postinst> abort-remove in-favour <new-package> <version>
 
+. /usr/share/debconf/confmodule
+
 set -e
 
 case "$1" in
@@ -52,6 +54,17 @@ case "$1" in
 	     2>&1; then
 	    chown _mandos:_mandos /var/lib/mandos
 	    chmod u=rwx,go= /var/lib/mandos
+	fi
+
+	gnutls_version=$(dpkg-query --showformat='${Version}' \
+				    --show libgnutls30 \
+				    2>/dev/null || :)
+	if [ -n "$gnutls_version" ] \
+	       && dpkg --compare-versions $gnutls_version ge 3.6.6; then
+	    db_version 2.0
+	    db_input critical mandos/key_id || true
+	    db_go
+	    db_stop
 	fi
 	;;
     

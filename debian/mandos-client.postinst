@@ -15,6 +15,8 @@
 # If prerm fails during replacement due to conflict:
 #       <postinst> abort-remove in-favour <new-package> <version>
 
+. /usr/share/debconf/confmodule
+
 set -e
 
 # Update the initial RAM file system image
@@ -101,6 +103,17 @@ create_keys(){
 	fi
     fi
     umask $umask
+
+    key_id=$(mandos-keygen --passfile=/dev/null \
+		 | grep --regexp="^key_id[ =]")
+
+    db_version 2.0
+    db_fset mandos-client/key_id seen false
+    db_reset mandos-client/key_id
+    db_subst mandos-client/key_id key_id $key_id
+    db_input critical mandos-client/key_id || true
+    db_go
+    db_stop
 }
 
 create_dh_params(){
