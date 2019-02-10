@@ -56,6 +56,22 @@ case "$1" in
 	    chmod u=rwx,go= /var/lib/mandos
 	fi
 
+	if dpkg --compare-versions "$2" eq "1.8.0-1" \
+		|| dpkg --compare-versions "$2" eq "1.8.0-1~bpo9+1"; then
+	    if grep --quiet --regexp='^[[:space:]]*key_id[[:space:]]*=[[:space:]]*[Ee]3[Bb]0[Cc]44298[Ff][Cc]1[Cc]149[Aa][Ff][Bb][Ff]4[Cc]8996[Ff][Bb]92427[Aa][Ee]41[Ee]4649[Bb]934[Cc][Aa]495991[Bb]7852[Bb]855[[:space:]]*$' /etc/mandos/clients.conf; then
+		sed --in-place \
+		    --expression='/^[[:space:]]*key_id[[:space:]]*=[[:space:]]*[Ee]3[Bb]0[Cc]44298[Ff][Cc]1[Cc]149[Aa][Ff][Bb][Ff]4[Cc]8996[Ff][Bb]92427[Aa][Ee]41[Ee]4649[Bb]934[Cc][Aa]495991[Bb]7852[Bb]855[[:space:]]*$/d' \
+		    /etc/mandos/clients.conf
+		invoke-rc.d mandos restart
+		db_version 2.0
+		db_fset mandos/removed_bad_key_ids seen false
+		db_reset mandos/removed_bad_key_ids
+		db_input critical mandos/removed_bad_key_ids || true
+		db_go
+		db_stop
+	    fi
+	fi
+
 	gnutls_version=$(dpkg-query --showformat='${Version}' \
 				    --show libgnutls30 \
 				    2>/dev/null || :)
