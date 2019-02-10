@@ -1,6 +1,17 @@
 This NEWS file records noteworthy changes, very tersely.
 See the manual for detailed information.
 
+Version 1.8.1 (2019-02-10)
+* Client
+** Only generate TLS keys using GnuTLS' certtool, of sufficient
+   version.  Key generation of TLS keys will not happen until a
+   version of GnuTLS is installed with support for raw public keys.
+** Remove any bad keys created by 1.8.0 and openssl.
+* Server
+** On installation, edit clients.conf and remove the same bad key ID
+   which was erroneously reported by all 1.8.0 clients.  Also do not
+   trust this key ID in the server.
+
 Version 1.8.0 (2019-02-10)
 * Client
 ** Use new TLS keys for server communication and identification.
