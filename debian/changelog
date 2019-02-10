@@ -1,3 +1,38 @@
+mandos (1.8.0-1) unstable; urgency=medium
+
+  * New upstream release.
+  * Fix "(tries to) use GnuTLS OpenPGP support" by using raw public keys
+    when available (Closes: #879538)
+  * Fix "mandos : Depends: libgnutls30 (< 3.6.0) but 3.6.5-2 is to be
+    installed" by now also allowing GnuTLS >= 3.6.6 (Closes: #916673)
+  * debian/control (Standards-Version): Update to "4.3.0".
+    (Package: mandos-client/Depends): Change from "cryptsetup" to
+    "cryptsetup (<< 2:2.0.3-1) | cryptsetup-initramfs".  Add "debconf (>=
+    1.5.5) | debconf-2.0".
+    (Source: mandos/Build-Depends): Also allow libgnutls30 (>= 3.6.6).
+    (Package: mandos/Depends): - '' - and add debconf (>= 1.5.5) |
+    debconf-2.0".
+    (Package: mandos/Description): Alter description to match new design.
+    (Package: mandos-client/Description): - '' -
+    (Package: mandos-client/Depends): Move "gnutls-bin | openssl" to here
+    from "Recommends".
+  * debian/mandos-client.README.Debian: Add --tls-privkey and --tls-pubkey
+    options to test command.
+  * debian/mandos-client.postinst (create_key): Renamed to "create_keys"
+    - all callers changed - and also create TLS key files.  Show notice if
+    new TLS key files were created.
+  * debian/mandos-client.postrm (purge): Also remove TLS key files.
+  * debian/mandos-client.lintian-overrides: Override warnings.
+  * debian/mandos-client.templates: New.
+  * debian/mandos.lintian-overrides: Override warnings.
+  * debian/mandos.postinst (configure): If GnuTLS 3.6.6 or later is
+    detected, show an important notice (once) about the new key_id option
+    required in clients.conf.
+  * debian/mandos.templates: New.
+  * debian/copyright: Update copyright year to 2019.
+
+ -- Teddy Hogeborn <teddy@recompile.se>  Sun, 10 Feb 2019 05:52:49 +0100
+
 mandos (1.7.20-1) unstable; urgency=medium
 
   * New upstream release.

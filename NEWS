@@ -1,6 +1,25 @@
 This NEWS file records noteworthy changes, very tersely.
 See the manual for detailed information.
 
+Version 1.8.0 (2019-02-10)
+* Client
+** Use new TLS keys for server communication and identification.
+   With GnuTLS 3.6 or later, OpenPGP keys are no longer supported.
+   The client can now use the new "raw public keys" (RFC 7250) API
+   instead, using GnuTLS 3.6.6.  Please note: This *requires* new key
+   IDs to be added to server's client.conf file.
+** New --tls-privkey and --tls-pubkey options to load TLS key files.
+   If GnuTLS is too old, these options do nothing.
+* Server
+** Supports either old or new GnuTLS.
+   The server now supports using GnuTLS 3.6.6 and clients connecting
+   with "raw public keys" as identification.  The server will read
+   both fingerprints and key IDs from clients.conf file, and will use
+   either one or the other, depending on what is supported by GnuTLS
+   on the system.  Please note: both are *not* supported at once; if
+   one type is supported by GnuTLS, all values of the other type from
+   clients.conf are ignored.
+
 Version 1.7.20 (2018-08-19)
 * Client
 ** Fix: Adapt to the Debian cryptsetup package 2.0.3 or later.
