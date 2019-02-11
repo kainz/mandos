@@ -274,9 +274,11 @@ int main(int argc, char **argv){
 	argp_state_help(state, state->out_stream,
 			(ARGP_HELP_STD_HELP | ARGP_HELP_EXIT_ERR)
 			& ~(unsigned int)ARGP_HELP_EXIT_OK);
+	__builtin_unreachable();
       case -3:			/* --usage */
 	argp_state_help(state, state->out_stream,
 			ARGP_HELP_USAGE | ARGP_HELP_EXIT_ERR);
+	__builtin_unreachable();
       case 'V':			/* --version */
 	fprintf(state->out_stream, "%s\n", argp_program_version);
 	exit(argp_err_exit_status);
