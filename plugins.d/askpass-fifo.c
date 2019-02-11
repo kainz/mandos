@@ -65,10 +65,16 @@ void error_plus(int status, int errnum, const char *formatstring,
     fprintf(stderr, ": ");
     fprintf(stderr, "%s\n", strerror(errnum));
     error(status, errno, "vasprintf while printing error");
+    if(status){
+      __builtin_unreachable();
+    }
     return;
   }
   fprintf(stderr, "Mandos plugin ");
   error(status, errnum, "%s", text);
+  if(status){
+    __builtin_unreachable();
+  }
   free(text);
 }
 
@@ -90,14 +96,17 @@ int main(__attribute__((unused))int argc,
     case ENOTDIR:
     case ELOOP:
       error_plus(EX_OSFILE, errno, "mkfifo");
+      __builtin_unreachable();
     case ENAMETOOLONG:
     case ENOSPC:
     case EROFS:
     default:
       error_plus(EX_OSERR, errno, "mkfifo");
+      __builtin_unreachable();
     case ENOENT:
       /* no "/lib/cryptsetup"? */
       error_plus(EX_UNAVAILABLE, errno, "mkfifo");
+      __builtin_unreachable();
     case EEXIST:
       break;			/* not an error */
     }

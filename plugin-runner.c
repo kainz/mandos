@@ -564,10 +564,12 @@ int main(int argc, char *argv[]){
     case '?':			/* --help */
       state->flags &= ~(unsigned int)ARGP_NO_EXIT; /* force exit */
       argp_state_help(state, state->out_stream, ARGP_HELP_STD_HELP);
+      __builtin_unreachable();
     case -3:			/* --usage */
       state->flags &= ~(unsigned int)ARGP_NO_EXIT; /* force exit */
       argp_state_help(state, state->out_stream,
 		      ARGP_HELP_USAGE | ARGP_HELP_EXIT_OK);
+      __builtin_unreachable();
     case 'V':			/* --version */
       fprintf(state->out_stream, "%s\n", argp_program_version);
       exit(EXIT_SUCCESS);
