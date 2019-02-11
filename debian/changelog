@@ -1,3 +1,22 @@
+mandos (1.8.3-1) unstable; urgency=medium
+
+  * New upstream release.
+  * debian/watch: Make the ".orig" file name suffix non-optional;
+    otherwise uscan thinks that ".orig" is part of the version number.
+  * debian/control (Build-Depends): Changed GnuTLS dependencies; move
+    3.6.6 alternative to first in list, and remove dependencies on the
+    virtual package "gnutls-dev", since we need the version restrictions.
+    (Package: mandos/Depends): Remove dependency on libgnutls28-dev
+    package.
+    (Package: mandos/Suggests): New; set to "libc6-dev, c-compiler". (Used
+    to find value of "SO_BINDTODEVICE").
+    (Package: mandos-client/Depends): Don't depend on openssl anymore;
+    instead depend on either a gnutls-bin (>= 3.6.6) (in which case TLS
+    key generation will work), or on libgnutls30 (<< 3.6.0) (in which case
+    TLS key generation will not be needed).
+
+ -- Teddy Hogeborn <teddy@recompile.se>  Mon, 11 Feb 2019 07:30:32 +0100
+
 mandos (1.8.2-1) unstable; urgency=medium
 
   * New upstream release.
