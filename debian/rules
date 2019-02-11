@@ -43,3 +43,16 @@ override_dh_fixperms-indep:
 	dh_fixperms --exclude etc/mandos/clients.conf
 
 override_dh_auto_test-arch: ;
+
+# dpkg-shlibdeps sees the "libgnutls28-dev (>= 3.6.6) |
+# libgnutls28-dev (<< 3.6.0)," in the build-dependencies not as two
+# alternatives, but as an absolute dependency on libgnutls30 >= 3.6.6.
+# So we have to do this ugly hack to hide this build dependency if we
+# compiled with libgnutls30 << 3.6.0.
+override_dh_shlibdeps-arch:
+	-gnutls_version=$$(dpkg-query --showformat='$${Version}' \
+		--show libgnutls30); \
+	dpkg --compare-versions $$gnutls_version lt 3.6.0 \
+		&& sed --in-place --expression='s/libgnutls28-dev (>= 3\.6\.6) | //' debian/control
+	-grep libgnutls28 debian/control
+	dh_shlibdeps
