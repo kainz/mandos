@@ -54,5 +54,4 @@ override_dh_shlibdeps-arch:
 		--show libgnutls30); \
 	dpkg --compare-versions $$gnutls_version lt 3.6.0 \
 		&& sed --in-place --expression='s/libgnutls28-dev (>= 3\.6\.6) | //' debian/control
-	-grep libgnutls28 debian/control
 	dh_shlibdeps
