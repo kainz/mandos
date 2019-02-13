@@ -14,6 +14,7 @@
 ** TODO [#C] Make start_mandos_communication() take "struct server".
 ** TODO [#C] --interfaces=regex,eth*,noregex (bridge-utils-interfaces(5))
 ** TODO [#A] Detect partial writes to stdout and exit with EX_TEMPFAIL
+** TODO [#B] Use reallocarray() with GNU LibC 2.29 or later.
 
 * splashy
 ** TODO [#B] use scandir(3) instead of readdir(3)
@@ -33,6 +34,7 @@
 
 * plymouth
 ** TODO [#A] Detect partial writes to stdout and exit with EX_TEMPFAIL
+** TODO [#B] Use reallocarray() with GNU LibC 2.29 or later.
 
 * TODO [#B] passdev
 

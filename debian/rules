@@ -44,14 +44,18 @@ override_dh_fixperms-indep:
 
 override_dh_auto_test-arch: ;
 
-# dpkg-shlibdeps sees the "libgnutls28-dev (>= 3.6.6) |
-# libgnutls28-dev (<< 3.6.0)," in the build-dependencies not as two
-# alternatives, but as an absolute dependency on libgnutls30 >= 3.6.6.
-# So we have to do this ugly hack to hide this build dependency if we
-# compiled with libgnutls30 << 3.6.0.
-override_dh_shlibdeps-arch:
-	-gnutls_version=$$(dpkg-query --showformat='$${Version}' \
-		--show libgnutls30); \
-	dpkg --compare-versions $$gnutls_version lt 3.6.0 \
-		&& sed --in-place --expression='s/libgnutls28-dev (>= 3\.6\.6) | //' debian/control
-	dh_shlibdeps
+#bpo## dpkg-shlibdeps sees the "libgnutls28-dev (>= 3.6.6) |
+#bpo## libgnutls28-dev (<< 3.6.0)," in the build-dependencies not as two
+#bpo## alternatives, but as an absolute dependency on libgnutls30 >= 3.6.6.
+#bpo## So we have to do this ugly hack to hide this build dependency if we
+#bpo## compiled with libgnutls30 << 3.6.0.
+#bpo#override_dh_shlibdeps-arch:
+#bpo#	-gnutls_version=$$(dpkg-query --showformat='$${Version}' \
+#bpo#		--show libgnutls30); \
+#bpo#	dpkg --compare-versions $$gnutls_version lt 3.6.0 \
+#bpo#		&& { cp --archive debian/control debian/control.orig; sed --expression='s/libgnutls28-dev (>= 3\.6\.6) |//' debian/control; }
+#bpo#	dh_shlibdeps
+#bpo#	-gnutls_version=$$(dpkg-query --showformat='$${Version}' \
+#bpo#		--show libgnutls30); \
+#bpo#	dpkg --compare-versions $$gnutls_version lt 3.6.0 \
+#bpo#		&& mv debian/control.orig debian/control
