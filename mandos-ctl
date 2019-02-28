@@ -239,25 +239,38 @@ def rfc3339_duration_to_delta(duration):
 
 def string_to_delta(interval):
     """Parse a string and return a datetime.timedelta
-
-    >>> string_to_delta('7d')
-    datetime.timedelta(7)
-    >>> string_to_delta('60s')
-    datetime.timedelta(0, 60)
-    >>> string_to_delta('60m')
-    datetime.timedelta(0, 3600)
-    >>> string_to_delta('24h')
-    datetime.timedelta(1)
-    >>> string_to_delta('1w')
-    datetime.timedelta(7)
-    >>> string_to_delta('5m 30s')
-    datetime.timedelta(0, 330)
     """
 
     try:
         return rfc3339_duration_to_delta(interval)
-    except ValueError:
-        pass
+    except ValueError as e:
+        log.warning("%s - Parsing as pre-1.6.1 interval instead",
+                    ' '.join(e.args))
+    return parse_pre_1_6_1_interval(interval)
+
+
+def parse_pre_1_6_1_interval(interval):
+    """Parse an interval string as documented by Mandos before 1.6.1, and
+    return a datetime.timedelta
+    >>> parse_pre_1_6_1_interval('7d')
+    datetime.timedelta(7)
+    >>> parse_pre_1_6_1_interval('60s')
+    datetime.timedelta(0, 60)
+    >>> parse_pre_1_6_1_interval('60m')
+    datetime.timedelta(0, 3600)
+    >>> parse_pre_1_6_1_interval('24h')
+    datetime.timedelta(1)
+    >>> parse_pre_1_6_1_interval('1w')
+    datetime.timedelta(7)
+    >>> parse_pre_1_6_1_interval('5m 30s')
+    datetime.timedelta(0, 330)
+    >>> parse_pre_1_6_1_interval('')
+    datetime.timedelta(0)
+    >>> # Ignore unknown characters, allow any order and repetitions
+    >>> parse_pre_1_6_1_interval('2dxy7zz11y3m5m')
+    datetime.timedelta(2, 480, 18000)
+
+    """
 
     value = datetime.timedelta(0)
     regexp = re.compile(r"(\d+)([dsmhw]?)")
