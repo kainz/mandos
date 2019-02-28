@@ -249,7 +249,7 @@ def string_to_delta(interval):
 
 def print_clients(clients, keywords):
     def valuetostring(value, keyword):
-        if type(value) is dbus.Boolean:
+        if isinstance(value, dbus.Boolean):
             return "Yes" if value else "No"
         if keyword in ("Timeout", "Interval", "ApprovalDelay",
                        "ApprovalDuration", "ExtendedTimeout"):
