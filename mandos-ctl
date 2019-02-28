@@ -45,9 +45,16 @@ import logging
 
 import dbus
 
+# Show warnings by default
+if not sys.warnoptions:
+    import warnings
+    warnings.simplefilter("default")
+
 log = logging.getLogger(sys.argv[0])
 logging.basicConfig(level="INFO", # Show info level messages
                     format="%(message)s") # Show basic log messages
+
+logging.captureWarnings(True)   # Show warnings via the logging system
 
 if sys.version_info.major == 2:
     str = unicode
