@@ -490,6 +490,20 @@ def main():
                                dbus_interface=client_interface)
 
 
+class Test_milliseconds_to_string(unittest.TestCase):
+    def test_all(self):
+        self.assertEqual(milliseconds_to_string(93785000),
+                         "1T02:03:05")
+    def test_no_days(self):
+        self.assertEqual(milliseconds_to_string(7385000), "02:03:05")
+    def test_all_zero(self):
+        self.assertEqual(milliseconds_to_string(0), "00:00:00")
+    def test_no_fractional_seconds(self):
+        self.assertEqual(milliseconds_to_string(400), "00:00:00")
+        self.assertEqual(milliseconds_to_string(900), "00:00:00")
+        self.assertEqual(milliseconds_to_string(1900), "00:00:01")
+
+
 def should_only_run_tests():
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("--check", action='store_true')
