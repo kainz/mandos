@@ -116,6 +116,8 @@ def rfc3339_duration_to_delta(duration):
     datetime.timedelta(0, 60)
     >>> rfc3339_duration_to_delta("PT60M")
     datetime.timedelta(0, 3600)
+    >>> rfc3339_duration_to_delta("P60M")
+    datetime.timedelta(1680)
     >>> rfc3339_duration_to_delta("PT24H")
     datetime.timedelta(1)
     >>> rfc3339_duration_to_delta("P1W")
@@ -124,6 +126,35 @@ def rfc3339_duration_to_delta(duration):
     datetime.timedelta(0, 330)
     >>> rfc3339_duration_to_delta("P1DT3M20S")
     datetime.timedelta(1, 200)
+    >>> # Can not be empty:
+    >>> rfc3339_duration_to_delta("")
+    Traceback (most recent call last):
+    ...
+    ValueError: Invalid RFC 3339 duration: u''
+    >>> # Must start with "P":
+    >>> rfc3339_duration_to_delta("1D")
+    Traceback (most recent call last):
+    ...
+    ValueError: Invalid RFC 3339 duration: u'1D'
+    >>> # Must use correct order
+    >>> rfc3339_duration_to_delta("PT1S2M")
+    Traceback (most recent call last):
+    ...
+    ValueError: Invalid RFC 3339 duration: u'PT1S2M'
+    >>> # Time needs time marker
+    >>> rfc3339_duration_to_delta("P1H2S")
+    Traceback (most recent call last):
+    ...
+    ValueError: Invalid RFC 3339 duration: u'P1H2S'
+    >>> # Weeks can not be combined with anything else
+    >>> rfc3339_duration_to_delta("P1D2W")
+    Traceback (most recent call last):
+    ...
+    ValueError: Invalid RFC 3339 duration: u'P1D2W'
+    >>> rfc3339_duration_to_delta("P2W2H")
+    Traceback (most recent call last):
+    ...
+    ValueError: Invalid RFC 3339 duration: u'P2W2H'
     """
 
     # Parsing an RFC 3339 duration with regular expressions is not
