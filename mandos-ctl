@@ -557,6 +557,19 @@ class Test_milliseconds_to_string(unittest.TestCase):
         self.assertEqual(milliseconds_to_string(900), "00:00:00")
         self.assertEqual(milliseconds_to_string(1900), "00:00:01")
 
+class Test_string_to_delta(unittest.TestCase):
+    def test_handles_basic_rfc3339(self):
+        self.assertEqual(string_to_delta("PT2H"),
+                         datetime.timedelta(0, 7200))
+    def test_falls_back_to_pre_1_6_1_with_warning(self):
+        # assertLogs only exists in Python 3.4
+        if hasattr(self, "assertLogs"):
+            with self.assertLogs(log, logging.WARNING):
+                value = string_to_delta("2h")
+        else:
+            value = string_to_delta("2h")
+        self.assertEqual(value, datetime.timedelta(0, 7200))
+
 
 def should_only_run_tests():
     parser = argparse.ArgumentParser(add_help=False)
