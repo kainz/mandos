@@ -40,6 +40,7 @@ import re
 import os
 import collections
 import json
+import unittest
 
 import dbus
 
@@ -345,11 +346,6 @@ def main():
     if options.all and not has_actions(options):
         parser.error("--all requires an action.")
 
-    if options.check:
-        import doctest
-        fail_count, test_count = doctest.testmod()
-        sys.exit(os.EX_OK if fail_count == 0 else 1)
-
     try:
         bus = dbus.SystemBus()
         mandos_dbus_objc = bus.get_object(busname, server_path)
@@ -493,6 +489,26 @@ def main():
                 client.Approve(dbus.Boolean(False),
                                dbus_interface=client_interface)
 
+
+def should_only_run_tests():
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument("--check", action='store_true')
+    args, unknown_args = parser.parse_known_args()
+    run_tests = args.check
+    if run_tests:
+        # Remove --check argument from sys.argv
+        sys.argv[1:] = unknown_args
+    return run_tests
+
+# Add all tests from doctest strings
+def load_tests(loader, tests, none):
+    import doctest
+    tests.addTests(doctest.DocTestSuite())
+    return tests
 
 if __name__ == "__main__":
-    main()
+    if should_only_run_tests():
+        # Call using ./tdd-python-script --check [--verbose]
+        unittest.main()
+    else:
+        main()
