@@ -41,8 +41,13 @@ import os
 import collections
 import json
 import unittest
+import logging
 
 import dbus
+
+log = logging.getLogger(sys.argv[0])
+logging.basicConfig(level="INFO", # Show info level messages
+                    format="%(message)s") # Show basic log messages
 
 if sys.version_info.major == 2:
     str = unicode
@@ -350,7 +355,7 @@ def main():
         bus = dbus.SystemBus()
         mandos_dbus_objc = bus.get_object(busname, server_path)
     except dbus.exceptions.DBusException:
-        print("Could not connect to Mandos server", file=sys.stderr)
+        log.critical("Could not connect to Mandos server")
         sys.exit(1)
 
     mandos_serv = dbus.Interface(mandos_dbus_objc,
@@ -375,9 +380,8 @@ def main():
             os.dup2(stderrcopy, sys.stderr.fileno())
             os.close(stderrcopy)
     except dbus.exceptions.DBusException as e:
-        print("Access denied: "
-              "Accessing mandos server through D-Bus: {}".format(e),
-              file=sys.stderr)
+        log.critical("Failed to access Mandos server through D-Bus:"
+                     "\n%s", e)
         sys.exit(1)
 
     # Compile dict of (clients: properties) to process
@@ -394,8 +398,7 @@ def main():
                     clients[client_objc] = client
                     break
             else:
-                print("Client not found on server: {!r}"
-                      .format(name), file=sys.stderr)
+                log.critical("Client not found on server: %r", name)
                 sys.exit(1)
 
     if not has_actions(options) and clients:
