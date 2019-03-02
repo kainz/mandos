@@ -574,6 +574,97 @@ class Test_string_to_delta(unittest.TestCase):
             value = string_to_delta("2h")
         self.assertEqual(value, datetime.timedelta(0, 7200))
 
+class Test_table_rows_of_clients(unittest.TestCase):
+    def setUp(self):
+        global tablewords
+        self.old_tablewords = tablewords
+        tablewords = {
+            "Attr1": "X",
+            "AttrTwo": "Yy",
+            "AttrThree": "Zzz",
+            "Bool": "A D-BUS Boolean",
+            "NonDbusBoolean": "A Non-D-BUS Boolean",
+            "Integer": "An Integer",
+            "Timeout": "Timedelta 1",
+            "Interval": "Timedelta 2",
+            "ApprovalDelay": "Timedelta 3",
+            "ApprovalDuration": "Timedelta 4",
+            "ExtendedTimeout": "Timedelta 5",
+            "String": "A String",
+        }
+        self.keywords = ["Attr1", "AttrTwo"]
+        self.clients = [
+            {
+                "Attr1": "x1",
+                "AttrTwo": "y1",
+                "AttrThree": "z1",
+                "Bool": dbus.Boolean(False),
+                "NonDbusBoolean": False,
+                "Integer": 0,
+                "Timeout": 0,
+                "Interval": 1000,
+                "ApprovalDelay": 2000,
+                "ApprovalDuration": 3000,
+                "ExtendedTimeout": 4000,
+                "String": "",
+            },
+            {
+                "Attr1": "x2",
+                "AttrTwo": "y2",
+                "AttrThree": "z2",
+                "Bool": dbus.Boolean(True),
+                "NonDbusBoolean": True,
+                "Integer": 1,
+                "Timeout": 93785000,
+                "Interval": 93786000,
+                "ApprovalDelay": 93787000,
+                "ApprovalDuration": 93788000,
+                "ExtendedTimeout": 93789000,
+                "String": "A huge string which will not fit," * 10,
+            },
+        ]
+    def tearDown(self):
+        global tablewords
+        tablewords = self.old_tablewords
+    def test_short_header(self):
+        rows = table_rows_of_clients(self.clients, self.keywords)
+        expected_rows = [
+            "X  Yy",
+            "x1 y1",
+            "x2 y2"]
+        self.assertEqual(rows, expected_rows)
+    def test_booleans(self):
+        keywords = ["Bool", "NonDbusBoolean"]
+        rows = table_rows_of_clients(self.clients, keywords)
+        expected_rows = [
+            "A D-BUS Boolean A Non-D-BUS Boolean",
+            "No              False              ",
+            "Yes             True               ",
+        ]
+        self.assertEqual(rows, expected_rows)
+    def test_milliseconds_detection(self):
+        keywords = ["Integer", "Timeout", "Interval", "ApprovalDelay",
+                    "ApprovalDuration", "ExtendedTimeout"]
+        rows = table_rows_of_clients(self.clients, keywords)
+        expected_rows = ("""
+An Integer Timedelta 1 Timedelta 2 Timedelta 3 Timedelta 4 Timedelta 5
+0          00:00:00    00:00:01    00:00:02    00:00:03    00:00:04   
+1          1T02:03:05  1T02:03:06  1T02:03:07  1T02:03:08  1T02:03:09 
+"""
+        ).splitlines()[1:]
+        self.assertEqual(rows, expected_rows)
+    def test_empty_and_long_string_values(self):
+        keywords = ["String"]
+        rows = table_rows_of_clients(self.clients, keywords)
+        expected_rows = ("""
+A String                                                                                                                                                                                                                                                                                                                                  
+                                                                                                                                                                                                                                                                                                                                          
+A huge string which will not fit,A huge string which will not fit,A huge string which will not fit,A huge string which will not fit,A huge string which will not fit,A huge string which will not fit,A huge string which will not fit,A huge string which will not fit,A huge string which will not fit,A huge string which will not fit,
+"""
+        ).splitlines()[1:]
+        self.assertEqual(rows, expected_rows)
+
+
 
 def should_only_run_tests():
     parser = argparse.ArgumentParser(add_help=False)
