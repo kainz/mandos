@@ -302,6 +302,25 @@ class TableOfClients(object):
         if tablewords is not None:
             self.tablewords = tablewords
 
+    def rows(self):
+        format_string = self.row_formatting_string()
+        rows = [self.header_line(format_string)]
+        rows.extend(self.client_line(client, format_string)
+                    for client in self.clients)
+        return rows
+
+    def row_formatting_string(self):
+        "Format string used to format table rows"
+        return " ".join("{{{key}:{width}}}".format(
+            width=max(len(self.tablewords[key]),
+                      max(len(self.string_from_client(client, key))
+                          for client in self.clients)),
+            key=key)
+                                 for key in self.keywords)
+
+    def string_from_client(self, client, key):
+        return self.valuetostring(client[key], key)
+
     @staticmethod
     def valuetostring(value, keyword):
         if isinstance(value, dbus.Boolean):
@@ -311,21 +330,13 @@ class TableOfClients(object):
             return milliseconds_to_string(value)
         return str(value)
 
-    def rows(self):
-        # Create format string to format table rows
-        format_string = " ".join("{{{key}:{width}}}".format(
-            width=max(len(self.tablewords[key]),
-                      max(len(self.valuetostring(client[key], key))
-                          for client in self.clients)),
-            key=key)
-                                 for key in self.keywords)
-        # Start with header line
-        rows = [format_string.format(**self.tablewords)]
-        for client in self.clients:
-            rows.append(format_string
-                        .format(**{key: self.valuetostring(client[key], key)
-                                   for key in self.keywords}))
-        return rows
+    def header_line(self, format_string):
+        return format_string.format(**self.tablewords)
+
+    def client_line(self, client, format_string):
+        return format_string.format(
+            **{key: self.string_from_client(client, key)
+               for key in self.keywords})
 
 
 def has_actions(options):
