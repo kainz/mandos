@@ -269,9 +269,6 @@ def parse_pre_1_6_1_interval(interval):
     return value
 
 
-def print_clients(clients, keywords):
-    print('\n'.join(TableOfClients(clients, keywords).rows()))
-
 class TableOfClients(object):
     tablewords = {
         "Name": "Name",
@@ -301,6 +298,14 @@ class TableOfClients(object):
         self.keywords = keywords
         if tablewords is not None:
             self.tablewords = tablewords
+
+    def __str__(self):
+        return "\n".join(self.rows())
+
+    if sys.version_info.major == 2:
+        __unicode__ = __str__
+        def __str__(self):
+            return str(self).encode(locale.getpreferredencoding())
 
     def rows(self):
         format_string = self.row_formatting_string()
@@ -501,7 +506,7 @@ def main():
                       separators=(',', ': '))
             print()
         else:
-            print_clients(clients.values(), keywords)
+            print(TableOfClients(clients.values(), keywords))
     else:
         # Process each client in the list by all selected options
         for client in clients:
