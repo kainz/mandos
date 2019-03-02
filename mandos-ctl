@@ -647,46 +647,45 @@ class Test_TableOfClients(unittest.TestCase):
             },
         ]
     def test_short_header(self):
-        rows = TableOfClients(self.clients, self.keywords,
-                              self.tablewords).rows()
-        expected_rows = [
-            "X  Yy",
-            "x1 y1",
-            "x2 y2"]
-        self.assertEqual(rows, expected_rows)
+        text = str(TableOfClients(self.clients, self.keywords,
+                                  self.tablewords))
+        expected_text = """
+X  Yy
+x1 y1
+x2 y2
+"""[1:-1]
+        self.assertEqual(text, expected_text)
     def test_booleans(self):
         keywords = ["Bool", "NonDbusBoolean"]
-        rows = TableOfClients(self.clients, keywords,
-                              self.tablewords).rows()
-        expected_rows = [
-            "A D-BUS Boolean A Non-D-BUS Boolean",
-            "No              False              ",
-            "Yes             True               ",
-        ]
-        self.assertEqual(rows, expected_rows)
+        text = str(TableOfClients(self.clients, keywords,
+                                  self.tablewords))
+        expected_text = """
+A D-BUS Boolean A Non-D-BUS Boolean
+No              False              
+Yes             True               
+"""[1:-1]
+        self.assertEqual(text, expected_text)
     def test_milliseconds_detection(self):
         keywords = ["Integer", "Timeout", "Interval", "ApprovalDelay",
                     "ApprovalDuration", "ExtendedTimeout"]
-        rows = TableOfClients(self.clients, keywords,
-                              self.tablewords).rows()
-        expected_rows = ("""
+        text = str(TableOfClients(self.clients, keywords,
+                                  self.tablewords))
+        expected_text = """
 An Integer Timedelta 1 Timedelta 2 Timedelta 3 Timedelta 4 Timedelta 5
 0          00:00:00    00:00:01    00:00:02    00:00:03    00:00:04   
 1          1T02:03:05  1T02:03:06  1T02:03:07  1T02:03:08  1T02:03:09 
-"""
-        ).splitlines()[1:]
-        self.assertEqual(rows, expected_rows)
+"""[1:-1]
+        self.assertEqual(text, expected_text)
     def test_empty_and_long_string_values(self):
         keywords = ["String"]
-        rows = TableOfClients(self.clients, keywords,
-                              self.tablewords).rows()
-        expected_rows = ("""
+        text = str(TableOfClients(self.clients, keywords,
+                                  self.tablewords))
+        expected_text = """
 A String                                                                                                                                                                                                                                                                                                                                  
                                                                                                                                                                                                                                                                                                                                           
 A huge string which will not fit,A huge string which will not fit,A huge string which will not fit,A huge string which will not fit,A huge string which will not fit,A huge string which will not fit,A huge string which will not fit,A huge string which will not fit,A huge string which will not fit,A huge string which will not fit,
-"""
-        ).splitlines()[1:]
-        self.assertEqual(rows, expected_rows)
+"""[1:-1]
+        self.assertEqual(text, expected_text)
 
 
 
