@@ -61,28 +61,6 @@ if sys.version_info.major == 2:
 
 locale.setlocale(locale.LC_ALL, "")
 
-tablewords = {
-    "Name": "Name",
-    "Enabled": "Enabled",
-    "Timeout": "Timeout",
-    "LastCheckedOK": "Last Successful Check",
-    "LastApprovalRequest": "Last Approval Request",
-    "Created": "Created",
-    "Interval": "Interval",
-    "Host": "Host",
-    "Fingerprint": "Fingerprint",
-    "KeyID": "Key ID",
-    "CheckerRunning": "Check Is Running",
-    "LastEnabled": "Last Enabled",
-    "ApprovalPending": "Approval Is Pending",
-    "ApprovedByDefault": "Approved By Default",
-    "ApprovalDelay": "Approval Delay",
-    "ApprovalDuration": "Approval Duration",
-    "Checker": "Checker",
-    "ExtendedTimeout": "Extended Timeout",
-    "Expires": "Expires",
-    "LastCheckerStatus": "Last Checker Status",
-}
 defaultkeywords = ("Name", "Enabled", "Timeout", "LastCheckedOK")
 domain = "se.recompile"
 busname = domain + ".Mandos"
@@ -295,9 +273,34 @@ def print_clients(clients, keywords):
     print('\n'.join(TableOfClients(clients, keywords).rows()))
 
 class TableOfClients(object):
-    def __init__(self, clients, keywords):
+    tablewords = {
+        "Name": "Name",
+        "Enabled": "Enabled",
+        "Timeout": "Timeout",
+        "LastCheckedOK": "Last Successful Check",
+        "LastApprovalRequest": "Last Approval Request",
+        "Created": "Created",
+        "Interval": "Interval",
+        "Host": "Host",
+        "Fingerprint": "Fingerprint",
+        "KeyID": "Key ID",
+        "CheckerRunning": "Check Is Running",
+        "LastEnabled": "Last Enabled",
+        "ApprovalPending": "Approval Is Pending",
+        "ApprovedByDefault": "Approved By Default",
+        "ApprovalDelay": "Approval Delay",
+        "ApprovalDuration": "Approval Duration",
+        "Checker": "Checker",
+        "ExtendedTimeout": "Extended Timeout",
+        "Expires": "Expires",
+        "LastCheckerStatus": "Last Checker Status",
+    }
+
+    def __init__(self, clients, keywords, tablewords=None):
         self.clients = clients
         self.keywords = keywords
+        if tablewords is not None:
+            self.tablewords = tablewords
 
     @staticmethod
     def valuetostring(value, keyword):
@@ -311,13 +314,13 @@ class TableOfClients(object):
     def rows(self):
         # Create format string to format table rows
         format_string = " ".join("{{{key}:{width}}}".format(
-            width=max(len(tablewords[key]),
+            width=max(len(self.tablewords[key]),
                       max(len(self.valuetostring(client[key], key))
                           for client in self.clients)),
             key=key)
                                  for key in self.keywords)
         # Start with header line
-        rows = [format_string.format(**tablewords)]
+        rows = [format_string.format(**self.tablewords)]
         for client in self.clients:
             rows.append(format_string
                         .format(**{key: self.valuetostring(client[key], key)
@@ -582,9 +585,7 @@ class Test_string_to_delta(unittest.TestCase):
 
 class Test_TableOfClients(unittest.TestCase):
     def setUp(self):
-        global tablewords
-        self.old_tablewords = tablewords
-        tablewords = {
+        self.tablewords = {
             "Attr1": "X",
             "AttrTwo": "Yy",
             "AttrThree": "Zzz",
@@ -629,11 +630,9 @@ class Test_TableOfClients(unittest.TestCase):
                 "String": "A huge string which will not fit," * 10,
             },
         ]
-    def tearDown(self):
-        global tablewords
-        tablewords = self.old_tablewords
     def test_short_header(self):
-        rows = TableOfClients(self.clients, self.keywords).rows()
+        rows = TableOfClients(self.clients, self.keywords,
+                              self.tablewords).rows()
         expected_rows = [
             "X  Yy",
             "x1 y1",
@@ -641,7 +640,8 @@ class Test_TableOfClients(unittest.TestCase):
         self.assertEqual(rows, expected_rows)
     def test_booleans(self):
         keywords = ["Bool", "NonDbusBoolean"]
-        rows = TableOfClients(self.clients, keywords).rows()
+        rows = TableOfClients(self.clients, keywords,
+                              self.tablewords).rows()
         expected_rows = [
             "A D-BUS Boolean A Non-D-BUS Boolean",
             "No              False              ",
@@ -651,7 +651,8 @@ class Test_TableOfClients(unittest.TestCase):
     def test_milliseconds_detection(self):
         keywords = ["Integer", "Timeout", "Interval", "ApprovalDelay",
                     "ApprovalDuration", "ExtendedTimeout"]
-        rows = TableOfClients(self.clients, keywords).rows()
+        rows = TableOfClients(self.clients, keywords,
+                              self.tablewords).rows()
         expected_rows = ("""
 An Integer Timedelta 1 Timedelta 2 Timedelta 3 Timedelta 4 Timedelta 5
 0          00:00:00    00:00:01    00:00:02    00:00:03    00:00:04   
@@ -661,7 +662,8 @@ An Integer Timedelta 1 Timedelta 2 Timedelta 3 Timedelta 4 Timedelta 5
         self.assertEqual(rows, expected_rows)
     def test_empty_and_long_string_values(self):
         keywords = ["String"]
-        rows = TableOfClients(self.clients, keywords).rows()
+        rows = TableOfClients(self.clients, keywords,
+                              self.tablewords).rows()
         expected_rows = ("""
 A String                                                                                                                                                                                                                                                                                                                                  
                                                                                                                                                                                                                                                                                                                                           
