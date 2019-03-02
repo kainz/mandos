@@ -292,9 +292,14 @@ def parse_pre_1_6_1_interval(interval):
 
 
 def print_clients(clients, keywords):
-    print('\n'.join(table_rows_of_clients(clients, keywords)))
+    print('\n'.join(TableOfClients(clients, keywords).rows()))
 
-def table_rows_of_clients(clients, keywords):
+class TableOfClients(object):
+    def __init__(self, clients, keywords):
+        self.clients = clients
+        self.keywords = keywords
+
+    @staticmethod
     def valuetostring(value, keyword):
         if isinstance(value, dbus.Boolean):
             return "Yes" if value else "No"
@@ -303,20 +308,21 @@ def table_rows_of_clients(clients, keywords):
             return milliseconds_to_string(value)
         return str(value)
 
-    # Create format string to print table rows
-    format_string = " ".join("{{{key}:{width}}}".format(
-        width=max(len(tablewords[key]),
-                  max(len(valuetostring(client[key], key))
-                      for client in clients)),
-        key=key)
-                             for key in keywords)
-    # Start with header line
-    rows = [format_string.format(**tablewords)]
-    for client in clients:
-        rows.append(format_string
-                    .format(**{key: valuetostring(client[key], key)
-                               for key in keywords}))
-    return rows
+    def rows(self):
+        # Create format string to format table rows
+        format_string = " ".join("{{{key}:{width}}}".format(
+            width=max(len(tablewords[key]),
+                      max(len(self.valuetostring(client[key], key))
+                          for client in self.clients)),
+            key=key)
+                                 for key in self.keywords)
+        # Start with header line
+        rows = [format_string.format(**tablewords)]
+        for client in self.clients:
+            rows.append(format_string
+                        .format(**{key: self.valuetostring(client[key], key)
+                                   for key in self.keywords}))
+        return rows
 
 
 def has_actions(options):
@@ -574,7 +580,7 @@ class Test_string_to_delta(unittest.TestCase):
             value = string_to_delta("2h")
         self.assertEqual(value, datetime.timedelta(0, 7200))
 
-class Test_table_rows_of_clients(unittest.TestCase):
+class Test_TableOfClients(unittest.TestCase):
     def setUp(self):
         global tablewords
         self.old_tablewords = tablewords
@@ -627,7 +633,7 @@ class Test_table_rows_of_clients(unittest.TestCase):
         global tablewords
         tablewords = self.old_tablewords
     def test_short_header(self):
-        rows = table_rows_of_clients(self.clients, self.keywords)
+        rows = TableOfClients(self.clients, self.keywords).rows()
         expected_rows = [
             "X  Yy",
             "x1 y1",
@@ -635,7 +641,7 @@ class Test_table_rows_of_clients(unittest.TestCase):
         self.assertEqual(rows, expected_rows)
     def test_booleans(self):
         keywords = ["Bool", "NonDbusBoolean"]
-        rows = table_rows_of_clients(self.clients, keywords)
+        rows = TableOfClients(self.clients, keywords).rows()
         expected_rows = [
             "A D-BUS Boolean A Non-D-BUS Boolean",
             "No              False              ",
@@ -645,7 +651,7 @@ class Test_table_rows_of_clients(unittest.TestCase):
     def test_milliseconds_detection(self):
         keywords = ["Integer", "Timeout", "Interval", "ApprovalDelay",
                     "ApprovalDuration", "ExtendedTimeout"]
-        rows = table_rows_of_clients(self.clients, keywords)
+        rows = TableOfClients(self.clients, keywords).rows()
         expected_rows = ("""
 An Integer Timedelta 1 Timedelta 2 Timedelta 3 Timedelta 4 Timedelta 5
 0          00:00:00    00:00:01    00:00:02    00:00:03    00:00:04   
@@ -655,7 +661,7 @@ An Integer Timedelta 1 Timedelta 2 Timedelta 3 Timedelta 4 Timedelta 5
         self.assertEqual(rows, expected_rows)
     def test_empty_and_long_string_values(self):
         keywords = ["String"]
-        rows = table_rows_of_clients(self.clients, keywords)
+        rows = TableOfClients(self.clients, keywords).rows()
         expected_rows = ("""
 A String                                                                                                                                                                                                                                                                                                                                  
                                                                                                                                                                                                                                                                                                                                           
