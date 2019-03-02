@@ -318,8 +318,8 @@ class TableOfClients(object):
         "Format string used to format table rows"
         return " ".join("{{{key}:{width}}}".format(
             width=max(len(self.tablewords[key]),
-                      max(len(self.string_from_client(client, key))
-                          for client in self.clients)),
+                      *(len(self.string_from_client(client, key))
+                        for client in self.clients)),
             key=key)
                                  for key in self.keywords)
 
