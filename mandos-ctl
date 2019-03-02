@@ -292,6 +292,9 @@ def parse_pre_1_6_1_interval(interval):
 
 
 def print_clients(clients, keywords):
+    print('\n'.join(table_rows_of_clients(clients, keywords)))
+
+def table_rows_of_clients(clients, keywords):
     def valuetostring(value, keyword):
         if isinstance(value, dbus.Boolean):
             return "Yes" if value else "No"
@@ -307,12 +310,13 @@ def print_clients(clients, keywords):
                       for client in clients)),
         key=key)
                              for key in keywords)
-    # Print header line
-    print(format_string.format(**tablewords))
+    # Start with header line
+    rows = [format_string.format(**tablewords)]
     for client in clients:
-        print(format_string
-              .format(**{key: valuetostring(client[key], key)
-                         for key in keywords}))
+        rows.append(format_string
+                    .format(**{key: valuetostring(client[key], key)
+                               for key in keywords}))
+    return rows
 
 
 def has_actions(options):
