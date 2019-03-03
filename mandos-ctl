@@ -376,16 +376,21 @@ def main():
                         help="Print all fields")
     parser.add_argument("-j", "--dump-json", action="store_true",
                         help="Dump client data in JSON format")
-    parser.add_argument("-e", "--enable", action="store_true",
-                        help="Enable client")
-    parser.add_argument("-d", "--disable", action="store_true",
-                        help="disable client")
+    enable_disable = parser.add_mutually_exclusive_group()
+    enable_disable.add_argument("-e", "--enable", action="store_true",
+                                help="Enable client")
+    enable_disable.add_argument("-d", "--disable",
+                                action="store_true",
+                                help="disable client")
     parser.add_argument("-b", "--bump-timeout", action="store_true",
                         help="Bump timeout for client")
-    parser.add_argument("--start-checker", action="store_true",
-                        help="Start checker for client")
-    parser.add_argument("--stop-checker", action="store_true",
-                        help="Stop checker for client")
+    start_stop_checker = parser.add_mutually_exclusive_group()
+    start_stop_checker.add_argument("--start-checker",
+                                    action="store_true",
+                                    help="Start checker for client")
+    start_stop_checker.add_argument("--stop-checker",
+                                    action="store_true",
+                                    help="Stop checker for client")
     parser.add_argument("-V", "--is-enabled", action="store_true",
                         help="Check if client is enabled")
     parser.add_argument("-r", "--remove", action="store_true",
@@ -398,12 +403,15 @@ def main():
                         help="Set extended timeout for client")
     parser.add_argument("-i", "--interval",
                         help="Set checker interval for client")
-    parser.add_argument("--approve-by-default", action="store_true",
-                        default=None, dest="approved_by_default",
-                        help="Set client to be approved by default")
-    parser.add_argument("--deny-by-default", action="store_false",
-                        dest="approved_by_default",
-                        help="Set client to be denied by default")
+    approve_deny_default = parser.add_mutually_exclusive_group()
+    approve_deny_default.add_argument(
+        "--approve-by-default", action="store_true",
+        default=None, dest="approved_by_default",
+        help="Set client to be approved by default")
+    approve_deny_default.add_argument(
+        "--deny-by-default", action="store_false",
+        dest="approved_by_default",
+        help="Set client to be denied by default")
     parser.add_argument("--approval-delay",
                         help="Set delay before client approve/deny")
     parser.add_argument("--approval-duration",
@@ -412,10 +420,12 @@ def main():
     parser.add_argument("-s", "--secret",
                         type=argparse.FileType(mode="rb"),
                         help="Set password blob (file) for client")
-    parser.add_argument("-A", "--approve", action="store_true",
-                        help="Approve any current client request")
-    parser.add_argument("-D", "--deny", action="store_true",
-                        help="Deny any current client request")
+    approve_deny = parser.add_mutually_exclusive_group()
+    approve_deny.add_argument(
+        "-A", "--approve", action="store_true",
+        help="Approve any current client request")
+    approve_deny.add_argument("-D", "--deny", action="store_true",
+                              help="Deny any current client request")
     parser.add_argument("--check", action="store_true",
                         help="Run self-test")
     parser.add_argument("client", nargs="*", help="Client name")
@@ -430,6 +440,8 @@ def main():
         parser.error("--dump-json can only be used alone.")
     if options.all and not has_actions(options):
         parser.error("--all requires an action.")
+    if options.is_enabled and len(options.client) > 1:
+            parser.error("--is-enabled requires exactly one client")
 
     try:
         bus = dbus.SystemBus()
