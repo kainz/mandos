@@ -516,11 +516,7 @@ def has_actions(options):
                 options.approve,
                 options.deny))
 
-
-def commands_and_clients_from_options(args=None):
-    if args is None:
-        args=sys.argv[1:]
-    parser = argparse.ArgumentParser()
+def add_command_line_options(parser):
     parser.add_argument("--version", action="version",
                         version="%(prog)s {}".format(version),
                         help="show version number and exit")
@@ -583,19 +579,9 @@ def commands_and_clients_from_options(args=None):
     parser.add_argument("--check", action="store_true",
                         help="Run self-test")
     parser.add_argument("client", nargs="*", help="Client name")
-    options = parser.parse_args(args=args)
 
-    if has_actions(options) and not (options.client or options.all):
-        parser.error("Options require clients names or --all.")
-    if options.verbose and has_actions(options):
-        parser.error("--verbose can only be used alone.")
-    if options.dump_json and (options.verbose
-                              or has_actions(options)):
-        parser.error("--dump-json can only be used alone.")
-    if options.all and not has_actions(options):
-        parser.error("--all requires an action.")
-    if options.is_enabled and len(options.client) > 1:
-            parser.error("--is-enabled requires exactly one client")
+
+def commands_and_clients_from_options(options):
 
     commands = []
 
@@ -670,7 +656,25 @@ def commands_and_clients_from_options(args=None):
 
 
 def main():
-    commands, clientnames = commands_and_clients_from_options()
+    parser = argparse.ArgumentParser()
+
+    add_command_line_options(parser)
+
+    options = parser.parse_args()
+
+    if has_actions(options) and not (options.client or options.all):
+        parser.error("Options require clients names or --all.")
+    if options.verbose and has_actions(options):
+        parser.error("--verbose can only be used alone.")
+    if options.dump_json and (options.verbose
+                              or has_actions(options)):
+        parser.error("--dump-json can only be used alone.")
+    if options.all and not has_actions(options):
+        parser.error("--all requires an action.")
+    if options.is_enabled and len(options.client) > 1:
+        parser.error("--is-enabled requires exactly one client")
+
+    commands, clientnames = commands_and_clients_from_options(options)
 
     try:
         bus = dbus.SystemBus()
