@@ -269,7 +269,7 @@ def parse_pre_1_6_1_interval(interval):
 
 
 class TableOfClients(object):
-    tablewords = {
+    tableheaders = {
         "Name": "Name",
         "Enabled": "Enabled",
         "Timeout": "Timeout",
@@ -292,11 +292,11 @@ class TableOfClients(object):
         "LastCheckerStatus": "Last Checker Status",
     }
 
-    def __init__(self, clients, keywords, tablewords=None):
+    def __init__(self, clients, keywords, tableheaders=None):
         self.clients = clients
         self.keywords = keywords
-        if tablewords is not None:
-            self.tablewords = tablewords
+        if tableheaders is not None:
+            self.tableheaders = tableheaders
 
     def __str__(self):
         return "\n".join(self.rows())
@@ -316,7 +316,7 @@ class TableOfClients(object):
     def row_formatting_string(self):
         "Format string used to format table rows"
         return " ".join("{{{key}:{width}}}".format(
-            width=max(len(self.tablewords[key]),
+            width=max(len(self.tableheaders[key]),
                       *(len(self.string_from_client(client, key))
                         for client in self.clients)),
             key=key)
@@ -335,7 +335,7 @@ class TableOfClients(object):
         return str(value)
 
     def header_line(self, format_string):
-        return format_string.format(**self.tablewords)
+        return format_string.format(**self.tableheaders)
 
     def client_line(self, client, format_string):
         return format_string.format(
@@ -746,7 +746,7 @@ class Test_string_to_delta(unittest.TestCase):
 
 class Test_TableOfClients(unittest.TestCase):
     def setUp(self):
-        self.tablewords = {
+        self.tableheaders = {
             "Attr1": "X",
             "AttrTwo": "Yy",
             "AttrThree": "Zzz",
@@ -793,7 +793,7 @@ class Test_TableOfClients(unittest.TestCase):
         ]
     def test_short_header(self):
         text = str(TableOfClients(self.clients, self.keywords,
-                                  self.tablewords))
+                                  self.tableheaders))
         expected_text = """
 X  Yy
 x1 y1
@@ -803,7 +803,7 @@ x2 y2
     def test_booleans(self):
         keywords = ["Bool", "NonDbusBoolean"]
         text = str(TableOfClients(self.clients, keywords,
-                                  self.tablewords))
+                                  self.tableheaders))
         expected_text = """
 A D-BUS Boolean A Non-D-BUS Boolean
 No              False              
@@ -814,7 +814,7 @@ Yes             True
         keywords = ["Integer", "Timeout", "Interval", "ApprovalDelay",
                     "ApprovalDuration", "ExtendedTimeout"]
         text = str(TableOfClients(self.clients, keywords,
-                                  self.tablewords))
+                                  self.tableheaders))
         expected_text = """
 An Integer Timedelta 1 Timedelta 2 Timedelta 3 Timedelta 4 Timedelta 5
 0          00:00:00    00:00:01    00:00:02    00:00:03    00:00:04   
@@ -824,7 +824,7 @@ An Integer Timedelta 1 Timedelta 2 Timedelta 3 Timedelta 4 Timedelta 5
     def test_empty_and_long_string_values(self):
         keywords = ["String"]
         text = str(TableOfClients(self.clients, keywords,
-                                  self.tablewords))
+                                  self.tableheaders))
         expected_text = """
 A String                                                                                                                                                                                                                                                                                                                                  
                                                                                                                                                                                                                                                                                                                                           
