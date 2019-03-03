@@ -515,7 +515,7 @@ def has_actions(options):
                 options.deny))
 
 
-def main():
+def commands_and_clients_from_options():
     parser = argparse.ArgumentParser()
     parser.add_argument("--version", action="version",
                         version="%(prog)s {}".format(version),
@@ -593,18 +593,6 @@ def main():
     if options.is_enabled and len(options.client) > 1:
             parser.error("--is-enabled requires exactly one client")
 
-    try:
-        bus = dbus.SystemBus()
-        mandos_dbus_objc = bus.get_object(busname, server_path)
-    except dbus.exceptions.DBusException:
-        log.critical("Could not connect to Mandos server")
-        sys.exit(1)
-
-    mandos_serv = dbus.Interface(mandos_dbus_objc,
-                                 dbus_interface=server_interface)
-    mandos_serv_object_manager = dbus.Interface(
-        mandos_dbus_objc, dbus_interface=dbus.OBJECT_MANAGER_IFACE)
-
     commands = []
 
     if options.dump_json:
@@ -674,6 +662,24 @@ def main():
     if not commands:
         commands.append(PrintTableCmd(verbose=options.verbose))
 
+    return commands, options.client
+
+
+def main():
+    commands, clientnames = commands_and_clients_from_options()
+
+    try:
+        bus = dbus.SystemBus()
+        mandos_dbus_objc = bus.get_object(busname, server_path)
+    except dbus.exceptions.DBusException:
+        log.critical("Could not connect to Mandos server")
+        sys.exit(1)
+
+    mandos_serv = dbus.Interface(mandos_dbus_objc,
+                                 dbus_interface=server_interface)
+    mandos_serv_object_manager = dbus.Interface(
+        mandos_dbus_objc, dbus_interface=dbus.OBJECT_MANAGER_IFACE)
+
     # Filter out log message from dbus module
     dbus_logger = logging.getLogger("dbus.proxies")
     class NullFilter(logging.Filter):
@@ -699,11 +705,11 @@ def main():
     # Compile dict of (clients: properties) to process
     clients = {}
 
-    if options.all or not options.client:
+    if not clientnames:
         clients = {bus.get_object(busname, path): properties
                    for path, properties in mandos_clients.items()}
     else:
-        for name in options.client:
+        for name in clientnames:
             for path, client in mandos_clients.items():
                 if client["Name"] == name:
                     client_objc = bus.get_object(busname, path)
