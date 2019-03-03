@@ -675,11 +675,13 @@ def main():
     if not commands:
         commands.append(PrintTableCmd(verbose=options.verbose))
 
-    # block stderr since dbus library prints to stderr
-    null = os.open(os.path.devnull, os.O_RDWR)
-    stderrcopy = os.dup(sys.stderr.fileno())
-    os.dup2(null, sys.stderr.fileno())
-    os.close(null)
+    # Filter out log message from dbus module
+    dbus_logger = logging.getLogger("dbus.proxies")
+    class NullFilter(logging.Filter):
+        def filter(self, record):
+            return False
+    dbus_filter = NullFilter()
+    dbus_logger.addFilter(dbus_filter)
     try:
         try:
             mandos_clients = {path: ifs_and_props[client_interface]
@@ -688,9 +690,8 @@ def main():
                               .GetManagedObjects().items()
                               if client_interface in ifs_and_props}
         finally:
-            # restore stderr
-            os.dup2(stderrcopy, sys.stderr.fileno())
-            os.close(stderrcopy)
+            # restore dbus logger
+            dbus_logger.removeFilter(dbus_filter)
     except dbus.exceptions.DBusException as e:
         log.critical("Failed to access Mandos server through D-Bus:"
                      "\n%s", e)
