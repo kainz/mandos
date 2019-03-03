@@ -694,21 +694,20 @@ def main():
         def filter(self, record):
             return False
     dbus_filter = NullFilter()
-    dbus_logger.addFilter(dbus_filter)
     try:
-        try:
-            mandos_clients = {path: ifs_and_props[client_interface]
-                              for path, ifs_and_props in
-                              mandos_serv_object_manager
-                              .GetManagedObjects().items()
-                              if client_interface in ifs_and_props}
-        finally:
-            # restore dbus logger
-            dbus_logger.removeFilter(dbus_filter)
+        dbus_logger.addFilter(dbus_filter)
+        mandos_clients = {path: ifs_and_props[client_interface]
+                          for path, ifs_and_props in
+                          mandos_serv_object_manager
+                          .GetManagedObjects().items()
+                          if client_interface in ifs_and_props}
     except dbus.exceptions.DBusException as e:
         log.critical("Failed to access Mandos server through D-Bus:"
                      "\n%s", e)
         sys.exit(1)
+    finally:
+        # restore dbus logger
+        dbus_logger.removeFilter(dbus_filter)
 
     # Compile dict of (clients: properties) to process
     clients = {}
