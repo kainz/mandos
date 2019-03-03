@@ -777,19 +777,25 @@ class TestCmd(unittest.TestCase):
                 self.__dbus_object_path__ = "objpath_{}".format(name)
                 self.attributes = attributes
                 self.attributes["Name"] = name
-            def Set(interface, property, value,
-                    properties_interface):
+                self.calls = []
+            def Set(self, interface, property, value, dbus_interface):
                 testcase.assertEqual(interface, client_interface)
-                testcase.assertEqual(properties_interface,
+                testcase.assertEqual(dbus_interface,
                                      dbus.PROPERTIES_IFACE)
                 self.attributes[property] = value
-            def Get(interface, property, properties_interface):
+                self.calls.append(("Set", (interface, property, value,
+                                           dbus_interface)))
+            def Get(self, interface, property, dbus_interface):
                 testcase.assertEqual(interface, client_interface)
-                testcase.assertEqual(properties_interface,
+                testcase.assertEqual(dbus_interface,
                                      dbus.PROPERTIES_IFACE)
+                self.calls.append(("Get", (interface, property,
+                                           dbus_interface)))
                 return self.attributes[property]
             def __getitem__(self, key):
                 return self.attributes[key]
+            def __setitem__(self, key, value):
+                self.attributes[key] = value
         self.clients = collections.OrderedDict([
             ("foo",
              MockClient(
@@ -929,6 +935,37 @@ class TestDumpJSONCmd(TestCmd):
         json_data = json.loads(DumpJSONCmd().output(clients))
         expected_json = {"foo": self.expected_json["foo"]}
         self.assertDictEqual(json_data, expected_json)
+
+class TestIsEnabledCmd(TestCmd):
+    def test_is_enabled(self):
+        self.assertTrue(all(IsEnabledCmd().is_enabled(client)
+                            for client in self.clients.values()))
+    def test_is_enabled_does_get_attribute(self):
+        client = self.clients["foo"]
+        self.assertTrue(IsEnabledCmd().is_enabled(client))
+        self.assertListEqual(client.calls,
+                             [("Get",
+                               ("se.recompile.Mandos.Client",
+                                "Enabled",
+                                "org.freedesktop.DBus.Properties"))])
+    def test_is_enabled_run_exits_successfully(self):
+        client = self.clients["foo"]
+        with self.assertRaises(SystemExit) as e:
+            IsEnabledCmd().run_on_one_client(client)
+        if e.exception.code is not None:
+            self.assertEqual(e.exception.code, 0)
+        else:
+            self.assertIsNone(e.exception.code)
+    def test_is_enabled_run_exits_with_failure(self):
+        client = self.clients["foo"]
+        client["Enabled"] = dbus.Boolean(False)
+        with self.assertRaises(SystemExit) as e:
+            IsEnabledCmd().run_on_one_client(client)
+        if isinstance(e.exception.code, int):
+            self.assertNotEqual(e.exception.code, 0)
+        else:
+            self.assertIsNotNone(e.exception.code)
+
 
 
 def should_only_run_tests():
