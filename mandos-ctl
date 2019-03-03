@@ -348,10 +348,11 @@ class TableOfClients(object):
 # Abstract classes first
 class Command(object):
     """Abstract class for commands"""
-    def run(self, clients):
+    def run(self, mandos, clients):
         """Normal commands should implement run_on_one_client(), but
         commands which want to operate on all clients at the same time
         can override this run() method instead."""
+        self.mandos = mandos
         for client in clients:
             self.run_on_one_client(client)
 
@@ -364,7 +365,7 @@ class PrintCmd(Command):
                     "LastApprovalRequest", "ApprovalDelay",
                     "ApprovalDuration", "Checker", "ExtendedTimeout",
                     "Expires", "LastCheckerStatus")
-    def run(self, clients):
+    def run(self, mandos, clients):
         print(self.output(clients))
 
 class PropertyCmd(Command):
@@ -425,8 +426,6 @@ class IsEnabledCmd(Command):
                           dbus_interface=dbus.PROPERTIES_IFACE)
 
 class RemoveCmd(Command):
-    def __init__(self, mandos):
-        self.mandos = mandos
     def run_on_one_client(self, client):
         self.mandos.RemoveClient(client.__dbus_object_path__)
 
@@ -630,7 +629,7 @@ def main():
         commands.append(IsEnabledCmd())
 
     if options.remove:
-        commands.append(RemoveCmd(mandos_serv))
+        commands.append(RemoveCmd())
 
     if options.checker is not None:
         commands.append(SetCheckerCmd())
@@ -716,7 +715,7 @@ def main():
 
     # Run all commands on clients
     for command in commands:
-        command.run(clients)
+        command.run(mandos_serv, clients)
 
 
 class Test_milliseconds_to_string(unittest.TestCase):
