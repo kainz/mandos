@@ -765,93 +765,106 @@ class Test_string_to_delta(unittest.TestCase):
             self.assertTrue(getattr(warning_filter, "found", False))
         self.assertEqual(value, datetime.timedelta(0, 7200))
 
-class Test_TableOfClients(unittest.TestCase):
+
+class TestCmd(unittest.TestCase):
+    """Abstract class for tests of command classes"""
     def setUp(self):
-        self.tableheaders = {
-            "Attr1": "X",
-            "AttrTwo": "Yy",
-            "AttrThree": "Zzz",
-            "Bool": "A D-BUS Boolean",
-            "NonDbusBoolean": "A Non-D-BUS Boolean",
-            "Integer": "An Integer",
-            "Timeout": "Timedelta 1",
-            "Interval": "Timedelta 2",
-            "ApprovalDelay": "Timedelta 3",
-            "ApprovalDuration": "Timedelta 4",
-            "ExtendedTimeout": "Timedelta 5",
-            "String": "A String",
-        }
-        self.keywords = ["Attr1", "AttrTwo"]
-        self.clients = [
-            {
-                "Attr1": "x1",
-                "AttrTwo": "y1",
-                "AttrThree": "z1",
-                "Bool": dbus.Boolean(False),
-                "NonDbusBoolean": False,
-                "Integer": 0,
-                "Timeout": 0,
-                "Interval": 1000,
-                "ApprovalDelay": 2000,
-                "ApprovalDuration": 3000,
-                "ExtendedTimeout": 4000,
-                "String": "",
-            },
-            {
-                "Attr1": "x2",
-                "AttrTwo": "y2",
-                "AttrThree": "z2",
-                "Bool": dbus.Boolean(True),
-                "NonDbusBoolean": True,
-                "Integer": 1,
-                "Timeout": 93785000,
-                "Interval": 93786000,
-                "ApprovalDelay": 93787000,
-                "ApprovalDuration": 93788000,
-                "ExtendedTimeout": 93789000,
-                "String": "A huge string which will not fit," * 10,
-            },
-        ]
-    def test_short_header(self):
-        text = str(TableOfClients(self.clients, self.keywords,
-                                  self.tableheaders))
-        expected_text = """
-X  Yy
-x1 y1
-x2 y2
+        testcase = self
+        class MockClient(object):
+            def __init__(self, name, **attributes):
+                self.__dbus_object_path__ = "objpath_{}".format(name)
+                self.attributes = attributes
+                self.attributes["Name"] = name
+            def Set(interface, property, value,
+                    properties_interface):
+                testcase.assertEqual(interface, client_interface)
+                testcase.assertEqual(properties_interface,
+                                     dbus.PROPERTIES_IFACE)
+                self.attributes[property] = value
+            def Get(interface, property, properties_interface):
+                testcase.assertEqual(interface, client_interface)
+                testcase.assertEqual(properties_interface,
+                                     dbus.PROPERTIES_IFACE)
+                return self.attributes[property]
+            def __getitem__(self, key):
+                return self.attributes[key]
+        self.clients = collections.OrderedDict([
+            ("foo",
+             MockClient(
+                 "foo",
+                 KeyID=("92ed150794387c03ce684574b1139a65"
+                        "94a34f895daaaf09fd8ea90a27cddb12"),
+                 Secret=b"secret",
+                 Host="foo.example.org",
+                 Enabled=dbus.Boolean(True),
+                 Timeout=300000,
+                 LastCheckedOK="2019-02-03T00:00:00",
+                 Created="2019-01-02T00:00:00",
+                 Interval=120000,
+                 Fingerprint=("778827225BA7DE539C5A"
+                              "7CFA59CFF7CDBD9A5920"),
+                 CheckerRunning=dbus.Boolean(False),
+                 LastEnabled="2019-01-03T00:00:00",
+                 ApprovalPending=dbus.Boolean(False),
+                 ApprovedByDefault=dbus.Boolean(True),
+                 LastApprovalRequest="",
+                 ApprovalDelay=0,
+                 ApprovalDuration=1000,
+                 Checker="fping -q -- %(host)s",
+                 ExtendedTimeout=900000,
+                 Expires="2019-02-04T00:00:00",
+                 LastCheckerStatus=0)),
+            ("barbar",
+             MockClient(
+                 "barbar",
+                 KeyID=("0558568eedd67d622f5c83b35a115f79"
+                        "6ab612cff5ad227247e46c2b020f441c"),
+                 Secret=b"secretbar",
+                 Host="192.0.2.3",
+                 Enabled=dbus.Boolean(True),
+                 Timeout=300000,
+                 LastCheckedOK="2019-02-04T00:00:00",
+                 Created="2019-01-03T00:00:00",
+                 Interval=120000,
+                 Fingerprint=("3E393AEAEFB84C7E89E2"
+                              "F547B3A107558FCA3A27"),
+                 CheckerRunning=dbus.Boolean(True),
+                 LastEnabled="2019-01-04T00:00:00",
+                 ApprovalPending=dbus.Boolean(False),
+                 ApprovedByDefault=dbus.Boolean(False),
+                 LastApprovalRequest="2019-01-03T00:00:00",
+                 ApprovalDelay=30000,
+                 ApprovalDuration=1000,
+                 Checker=":",
+                 ExtendedTimeout=900000,
+                 Expires="2019-02-05T00:00:00",
+                 LastCheckerStatus=-2)),
+            ])
+
+class TestPrintTableCmd(TestCmd):
+    def test_normal(self):
+        output = PrintTableCmd().output(self.clients)
+        expected_output = """
+Name   Enabled Timeout  Last Successful Check
+foo    Yes     00:05:00 2019-02-03T00:00:00  
+barbar Yes     00:05:00 2019-02-04T00:00:00  
 """[1:-1]
-        self.assertEqual(text, expected_text)
-    def test_booleans(self):
-        keywords = ["Bool", "NonDbusBoolean"]
-        text = str(TableOfClients(self.clients, keywords,
-                                  self.tableheaders))
-        expected_text = """
-A D-BUS Boolean A Non-D-BUS Boolean
-No              False              
-Yes             True               
+        self.assertEqual(output, expected_output)
+    def test_verbose(self):
+        output = PrintTableCmd(verbose=True).output(self.clients)
+        expected_output = """
+Name   Enabled Timeout  Last Successful Check Created             Interval Host            Key ID                                                           Fingerprint                              Check Is Running Last Enabled        Approval Is Pending Approved By Default Last Approval Request Approval Delay Approval Duration Checker              Extended Timeout Expires             Last Checker Status
+foo    Yes     00:05:00 2019-02-03T00:00:00   2019-01-02T00:00:00 00:02:00 foo.example.org 92ed150794387c03ce684574b1139a6594a34f895daaaf09fd8ea90a27cddb12 778827225BA7DE539C5A7CFA59CFF7CDBD9A5920 No               2019-01-03T00:00:00 No                  Yes                                       00:00:00       00:00:01          fping -q -- %(host)s 00:15:00         2019-02-04T00:00:00 0                  
+barbar Yes     00:05:00 2019-02-04T00:00:00   2019-01-03T00:00:00 00:02:00 192.0.2.3       0558568eedd67d622f5c83b35a115f796ab612cff5ad227247e46c2b020f441c 3E393AEAEFB84C7E89E2F547B3A107558FCA3A27 Yes              2019-01-04T00:00:00 No                  No                  2019-01-03T00:00:00   00:00:30       00:00:01          :                    00:15:00         2019-02-05T00:00:00 -2                 
 """[1:-1]
-        self.assertEqual(text, expected_text)
-    def test_milliseconds_detection(self):
-        keywords = ["Integer", "Timeout", "Interval", "ApprovalDelay",
-                    "ApprovalDuration", "ExtendedTimeout"]
-        text = str(TableOfClients(self.clients, keywords,
-                                  self.tableheaders))
-        expected_text = """
-An Integer Timedelta 1 Timedelta 2 Timedelta 3 Timedelta 4 Timedelta 5
-0          00:00:00    00:00:01    00:00:02    00:00:03    00:00:04   
-1          1T02:03:05  1T02:03:06  1T02:03:07  1T02:03:08  1T02:03:09 
+        self.assertEqual(output, expected_output)
+    def test_one_client(self):
+        output = PrintTableCmd().output({"foo": self.clients["foo"]})
+        expected_output = """
+Name Enabled Timeout  Last Successful Check
+foo  Yes     00:05:00 2019-02-03T00:00:00  
 """[1:-1]
-        self.assertEqual(text, expected_text)
-    def test_empty_and_long_string_values(self):
-        keywords = ["String"]
-        text = str(TableOfClients(self.clients, keywords,
-                                  self.tableheaders))
-        expected_text = """
-A String                                                                                                                                                                                                                                                                                                                                  
-                                                                                                                                                                                                                                                                                                                                          
-A huge string which will not fit,A huge string which will not fit,A huge string which will not fit,A huge string which will not fit,A huge string which will not fit,A huge string which will not fit,A huge string which will not fit,A huge string which will not fit,A huge string which will not fit,A huge string which will not fit,
-"""[1:-1]
-        self.assertEqual(text, expected_text)
+        self.assertEqual(output, expected_output)
 
 
 
