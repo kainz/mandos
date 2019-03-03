@@ -61,7 +61,6 @@ if sys.version_info.major == 2:
 
 locale.setlocale(locale.LC_ALL, "")
 
-defaultkeywords = ("Name", "Enabled", "Timeout", "LastCheckedOK")
 domain = "se.recompile"
 busname = domain + ".Mandos"
 server_path = "/"
@@ -344,6 +343,158 @@ class TableOfClients(object):
                for key in self.keywords})
 
 
+## Classes for commands.
+
+# Abstract classes first
+class Command(object):
+    """Abstract class for commands"""
+    def run(self, clients):
+        """Normal commands should implement run_on_one_client(), but
+        commands which want to operate on all clients at the same time
+        can override this run() method instead."""
+        for client in clients:
+            self.run_on_one_client(client)
+
+class PrintCmd(Command):
+    """Abstract class for commands printing client details"""
+    all_keywords = ("Name", "Enabled", "Timeout", "LastCheckedOK",
+                    "Created", "Interval", "Host", "KeyID",
+                    "Fingerprint", "CheckerRunning", "LastEnabled",
+                    "ApprovalPending", "ApprovedByDefault",
+                    "LastApprovalRequest", "ApprovalDelay",
+                    "ApprovalDuration", "Checker", "ExtendedTimeout",
+                    "Expires", "LastCheckerStatus")
+    def run(self, clients):
+        print(self.output(clients))
+
+class PropertyCmd(Command):
+    """Abstract class for Actions for setting one client property"""
+    def run_on_one_client(self, client):
+        """Set the Client's D-Bus property"""
+        client.Set(client_interface, self.property, self.value_to_set,
+                   dbus_interface=dbus.PROPERTIES_IFACE)
+
+class ValueArgumentMixIn(object):
+    """Mixin class for commands taking a value as argument"""
+    def __init__(self, value):
+        self.value_to_set = value
+
+class MillisecondsValueArgumentMixIn(ValueArgumentMixIn):
+    """Mixin class for commands taking a value argument as
+    milliseconds."""
+    @property
+    def value_to_set(self):
+        return self._vts
+    @value_to_set.setter
+    def value_to_set(self, value):
+        """When setting, convert value to a datetime.timedelta"""
+        self._vts = string_to_delta(value).total_seconds() * 1000
+
+# Actual (non-abstract) command classes
+
+class PrintTableCmd(PrintCmd):
+    def __init__(self, verbose=False):
+        self.verbose = verbose
+    def output(self, clients):
+        if self.verbose:
+            keywords = self.all_keywords
+        else:
+            keywords = ("Name", "Enabled", "Timeout", "LastCheckedOK")
+        return str(TableOfClients(clients.values(), keywords))
+
+class DumpJSONCmd(PrintCmd):
+    def output(self, clients):
+        data = {client["Name"]:
+                {key: self.dbus_boolean_to_bool(client[key])
+                 for key in self.all_keywords}
+                for client in clients.values()}
+        return json.dumps(data, indent=4, separators=(',', ': '))
+    @staticmethod
+    def dbus_boolean_to_bool(value):
+        if isinstance(value, dbus.Boolean):
+            value = bool(value)
+        return value
+
+class IsEnabledCmd(Command):
+    def run_on_one_client(self, client):
+        if self.is_enabled(client):
+            sys.exit(0)
+        sys.exit(1)
+    def is_enabled(self, client):
+        return client.Get(client_interface, "Enabled",
+                          dbus_interface=dbus.PROPERTIES_IFACE)
+
+class RemoveCmd(Command):
+    def __init__(self, mandos):
+        self.mandos = mandos
+    def run_on_one_client(self, client):
+        self.mandos.RemoveClient(client.__dbus_object_path__)
+
+class ApproveCmd(Command):
+    def run_on_one_client(self, client):
+        client.Approve(dbus.Boolean(True),
+                       dbus_interface=client_interface)
+
+class DenyCmd(Command):
+    def run_on_one_client(self, client):
+        client.Approve(dbus.Boolean(False),
+                       dbus_interface=client_interface)
+
+class EnableCmd(PropertyCmd):
+    property = "Enabled"
+    value_to_set = dbus.Boolean(True)
+
+class DisableCmd(PropertyCmd):
+    property = "Enabled"
+    value_to_set = dbus.Boolean(False)
+
+class BumpTimeoutCmd(PropertyCmd):
+    property = "LastCheckedOK"
+    value_to_set = ""
+
+class StartCheckerCmd(PropertyCmd):
+    property = "CheckerRunning"
+    value_to_set = dbus.Boolean(True)
+
+class StopCheckerCmd(PropertyCmd):
+    property = "CheckerRunning"
+    value_to_set = dbus.Boolean(False)
+
+class ApproveByDefaultCmd(PropertyCmd):
+    property = "ApprovedByDefault"
+    value_to_set = dbus.Boolean(True)
+
+class DenyByDefaultCmd(PropertyCmd):
+    property = "ApprovedByDefault"
+    value_to_set = dbus.Boolean(False)
+
+class SetCheckerCmd(PropertyCmd, ValueArgumentMixIn):
+    property = "Checker"
+
+class SetHostCmd(PropertyCmd, ValueArgumentMixIn):
+    property = "Host"
+
+class SetSecretCmd(PropertyCmd, ValueArgumentMixIn):
+    property = "Secret"
+
+class SetTimeoutCmd(PropertyCmd, MillisecondsValueArgumentMixIn):
+    property = "Timeout"
+
+class SetExtendedTimeoutCmd(PropertyCmd,
+                            MillisecondsValueArgumentMixIn):
+    property = "ExtendedTimeout"
+
+class SetIntervalCmd(PropertyCmd, MillisecondsValueArgumentMixIn):
+    property = "Interval"
+
+class SetApprovalDelayCmd(PropertyCmd,
+                          MillisecondsValueArgumentMixIn):
+    property = "ApprovalDelay"
+
+class SetApprovalDurationCmd(PropertyCmd,
+                             MillisecondsValueArgumentMixIn):
+    property = "ApprovalDuration"
+
 def has_actions(options):
     return any((options.enable,
                 options.disable,
@@ -455,6 +606,75 @@ def main():
     mandos_serv_object_manager = dbus.Interface(
         mandos_dbus_objc, dbus_interface=dbus.OBJECT_MANAGER_IFACE)
 
+    commands = []
+
+    if options.dump_json:
+        commands.append(DumpJSONCmd())
+
+    if options.enable:
+        commands.append(EnableCmd())
+
+    if options.disable:
+        commands.append(DisableCmd())
+
+    if options.bump_timeout:
+        commands.append(BumpTimeoutCmd(options.bump_timeout))
+
+    if options.start_checker:
+        commands.append(StartCheckerCmd())
+
+    if options.stop_checker:
+        commands.append(StopCheckerCmd())
+
+    if options.is_enabled:
+        commands.append(IsEnabledCmd())
+
+    if options.remove:
+        commands.append(RemoveCmd(mandos_serv))
+
+    if options.checker is not None:
+        commands.append(SetCheckerCmd())
+
+    if options.timeout is not None:
+        commands.append(SetTimeoutCmd(options.timeout))
+
+    if options.extended_timeout:
+        commands.append(
+            SetExtendedTimeoutCmd(options.extended_timeout))
+
+    if options.interval is not None:
+        command.append(SetIntervalCmd(options.interval))
+
+    if options.approved_by_default is not None:
+        if options.approved_by_default:
+            command.append(ApproveByDefaultCmd())
+        else:
+            command.append(DenyByDefaultCmd())
+
+    if options.approval_delay is not None:
+        command.append(SetApprovalDelayCmd(options.approval_delay))
+
+    if options.approval_duration is not None:
+        command.append(
+            SetApprovalDurationCmd(options.approval_duration))
+
+    if options.host is not None:
+        command.append(SetHostCmd(options.host))
+
+    if options.secret is not None:
+        command.append(SetSecretCmd(options.secret))
+
+    if options.approve:
+        commands.append(ApproveCmd())
+
+    if options.deny:
+        commands.append(DenyCmd())
+
+    # If no command option has been given, show table of clients,
+    # optionally verbosely
+    if not commands:
+        commands.append(PrintTableCmd(verbose=options.verbose))
+
     # block stderr since dbus library prints to stderr
     null = os.open(os.path.devnull, os.O_RDWR)
     stderrcopy = os.dup(sys.stderr.fileno())
@@ -493,96 +713,9 @@ def main():
                 log.critical("Client not found on server: %r", name)
                 sys.exit(1)
 
-    if not has_actions(options) and clients:
-        if options.verbose or options.dump_json:
-            keywords = ("Name", "Enabled", "Timeout", "LastCheckedOK",
-                        "Created", "Interval", "Host", "KeyID",
-                        "Fingerprint", "CheckerRunning",
-                        "LastEnabled", "ApprovalPending",
-                        "ApprovedByDefault", "LastApprovalRequest",
-                        "ApprovalDelay", "ApprovalDuration",
-                        "Checker", "ExtendedTimeout", "Expires",
-                        "LastCheckerStatus")
-        else:
-            keywords = defaultkeywords
-
-        if options.dump_json:
-            json.dump({client["Name"]: {key:
-                                        bool(client[key])
-                                        if isinstance(client[key],
-                                                      dbus.Boolean)
-                                        else client[key]
-                                        for key in keywords}
-                       for client in clients.values()},
-                      fp=sys.stdout, indent=4,
-                      separators=(',', ': '))
-            print()
-        else:
-            print(TableOfClients(clients.values(), keywords))
-    else:
-        # Process each client in the list by all selected options
-        for client in clients:
-
-            def set_client_prop(prop, value):
-                """Set a Client D-Bus property"""
-                client.Set(client_interface, prop, value,
-                           dbus_interface=dbus.PROPERTIES_IFACE)
-
-            def set_client_prop_ms(prop, value):
-                """Set a Client D-Bus property, converted
-                from a string to milliseconds."""
-                set_client_prop(prop,
-                                string_to_delta(value).total_seconds()
-                                * 1000)
-
-            if options.remove:
-                mandos_serv.RemoveClient(client.__dbus_object_path__)
-            if options.enable:
-                set_client_prop("Enabled", dbus.Boolean(True))
-            if options.disable:
-                set_client_prop("Enabled", dbus.Boolean(False))
-            if options.bump_timeout:
-                set_client_prop("LastCheckedOK", "")
-            if options.start_checker:
-                set_client_prop("CheckerRunning", dbus.Boolean(True))
-            if options.stop_checker:
-                set_client_prop("CheckerRunning", dbus.Boolean(False))
-            if options.is_enabled:
-                if client.Get(client_interface, "Enabled",
-                              dbus_interface=dbus.PROPERTIES_IFACE):
-                    sys.exit(0)
-                else:
-                    sys.exit(1)
-            if options.checker is not None:
-                set_client_prop("Checker", options.checker)
-            if options.host is not None:
-                set_client_prop("Host", options.host)
-            if options.interval is not None:
-                set_client_prop_ms("Interval", options.interval)
-            if options.approval_delay is not None:
-                set_client_prop_ms("ApprovalDelay",
-                                   options.approval_delay)
-            if options.approval_duration is not None:
-                set_client_prop_ms("ApprovalDuration",
-                                   options.approval_duration)
-            if options.timeout is not None:
-                set_client_prop_ms("Timeout", options.timeout)
-            if options.extended_timeout is not None:
-                set_client_prop_ms("ExtendedTimeout",
-                                   options.extended_timeout)
-            if options.secret is not None:
-                set_client_prop("Secret",
-                                dbus.ByteArray(options.secret.read()))
-            if options.approved_by_default is not None:
-                set_client_prop("ApprovedByDefault",
-                                dbus.Boolean(options
-                                             .approved_by_default))
-            if options.approve:
-                client.Approve(dbus.Boolean(True),
-                               dbus_interface=client_interface)
-            elif options.deny:
-                client.Approve(dbus.Boolean(False),
-                               dbus_interface=client_interface)
+    # Run all commands on clients
+    for command in commands:
+        command.run(clients)
 
 
 class Test_milliseconds_to_string(unittest.TestCase):
