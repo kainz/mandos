@@ -515,7 +515,9 @@ def has_actions(options):
                 options.deny))
 
 
-def commands_and_clients_from_options():
+def commands_and_clients_from_options(args=None):
+    if args is None:
+        args=sys.argv[1:]
     parser = argparse.ArgumentParser()
     parser.add_argument("--version", action="version",
                         version="%(prog)s {}".format(version),
@@ -579,7 +581,7 @@ def commands_and_clients_from_options():
     parser.add_argument("--check", action="store_true",
                         help="Run self-test")
     parser.add_argument("client", nargs="*", help="Client name")
-    options = parser.parse_args()
+    options = parser.parse_args(args=args)
 
     if has_actions(options) and not (options.client or options.all):
         parser.error("Options require clients names or --all.")
