@@ -742,7 +742,20 @@ class Test_string_to_delta(unittest.TestCase):
             with self.assertLogs(log, logging.WARNING):
                 value = string_to_delta("2h")
         else:
-            value = string_to_delta("2h")
+            class WarningFilter(logging.Filter):
+                """Don't show, but record the presence of, warnings"""
+                def filter(self, record):
+                    is_warning = record.levelno >= logging.WARNING
+                    self.found = is_warning or getattr(self, "found",
+                                                       False)
+                    return not is_warning
+            warning_filter = WarningFilter()
+            log.addFilter(warning_filter)
+            try:
+                value = string_to_delta("2h")
+            finally:
+                log.removeFilter(warning_filter)
+            self.assertTrue(getattr(warning_filter, "found", False))
         self.assertEqual(value, datetime.timedelta(0, 7200))
 
 class Test_TableOfClients(unittest.TestCase):
