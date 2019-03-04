@@ -795,6 +795,10 @@ class TestCmd(unittest.TestCase):
                 self.calls.append(("Get", (interface, property,
                                            dbus_interface)))
                 return self.attributes[property]
+            def Approve(self, approve, dbus_interface):
+                testcase.assertEqual(dbus_interface, client_interface)
+                self.calls.append(("Approve", (approve,
+                                               dbus_interface)))
             def __getitem__(self, key):
                 return self.attributes[key]
             def __setitem__(self, key, value):
@@ -967,7 +971,6 @@ class TestIsEnabledCmd(TestCmd):
         else:
             self.assertIsNotNone(e.exception.code)
 
-
 class TestRemoveCmd(TestCmd):
     def test_remove(self):
         class MockMandos(object):
@@ -981,6 +984,17 @@ class TestRemoveCmd(TestCmd):
         self.assertListEqual(mandos.calls,
                              [("RemoveClient",
                                (self.client.__dbus_object_path__,))])
+
+class TestApproveCmd(TestCmd):
+    def test_approve(self):
+        ApproveCmd().run(None, [self.client])
+        self.assertListEqual(self.client.calls,
+                             [("Approve", (True, client_interface))])
+class TestDenyCmd(TestCmd):
+    def test_approve(self):
+        DenyCmd().run(None, [self.client])
+        self.assertListEqual(self.client.calls,
+                             [("Approve", (False, client_interface))])
 
 
 
