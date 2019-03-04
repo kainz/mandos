@@ -990,6 +990,23 @@ class TestDenyCmd(TestCmd):
             self.assertIn(("Approve", (False, client_interface)),
                           client.calls)
 
+class TestEnableCmd(TestCmd):
+    def test_enable(self):
+        for client in self.clients:
+            client.attributes["Enabled"] = False
+
+        EnableCmd().run(None, self.clients)
+
+        for client in self.clients:
+            self.assertTrue(client.attributes["Enabled"])
+
+class TestDisableCmd(TestCmd):
+    def test_disable(self):
+        DisableCmd().run(None, self.clients)
+
+        for client in self.clients:
+            self.assertFalse(client.attributes["Enabled"])
+
 
 
 def should_only_run_tests():
