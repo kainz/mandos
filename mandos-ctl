@@ -851,6 +851,7 @@ class TestCmd(unittest.TestCase):
                  Expires="2019-02-05T00:00:00",
                  LastCheckerStatus=-2)),
             ])
+        self.client = self.clients["foo"]
 
 class TestPrintTableCmd(TestCmd):
     def test_normal(self):
@@ -870,7 +871,7 @@ barbar Yes     00:05:00 2019-02-04T00:00:00   2019-01-03T00:00:00 00:02:00 192.0
 """[1:-1]
         self.assertEqual(output, expected_output)
     def test_one_client(self):
-        output = PrintTableCmd().output({"foo": self.clients["foo"]})
+        output = PrintTableCmd().output({"foo": self.client})
         expected_output = """
 Name Enabled Timeout  Last Successful Check
 foo  Yes     00:05:00 2019-02-03T00:00:00  
@@ -934,7 +935,7 @@ class TestDumpJSONCmd(TestCmd):
         json_data = json.loads(DumpJSONCmd().output(self.clients))
         self.assertDictEqual(json_data, self.expected_json)
     def test_one_client(self):
-        clients = {"foo": self.clients["foo"]}
+        clients = {"foo": self.client}
         json_data = json.loads(DumpJSONCmd().output(clients))
         expected_json = {"foo": self.expected_json["foo"]}
         self.assertDictEqual(json_data, expected_json)
@@ -944,26 +945,23 @@ class TestIsEnabledCmd(TestCmd):
         self.assertTrue(all(IsEnabledCmd().is_enabled(client)
                             for client in self.clients.values()))
     def test_is_enabled_does_get_attribute(self):
-        client = self.clients["foo"]
-        self.assertTrue(IsEnabledCmd().is_enabled(client))
-        self.assertListEqual(client.calls,
+        self.assertTrue(IsEnabledCmd().is_enabled(self.client))
+        self.assertListEqual(self.client.calls,
                              [("Get",
                                ("se.recompile.Mandos.Client",
                                 "Enabled",
                                 "org.freedesktop.DBus.Properties"))])
     def test_is_enabled_run_exits_successfully(self):
-        client = self.clients["foo"]
         with self.assertRaises(SystemExit) as e:
-            IsEnabledCmd().run(None, [client])
+            IsEnabledCmd().run(None, [self.client])
         if e.exception.code is not None:
             self.assertEqual(e.exception.code, 0)
         else:
             self.assertIsNone(e.exception.code)
     def test_is_enabled_run_exits_with_failure(self):
-        client = self.clients["foo"]
-        client["Enabled"] = dbus.Boolean(False)
+        self.client["Enabled"] = dbus.Boolean(False)
         with self.assertRaises(SystemExit) as e:
-            IsEnabledCmd().run(None, [client])
+            IsEnabledCmd().run(None, [self.client])
         if isinstance(e.exception.code, int):
             self.assertNotEqual(e.exception.code, 0)
         else:
@@ -972,18 +970,17 @@ class TestIsEnabledCmd(TestCmd):
 
 class TestRemoveCmd(TestCmd):
     def test_remove(self):
-        client = self.clients["foo"]
         class MockMandos(object):
             def __init__(self):
                 self.calls = []
             def RemoveClient(self, dbus_path):
                 self.calls.append(("RemoveClient", (dbus_path,)))
         mandos = MockMandos()
-        RemoveCmd().run(mandos, [client])
+        RemoveCmd().run(mandos, [self.client])
         self.assertEqual(len(mandos.calls), 1)
         self.assertListEqual(mandos.calls,
                              [("RemoveClient",
-                               (client.__dbus_object_path__,))])
+                               (self.client.__dbus_object_path__,))])
 
 
 
