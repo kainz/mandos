@@ -970,6 +970,22 @@ class TestIsEnabledCmd(TestCmd):
             self.assertIsNotNone(e.exception.code)
 
 
+class TestRemoveCmd(TestCmd):
+    def test_remove(self):
+        client = self.clients["foo"]
+        class MockMandos(object):
+            def __init__(self):
+                self.calls = []
+            def RemoveClient(self, dbus_path):
+                self.calls.append(("RemoveClient", (dbus_path,)))
+        mandos = MockMandos()
+        RemoveCmd().run(mandos, [client])
+        self.assertEqual(len(mandos.calls), 1)
+        self.assertListEqual(mandos.calls,
+                             [("RemoveClient",
+                               (client.__dbus_object_path__,))])
+
+
 
 def should_only_run_tests():
     parser = argparse.ArgumentParser(add_help=False)
