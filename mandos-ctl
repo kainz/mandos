@@ -954,7 +954,7 @@ class TestIsEnabledCmd(TestCmd):
     def test_is_enabled_run_exits_successfully(self):
         client = self.clients["foo"]
         with self.assertRaises(SystemExit) as e:
-            IsEnabledCmd().run_on_one_client(client)
+            IsEnabledCmd().run(None, [client])
         if e.exception.code is not None:
             self.assertEqual(e.exception.code, 0)
         else:
@@ -963,7 +963,7 @@ class TestIsEnabledCmd(TestCmd):
         client = self.clients["foo"]
         client["Enabled"] = dbus.Boolean(False)
         with self.assertRaises(SystemExit) as e:
-            IsEnabledCmd().run_on_one_client(client)
+            IsEnabledCmd().run(None, [client])
         if isinstance(e.exception.code, int):
             self.assertNotEqual(e.exception.code, 0)
         else:
