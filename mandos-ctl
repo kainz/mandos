@@ -580,7 +580,7 @@ def add_command_line_options(parser):
     parser.add_argument("client", nargs="*", help="Client name")
 
 
-def commands_and_clients_from_options(options):
+def commands_from_options(options):
 
     commands = []
 
@@ -594,7 +594,7 @@ def commands_and_clients_from_options(options):
         commands.append(DisableCmd())
 
     if options.bump_timeout:
-        commands.append(BumpTimeoutCmd(options.bump_timeout))
+        commands.append(BumpTimeoutCmd())
 
     if options.start_checker:
         commands.append(StartCheckerCmd())
@@ -651,7 +651,7 @@ def commands_and_clients_from_options(options):
     if not commands:
         commands.append(PrintTableCmd(verbose=options.verbose))
 
-    return commands, options.client
+    return commands
 
 
 def main():
@@ -673,7 +673,7 @@ def main():
     if options.is_enabled and len(options.client) > 1:
         parser.error("--is-enabled requires exactly one client")
 
-    commands, clientnames = commands_and_clients_from_options(options)
+    clientnames = options.client
 
     try:
         bus = dbus.SystemBus()
@@ -726,6 +726,7 @@ def main():
                 sys.exit(1)
 
     # Run all commands on clients
+    commands = commands_from_options(options)
     for command in commands:
         command.run(mandos_serv, clients)
 
