@@ -323,10 +323,10 @@ class PrintTableCmd(PrintCmd):
         self.verbose = verbose
 
     def output(self, clients):
+        default_keywords = ("Name", "Enabled", "Timeout", "LastCheckedOK")
+        keywords = default_keywords
         if self.verbose:
             keywords = self.all_keywords
-        else:
-            keywords = ("Name", "Enabled", "Timeout", "LastCheckedOK")
         return str(self.TableOfClients(clients.values(), keywords))
 
     class TableOfClients(object):
