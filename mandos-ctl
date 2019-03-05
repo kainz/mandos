@@ -746,6 +746,12 @@ class Test_milliseconds_to_string(unittest.TestCase):
 
 class Test_string_to_delta(unittest.TestCase):
     def test_handles_basic_rfc3339(self):
+        self.assertEqual(string_to_delta("PT0S"),
+                         datetime.timedelta())
+        self.assertEqual(string_to_delta("P0D"),
+                         datetime.timedelta())
+        self.assertEqual(string_to_delta("PT1S"),
+                         datetime.timedelta(0, 1))
         self.assertEqual(string_to_delta("PT2H"),
                          datetime.timedelta(0, 7200))
     def test_falls_back_to_pre_1_6_1_with_warning(self):
@@ -786,14 +792,10 @@ class TestCmd(unittest.TestCase):
                 testcase.assertEqual(dbus_interface,
                                      dbus.PROPERTIES_IFACE)
                 self.attributes[property] = value
-                self.calls.append(("Set", (interface, property, value,
-                                           dbus_interface)))
             def Get(self, interface, property, dbus_interface):
                 testcase.assertEqual(interface, client_interface)
                 testcase.assertEqual(dbus_interface,
                                      dbus.PROPERTIES_IFACE)
-                self.calls.append(("Get", (interface, property,
-                                           dbus_interface)))
                 return self.attributes[property]
             def Approve(self, approve, dbus_interface):
                 testcase.assertEqual(dbus_interface, client_interface)
@@ -1007,6 +1009,111 @@ class TestDisableCmd(TestCmd):
 
         for client in self.clients:
             self.assertFalse(client.attributes["Enabled"])
+
+class Unique(object):
+    """Class for objects which exist only to be unique objects, since
+unittest.mock.sentinel only exists in Python 3.3"""
+
+class TestPropertyCmd(TestCmd):
+    """Abstract class for tests of PropertyCmd classes"""
+    def runTest(self):
+        if not hasattr(self, "command"):
+            return
+        values_to_get = getattr(self, "values_to_get",
+                                self.values_to_set)
+        for value_to_set, value_to_get in zip(self.values_to_set,
+                                              values_to_get):
+            for client in self.clients:
+                old_value = client.attributes[self.property]
+                self.assertNotIsInstance(old_value, Unique)
+                client.attributes[self.property] = Unique()
+            self.run_command(value_to_set, self.clients)
+            for client in self.clients:
+                value = client.attributes[self.property]
+                self.assertNotIsInstance(value, Unique)
+                self.assertEqual(value, value_to_get)
+    def run_command(self, value, clients):
+        self.command().run(None, clients)
+
+class TestBumpTimeoutCmd(TestPropertyCmd):
+    command = BumpTimeoutCmd
+    property = "LastCheckedOK"
+    values_to_set = [""]
+
+class TestStartCheckerCmd(TestPropertyCmd):
+    command = StartCheckerCmd
+    property = "CheckerRunning"
+    values_to_set = [dbus.Boolean(True)]
+
+class TestStopCheckerCmd(TestPropertyCmd):
+    command = StopCheckerCmd
+    property = "CheckerRunning"
+    values_to_set = [dbus.Boolean(False)]
+
+class TestApproveByDefaultCmd(TestPropertyCmd):
+    command = ApproveByDefaultCmd
+    property = "ApprovedByDefault"
+    values_to_set = [dbus.Boolean(True)]
+
+class TestDenyByDefaultCmd(TestPropertyCmd):
+    command = DenyByDefaultCmd
+    property = "ApprovedByDefault"
+    values_to_set = [dbus.Boolean(False)]
+
+class TestValueArgumentPropertyCmd(TestPropertyCmd):
+    """Abstract class for tests of PropertyCmd classes using the
+ValueArgumentMixIn"""
+    def runTest(self):
+        if type(self) is TestValueArgumentPropertyCmd:
+            return
+        return super(TestValueArgumentPropertyCmd, self).runTest()
+    def run_command(self, value, clients):
+        self.command(value).run(None, clients)
+
+class TestSetCheckerCmd(TestValueArgumentPropertyCmd):
+    command = SetCheckerCmd
+    property = "Checker"
+    values_to_set = ["", ":", "fping -q -- %s"]
+
+class TestSetHostCmd(TestValueArgumentPropertyCmd):
+    command = SetHostCmd
+    property = "Host"
+    values_to_set = ["192.0.2.3", "foo.example.org"]
+
+class TestSetSecretCmd(TestValueArgumentPropertyCmd):
+    command = SetSecretCmd
+    property = "Secret"
+    values_to_set = [b"", b"secret"]
+
+class TestSetTimeoutCmd(TestValueArgumentPropertyCmd):
+    command = SetTimeoutCmd
+    property = "Timeout"
+    values_to_set = ["P0D", "PT5M", "PT1S", "PT120S", "P1Y"]
+    values_to_get = [0, 300000, 1000, 120000, 31449600000]
+
+class TestSetExtendedTimeoutCmd(TestValueArgumentPropertyCmd):
+    command = SetExtendedTimeoutCmd
+    property = "ExtendedTimeout"
+    values_to_set = ["P0D", "PT5M", "PT1S", "PT120S", "P1Y"]
+    values_to_get = [0, 300000, 1000, 120000, 31449600000]
+
+class TestSetIntervalCmd(TestValueArgumentPropertyCmd):
+    command = SetIntervalCmd
+    property = "Interval"
+    values_to_set = ["P0D", "PT5M", "PT1S", "PT120S", "P1Y"]
+    values_to_get = [0, 300000, 1000, 120000, 31449600000]
+
+class TestSetApprovalDelayCmd(TestValueArgumentPropertyCmd):
+    command = SetApprovalDelayCmd
+    property = "ApprovalDelay"
+    values_to_set = ["P0D", "PT5M", "PT1S", "PT120S", "P1Y"]
+    values_to_get = [0, 300000, 1000, 120000, 31449600000]
+
+class TestSetApprovalDurationCmd(TestValueArgumentPropertyCmd):
+    command = SetApprovalDurationCmd
+    property = "ApprovalDuration"
+    values_to_set = ["P0D", "PT5M", "PT1S", "PT120S", "P1Y"]
+    values_to_get = [0, 300000, 1000, 120000, 31449600000]
 
 
 
