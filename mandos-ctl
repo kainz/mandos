@@ -43,6 +43,7 @@ import json
 import unittest
 import logging
 import io
+import tempfile
 
 import dbus
 
@@ -1126,7 +1127,7 @@ class TestSetApprovalDurationCmd(TestValueArgumentPropertyCmd):
     values_to_set = ["P0D", "PT5M", "PT1S", "PT120S", "P1Y"]
     values_to_get = [0, 300000, 1000, 120000, 31449600000]
 
-class TestOptions(unittest.TestCase):
+class Test_command_from_options(unittest.TestCase):
     def setUp(self):
         self.parser = argparse.ArgumentParser()
         add_command_line_options(self.parser)
@@ -1140,17 +1141,107 @@ COMMAND_CLS with (optionally) all supplied attributes (CMD_ATTRS)."""
         self.assertIsInstance(command, command_cls)
         for key, value in cmd_attrs.items():
             self.assertEqual(getattr(command, key), value)
-    def test_default_is_show_table(self):
+    def test_print_table(self):
         self.assert_command_from_args([], PrintTableCmd,
                                       verbose=False)
-    def test_show_table_verbose(self):
+
+    def test_print_table_verbose(self):
         self.assert_command_from_args(["--verbose"], PrintTableCmd,
                                       verbose=True)
+
     def test_enable(self):
         self.assert_command_from_args(["--enable", "foo"], EnableCmd)
+
     def test_disable(self):
         self.assert_command_from_args(["--disable", "foo"],
                                       DisableCmd)
+
+    def test_bump_timeout(self):
+        self.assert_command_from_args(["--bump-timeout", "foo"],
+                                      BumpTimeoutCmd)
+
+    def test_start_checker(self):
+        self.assert_command_from_args(["--start-checker", "foo"],
+                                      StartCheckerCmd)
+
+    def test_stop_checker(self):
+        self.assert_command_from_args(["--stop-checker", "foo"],
+                                      StopCheckerCmd)
+
+    def test_remove(self):
+        self.assert_command_from_args(["--remove", "foo"],
+                                      RemoveCmd)
+
+    def test_checker(self):
+        self.assert_command_from_args(["--checker", ":", "foo"],
+                                      SetCheckerCmd, value_to_set=":")
+
+    def test_timeout(self):
+        self.assert_command_from_args(["--timeout", "PT5M", "foo"],
+                                      SetTimeoutCmd,
+                                      value_to_set=300000)
+
+    def test_extended_timeout(self):
+        self.assert_command_from_args(["--extended-timeout", "PT15M",
+                                       "foo"],
+                                      SetExtendedTimeoutCmd,
+                                      value_to_set=900000)
+
+    def test_interval(self):
+        self.assert_command_from_args(["--interval", "PT2M", "foo"],
+                                      SetIntervalCmd,
+                                      value_to_set=120000)
+
+    def test_approve_by_default(self):
+        self.assert_command_from_args(["--approve-by-default", "foo"],
+                                      ApproveByDefaultCmd)
+
+    def test_deny_by_default(self):
+        self.assert_command_from_args(["--deny-by-default", "foo"],
+                                      DenyByDefaultCmd)
+
+    def test_approval_delay(self):
+        self.assert_command_from_args(["--approval-delay", "PT30S",
+                                       "foo"], SetApprovalDelayCmd,
+                                      value_to_set=30000)
+
+    def test_approval_duration(self):
+        self.assert_command_from_args(["--approval-duration", "PT1S",
+                                       "foo"], SetApprovalDurationCmd,
+                                      value_to_set=1000)
+
+    def test_host(self):
+        self.assert_command_from_args(["--host", "foo.example.org",
+                                       "foo"], SetHostCmd,
+                                      value_to_set="foo.example.org")
+
+    def test_secret_devnull(self):
+        self.assert_command_from_args(["--secret", os.path.devnull,
+                                       "foo"], SetSecretCmd,
+                                      value_to_set=b"")
+
+    def test_secret_tempfile(self):
+        with tempfile.NamedTemporaryFile(mode="r+b") as f:
+            value = b"secret\0xyzzy\nbar"
+            f.write(value)
+            f.seek(0)
+            self.assert_command_from_args(["--secret", f.name,
+                                           "foo"], SetSecretCmd,
+                                          value_to_set=value)
+
+    def test_approve(self):
+        self.assert_command_from_args(["--approve", "foo"],
+                                      ApproveCmd)
+
+    def test_deny(self):
+        self.assert_command_from_args(["--deny", "foo"], DenyCmd)
+
+    def test_dump_json(self):
+        self.assert_command_from_args(["--dump-json"], DumpJSONCmd)
+
+    def test_is_enabled(self):
+        self.assert_command_from_args(["--is-enabled", "foo"],
+                                      IsEnabledCmd)
 
 
 
