@@ -42,6 +42,7 @@ import collections
 import json
 import unittest
 import logging
+import io
 
 import dbus
 
@@ -475,6 +476,14 @@ class SetHostCmd(PropertyCmd, ValueArgumentMixIn):
     property = "Host"
 
 class SetSecretCmd(PropertyCmd, ValueArgumentMixIn):
+    @property
+    def value_to_set(self):
+        return self._vts
+    @value_to_set.setter
+    def value_to_set(self, value):
+        """When setting, read data from supplied file object"""
+        self._vts = value.read()
+        value.close()
     property = "Secret"
 
 class SetTimeoutCmd(PropertyCmd, MillisecondsValueArgumentMixIn):
@@ -609,7 +618,7 @@ def commands_from_options(options):
         commands.append(RemoveCmd())
 
     if options.checker is not None:
-        commands.append(SetCheckerCmd())
+        commands.append(SetCheckerCmd(options.checker))
 
     if options.timeout is not None:
         commands.append(SetTimeoutCmd(options.timeout))
@@ -619,26 +628,26 @@ def commands_from_options(options):
             SetExtendedTimeoutCmd(options.extended_timeout))
 
     if options.interval is not None:
-        command.append(SetIntervalCmd(options.interval))
+        commands.append(SetIntervalCmd(options.interval))
 
     if options.approved_by_default is not None:
         if options.approved_by_default:
-            command.append(ApproveByDefaultCmd())
+            commands.append(ApproveByDefaultCmd())
         else:
-            command.append(DenyByDefaultCmd())
+            commands.append(DenyByDefaultCmd())
 
     if options.approval_delay is not None:
-        command.append(SetApprovalDelayCmd(options.approval_delay))
+        commands.append(SetApprovalDelayCmd(options.approval_delay))
 
     if options.approval_duration is not None:
-        command.append(
+        commands.append(
             SetApprovalDurationCmd(options.approval_duration))
 
     if options.host is not None:
-        command.append(SetHostCmd(options.host))
+        commands.append(SetHostCmd(options.host))
 
     if options.secret is not None:
-        command.append(SetSecretCmd(options.secret))
+        commands.append(SetSecretCmd(options.secret))
 
     if options.approve:
         commands.append(ApproveCmd())
@@ -1083,7 +1092,9 @@ class TestSetHostCmd(TestValueArgumentPropertyCmd):
 class TestSetSecretCmd(TestValueArgumentPropertyCmd):
     command = SetSecretCmd
     property = "Secret"
-    values_to_set = [b"", b"secret"]
+    values_to_set = [open("/dev/null", "rb"),
+                     io.BytesIO(b"secret\0xyzzy\nbar")]
+    values_to_get = [b"", b"secret\0xyzzy\nbar"]
 
 class TestSetTimeoutCmd(TestValueArgumentPropertyCmd):
     command = SetTimeoutCmd
