@@ -1115,6 +1115,26 @@ class TestSetApprovalDurationCmd(TestValueArgumentPropertyCmd):
     values_to_set = ["P0D", "PT5M", "PT1S", "PT120S", "P1Y"]
     values_to_get = [0, 300000, 1000, 120000, 31449600000]
 
+class TestOptions(unittest.TestCase):
+    def setUp(self):
+        self.parser = argparse.ArgumentParser()
+        add_command_line_options(self.parser)
+    def commands_from_args(self, args):
+        options = self.parser.parse_args(args)
+        return commands_from_options(options)
+    def test_default_is_show_table(self):
+        commands = self.commands_from_args([])
+        self.assertEqual(len(commands), 1)
+        command = commands[0]
+        self.assertIsInstance(command, PrintTableCmd)
+        self.assertEqual(command.verbose, False)
+    def test_show_table_verbose(self):
+        commands = self.commands_from_args(["--verbose"])
+        self.assertEqual(len(commands), 1)
+        command = commands[0]
+        self.assertIsInstance(command, PrintTableCmd)
+        self.assertEqual(command.verbose, True)
+
 
 
 def should_only_run_tests():
