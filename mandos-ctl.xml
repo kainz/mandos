@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY COMMANDNAME "mandos-ctl">
-<!ENTITY TIMESTAMP "2019-02-10">
+<!ENTITY TIMESTAMP "2019-03-06">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -129,13 +129,6 @@
 	<sbr/>
 	<group>
 	  <arg choice="plain"><option>--approval-duration
-	  <replaceable>TIME</replaceable></option></arg>
-	</group>
-	<sbr/>
-	<group>
-	  <arg choice="plain"><option>--interval
-	  <replaceable>TIME</replaceable></option></arg>
-	  <arg choice="plain"><option>-i
 	  <replaceable>TIME</replaceable></option></arg>
 	</group>
 	<sbr/>
