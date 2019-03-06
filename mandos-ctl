@@ -1120,8 +1120,8 @@ class TestOptions(unittest.TestCase):
         self.parser = argparse.ArgumentParser()
         add_command_line_options(self.parser)
     def commands_from_args(self, args):
-        options = self.parser.parse_args(args)
-        return commands_from_options(options)
+        self.options = self.parser.parse_args(args)
+        return commands_from_options(self.options)
     def test_default_is_show_table(self):
         commands = self.commands_from_args([])
         self.assertEqual(len(commands), 1)
@@ -1134,6 +1134,12 @@ class TestOptions(unittest.TestCase):
         command = commands[0]
         self.assertIsInstance(command, PrintTableCmd)
         self.assertEqual(command.verbose, True)
+    def test_enable(self):
+        commands = self.commands_from_args(["--enable", "foo"])
+        self.assertEqual(len(commands), 1)
+        command = commands[0]
+        self.assertIsInstance(command, EnableCmd)
+        self.assertEqual(self.options.client, ["foo"])
 
 
 
