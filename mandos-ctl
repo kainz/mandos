@@ -1136,9 +1136,10 @@ COMMAND_CLS with (optionally) all supplied attributes (CMD_ATTRS)."""
         self.assert_command_from_args(["--verbose"], PrintTableCmd,
                                       verbose=True)
     def test_enable(self):
-        self.assert_command_from_args(["--enable"], EnableCmd)
+        self.assert_command_from_args(["--enable", "foo"], EnableCmd)
     def test_disable(self):
-        self.assert_command_from_args(["--disable"], DisableCmd)
+        self.assert_command_from_args(["--disable", "foo"],
+                                      DisableCmd)
 
 
 
