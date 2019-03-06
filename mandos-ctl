@@ -1119,33 +1119,26 @@ class TestOptions(unittest.TestCase):
     def setUp(self):
         self.parser = argparse.ArgumentParser()
         add_command_line_options(self.parser)
-    def commands_from_args(self, args):
-        self.options = self.parser.parse_args(args)
-        return commands_from_options(self.options)
+    def assert_command_from_args(self, args, command_cls, **cmd_attrs):
+        """Assert that parsing ARGS should result in an instance of
+COMMAND_CLS with (optionally) all supplied attributes (CMD_ATTRS)."""
+        options = self.parser.parse_args(args)
+        commands = commands_from_options(options)
+        self.assertEqual(len(commands), 1)
+        command = commands[0]
+        self.assertIsInstance(command, command_cls)
+        for key, value in cmd_attrs.items():
+            self.assertEqual(getattr(command, key), value)
     def test_default_is_show_table(self):
-        commands = self.commands_from_args([])
-        self.assertEqual(len(commands), 1)
-        command = commands[0]
-        self.assertIsInstance(command, PrintTableCmd)
-        self.assertEqual(command.verbose, False)
+        self.assert_command_from_args([], PrintTableCmd,
+                                      verbose=False)
     def test_show_table_verbose(self):
-        commands = self.commands_from_args(["--verbose"])
-        self.assertEqual(len(commands), 1)
-        command = commands[0]
-        self.assertIsInstance(command, PrintTableCmd)
-        self.assertEqual(command.verbose, True)
+        self.assert_command_from_args(["--verbose"], PrintTableCmd,
+                                      verbose=True)
     def test_enable(self):
-        commands = self.commands_from_args(["--enable", "foo"])
-        self.assertEqual(len(commands), 1)
-        command = commands[0]
-        self.assertIsInstance(command, EnableCmd)
-        self.assertEqual(self.options.client, ["foo"])
+        self.assert_command_from_args(["--enable"], EnableCmd)
     def test_disable(self):
-        commands = self.commands_from_args(["--disable", "foo"])
-        self.assertEqual(len(commands), 1)
-        command = commands[0]
-        self.assertIsInstance(command, DisableCmd)
-        self.assertEqual(self.options.client, ["foo"])
+        self.assert_command_from_args(["--disable"], DisableCmd)
 
 
 
