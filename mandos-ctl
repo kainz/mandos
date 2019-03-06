@@ -1140,6 +1140,12 @@ class TestOptions(unittest.TestCase):
         command = commands[0]
         self.assertIsInstance(command, EnableCmd)
         self.assertEqual(self.options.client, ["foo"])
+    def test_disable(self):
+        commands = self.commands_from_args(["--disable", "foo"])
+        self.assertEqual(len(commands), 1)
+        command = commands[0]
+        self.assertIsInstance(command, DisableCmd)
+        self.assertEqual(self.options.client, ["foo"])
 
 
 
