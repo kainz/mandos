@@ -1169,16 +1169,29 @@ COMMAND_CLS with (optionally) all supplied attributes (CMD_ATTRS)."""
         self.assert_command_from_args(["--verbose"], PrintTableCmd,
                                       verbose=True)
 
+    def test_print_table_verbose_short(self):
+        self.assert_command_from_args(["-v"], PrintTableCmd,
+                                      verbose=True)
+
     def test_enable(self):
         self.assert_command_from_args(["--enable", "foo"], EnableCmd)
+
+    def test_enable_short(self):
+        self.assert_command_from_args(["-e", "foo"], EnableCmd)
 
     def test_disable(self):
         self.assert_command_from_args(["--disable", "foo"],
                                       DisableCmd)
 
+    def test_disable_short(self):
+        self.assert_command_from_args(["-d", "foo"], DisableCmd)
+
     def test_bump_timeout(self):
         self.assert_command_from_args(["--bump-timeout", "foo"],
                                       BumpTimeoutCmd)
+
+    def test_bump_timeout_short(self):
+        self.assert_command_from_args(["-b", "foo"], BumpTimeoutCmd)
 
     def test_start_checker(self):
         self.assert_command_from_args(["--start-checker", "foo"],
@@ -1192,6 +1205,9 @@ COMMAND_CLS with (optionally) all supplied attributes (CMD_ATTRS)."""
         self.assert_command_from_args(["--remove", "foo"],
                                       RemoveCmd)
 
+    def test_remove_short(self):
+        self.assert_command_from_args(["-r", "foo"], RemoveCmd)
+
     def test_checker(self):
         self.assert_command_from_args(["--checker", ":", "foo"],
                                       SetCheckerCmd, value_to_set=":")
@@ -1200,8 +1216,17 @@ COMMAND_CLS with (optionally) all supplied attributes (CMD_ATTRS)."""
         self.assert_command_from_args(["--checker", "", "foo"],
                                       SetCheckerCmd, value_to_set="")
 
+    def test_checker_short(self):
+        self.assert_command_from_args(["-c", ":", "foo"],
+                                      SetCheckerCmd, value_to_set=":")
+
     def test_timeout(self):
         self.assert_command_from_args(["--timeout", "PT5M", "foo"],
+                                      SetTimeoutCmd,
+                                      value_to_set=300000)
+
+    def test_timeout_short(self):
+        self.assert_command_from_args(["-t", "PT5M", "foo"],
                                       SetTimeoutCmd,
                                       value_to_set=300000)
 
@@ -1213,6 +1238,11 @@ COMMAND_CLS with (optionally) all supplied attributes (CMD_ATTRS)."""
 
     def test_interval(self):
         self.assert_command_from_args(["--interval", "PT2M", "foo"],
+                                      SetIntervalCmd,
+                                      value_to_set=120000)
+
+    def test_interval_short(self):
+        self.assert_command_from_args(["-i", "PT2M", "foo"],
                                       SetIntervalCmd,
                                       value_to_set=120000)
 
@@ -1239,6 +1269,11 @@ COMMAND_CLS with (optionally) all supplied attributes (CMD_ATTRS)."""
                                        "foo"], SetHostCmd,
                                       value_to_set="foo.example.org")
 
+    def test_host_short(self):
+        self.assert_command_from_args(["-H", "foo.example.org",
+                                       "foo"], SetHostCmd,
+                                      value_to_set="foo.example.org")
+
     def test_secret_devnull(self):
         self.assert_command_from_args(["--secret", os.path.devnull,
                                        "foo"], SetSecretCmd,
@@ -1253,12 +1288,31 @@ COMMAND_CLS with (optionally) all supplied attributes (CMD_ATTRS)."""
                                            "foo"], SetSecretCmd,
                                           value_to_set=value)
 
+    def test_secret_devnull_short(self):
+        self.assert_command_from_args(["-s", os.path.devnull, "foo"],
+                                      SetSecretCmd, value_to_set=b"")
+
+    def test_secret_tempfile_short(self):
+        with tempfile.NamedTemporaryFile(mode="r+b") as f:
+            value = b"secret\0xyzzy\nbar"
+            f.write(value)
+            f.seek(0)
+            self.assert_command_from_args(["-s", f.name, "foo"],
+                                          SetSecretCmd,
+                                          value_to_set=value)
+
     def test_approve(self):
         self.assert_command_from_args(["--approve", "foo"],
                                       ApproveCmd)
 
+    def test_approve_short(self):
+        self.assert_command_from_args(["-A", "foo"], ApproveCmd)
+
     def test_deny(self):
         self.assert_command_from_args(["--deny", "foo"], DenyCmd)
+
+    def test_deny_short(self):
+        self.assert_command_from_args(["-D", "foo"], DenyCmd)
 
     def test_dump_json(self):
         self.assert_command_from_args(["--dump-json"], DumpJSONCmd)
@@ -1266,6 +1320,9 @@ COMMAND_CLS with (optionally) all supplied attributes (CMD_ATTRS)."""
     def test_is_enabled(self):
         self.assert_command_from_args(["--is-enabled", "foo"],
                                       IsEnabledCmd)
+
+    def test_is_enabled_short(self):
+        self.assert_command_from_args(["-V", "foo"], IsEnabledCmd)
 
 
 
