@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY COMMANDNAME "mandos-ctl">
-<!ENTITY TIMESTAMP "2019-03-06">
+<!ENTITY TIMESTAMP "2019-03-07">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -78,15 +78,7 @@
 	<sbr/>
 	<group>
 	  <arg choice="plain"><option>--start-checker</option></arg>
-	</group>
-	<sbr/>
-	<group>
 	  <arg choice="plain"><option>--stop-checker</option></arg>
-	</group>
-	<sbr/>
-	<group>
-	  <arg choice="plain"><option>--remove</option></arg>
-	  <arg choice="plain"><option>-r</option></arg>
 	</group>
 	<sbr/>
 	<group>
@@ -155,6 +147,24 @@
 	</group>
       </group>
       <sbr/>
+      <group choice="req">
+	<arg choice="plain"><option>--all</option></arg>
+	<arg choice="plain"><option>-a</option></arg>
+	<arg rep='repeat' choice='plain'>
+	  <replaceable>CLIENT</replaceable>
+	</arg>
+      </group>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>&COMMANDNAME;</command>
+      <group>
+	<arg choice="plain"><option>--deny</option></arg>
+	<arg choice="plain"><option>-D</option></arg>
+      </group>
+      <group choice="req">
+	  <arg choice="plain"><option>--remove</option></arg>
+	  <arg choice="plain"><option>-r</option></arg>
+      </group>
       <group choice="req">
 	<arg choice="plain"><option>--all</option></arg>
 	<arg choice="plain"><option>-a</option></arg>
