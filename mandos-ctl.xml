@@ -584,7 +584,7 @@
       <para>
 
 <!-- do not wrap this line -->
-<userinput>&COMMANDNAME; --timeout="5m" --interval="1m" foo1.example.org foo2.example.org</userinput>
+<userinput>&COMMANDNAME; --timeout="PT5M" --interval="PT1M" foo1.example.org foo2.example.org</userinput>
 
       </para>
     </informalexample>
