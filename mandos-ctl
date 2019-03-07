@@ -644,12 +644,7 @@ def commands_from_options(options):
     return commands
 
 
-def main():
-    parser = argparse.ArgumentParser()
-
-    add_command_line_options(parser)
-
-    options = parser.parse_args()
+def check_option_syntax(parser, options):
 
     def has_actions(options):
         return any((options.enable,
@@ -682,6 +677,16 @@ def main():
         parser.error("--all requires an action.")
     if options.is_enabled and len(options.client) > 1:
         parser.error("--is-enabled requires exactly one client")
+
+
+def main():
+    parser = argparse.ArgumentParser()
+
+    add_command_line_options(parser)
+
+    options = parser.parse_args()
+
+    check_option_syntax(parser, options)
 
     clientnames = options.client
 
@@ -1155,6 +1160,7 @@ class Test_command_from_options(unittest.TestCase):
         """Assert that parsing ARGS should result in an instance of
 COMMAND_CLS with (optionally) all supplied attributes (CMD_ATTRS)."""
         options = self.parser.parse_args(args)
+        check_option_syntax(self.parser, options)
         commands = commands_from_options(options)
         self.assertEqual(len(commands), 1)
         command = commands[0]
