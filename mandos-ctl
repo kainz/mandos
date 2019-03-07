@@ -505,26 +505,6 @@ class SetApprovalDurationCmd(PropertyCmd,
                              MillisecondsValueArgumentMixIn):
     property = "ApprovalDuration"
 
-def has_actions(options):
-    return any((options.enable,
-                options.disable,
-                options.bump_timeout,
-                options.start_checker,
-                options.stop_checker,
-                options.is_enabled,
-                options.remove,
-                options.checker is not None,
-                options.timeout is not None,
-                options.extended_timeout is not None,
-                options.interval is not None,
-                options.approved_by_default is not None,
-                options.approval_delay is not None,
-                options.approval_duration is not None,
-                options.host is not None,
-                options.secret is not None,
-                options.approve,
-                options.deny))
-
 def add_command_line_options(parser):
     parser.add_argument("--version", action="version",
                         version="%(prog)s {}".format(version),
@@ -670,6 +650,26 @@ def main():
     add_command_line_options(parser)
 
     options = parser.parse_args()
+
+    def has_actions(options):
+        return any((options.enable,
+                    options.disable,
+                    options.bump_timeout,
+                    options.start_checker,
+                    options.stop_checker,
+                    options.is_enabled,
+                    options.remove,
+                    options.checker is not None,
+                    options.timeout is not None,
+                    options.extended_timeout is not None,
+                    options.interval is not None,
+                    options.approved_by_default is not None,
+                    options.approval_delay is not None,
+                    options.approval_duration is not None,
+                    options.host is not None,
+                    options.secret is not None,
+                    options.approve,
+                    options.deny))
 
     if has_actions(options) and not (options.client or options.all):
         parser.error("Options require clients names or --all.")
