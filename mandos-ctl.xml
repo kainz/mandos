@@ -62,6 +62,21 @@
   <refsynopsisdiv>
     <cmdsynopsis>
       <command>&COMMANDNAME;</command>
+      <group>
+	  <arg choice="plain"><option>--verbose</option></arg>
+	  <arg choice="plain"><option>-v</option></arg>
+	  <sbr/>
+	  <arg choice="plain"><option>--dump-json</option></arg>
+	  <arg choice="plain"><option>-j</option></arg>
+      </group>
+      <group>
+	<arg rep='repeat' choice='plain'>
+	  <replaceable>CLIENT</replaceable>
+	</arg>
+      </group>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>&COMMANDNAME;</command>
       <group choice="req">
 	<group>
 	  <arg choice="plain"><option>--enable</option></arg>
@@ -168,21 +183,6 @@
       <group choice="req">
 	<arg choice="plain"><option>--all</option></arg>
 	<arg choice="plain"><option>-a</option></arg>
-	<arg rep='repeat' choice='plain'>
-	  <replaceable>CLIENT</replaceable>
-	</arg>
-      </group>
-    </cmdsynopsis>
-    <cmdsynopsis>
-      <command>&COMMANDNAME;</command>
-      <group>
-	  <arg choice="plain"><option>--verbose</option></arg>
-	  <arg choice="plain"><option>-v</option></arg>
-	  <sbr/>
-	  <arg choice="plain"><option>--dump-json</option></arg>
-	  <arg choice="plain"><option>-j</option></arg>
-      </group>
-      <group>
 	<arg rep='repeat' choice='plain'>
 	  <replaceable>CLIENT</replaceable>
 	</arg>
