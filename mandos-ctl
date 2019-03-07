@@ -316,7 +316,7 @@ class MillisecondsValueArgumentMixIn(ValueArgumentMixIn):
     @value_to_set.setter
     def value_to_set(self, value):
         """When setting, convert value to a datetime.timedelta"""
-        self._vts = string_to_delta(value).total_seconds() * 1000
+        self._vts = int(round(value.total_seconds() * 1000))
 
 # Actual (non-abstract) command classes
 
@@ -536,11 +536,11 @@ def add_command_line_options(parser):
                         help="Remove client")
     parser.add_argument("-c", "--checker",
                         help="Set checker command for client")
-    parser.add_argument("-t", "--timeout",
+    parser.add_argument("-t", "--timeout", type=string_to_delta,
                         help="Set timeout for client")
-    parser.add_argument("--extended-timeout",
+    parser.add_argument("--extended-timeout", type=string_to_delta,
                         help="Set extended timeout for client")
-    parser.add_argument("-i", "--interval",
+    parser.add_argument("-i", "--interval", type=string_to_delta,
                         help="Set checker interval for client")
     approve_deny_default = parser.add_mutually_exclusive_group()
     approve_deny_default.add_argument(
@@ -551,9 +551,9 @@ def add_command_line_options(parser):
         "--deny-by-default", action="store_false",
         dest="approved_by_default",
         help="Set client to be denied by default")
-    parser.add_argument("--approval-delay",
+    parser.add_argument("--approval-delay", type=string_to_delta,
                         help="Set delay before client approve/deny")
-    parser.add_argument("--approval-duration",
+    parser.add_argument("--approval-duration", type=string_to_delta,
                         help="Set duration of one client approval")
     parser.add_argument("-H", "--host", help="Set host for client")
     parser.add_argument("-s", "--secret",
@@ -1100,32 +1100,52 @@ class TestSetSecretCmd(TestValueArgumentPropertyCmd):
 class TestSetTimeoutCmd(TestValueArgumentPropertyCmd):
     command = SetTimeoutCmd
     property = "Timeout"
-    values_to_set = ["P0D", "PT5M", "PT1S", "PT120S", "P1Y"]
-    values_to_get = [0, 300000, 1000, 120000, 31449600000]
+    values_to_set = [datetime.timedelta(),
+                     datetime.timedelta(minutes=5),
+                     datetime.timedelta(seconds=1),
+                     datetime.timedelta(weeks=1),
+                     datetime.timedelta(weeks=52)]
+    values_to_get = [0, 300000, 1000, 604800000, 31449600000]
 
 class TestSetExtendedTimeoutCmd(TestValueArgumentPropertyCmd):
     command = SetExtendedTimeoutCmd
     property = "ExtendedTimeout"
-    values_to_set = ["P0D", "PT5M", "PT1S", "PT120S", "P1Y"]
-    values_to_get = [0, 300000, 1000, 120000, 31449600000]
+    values_to_set = [datetime.timedelta(),
+                     datetime.timedelta(minutes=5),
+                     datetime.timedelta(seconds=1),
+                     datetime.timedelta(weeks=1),
+                     datetime.timedelta(weeks=52)]
+    values_to_get = [0, 300000, 1000, 604800000, 31449600000]
 
 class TestSetIntervalCmd(TestValueArgumentPropertyCmd):
     command = SetIntervalCmd
     property = "Interval"
-    values_to_set = ["P0D", "PT5M", "PT1S", "PT120S", "P1Y"]
-    values_to_get = [0, 300000, 1000, 120000, 31449600000]
+    values_to_set = [datetime.timedelta(),
+                     datetime.timedelta(minutes=5),
+                     datetime.timedelta(seconds=1),
+                     datetime.timedelta(weeks=1),
+                     datetime.timedelta(weeks=52)]
+    values_to_get = [0, 300000, 1000, 604800000, 31449600000]
 
 class TestSetApprovalDelayCmd(TestValueArgumentPropertyCmd):
     command = SetApprovalDelayCmd
     property = "ApprovalDelay"
-    values_to_set = ["P0D", "PT5M", "PT1S", "PT120S", "P1Y"]
-    values_to_get = [0, 300000, 1000, 120000, 31449600000]
+    values_to_set = [datetime.timedelta(),
+                     datetime.timedelta(minutes=5),
+                     datetime.timedelta(seconds=1),
+                     datetime.timedelta(weeks=1),
+                     datetime.timedelta(weeks=52)]
+    values_to_get = [0, 300000, 1000, 604800000, 31449600000]
 
 class TestSetApprovalDurationCmd(TestValueArgumentPropertyCmd):
     command = SetApprovalDurationCmd
     property = "ApprovalDuration"
-    values_to_set = ["P0D", "PT5M", "PT1S", "PT120S", "P1Y"]
-    values_to_get = [0, 300000, 1000, 120000, 31449600000]
+    values_to_set = [datetime.timedelta(),
+                     datetime.timedelta(minutes=5),
+                     datetime.timedelta(seconds=1),
+                     datetime.timedelta(weeks=1),
+                     datetime.timedelta(weeks=52)]
+    values_to_get = [0, 300000, 1000, 604800000, 31449600000]
 
 class Test_command_from_options(unittest.TestCase):
     def setUp(self):
