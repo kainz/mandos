@@ -1101,7 +1101,7 @@ class TestSetHostCmd(TestValueArgumentPropertyCmd):
 class TestSetSecretCmd(TestValueArgumentPropertyCmd):
     command = SetSecretCmd
     property = "Secret"
-    values_to_set = [open("/dev/null", "rb"),
+    values_to_set = [io.BytesIO(b""),
                      io.BytesIO(b"secret\0xyzzy\nbar")]
     values_to_get = [b"", b"secret\0xyzzy\nbar"]
 
