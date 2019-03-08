@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY COMMANDNAME "mandos-ctl">
-<!ENTITY TIMESTAMP "2019-03-07">
+<!ENTITY TIMESTAMP "2019-03-09">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -69,6 +69,7 @@
 	  <arg choice="plain"><option>--dump-json</option></arg>
 	  <arg choice="plain"><option>-j</option></arg>
       </group>
+      <arg><option>--debug</option></arg>
       <group>
 	<arg rep='repeat' choice='plain'>
 	  <replaceable>CLIENT</replaceable>
@@ -162,6 +163,7 @@
 	</group>
       </group>
       <sbr/>
+      <arg><option>--debug</option></arg>
       <group choice="req">
 	<arg choice="plain"><option>--all</option></arg>
 	<arg choice="plain"><option>-a</option></arg>
@@ -180,6 +182,8 @@
 	  <arg choice="plain"><option>--remove</option></arg>
 	  <arg choice="plain"><option>-r</option></arg>
       </group>
+      <sbr/>
+      <arg><option>--debug</option></arg>
       <group choice="req">
 	<arg choice="plain"><option>--all</option></arg>
 	<arg choice="plain"><option>-a</option></arg>
@@ -194,6 +198,7 @@
 	<arg choice="plain"><option>--is-enabled</option></arg>
 	<arg choice="plain"><option>-V</option></arg>
       </group>
+      <arg><option>--debug</option></arg>
       <arg choice='plain'><replaceable>CLIENT</replaceable></arg>
     </cmdsynopsis>
     <cmdsynopsis>
@@ -502,6 +507,15 @@
 	  <para>
 	    Check if a single client is enabled or not, and exit with
 	    a successful exit status only if the client is enabled.
+	  </para>
+	</listitem>
+      </varlistentry>
+      
+      <varlistentry>
+	<term><option>--debug</option></term>
+	<listitem>
+	  <para>
+	    Show debug output; currently, this means show D-Bus calls.
 	  </para>
 	</listitem>
       </varlistentry>
