@@ -300,6 +300,12 @@ class PropertyCmd(Command):
     """Abstract class for Actions for setting one client property"""
     def run_on_one_client(self, client, properties):
         """Set the Client's D-Bus property"""
+        log.debug("D-Bus: %s:%s:%s.Set(%r, %r, %r)", busname,
+                  client.__dbus_object_path__,
+                  dbus.PROPERTIES_IFACE, client_interface,
+                  self.property, self.value_to_set
+                  if not isinstance(self.value_to_set, dbus.Boolean)
+                  else bool(self.value_to_set))
         client.Set(client_interface, self.property, self.value_to_set,
                    dbus_interface=dbus.PROPERTIES_IFACE)
 
@@ -431,15 +437,22 @@ class IsEnabledCmd(Command):
 
 class RemoveCmd(Command):
     def run_on_one_client(self, client, properties):
+        log.debug("D-Bus: %s:%s:%s.RemoveClient(%r)", busname,
+                  server_path, server_interface,
+                  str(client.__dbus_object_path__))
         self.mandos.RemoveClient(client.__dbus_object_path__)
 
 class ApproveCmd(Command):
     def run_on_one_client(self, client, properties):
+        log.debug("D-Bus: %s:%s.Approve(True)",
+                  client.__dbus_object_path__, client_interface)
         client.Approve(dbus.Boolean(True),
                        dbus_interface=client_interface)
 
 class DenyCmd(Command):
     def run_on_one_client(self, client, properties):
+        log.debug("D-Bus: %s:%s.Approve(False)",
+                  client.__dbus_object_path__, client_interface)
         client.Approve(dbus.Boolean(False),
                        dbus_interface=client_interface)
 
@@ -566,6 +579,8 @@ def add_command_line_options(parser):
         help="Approve any current client request")
     approve_deny.add_argument("-D", "--deny", action="store_true",
                               help="Deny any current client request")
+    parser.add_argument("--debug", action="store_true",
+                        help="Debug mode (show D-Bus commands)")
     parser.add_argument("--check", action="store_true",
                         help="Run self-test")
     parser.add_argument("client", nargs="*", help="Client name")
@@ -693,8 +708,13 @@ def main():
 
     clientnames = options.client
 
+    if options.debug:
+        log.setLevel(logging.DEBUG)
+
     try:
         bus = dbus.SystemBus()
+        log.debug("D-Bus: Connect to: (name=%r, path=%r)", busname,
+                  server_path)
         mandos_dbus_objc = bus.get_object(busname, server_path)
     except dbus.exceptions.DBusException:
         log.critical("Could not connect to Mandos server")
@@ -713,6 +733,8 @@ def main():
     dbus_filter = NullFilter()
     try:
         dbus_logger.addFilter(dbus_filter)
+        log.debug("D-Bus: %s:%s:%s.GetManagedObjects()", busname,
+                  server_path, dbus.OBJECT_MANAGER_IFACE)
         mandos_clients = {path: ifs_and_props[client_interface]
                           for path, ifs_and_props in
                           mandos_serv_object_manager
