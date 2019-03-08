@@ -44,6 +44,7 @@ import unittest
 import logging
 import io
 import tempfile
+import contextlib
 
 import dbus
 
@@ -645,6 +646,8 @@ def commands_from_options(options):
 
 
 def check_option_syntax(parser, options):
+    """Apply additional restrictions on options, not expressible in
+argparse"""
 
     def has_actions(options):
         return any((options.enable,
@@ -1329,6 +1332,126 @@ COMMAND_CLS with (optionally) all supplied attributes (CMD_ATTRS)."""
 
     def test_is_enabled_short(self):
         self.assert_command_from_args(["-V", "foo"], IsEnabledCmd)
+
+
+class Test_check_option_syntax(unittest.TestCase):
+    # This mostly corresponds to the definition from has_actions() in
+    # check_option_syntax()
+    actions = {
+        # The actual values set here are not that important, but we do
+        # at least stick to the correct types, even though they are
+        # never used
+        "enable": True,
+        "disable": True,
+        "bump_timeout": True,
+        "start_checker": True,
+        "stop_checker": True,
+        "is_enabled": True,
+        "remove": True,
+        "checker": "x",
+        "timeout": datetime.timedelta(),
+        "extended_timeout": datetime.timedelta(),
+        "interval": datetime.timedelta(),
+        "approved_by_default": True,
+        "approval_delay": datetime.timedelta(),
+        "approval_duration": datetime.timedelta(),
+        "host": "x",
+        "secret": io.BytesIO(b"x"),
+        "approve": True,
+        "deny": True,
+    }
+
+    def setUp(self):
+        self.parser = argparse.ArgumentParser()
+        add_command_line_options(self.parser)
+
+    @contextlib.contextmanager
+    def assertParseError(self):
+        with self.assertRaises(SystemExit) as e:
+            with self.temporarily_suppress_stderr():
+                yield
+        # Exit code from argparse is guaranteed to be "2".  Reference:
+        # https://docs.python.org/3/library/argparse.html#exiting-methods
+        self.assertEqual(e.exception.code, 2)
+
+    @staticmethod
+    @contextlib.contextmanager
+    def temporarily_suppress_stderr():
+        null = os.open(os.path.devnull, os.O_RDWR)
+        stderrcopy = os.dup(sys.stderr.fileno())
+        os.dup2(null, sys.stderr.fileno())
+        os.close(null)
+        try:
+            yield
+        finally:
+            # restore stderr
+            os.dup2(stderrcopy, sys.stderr.fileno())
+            os.close(stderrcopy)
+
+    def check_option_syntax(self, options):
+        check_option_syntax(self.parser, options)
+
+    def test_actions_requires_client_or_all(self):
+        for action, value in self.actions.items():
+            options = self.parser.parse_args()
+            setattr(options, action, value)
+            with self.assertParseError():
+                self.check_option_syntax(options)
+
+    def test_actions_conflicts_with_verbose(self):
+        for action, value in self.actions.items():
+            options = self.parser.parse_args()
+            setattr(options, action, value)
+            options.verbose = True
+            with self.assertParseError():
+                self.check_option_syntax(options)
+
+    def test_dump_json_conflicts_with_verbose(self):
+        options = self.parser.parse_args()
+        options.dump_json = True
+        options.verbose = True
+        with self.assertParseError():
+            self.check_option_syntax(options)
+
+    def test_dump_json_conflicts_with_action(self):
+        for action, value in self.actions.items():
+            options = self.parser.parse_args()
+            setattr(options, action, value)
+            options.dump_json = True
+            with self.assertParseError():
+                self.check_option_syntax(options)
+
+    def test_all_can_not_be_alone(self):
+        options = self.parser.parse_args()
+        options.all = True
+        with self.assertParseError():
+            self.check_option_syntax(options)
+
+    def test_all_is_ok_with_any_action(self):
+        for action, value in self.actions.items():
+            options = self.parser.parse_args()
+            setattr(options, action, value)
+            options.all = True
+            self.check_option_syntax(options)
+
+    def test_is_enabled_fails_without_client(self):
+        options = self.parser.parse_args()
+        options.is_enabled = True
+        with self.assertParseError():
+            self.check_option_syntax(options)
+
+    def test_is_enabled_works_with_one_client(self):
+        options = self.parser.parse_args()
+        options.is_enabled = True
+        options.client = ["foo"]
+        self.check_option_syntax(options)
+
+    def test_is_enabled_fails_with_two_clients(self):
+        options = self.parser.parse_args()
+        options.is_enabled = True
+        options.client = ["foo", "barbar"]
+        with self.assertParseError():
+            self.check_option_syntax(options)
 
 
 
