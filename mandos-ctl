@@ -695,6 +695,11 @@ argparse"""
         parser.error("--all requires an action.")
     if options.is_enabled and len(options.client) > 1:
         parser.error("--is-enabled requires exactly one client")
+    if options.remove:
+        options.remove = False
+        if has_actions(options) and not options.deny:
+            parser.error("--remove can only be combined with --deny")
+        options.remove = True
 
 
 def main():
@@ -1490,6 +1495,17 @@ class Test_check_option_syntax(unittest.TestCase):
         options.client = ["foo", "barbar"]
         with self.assertParseError():
             self.check_option_syntax(options)
+
+    def test_remove_can_only_be_combined_with_action_deny(self):
+        for action, value in self.actions.items():
+            if action in {"remove", "deny"}:
+                continue
+            options = self.parser.parse_args()
+            setattr(options, action, value)
+            options.all = True
+            options.remove = True
+            with self.assertParseError():
+                self.check_option_syntax(options)
 
 
 
