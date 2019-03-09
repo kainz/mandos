@@ -611,9 +611,6 @@ def commands_from_options(options):
     if options.is_enabled:
         commands.append(IsEnabledCmd())
 
-    if options.remove:
-        commands.append(RemoveCmd())
-
     if options.checker is not None:
         commands.append(SetCheckerCmd(options.checker))
 
@@ -651,6 +648,9 @@ def commands_from_options(options):
 
     if options.deny:
         commands.append(DenyCmd())
+
+    if options.remove:
+        commands.append(RemoveCmd())
 
     # If no command option has been given, show table of clients,
     # optionally verbosely
@@ -1354,6 +1354,22 @@ COMMAND_CLS with (optionally) all supplied attributes (CMD_ATTRS)."""
 
     def test_is_enabled_short(self):
         self.assert_command_from_args(["-V", "foo"], IsEnabledCmd)
+
+    def test_deny_before_remove(self):
+        options = self.parser.parse_args(["--deny", "--remove", "foo"])
+        check_option_syntax(self.parser, options)
+        commands = commands_from_options(options)
+        self.assertEqual(len(commands), 2)
+        self.assertIsInstance(commands[0], DenyCmd)
+        self.assertIsInstance(commands[1], RemoveCmd)
+
+    def test_deny_before_remove_reversed(self):
+        options = self.parser.parse_args(["--remove", "--deny", "--all"])
+        check_option_syntax(self.parser, options)
+        commands = commands_from_options(options)
+        self.assertEqual(len(commands), 2)
+        self.assertIsInstance(commands[0], DenyCmd)
+        self.assertIsInstance(commands[1], RemoveCmd)
 
 
 class Test_check_option_syntax(unittest.TestCase):
