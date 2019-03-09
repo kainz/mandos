@@ -294,7 +294,7 @@ class PrintCmd(Command):
                     "ApprovalDuration", "Checker", "ExtendedTimeout",
                     "Expires", "LastCheckerStatus")
     def run(self, mandos, clients):
-        print(self.output(clients))
+        print(self.output(clients.values()))
 
 class PropertyCmd(Command):
     """Abstract class for Actions for setting one client property"""
@@ -336,7 +336,7 @@ class PrintTableCmd(PrintCmd):
         keywords = default_keywords
         if self.verbose:
             keywords = self.all_keywords
-        return str(self.TableOfClients(clients.values(), keywords))
+        return str(self.TableOfClients(clients, keywords))
 
     class TableOfClients(object):
         tableheaders = {
@@ -433,7 +433,12 @@ class IsEnabledCmd(Command):
             sys.exit(0)
         sys.exit(1)
     def is_enabled(self, client, properties):
-        return bool(properties["Enabled"])
+        log.debug("D-Bus: %s:%s:%s.Get(%r, %r)", busname,
+                  client.__dbus_object_path__,
+                  dbus.PROPERTIES_IFACE, client_interface,
+                  "Enabled")
+        return bool(client.Get(client_interface, "Enabled",
+                               dbus_interface=dbus.PROPERTIES_IFACE))
 
 class RemoveCmd(Command):
     def run_on_one_client(self, client, properties):
@@ -757,12 +762,16 @@ def main():
     clients = {}
 
     if not clientnames:
-        clients = {bus.get_object(busname, path): properties
+        clients = {(log.debug("D-Bus: Connect to: (name=%r, path=%r)",
+                              busname, str(path)) and False) or
+                   bus.get_object(busname, path): properties
                    for path, properties in mandos_clients.items()}
     else:
         for name in clientnames:
             for path, client in mandos_clients.items():
                 if client["Name"] == name:
+                    log.debug("D-Bus: Connect to: (name=%r, path=%r)",
+                              busname, str(path))
                     client_objc = bus.get_object(busname, path)
                     clients[client_objc] = client
                     break
@@ -903,7 +912,7 @@ class TestCmd(unittest.TestCase):
 
 class TestPrintTableCmd(TestCmd):
     def test_normal(self):
-        output = PrintTableCmd().output(self.clients)
+        output = PrintTableCmd().output(self.clients.values())
         expected_output = """
 Name   Enabled Timeout  Last Successful Check
 foo    Yes     00:05:00 2019-02-03T00:00:00  
@@ -911,7 +920,8 @@ barbar Yes     00:05:00 2019-02-04T00:00:00
 """[1:-1]
         self.assertEqual(output, expected_output)
     def test_verbose(self):
-        output = PrintTableCmd(verbose=True).output(self.clients)
+        output = PrintTableCmd(verbose=True).output(
+            self.clients.values())
         expected_output = """
 Name   Enabled Timeout  Last Successful Check Created             Interval Host            Key ID                                                           Fingerprint                              Check Is Running Last Enabled        Approval Is Pending Approved By Default Last Approval Request Approval Delay Approval Duration Checker              Extended Timeout Expires             Last Checker Status
 foo    Yes     00:05:00 2019-02-03T00:00:00   2019-01-02T00:00:00 00:02:00 foo.example.org 92ed150794387c03ce684574b1139a6594a34f895daaaf09fd8ea90a27cddb12 778827225BA7DE539C5A7CFA59CFF7CDBD9A5920 No               2019-01-03T00:00:00 No                  Yes                                       00:00:00       00:00:01          fping -q -- %(host)s 00:15:00         2019-02-04T00:00:00 0                  
@@ -919,7 +929,7 @@ barbar Yes     00:05:00 2019-02-04T00:00:00   2019-01-03T00:00:00 00:02:00 192.0
 """[1:-1]
         self.assertEqual(output, expected_output)
     def test_one_client(self):
-        output = PrintTableCmd().output(self.one_client)
+        output = PrintTableCmd().output(self.one_client.values())
         expected_output = """
 Name Enabled Timeout  Last Successful Check
 foo  Yes     00:05:00 2019-02-03T00:00:00  
