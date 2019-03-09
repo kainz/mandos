@@ -276,7 +276,7 @@ def parse_pre_1_6_1_interval(interval):
 # Abstract classes first
 class Command(object):
     """Abstract class for commands"""
-    def run(self, mandos, mandos_objmgr, clients):
+    def run(self, mandos, clients):
         """Normal commands should implement run_on_one_client(), but
         commands which want to operate on all clients at the same time
         can override this run() method instead."""
@@ -293,8 +293,8 @@ class PrintCmd(Command):
                     "LastApprovalRequest", "ApprovalDelay",
                     "ApprovalDuration", "Checker", "ExtendedTimeout",
                     "Expires", "LastCheckerStatus")
-    def run(self, mandos, mandos_objmgr, clients):
-        print(self.output(mandos_objmgr, clients.values()))
+    def run(self, mandos, clients):
+        print(self.output(clients.values()))
 
 class PropertyCmd(Command):
     """Abstract class for Actions for setting one client property"""
@@ -331,7 +331,7 @@ class PrintTableCmd(PrintCmd):
     def __init__(self, verbose=False):
         self.verbose = verbose
 
-    def output(self, mandos_objmgr, clients):
+    def output(self, clients):
         default_keywords = ("Name", "Enabled", "Timeout", "LastCheckedOK")
         keywords = default_keywords
         if self.verbose:
@@ -415,7 +415,7 @@ class PrintTableCmd(PrintCmd):
 
 
 class DumpJSONCmd(PrintCmd):
-    def output(self, mandos_objmgr, clients):
+    def output(self, clients):
         data = {client["Name"]:
                 {key: self.dbus_boolean_to_bool(client[key])
                  for key in self.all_keywords}
@@ -782,7 +782,7 @@ def main():
     # Run all commands on clients
     commands = commands_from_options(options)
     for command in commands:
-        command.run(mandos_serv, mandos_serv_object_manager, clients)
+        command.run(mandos_serv, clients)
 
 
 class Test_milliseconds_to_string(unittest.TestCase):
@@ -912,7 +912,7 @@ class TestCmd(unittest.TestCase):
 
 class TestPrintTableCmd(TestCmd):
     def test_normal(self):
-        output = PrintTableCmd().output(None, self.clients.values())
+        output = PrintTableCmd().output(self.clients.values())
         expected_output = """
 Name   Enabled Timeout  Last Successful Check
 foo    Yes     00:05:00 2019-02-03T00:00:00  
@@ -921,7 +921,7 @@ barbar Yes     00:05:00 2019-02-04T00:00:00
         self.assertEqual(output, expected_output)
     def test_verbose(self):
         output = PrintTableCmd(verbose=True).output(
-            None, self.clients.values())
+            self.clients.values())
         expected_output = """
 Name   Enabled Timeout  Last Successful Check Created             Interval Host            Key ID                                                           Fingerprint                              Check Is Running Last Enabled        Approval Is Pending Approved By Default Last Approval Request Approval Delay Approval Duration Checker              Extended Timeout Expires             Last Checker Status
 foo    Yes     00:05:00 2019-02-03T00:00:00   2019-01-02T00:00:00 00:02:00 foo.example.org 92ed150794387c03ce684574b1139a6594a34f895daaaf09fd8ea90a27cddb12 778827225BA7DE539C5A7CFA59CFF7CDBD9A5920 No               2019-01-03T00:00:00 No                  Yes                                       00:00:00       00:00:01          fping -q -- %(host)s 00:15:00         2019-02-04T00:00:00 0                  
@@ -929,7 +929,7 @@ barbar Yes     00:05:00 2019-02-04T00:00:00   2019-01-03T00:00:00 00:02:00 192.0
 """[1:-1]
         self.assertEqual(output, expected_output)
     def test_one_client(self):
-        output = PrintTableCmd().output(None, self.one_client.values())
+        output = PrintTableCmd().output(self.one_client.values())
         expected_output = """
 Name Enabled Timeout  Last Successful Check
 foo  Yes     00:05:00 2019-02-03T00:00:00  
@@ -990,12 +990,11 @@ class TestDumpJSONCmd(TestCmd):
         }
         return super(TestDumpJSONCmd, self).setUp()
     def test_normal(self):
-        json_data = json.loads(DumpJSONCmd().output(None,
-                                                    self.clients))
+        json_data = json.loads(DumpJSONCmd().output(self.clients))
         self.assertDictEqual(json_data, self.expected_json)
     def test_one_client(self):
         clients = self.one_client
-        json_data = json.loads(DumpJSONCmd().output(None, clients))
+        json_data = json.loads(DumpJSONCmd().output(clients))
         expected_json = {"foo": self.expected_json["foo"]}
         self.assertDictEqual(json_data, expected_json)
 
@@ -1005,7 +1004,7 @@ class TestIsEnabledCmd(TestCmd):
                             for client, properties in self.clients.items()))
     def test_is_enabled_run_exits_successfully(self):
         with self.assertRaises(SystemExit) as e:
-            IsEnabledCmd().run(None, None, self.one_client)
+            IsEnabledCmd().run(None, self.one_client)
         if e.exception.code is not None:
             self.assertEqual(e.exception.code, 0)
         else:
@@ -1013,7 +1012,7 @@ class TestIsEnabledCmd(TestCmd):
     def test_is_enabled_run_exits_with_failure(self):
         self.client.attributes["Enabled"] = dbus.Boolean(False)
         with self.assertRaises(SystemExit) as e:
-            IsEnabledCmd().run(None, None, self.one_client)
+            IsEnabledCmd().run(None, self.one_client)
         if isinstance(e.exception.code, int):
             self.assertNotEqual(e.exception.code, 0)
         else:
@@ -1028,7 +1027,7 @@ class TestRemoveCmd(TestCmd):
                 self.calls.append(("RemoveClient", (dbus_path,)))
         mandos = MockMandos()
         super(TestRemoveCmd, self).setUp()
-        RemoveCmd().run(mandos, None, self.clients)
+        RemoveCmd().run(mandos, self.clients)
         self.assertEqual(len(mandos.calls), 2)
         for client in self.clients:
             self.assertIn(("RemoveClient",
@@ -1037,14 +1036,14 @@ class TestRemoveCmd(TestCmd):
 
 class TestApproveCmd(TestCmd):
     def test_approve(self):
-        ApproveCmd().run(None, None, self.clients)
+        ApproveCmd().run(None, self.clients)
         for client in self.clients:
             self.assertIn(("Approve", (True, client_interface)),
                           client.calls)
 
 class TestDenyCmd(TestCmd):
     def test_deny(self):
-        DenyCmd().run(None, None, self.clients)
+        DenyCmd().run(None, self.clients)
         for client in self.clients:
             self.assertIn(("Approve", (False, client_interface)),
                           client.calls)
@@ -1054,14 +1053,14 @@ class TestEnableCmd(TestCmd):
         for client in self.clients:
             client.attributes["Enabled"] = False
 
-        EnableCmd().run(None, None, self.clients)
+        EnableCmd().run(None, self.clients)
 
         for client in self.clients:
             self.assertTrue(client.attributes["Enabled"])
 
 class TestDisableCmd(TestCmd):
     def test_disable(self):
-        DisableCmd().run(None, None, self.clients)
+        DisableCmd().run(None, self.clients)
 
         for client in self.clients:
             self.assertFalse(client.attributes["Enabled"])
@@ -1089,7 +1088,7 @@ class TestPropertyCmd(TestCmd):
                 self.assertNotIsInstance(value, Unique)
                 self.assertEqual(value, value_to_get)
     def run_command(self, value, clients):
-        self.command().run(None, None, clients)
+        self.command().run(None, clients)
 
 class TestBumpTimeoutCmd(TestPropertyCmd):
     command = BumpTimeoutCmd
@@ -1124,7 +1123,7 @@ ValueArgumentMixIn"""
             return
         return super(TestValueArgumentPropertyCmd, self).runTest()
     def run_command(self, value, clients):
-        self.command(value).run(None, None, clients)
+        self.command(value).run(None, clients)
 
 class TestSetCheckerCmd(TestValueArgumentPropertyCmd):
     command = SetCheckerCmd
