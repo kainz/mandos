@@ -438,12 +438,7 @@ class IsEnabledCmd(Command):
             sys.exit(0)
         sys.exit(1)
     def is_enabled(self, client, properties):
-        log.debug("D-Bus: %s:%s:%s.Get(%r, %r)", busname,
-                  client.__dbus_object_path__,
-                  dbus.PROPERTIES_IFACE, client_interface,
-                  "Enabled")
-        return bool(client.Get(client_interface, "Enabled",
-                               dbus_interface=dbus.PROPERTIES_IFACE))
+        return properties["Enabled"]
 
 class RemoveCmd(Command):
     def run_on_one_client(self, client, properties):
