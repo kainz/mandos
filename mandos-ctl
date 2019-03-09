@@ -762,12 +762,16 @@ def main():
     clients = {}
 
     if not clientnames:
-        clients = {bus.get_object(busname, path): properties
+        clients = {(log.debug("D-Bus: Connect to: (name=%r, path=%r)",
+                              busname, str(path)) and False) or
+                   bus.get_object(busname, path): properties
                    for path, properties in mandos_clients.items()}
     else:
         for name in clientnames:
             for path, client in mandos_clients.items():
                 if client["Name"] == name:
+                    log.debug("D-Bus: Connect to: (name=%r, path=%r)",
+                              busname, str(path))
                     client_objc = bus.get_object(busname, path)
                     clients[client_objc] = client
                     break
