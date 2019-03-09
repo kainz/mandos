@@ -295,6 +295,8 @@ class PrintCmd(Command):
                     "Expires", "LastCheckerStatus")
     def run(self, mandos, clients):
         print(self.output(clients.values()))
+    def output(self, clients):
+        raise NotImplementedError()
 
 class PropertyCmd(Command):
     """Abstract class for Actions for setting one client property"""
@@ -308,6 +310,9 @@ class PropertyCmd(Command):
                   else bool(self.value_to_set))
         client.Set(client_interface, self.propname, self.value_to_set,
                    dbus_interface=dbus.PROPERTIES_IFACE)
+    @property
+    def propname(self):
+        raise NotImplementedError()
 
 class ValueArgumentMixIn(object):
     """Mixin class for commands taking a value as argument"""
