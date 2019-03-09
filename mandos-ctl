@@ -303,10 +303,10 @@ class PropertyCmd(Command):
         log.debug("D-Bus: %s:%s:%s.Set(%r, %r, %r)", busname,
                   client.__dbus_object_path__,
                   dbus.PROPERTIES_IFACE, client_interface,
-                  self.property, self.value_to_set
+                  self.propname, self.value_to_set
                   if not isinstance(self.value_to_set, dbus.Boolean)
                   else bool(self.value_to_set))
-        client.Set(client_interface, self.property, self.value_to_set,
+        client.Set(client_interface, self.propname, self.value_to_set,
                    dbus_interface=dbus.PROPERTIES_IFACE)
 
 class ValueArgumentMixIn(object):
@@ -462,40 +462,41 @@ class DenyCmd(Command):
                        dbus_interface=client_interface)
 
 class EnableCmd(PropertyCmd):
-    property = "Enabled"
+    propname = "Enabled"
     value_to_set = dbus.Boolean(True)
 
 class DisableCmd(PropertyCmd):
-    property = "Enabled"
+    propname = "Enabled"
     value_to_set = dbus.Boolean(False)
 
 class BumpTimeoutCmd(PropertyCmd):
-    property = "LastCheckedOK"
+    propname = "LastCheckedOK"
     value_to_set = ""
 
 class StartCheckerCmd(PropertyCmd):
-    property = "CheckerRunning"
+    propname = "CheckerRunning"
     value_to_set = dbus.Boolean(True)
 
 class StopCheckerCmd(PropertyCmd):
-    property = "CheckerRunning"
+    propname = "CheckerRunning"
     value_to_set = dbus.Boolean(False)
 
 class ApproveByDefaultCmd(PropertyCmd):
-    property = "ApprovedByDefault"
+    propname = "ApprovedByDefault"
     value_to_set = dbus.Boolean(True)
 
 class DenyByDefaultCmd(PropertyCmd):
-    property = "ApprovedByDefault"
+    propname = "ApprovedByDefault"
     value_to_set = dbus.Boolean(False)
 
 class SetCheckerCmd(PropertyCmd, ValueArgumentMixIn):
-    property = "Checker"
+    propname = "Checker"
 
 class SetHostCmd(PropertyCmd, ValueArgumentMixIn):
-    property = "Host"
+    propname = "Host"
 
 class SetSecretCmd(PropertyCmd, ValueArgumentMixIn):
+    propname = "Secret"
     @property
     def value_to_set(self):
         return self._vts
@@ -504,25 +505,24 @@ class SetSecretCmd(PropertyCmd, ValueArgumentMixIn):
         """When setting, read data from supplied file object"""
         self._vts = value.read()
         value.close()
-    property = "Secret"
 
 class SetTimeoutCmd(PropertyCmd, MillisecondsValueArgumentMixIn):
-    property = "Timeout"
+    propname = "Timeout"
 
 class SetExtendedTimeoutCmd(PropertyCmd,
                             MillisecondsValueArgumentMixIn):
-    property = "ExtendedTimeout"
+    propname = "ExtendedTimeout"
 
 class SetIntervalCmd(PropertyCmd, MillisecondsValueArgumentMixIn):
-    property = "Interval"
+    propname = "Interval"
 
 class SetApprovalDelayCmd(PropertyCmd,
                           MillisecondsValueArgumentMixIn):
-    property = "ApprovalDelay"
+    propname = "ApprovalDelay"
 
 class SetApprovalDurationCmd(PropertyCmd,
                              MillisecondsValueArgumentMixIn):
-    property = "ApprovalDuration"
+    propname = "ApprovalDuration"
 
 def add_command_line_options(parser):
     parser.add_argument("--version", action="version",
@@ -841,16 +841,16 @@ class TestCmd(unittest.TestCase):
                 self.attributes = attributes
                 self.attributes["Name"] = name
                 self.calls = []
-            def Set(self, interface, property, value, dbus_interface):
+            def Set(self, interface, propname, value, dbus_interface):
                 testcase.assertEqual(interface, client_interface)
                 testcase.assertEqual(dbus_interface,
                                      dbus.PROPERTIES_IFACE)
-                self.attributes[property] = value
-            def Get(self, interface, property, dbus_interface):
+                self.attributes[propname] = value
+            def Get(self, interface, propname, dbus_interface):
                 testcase.assertEqual(interface, client_interface)
                 testcase.assertEqual(dbus_interface,
                                      dbus.PROPERTIES_IFACE)
-                return self.attributes[property]
+                return self.attributes[propname]
             def Approve(self, approve, dbus_interface):
                 testcase.assertEqual(dbus_interface, client_interface)
                 self.calls.append(("Approve", (approve,
@@ -1079,12 +1079,12 @@ class TestPropertyCmd(TestCmd):
         for value_to_set, value_to_get in zip(self.values_to_set,
                                               values_to_get):
             for client in self.clients:
-                old_value = client.attributes[self.property]
+                old_value = client.attributes[self.propname]
                 self.assertNotIsInstance(old_value, Unique)
-                client.attributes[self.property] = Unique()
+                client.attributes[self.propname] = Unique()
             self.run_command(value_to_set, self.clients)
             for client in self.clients:
-                value = client.attributes[self.property]
+                value = client.attributes[self.propname]
                 self.assertNotIsInstance(value, Unique)
                 self.assertEqual(value, value_to_get)
     def run_command(self, value, clients):
@@ -1092,27 +1092,27 @@ class TestPropertyCmd(TestCmd):
 
 class TestBumpTimeoutCmd(TestPropertyCmd):
     command = BumpTimeoutCmd
-    property = "LastCheckedOK"
+    propname = "LastCheckedOK"
     values_to_set = [""]
 
 class TestStartCheckerCmd(TestPropertyCmd):
     command = StartCheckerCmd
-    property = "CheckerRunning"
+    propname = "CheckerRunning"
     values_to_set = [dbus.Boolean(True)]
 
 class TestStopCheckerCmd(TestPropertyCmd):
     command = StopCheckerCmd
-    property = "CheckerRunning"
+    propname = "CheckerRunning"
     values_to_set = [dbus.Boolean(False)]
 
 class TestApproveByDefaultCmd(TestPropertyCmd):
     command = ApproveByDefaultCmd
-    property = "ApprovedByDefault"
+    propname = "ApprovedByDefault"
     values_to_set = [dbus.Boolean(True)]
 
 class TestDenyByDefaultCmd(TestPropertyCmd):
     command = DenyByDefaultCmd
-    property = "ApprovedByDefault"
+    propname = "ApprovedByDefault"
     values_to_set = [dbus.Boolean(False)]
 
 class TestValueArgumentPropertyCmd(TestPropertyCmd):
@@ -1127,24 +1127,24 @@ ValueArgumentMixIn"""
 
 class TestSetCheckerCmd(TestValueArgumentPropertyCmd):
     command = SetCheckerCmd
-    property = "Checker"
+    propname = "Checker"
     values_to_set = ["", ":", "fping -q -- %s"]
 
 class TestSetHostCmd(TestValueArgumentPropertyCmd):
     command = SetHostCmd
-    property = "Host"
+    propname = "Host"
     values_to_set = ["192.0.2.3", "foo.example.org"]
 
 class TestSetSecretCmd(TestValueArgumentPropertyCmd):
     command = SetSecretCmd
-    property = "Secret"
+    propname = "Secret"
     values_to_set = [io.BytesIO(b""),
                      io.BytesIO(b"secret\0xyzzy\nbar")]
     values_to_get = [b"", b"secret\0xyzzy\nbar"]
 
 class TestSetTimeoutCmd(TestValueArgumentPropertyCmd):
     command = SetTimeoutCmd
-    property = "Timeout"
+    propname = "Timeout"
     values_to_set = [datetime.timedelta(),
                      datetime.timedelta(minutes=5),
                      datetime.timedelta(seconds=1),
@@ -1154,7 +1154,7 @@ class TestSetTimeoutCmd(TestValueArgumentPropertyCmd):
 
 class TestSetExtendedTimeoutCmd(TestValueArgumentPropertyCmd):
     command = SetExtendedTimeoutCmd
-    property = "ExtendedTimeout"
+    propname = "ExtendedTimeout"
     values_to_set = [datetime.timedelta(),
                      datetime.timedelta(minutes=5),
                      datetime.timedelta(seconds=1),
@@ -1164,7 +1164,7 @@ class TestSetExtendedTimeoutCmd(TestValueArgumentPropertyCmd):
 
 class TestSetIntervalCmd(TestValueArgumentPropertyCmd):
     command = SetIntervalCmd
-    property = "Interval"
+    propname = "Interval"
     values_to_set = [datetime.timedelta(),
                      datetime.timedelta(minutes=5),
                      datetime.timedelta(seconds=1),
@@ -1174,7 +1174,7 @@ class TestSetIntervalCmd(TestValueArgumentPropertyCmd):
 
 class TestSetApprovalDelayCmd(TestValueArgumentPropertyCmd):
     command = SetApprovalDelayCmd
-    property = "ApprovalDelay"
+    propname = "ApprovalDelay"
     values_to_set = [datetime.timedelta(),
                      datetime.timedelta(minutes=5),
                      datetime.timedelta(seconds=1),
@@ -1184,7 +1184,7 @@ class TestSetApprovalDelayCmd(TestValueArgumentPropertyCmd):
 
 class TestSetApprovalDurationCmd(TestValueArgumentPropertyCmd):
     command = SetApprovalDurationCmd
-    property = "ApprovalDuration"
+    propname = "ApprovalDuration"
     values_to_set = [datetime.timedelta(),
                      datetime.timedelta(minutes=5),
                      datetime.timedelta(seconds=1),
