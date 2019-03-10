@@ -317,20 +317,20 @@ class PropertyCmd(Command):
     def propname(self):
         raise NotImplementedError()
 
-class ValueArgumentMixIn(object):
-    """Mixin class for commands taking a value as argument"""
+class PropertyValueCmd(PropertyCmd):
+    """Abstract class for PropertyCmd recieving a value as argument"""
     def __init__(self, value):
         self.value_to_set = value
 
-class MillisecondsValueArgumentMixIn(ValueArgumentMixIn):
-    """Mixin class for commands taking a value argument as
-    milliseconds."""
+class MillisecondsPropertyValueArgumentCmd(PropertyValueCmd):
+    """Abstract class for PropertyValueCmd taking a value argument as
+a datetime.timedelta() but should store it as milliseconds."""
     @property
     def value_to_set(self):
         return self._vts
     @value_to_set.setter
     def value_to_set(self, value):
-        """When setting, convert value to a datetime.timedelta"""
+        """When setting, convert value from a datetime.timedelta"""
         self._vts = int(round(value.total_seconds() * 1000))
 
 # Actual (non-abstract) command classes
@@ -493,13 +493,13 @@ class DenyByDefaultCmd(PropertyCmd):
     propname = "ApprovedByDefault"
     value_to_set = dbus.Boolean(False)
 
-class SetCheckerCmd(PropertyCmd, ValueArgumentMixIn):
+class SetCheckerCmd(PropertyValueCmd):
     propname = "Checker"
 
-class SetHostCmd(PropertyCmd, ValueArgumentMixIn):
+class SetHostCmd(PropertyValueCmd):
     propname = "Host"
 
-class SetSecretCmd(PropertyCmd, ValueArgumentMixIn):
+class SetSecretCmd(PropertyValueCmd):
     propname = "Secret"
     @property
     def value_to_set(self):
@@ -510,22 +510,19 @@ class SetSecretCmd(PropertyCmd, ValueArgumentMixIn):
         self._vts = value.read()
         value.close()
 
-class SetTimeoutCmd(PropertyCmd, MillisecondsValueArgumentMixIn):
+class SetTimeoutCmd(MillisecondsPropertyValueArgumentCmd):
     propname = "Timeout"
 
-class SetExtendedTimeoutCmd(PropertyCmd,
-                            MillisecondsValueArgumentMixIn):
+class SetExtendedTimeoutCmd(MillisecondsPropertyValueArgumentCmd):
     propname = "ExtendedTimeout"
 
-class SetIntervalCmd(PropertyCmd, MillisecondsValueArgumentMixIn):
+class SetIntervalCmd(MillisecondsPropertyValueArgumentCmd):
     propname = "Interval"
 
-class SetApprovalDelayCmd(PropertyCmd,
-                          MillisecondsValueArgumentMixIn):
+class SetApprovalDelayCmd(MillisecondsPropertyValueArgumentCmd):
     propname = "ApprovalDelay"
 
-class SetApprovalDurationCmd(PropertyCmd,
-                             MillisecondsValueArgumentMixIn):
+class SetApprovalDurationCmd(MillisecondsPropertyValueArgumentCmd):
     propname = "ApprovalDuration"
 
 def add_command_line_options(parser):
@@ -1130,34 +1127,33 @@ class TestDenyByDefaultCmd(TestPropertyCmd):
     propname = "ApprovedByDefault"
     values_to_set = [dbus.Boolean(False)]
 
-class TestValueArgumentPropertyCmd(TestPropertyCmd):
-    """Abstract class for tests of PropertyCmd classes using the
-ValueArgumentMixIn"""
+class TestPropertyValueCmd(TestPropertyCmd):
+    """Abstract class for tests of PropertyValueCmd classes"""
     def runTest(self):
-        if type(self) is TestValueArgumentPropertyCmd:
+        if type(self) is TestPropertyValueCmd:
             return
-        return super(TestValueArgumentPropertyCmd, self).runTest()
+        return super(TestPropertyValueCmd, self).runTest()
     def run_command(self, value, clients):
         self.command(value).run(clients, self.bus)
 
-class TestSetCheckerCmd(TestValueArgumentPropertyCmd):
+class TestSetCheckerCmd(TestPropertyValueCmd):
     command = SetCheckerCmd
     propname = "Checker"
     values_to_set = ["", ":", "fping -q -- %s"]
 
-class TestSetHostCmd(TestValueArgumentPropertyCmd):
+class TestSetHostCmd(TestPropertyValueCmd):
     command = SetHostCmd
     propname = "Host"
     values_to_set = ["192.0.2.3", "foo.example.org"]
 
-class TestSetSecretCmd(TestValueArgumentPropertyCmd):
+class TestSetSecretCmd(TestPropertyValueCmd):
     command = SetSecretCmd
     propname = "Secret"
     values_to_set = [io.BytesIO(b""),
                      io.BytesIO(b"secret\0xyzzy\nbar")]
     values_to_get = [b"", b"secret\0xyzzy\nbar"]
 
-class TestSetTimeoutCmd(TestValueArgumentPropertyCmd):
+class TestSetTimeoutCmd(TestPropertyValueCmd):
     command = SetTimeoutCmd
     propname = "Timeout"
     values_to_set = [datetime.timedelta(),
@@ -1167,7 +1163,7 @@ class TestSetTimeoutCmd(TestValueArgumentPropertyCmd):
                      datetime.timedelta(weeks=52)]
     values_to_get = [0, 300000, 1000, 604800000, 31449600000]
 
-class TestSetExtendedTimeoutCmd(TestValueArgumentPropertyCmd):
+class TestSetExtendedTimeoutCmd(TestPropertyValueCmd):
     command = SetExtendedTimeoutCmd
     propname = "ExtendedTimeout"
     values_to_set = [datetime.timedelta(),
@@ -1177,7 +1173,7 @@ class TestSetExtendedTimeoutCmd(TestValueArgumentPropertyCmd):
                      datetime.timedelta(weeks=52)]
     values_to_get = [0, 300000, 1000, 604800000, 31449600000]
 
-class TestSetIntervalCmd(TestValueArgumentPropertyCmd):
+class TestSetIntervalCmd(TestPropertyValueCmd):
     command = SetIntervalCmd
     propname = "Interval"
     values_to_set = [datetime.timedelta(),
@@ -1187,7 +1183,7 @@ class TestSetIntervalCmd(TestValueArgumentPropertyCmd):
                      datetime.timedelta(weeks=52)]
     values_to_get = [0, 300000, 1000, 604800000, 31449600000]
 
-class TestSetApprovalDelayCmd(TestValueArgumentPropertyCmd):
+class TestSetApprovalDelayCmd(TestPropertyValueCmd):
     command = SetApprovalDelayCmd
     propname = "ApprovalDelay"
     values_to_set = [datetime.timedelta(),
@@ -1197,7 +1193,7 @@ class TestSetApprovalDelayCmd(TestValueArgumentPropertyCmd):
                      datetime.timedelta(weeks=52)]
     values_to_get = [0, 300000, 1000, 604800000, 31449600000]
 
-class TestSetApprovalDurationCmd(TestValueArgumentPropertyCmd):
+class TestSetApprovalDurationCmd(TestPropertyValueCmd):
     command = SetApprovalDurationCmd
     propname = "ApprovalDuration"
     values_to_set = [datetime.timedelta(),
