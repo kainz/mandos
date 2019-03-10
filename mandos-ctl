@@ -276,12 +276,15 @@ def parse_pre_1_6_1_interval(interval):
 # Abstract classes first
 class Command(object):
     """Abstract class for commands"""
-    def run(self, mandos, clients):
+    def run(self, clients, bus=None, mandos=None):
         """Normal commands should implement run_on_one_client(), but
         commands which want to operate on all clients at the same time
         can override this run() method instead."""
         self.mandos = mandos
-        for client, properties in clients.items():
+        for clientpath, properties in clients.items():
+            log.debug("D-Bus: Connect to: (busname=%r, path=%r)",
+                      busname, str(clientpath))
+            client = bus.get_object(busname, clientpath)
             self.run_on_one_client(client, properties)
 
 class PrintCmd(Command):
@@ -293,7 +296,7 @@ class PrintCmd(Command):
                     "LastApprovalRequest", "ApprovalDelay",
                     "ApprovalDuration", "Checker", "ExtendedTimeout",
                     "Expires", "LastCheckerStatus")
-    def run(self, mandos, clients):
+    def run(self, clients, bus=None, mandos=None):
         print(self.output(clients.values()))
     def output(self, clients):
         raise NotImplementedError()
@@ -433,7 +436,8 @@ class DumpJSONCmd(PrintCmd):
         return value
 
 class IsEnabledCmd(Command):
-    def run_on_one_client(self, client, properties):
+    def run(self, clients, bus=None, mandos=None):
+        client, properties = next(iter(clients.items()))
         if self.is_enabled(client, properties):
             sys.exit(0)
         sys.exit(1)
@@ -449,14 +453,14 @@ class RemoveCmd(Command):
 
 class ApproveCmd(Command):
     def run_on_one_client(self, client, properties):
-        log.debug("D-Bus: %s:%s.Approve(True)",
+        log.debug("D-Bus: %s:%s:%s.Approve(True)", busname,
                   client.__dbus_object_path__, client_interface)
         client.Approve(dbus.Boolean(True),
                        dbus_interface=client_interface)
 
 class DenyCmd(Command):
     def run_on_one_client(self, client, properties):
-        log.debug("D-Bus: %s:%s.Approve(False)",
+        log.debug("D-Bus: %s:%s:%s.Approve(False)", busname,
                   client.__dbus_object_path__, client_interface)
         client.Approve(dbus.Boolean(False),
                        dbus_interface=client_interface)
@@ -723,7 +727,7 @@ def main():
 
     try:
         bus = dbus.SystemBus()
-        log.debug("D-Bus: Connect to: (name=%r, path=%r)", busname,
+        log.debug("D-Bus: Connect to: (busname=%r, path=%r)", busname,
                   server_path)
         mandos_dbus_objc = bus.get_object(busname, server_path)
     except dbus.exceptions.DBusException:
@@ -762,18 +766,13 @@ def main():
     clients = {}
 
     if not clientnames:
-        clients = {(log.debug("D-Bus: Connect to: (name=%r, path=%r)",
-                              busname, str(path)) and False) or
-                   bus.get_object(busname, path): properties
-                   for path, properties in mandos_clients.items()}
+        clients = {objpath: properties
+                   for objpath, properties in mandos_clients.items()}
     else:
         for name in clientnames:
-            for path, client in mandos_clients.items():
-                if client["Name"] == name:
-                    log.debug("D-Bus: Connect to: (name=%r, path=%r)",
-                              busname, str(path))
-                    client_objc = bus.get_object(busname, path)
-                    clients[client_objc] = client
+            for objpath, properties in mandos_clients.items():
+                if properties["Name"] == name:
+                    clients[objpath] = properties
                     break
             else:
                 log.critical("Client not found on server: %r", name)
@@ -782,7 +781,7 @@ def main():
     # Run all commands on clients
     commands = commands_from_options(options)
     for command in commands:
-        command.run(mandos_serv, clients)
+        command.run(clients, bus, mandos_serv)
 
 
 class Test_milliseconds_to_string(unittest.TestCase):
@@ -837,7 +836,7 @@ class TestCmd(unittest.TestCase):
         testcase = self
         class MockClient(object):
             def __init__(self, name, **attributes):
-                self.__dbus_object_path__ = "objpath_{}".format(name)
+                self.__dbus_object_path__ = "/clients/{}".format(name)
                 self.attributes = attributes
                 self.attributes["Name"] = name
                 self.calls = []
@@ -905,10 +904,21 @@ class TestCmd(unittest.TestCase):
             LastCheckerStatus=-2)
         self.clients =  collections.OrderedDict(
             [
-                (self.client, self.client.attributes),
-                (self.other_client, self.other_client.attributes),
+                ("/clients/foo", self.client.attributes),
+                ("/clients/barbar", self.other_client.attributes),
             ])
-        self.one_client = {self.client: self.client.attributes}
+        self.one_client = {"/clients/foo": self.client.attributes}
+    @property
+    def bus(self):
+        class Bus(object):
+            @staticmethod
+            def get_object(client_bus_name, path):
+                self.assertEqual(client_bus_name, busname)
+                return {
+                    "/clients/foo": self.client,
+                    "/clients/barbar": self.other_client,
+                }[path]
+        return Bus()
 
 class TestPrintTableCmd(TestCmd):
     def test_normal(self):
@@ -1004,7 +1014,7 @@ class TestIsEnabledCmd(TestCmd):
                             for client, properties in self.clients.items()))
     def test_is_enabled_run_exits_successfully(self):
         with self.assertRaises(SystemExit) as e:
-            IsEnabledCmd().run(None, self.one_client)
+            IsEnabledCmd().run(self.one_client)
         if e.exception.code is not None:
             self.assertEqual(e.exception.code, 0)
         else:
@@ -1012,7 +1022,7 @@ class TestIsEnabledCmd(TestCmd):
     def test_is_enabled_run_exits_with_failure(self):
         self.client.attributes["Enabled"] = dbus.Boolean(False)
         with self.assertRaises(SystemExit) as e:
-            IsEnabledCmd().run(None, self.one_client)
+            IsEnabledCmd().run(self.one_client)
         if isinstance(e.exception.code, int):
             self.assertNotEqual(e.exception.code, 0)
         else:
@@ -1027,42 +1037,45 @@ class TestRemoveCmd(TestCmd):
                 self.calls.append(("RemoveClient", (dbus_path,)))
         mandos = MockMandos()
         super(TestRemoveCmd, self).setUp()
-        RemoveCmd().run(mandos, self.clients)
+        RemoveCmd().run(self.clients, self.bus, mandos)
         self.assertEqual(len(mandos.calls), 2)
-        for client in self.clients:
-            self.assertIn(("RemoveClient",
-                           (client.__dbus_object_path__,)),
+        for clientpath in self.clients:
+            self.assertIn(("RemoveClient", (clientpath,)),
                           mandos.calls)
 
 class TestApproveCmd(TestCmd):
     def test_approve(self):
-        ApproveCmd().run(None, self.clients)
-        for client in self.clients:
+        ApproveCmd().run(self.clients, self.bus)
+        for clientpath in self.clients:
+            client = self.bus.get_object(busname, clientpath)
             self.assertIn(("Approve", (True, client_interface)),
                           client.calls)
 
 class TestDenyCmd(TestCmd):
     def test_deny(self):
-        DenyCmd().run(None, self.clients)
-        for client in self.clients:
+        DenyCmd().run(self.clients, self.bus)
+        for clientpath in self.clients:
+            client = self.bus.get_object(busname, clientpath)
             self.assertIn(("Approve", (False, client_interface)),
                           client.calls)
 
 class TestEnableCmd(TestCmd):
     def test_enable(self):
-        for client in self.clients:
+        for clientpath in self.clients:
+            client = self.bus.get_object(busname, clientpath)
             client.attributes["Enabled"] = False
 
-        EnableCmd().run(None, self.clients)
+        EnableCmd().run(self.clients, self.bus)
 
-        for client in self.clients:
+        for clientpath in self.clients:
+            client = self.bus.get_object(busname, clientpath)
             self.assertTrue(client.attributes["Enabled"])
 
 class TestDisableCmd(TestCmd):
     def test_disable(self):
-        DisableCmd().run(None, self.clients)
-
-        for client in self.clients:
+        DisableCmd().run(self.clients, self.bus)
+        for clientpath in self.clients:
+            client = self.bus.get_object(busname, clientpath)
             self.assertFalse(client.attributes["Enabled"])
 
 class Unique(object):
@@ -1078,17 +1091,19 @@ class TestPropertyCmd(TestCmd):
                                 self.values_to_set)
         for value_to_set, value_to_get in zip(self.values_to_set,
                                               values_to_get):
-            for client in self.clients:
+            for clientpath in self.clients:
+                client = self.bus.get_object(busname, clientpath)
                 old_value = client.attributes[self.propname]
                 self.assertNotIsInstance(old_value, Unique)
                 client.attributes[self.propname] = Unique()
             self.run_command(value_to_set, self.clients)
-            for client in self.clients:
+            for clientpath in self.clients:
+                client = self.bus.get_object(busname, clientpath)
                 value = client.attributes[self.propname]
                 self.assertNotIsInstance(value, Unique)
                 self.assertEqual(value, value_to_get)
     def run_command(self, value, clients):
-        self.command().run(None, clients)
+        self.command().run(clients, self.bus)
 
 class TestBumpTimeoutCmd(TestPropertyCmd):
     command = BumpTimeoutCmd
@@ -1123,7 +1138,7 @@ ValueArgumentMixIn"""
             return
         return super(TestValueArgumentPropertyCmd, self).runTest()
     def run_command(self, value, clients):
-        self.command(value).run(None, clients)
+        self.command(value).run(clients, self.bus)
 
 class TestSetCheckerCmd(TestValueArgumentPropertyCmd):
     command = SetCheckerCmd
