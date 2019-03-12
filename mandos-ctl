@@ -64,11 +64,12 @@ if sys.version_info.major == 2:
 
 locale.setlocale(locale.LC_ALL, "")
 
-domain = "se.recompile"
-busname = domain + ".Mandos"
-server_path = "/"
-server_interface = domain + ".Mandos"
-client_interface = domain + ".Mandos.Client"
+dbus_busname_domain = "se.recompile"
+dbus_busname = dbus_busname_domain + ".Mandos"
+server_dbus_path = "/"
+server_dbus_interface = dbus_busname_domain + ".Mandos"
+client_dbus_interface = dbus_busname_domain + ".Mandos.Client"
+del dbus_busname_domain
 version = "1.8.3"
 
 
@@ -283,8 +284,8 @@ class Command(object):
         self.mandos = mandos
         for clientpath, properties in clients.items():
             log.debug("D-Bus: Connect to: (busname=%r, path=%r)",
-                      busname, str(clientpath))
-            client = bus.get_object(busname, clientpath)
+                      dbus_busname, str(clientpath))
+            client = bus.get_object(dbus_busname, clientpath)
             self.run_on_one_client(client, properties)
 
 class PrintCmd(Command):
@@ -305,13 +306,14 @@ class PropertyCmd(Command):
     """Abstract class for Actions for setting one client property"""
     def run_on_one_client(self, client, properties):
         """Set the Client's D-Bus property"""
-        log.debug("D-Bus: %s:%s:%s.Set(%r, %r, %r)", busname,
+        log.debug("D-Bus: %s:%s:%s.Set(%r, %r, %r)", dbus_busname,
                   client.__dbus_object_path__,
-                  dbus.PROPERTIES_IFACE, client_interface,
+                  dbus.PROPERTIES_IFACE, client_dbus_interface,
                   self.propname, self.value_to_set
                   if not isinstance(self.value_to_set, dbus.Boolean)
                   else bool(self.value_to_set))
-        client.Set(client_interface, self.propname, self.value_to_set,
+        client.Set(client_dbus_interface, self.propname,
+                   self.value_to_set,
                    dbus_interface=dbus.PROPERTIES_IFACE)
     @property
     def propname(self):
@@ -446,24 +448,24 @@ class IsEnabledCmd(Command):
 
 class RemoveCmd(Command):
     def run_on_one_client(self, client, properties):
-        log.debug("D-Bus: %s:%s:%s.RemoveClient(%r)", busname,
-                  server_path, server_interface,
+        log.debug("D-Bus: %s:%s:%s.RemoveClient(%r)", dbus_busname,
+                  server_dbus_path, server_dbus_interface,
                   str(client.__dbus_object_path__))
         self.mandos.RemoveClient(client.__dbus_object_path__)
 
 class ApproveCmd(Command):
     def run_on_one_client(self, client, properties):
-        log.debug("D-Bus: %s:%s:%s.Approve(True)", busname,
-                  client.__dbus_object_path__, client_interface)
+        log.debug("D-Bus: %s:%s:%s.Approve(True)", dbus_busname,
+                  client.__dbus_object_path__, client_dbus_interface)
         client.Approve(dbus.Boolean(True),
-                       dbus_interface=client_interface)
+                       dbus_interface=client_dbus_interface)
 
 class DenyCmd(Command):
     def run_on_one_client(self, client, properties):
-        log.debug("D-Bus: %s:%s:%s.Approve(False)", busname,
-                  client.__dbus_object_path__, client_interface)
+        log.debug("D-Bus: %s:%s:%s.Approve(False)", dbus_busname,
+                  client.__dbus_object_path__, client_dbus_interface)
         client.Approve(dbus.Boolean(False),
-                       dbus_interface=client_interface)
+                       dbus_interface=client_dbus_interface)
 
 class EnableCmd(PropertyCmd):
     propname = "Enabled"
@@ -724,15 +726,16 @@ def main():
 
     try:
         bus = dbus.SystemBus()
-        log.debug("D-Bus: Connect to: (busname=%r, path=%r)", busname,
-                  server_path)
-        mandos_dbus_objc = bus.get_object(busname, server_path)
+        log.debug("D-Bus: Connect to: (busname=%r, path=%r)",
+                  dbus_busname, server_dbus_path)
+        mandos_dbus_objc = bus.get_object(dbus_busname,
+                                          server_dbus_path)
     except dbus.exceptions.DBusException:
         log.critical("Could not connect to Mandos server")
         sys.exit(1)
 
     mandos_serv = dbus.Interface(mandos_dbus_objc,
-                                 dbus_interface=server_interface)
+                                 dbus_interface=server_dbus_interface)
     mandos_serv_object_manager = dbus.Interface(
         mandos_dbus_objc, dbus_interface=dbus.OBJECT_MANAGER_IFACE)
 
@@ -744,13 +747,13 @@ def main():
     dbus_filter = NullFilter()
     try:
         dbus_logger.addFilter(dbus_filter)
-        log.debug("D-Bus: %s:%s:%s.GetManagedObjects()", busname,
-                  server_path, dbus.OBJECT_MANAGER_IFACE)
-        mandos_clients = {path: ifs_and_props[client_interface]
+        log.debug("D-Bus: %s:%s:%s.GetManagedObjects()", dbus_busname,
+                  server_dbus_path, dbus.OBJECT_MANAGER_IFACE)
+        mandos_clients = {path: ifs_and_props[client_dbus_interface]
                           for path, ifs_and_props in
                           mandos_serv_object_manager
                           .GetManagedObjects().items()
-                          if client_interface in ifs_and_props}
+                          if client_dbus_interface in ifs_and_props}
     except dbus.exceptions.DBusException as e:
         log.critical("Failed to access Mandos server through D-Bus:"
                      "\n%s", e)
@@ -838,17 +841,18 @@ class TestCmd(unittest.TestCase):
                 self.attributes["Name"] = name
                 self.calls = []
             def Set(self, interface, propname, value, dbus_interface):
-                testcase.assertEqual(interface, client_interface)
+                testcase.assertEqual(interface, client_dbus_interface)
                 testcase.assertEqual(dbus_interface,
                                      dbus.PROPERTIES_IFACE)
                 self.attributes[propname] = value
             def Get(self, interface, propname, dbus_interface):
-                testcase.assertEqual(interface, client_interface)
+                testcase.assertEqual(interface, client_dbus_interface)
                 testcase.assertEqual(dbus_interface,
                                      dbus.PROPERTIES_IFACE)
                 return self.attributes[propname]
             def Approve(self, approve, dbus_interface):
-                testcase.assertEqual(dbus_interface, client_interface)
+                testcase.assertEqual(dbus_interface,
+                                     client_dbus_interface)
                 self.calls.append(("Approve", (approve,
                                                dbus_interface)))
         self.client = MockClient(
@@ -910,7 +914,7 @@ class TestCmd(unittest.TestCase):
         class Bus(object):
             @staticmethod
             def get_object(client_bus_name, path):
-                self.assertEqual(client_bus_name, busname)
+                self.assertEqual(client_bus_name, dbus_busname)
                 return {
                     "/clients/foo": self.client,
                     "/clients/barbar": self.other_client,
@@ -1044,35 +1048,35 @@ class TestApproveCmd(TestCmd):
     def test_approve(self):
         ApproveCmd().run(self.clients, self.bus)
         for clientpath in self.clients:
-            client = self.bus.get_object(busname, clientpath)
-            self.assertIn(("Approve", (True, client_interface)),
+            client = self.bus.get_object(dbus_busname, clientpath)
+            self.assertIn(("Approve", (True, client_dbus_interface)),
                           client.calls)
 
 class TestDenyCmd(TestCmd):
     def test_deny(self):
         DenyCmd().run(self.clients, self.bus)
         for clientpath in self.clients:
-            client = self.bus.get_object(busname, clientpath)
-            self.assertIn(("Approve", (False, client_interface)),
+            client = self.bus.get_object(dbus_busname, clientpath)
+            self.assertIn(("Approve", (False, client_dbus_interface)),
                           client.calls)
 
 class TestEnableCmd(TestCmd):
     def test_enable(self):
         for clientpath in self.clients:
-            client = self.bus.get_object(busname, clientpath)
+            client = self.bus.get_object(dbus_busname, clientpath)
             client.attributes["Enabled"] = False
 
         EnableCmd().run(self.clients, self.bus)
 
         for clientpath in self.clients:
-            client = self.bus.get_object(busname, clientpath)
+            client = self.bus.get_object(dbus_busname, clientpath)
             self.assertTrue(client.attributes["Enabled"])
 
 class TestDisableCmd(TestCmd):
     def test_disable(self):
         DisableCmd().run(self.clients, self.bus)
         for clientpath in self.clients:
-            client = self.bus.get_object(busname, clientpath)
+            client = self.bus.get_object(dbus_busname, clientpath)
             self.assertFalse(client.attributes["Enabled"])
 
 class Unique(object):
@@ -1089,13 +1093,13 @@ class TestPropertyCmd(TestCmd):
         for value_to_set, value_to_get in zip(self.values_to_set,
                                               values_to_get):
             for clientpath in self.clients:
-                client = self.bus.get_object(busname, clientpath)
+                client = self.bus.get_object(dbus_busname, clientpath)
                 old_value = client.attributes[self.propname]
                 self.assertNotIsInstance(old_value, Unique)
                 client.attributes[self.propname] = Unique()
             self.run_command(value_to_set, self.clients)
             for clientpath in self.clients:
-                client = self.bus.get_object(busname, clientpath)
+                client = self.bus.get_object(dbus_busname, clientpath)
                 value = client.attributes[self.propname]
                 self.assertNotIsInstance(value, Unique)
                 self.assertEqual(value, value_to_get)
