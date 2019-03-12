@@ -840,6 +840,17 @@ class Test_string_to_delta(unittest.TestCase):
 
 
 class Test_check_option_syntax(unittest.TestCase):
+    def setUp(self):
+        self.parser = argparse.ArgumentParser()
+        add_command_line_options(self.parser)
+
+    def test_actions_requires_client_or_all(self):
+        for action, value in self.actions.items():
+            options = self.parser.parse_args()
+            setattr(options, action, value)
+            with self.assertParseError():
+                self.check_option_syntax(options)
+
     # This mostly corresponds to the definition from has_actions() in
     # check_option_syntax()
     actions = {
@@ -865,10 +876,6 @@ class Test_check_option_syntax(unittest.TestCase):
         "approve": True,
         "deny": True,
     }
-
-    def setUp(self):
-        self.parser = argparse.ArgumentParser()
-        add_command_line_options(self.parser)
 
     @contextlib.contextmanager
     def assertParseError(self):
@@ -896,13 +903,6 @@ class Test_check_option_syntax(unittest.TestCase):
 
     def check_option_syntax(self, options):
         check_option_syntax(self.parser, options)
-
-    def test_actions_requires_client_or_all(self):
-        for action, value in self.actions.items():
-            options = self.parser.parse_args()
-            setattr(options, action, value)
-            with self.assertParseError():
-                self.check_option_syntax(options)
 
     def test_actions_conflicts_with_verbose(self):
         for action, value in self.actions.items():
@@ -971,10 +971,15 @@ class Test_check_option_syntax(unittest.TestCase):
                 self.check_option_syntax(options)
 
 
-class Test_command_from_options(unittest.TestCase):
+class Test_commands_from_options(unittest.TestCase):
     def setUp(self):
         self.parser = argparse.ArgumentParser()
         add_command_line_options(self.parser)
+
+    def test_is_enabled(self):
+        self.assert_command_from_args(["--is-enabled", "foo"],
+                                      IsEnabledCmd)
+
     def assert_command_from_args(self, args, command_cls,
                                  **cmd_attrs):
         """Assert that parsing ARGS should result in an instance of
@@ -987,17 +992,50 @@ COMMAND_CLS with (optionally) all supplied attributes (CMD_ATTRS)."""
         self.assertIsInstance(command, command_cls)
         for key, value in cmd_attrs.items():
             self.assertEqual(getattr(command, key), value)
-    def test_print_table(self):
-        self.assert_command_from_args([], PrintTableCmd,
-                                      verbose=False)
 
-    def test_print_table_verbose(self):
-        self.assert_command_from_args(["--verbose"], PrintTableCmd,
-                                      verbose=True)
+    def test_is_enabled_short(self):
+        self.assert_command_from_args(["-V", "foo"], IsEnabledCmd)
 
-    def test_print_table_verbose_short(self):
-        self.assert_command_from_args(["-v"], PrintTableCmd,
-                                      verbose=True)
+    def test_approve(self):
+        self.assert_command_from_args(["--approve", "foo"],
+                                      ApproveCmd)
+
+    def test_approve_short(self):
+        self.assert_command_from_args(["-A", "foo"], ApproveCmd)
+
+    def test_deny(self):
+        self.assert_command_from_args(["--deny", "foo"], DenyCmd)
+
+    def test_deny_short(self):
+        self.assert_command_from_args(["-D", "foo"], DenyCmd)
+
+    def test_remove(self):
+        self.assert_command_from_args(["--remove", "foo"],
+                                      RemoveCmd)
+
+    def test_deny_before_remove(self):
+        options = self.parser.parse_args(["--deny", "--remove",
+                                          "foo"])
+        check_option_syntax(self.parser, options)
+        commands = commands_from_options(options)
+        self.assertEqual(len(commands), 2)
+        self.assertIsInstance(commands[0], DenyCmd)
+        self.assertIsInstance(commands[1], RemoveCmd)
+
+    def test_deny_before_remove_reversed(self):
+        options = self.parser.parse_args(["--remove", "--deny",
+                                          "--all"])
+        check_option_syntax(self.parser, options)
+        commands = commands_from_options(options)
+        self.assertEqual(len(commands), 2)
+        self.assertIsInstance(commands[0], DenyCmd)
+        self.assertIsInstance(commands[1], RemoveCmd)
+
+    def test_remove_short(self):
+        self.assert_command_from_args(["-r", "foo"], RemoveCmd)
+
+    def test_dump_json(self):
+        self.assert_command_from_args(["--dump-json"], DumpJSONCmd)
 
     def test_enable(self):
         self.assert_command_from_args(["--enable", "foo"], EnableCmd)
@@ -1027,12 +1065,13 @@ COMMAND_CLS with (optionally) all supplied attributes (CMD_ATTRS)."""
         self.assert_command_from_args(["--stop-checker", "foo"],
                                       StopCheckerCmd)
 
-    def test_remove(self):
-        self.assert_command_from_args(["--remove", "foo"],
-                                      RemoveCmd)
+    def test_approve_by_default(self):
+        self.assert_command_from_args(["--approve-by-default", "foo"],
+                                      ApproveByDefaultCmd)
 
-    def test_remove_short(self):
-        self.assert_command_from_args(["-r", "foo"], RemoveCmd)
+    def test_deny_by_default(self):
+        self.assert_command_from_args(["--deny-by-default", "foo"],
+                                      DenyByDefaultCmd)
 
     def test_checker(self):
         self.assert_command_from_args(["--checker", ":", "foo"],
@@ -1045,50 +1084,6 @@ COMMAND_CLS with (optionally) all supplied attributes (CMD_ATTRS)."""
     def test_checker_short(self):
         self.assert_command_from_args(["-c", ":", "foo"],
                                       SetCheckerCmd, value_to_set=":")
-
-    def test_timeout(self):
-        self.assert_command_from_args(["--timeout", "PT5M", "foo"],
-                                      SetTimeoutCmd,
-                                      value_to_set=300000)
-
-    def test_timeout_short(self):
-        self.assert_command_from_args(["-t", "PT5M", "foo"],
-                                      SetTimeoutCmd,
-                                      value_to_set=300000)
-
-    def test_extended_timeout(self):
-        self.assert_command_from_args(["--extended-timeout", "PT15M",
-                                       "foo"],
-                                      SetExtendedTimeoutCmd,
-                                      value_to_set=900000)
-
-    def test_interval(self):
-        self.assert_command_from_args(["--interval", "PT2M", "foo"],
-                                      SetIntervalCmd,
-                                      value_to_set=120000)
-
-    def test_interval_short(self):
-        self.assert_command_from_args(["-i", "PT2M", "foo"],
-                                      SetIntervalCmd,
-                                      value_to_set=120000)
-
-    def test_approve_by_default(self):
-        self.assert_command_from_args(["--approve-by-default", "foo"],
-                                      ApproveByDefaultCmd)
-
-    def test_deny_by_default(self):
-        self.assert_command_from_args(["--deny-by-default", "foo"],
-                                      DenyByDefaultCmd)
-
-    def test_approval_delay(self):
-        self.assert_command_from_args(["--approval-delay", "PT30S",
-                                       "foo"], SetApprovalDelayCmd,
-                                      value_to_set=30000)
-
-    def test_approval_duration(self):
-        self.assert_command_from_args(["--approval-duration", "PT1S",
-                                       "foo"], SetApprovalDurationCmd,
-                                      value_to_set=1000)
 
     def test_host(self):
         self.assert_command_from_args(["--host", "foo.example.org",
@@ -1127,46 +1122,53 @@ COMMAND_CLS with (optionally) all supplied attributes (CMD_ATTRS)."""
                                           SetSecretCmd,
                                           value_to_set=value)
 
-    def test_approve(self):
-        self.assert_command_from_args(["--approve", "foo"],
-                                      ApproveCmd)
+    def test_timeout(self):
+        self.assert_command_from_args(["--timeout", "PT5M", "foo"],
+                                      SetTimeoutCmd,
+                                      value_to_set=300000)
 
-    def test_approve_short(self):
-        self.assert_command_from_args(["-A", "foo"], ApproveCmd)
+    def test_timeout_short(self):
+        self.assert_command_from_args(["-t", "PT5M", "foo"],
+                                      SetTimeoutCmd,
+                                      value_to_set=300000)
 
-    def test_deny(self):
-        self.assert_command_from_args(["--deny", "foo"], DenyCmd)
+    def test_extended_timeout(self):
+        self.assert_command_from_args(["--extended-timeout", "PT15M",
+                                       "foo"],
+                                      SetExtendedTimeoutCmd,
+                                      value_to_set=900000)
 
-    def test_deny_short(self):
-        self.assert_command_from_args(["-D", "foo"], DenyCmd)
+    def test_interval(self):
+        self.assert_command_from_args(["--interval", "PT2M", "foo"],
+                                      SetIntervalCmd,
+                                      value_to_set=120000)
 
-    def test_dump_json(self):
-        self.assert_command_from_args(["--dump-json"], DumpJSONCmd)
+    def test_interval_short(self):
+        self.assert_command_from_args(["-i", "PT2M", "foo"],
+                                      SetIntervalCmd,
+                                      value_to_set=120000)
 
-    def test_is_enabled(self):
-        self.assert_command_from_args(["--is-enabled", "foo"],
-                                      IsEnabledCmd)
+    def test_approval_delay(self):
+        self.assert_command_from_args(["--approval-delay", "PT30S",
+                                       "foo"], SetApprovalDelayCmd,
+                                      value_to_set=30000)
 
-    def test_is_enabled_short(self):
-        self.assert_command_from_args(["-V", "foo"], IsEnabledCmd)
+    def test_approval_duration(self):
+        self.assert_command_from_args(["--approval-duration", "PT1S",
+                                       "foo"], SetApprovalDurationCmd,
+                                      value_to_set=1000)
 
-    def test_deny_before_remove(self):
-        options = self.parser.parse_args(["--deny", "--remove",
-                                          "foo"])
-        check_option_syntax(self.parser, options)
-        commands = commands_from_options(options)
-        self.assertEqual(len(commands), 2)
-        self.assertIsInstance(commands[0], DenyCmd)
-        self.assertIsInstance(commands[1], RemoveCmd)
+    def test_print_table(self):
+        self.assert_command_from_args([], PrintTableCmd,
+                                      verbose=False)
 
-    def test_deny_before_remove_reversed(self):
-        options = self.parser.parse_args(["--remove", "--deny",
-                                          "--all"])
-        check_option_syntax(self.parser, options)
-        commands = commands_from_options(options)
-        self.assertEqual(len(commands), 2)
-        self.assertIsInstance(commands[0], DenyCmd)
-        self.assertIsInstance(commands[1], RemoveCmd)
+    def test_print_table_verbose(self):
+        self.assert_command_from_args(["--verbose"], PrintTableCmd,
+                                      verbose=True)
+
+    def test_print_table_verbose_short(self):
+        self.assert_command_from_args(["-v"], PrintTableCmd,
+                                      verbose=True)
 
 
 class TestCmd(unittest.TestCase):
