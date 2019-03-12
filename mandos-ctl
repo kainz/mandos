@@ -568,8 +568,8 @@ class RemoveCmd(Command):
         self.mandos.RemoveClient(client.__dbus_object_path__)
 
 
-class PrintCmd(Command):
-    """Abstract class for commands printing client details"""
+class OutputCmd(Command):
+    """Abstract class for commands outputting client details"""
     all_keywords = ("Name", "Enabled", "Timeout", "LastCheckedOK",
                     "Created", "Interval", "Host", "KeyID",
                     "Fingerprint", "CheckerRunning", "LastEnabled",
@@ -583,7 +583,7 @@ class PrintCmd(Command):
         raise NotImplementedError()
 
 
-class DumpJSONCmd(PrintCmd):
+class DumpJSONCmd(OutputCmd):
     def output(self, clients):
         data = {client["Name"]:
                 {key: self.dbus_boolean_to_bool(client[key])
@@ -597,7 +597,7 @@ class DumpJSONCmd(PrintCmd):
         return value
 
 
-class PrintTableCmd(PrintCmd):
+class PrintTableCmd(OutputCmd):
     def __init__(self, verbose=False):
         self.verbose = verbose
 
