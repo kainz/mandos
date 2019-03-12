@@ -342,7 +342,8 @@ class PrintTableCmd(PrintCmd):
         self.verbose = verbose
 
     def output(self, clients):
-        default_keywords = ("Name", "Enabled", "Timeout", "LastCheckedOK")
+        default_keywords = ("Name", "Enabled", "Timeout",
+                            "LastCheckedOK")
         keywords = default_keywords
         if self.verbose:
             keywords = self.all_keywords
@@ -924,20 +925,44 @@ class TestCmd(unittest.TestCase):
 class TestPrintTableCmd(TestCmd):
     def test_normal(self):
         output = PrintTableCmd().output(self.clients.values())
-        expected_output = """
-Name   Enabled Timeout  Last Successful Check
-foo    Yes     00:05:00 2019-02-03T00:00:00  
-barbar Yes     00:05:00 2019-02-04T00:00:00  
-"""[1:-1]
+        expected_output = "\n".join((
+            "Name   Enabled Timeout  Last Successful Check",
+            "foo    Yes     00:05:00 2019-02-03T00:00:00  ",
+            "barbar Yes     00:05:00 2019-02-04T00:00:00  ",
+        ))
         self.assertEqual(output, expected_output)
     def test_verbose(self):
         output = PrintTableCmd(verbose=True).output(
             self.clients.values())
-        expected_output = """
-Name   Enabled Timeout  Last Successful Check Created             Interval Host            Key ID                                                           Fingerprint                              Check Is Running Last Enabled        Approval Is Pending Approved By Default Last Approval Request Approval Delay Approval Duration Checker              Extended Timeout Expires             Last Checker Status
-foo    Yes     00:05:00 2019-02-03T00:00:00   2019-01-02T00:00:00 00:02:00 foo.example.org 92ed150794387c03ce684574b1139a6594a34f895daaaf09fd8ea90a27cddb12 778827225BA7DE539C5A7CFA59CFF7CDBD9A5920 No               2019-01-03T00:00:00 No                  Yes                                       00:00:00       00:00:01          fping -q -- %(host)s 00:15:00         2019-02-04T00:00:00 0                  
-barbar Yes     00:05:00 2019-02-04T00:00:00   2019-01-03T00:00:00 00:02:00 192.0.2.3       0558568eedd67d622f5c83b35a115f796ab612cff5ad227247e46c2b020f441c 3E393AEAEFB84C7E89E2F547B3A107558FCA3A27 Yes              2019-01-04T00:00:00 No                  No                  2019-01-03T00:00:00   00:00:30       00:00:01          :                    00:15:00         2019-02-05T00:00:00 -2                 
-"""[1:-1]
+        expected_output = "\n".join((
+            # First line (headers)
+            "Name   Enabled Timeout  Last Successful Check Created   "
+            "          Interval Host            Key ID               "
+            "                                            Fingerprint "
+            "                             Check Is Running Last Enabl"
+            "ed        Approval Is Pending Approved By Default Last A"
+            "pproval Request Approval Delay Approval Duration Checker"
+            "              Extended Timeout Expires             Last "
+            "Checker Status",
+            # Second line (client "foo")
+            "foo    Yes     00:05:00 2019-02-03T00:00:00   2019-01-02"
+            "T00:00:00 00:02:00 foo.example.org 92ed150794387c03ce684"
+            "574b1139a6594a34f895daaaf09fd8ea90a27cddb12 778827225BA7"
+            "DE539C5A7CFA59CFF7CDBD9A5920 No               2019-01-03"
+            "T00:00:00 No                  Yes                       "
+            "                00:00:00       00:00:01          fping -"
+            "q -- %(host)s 00:15:00         2019-02-04T00:00:00 0    "
+            "              ",
+            # Third line (client "barbar")
+            "barbar Yes     00:05:00 2019-02-04T00:00:00   2019-01-03"
+            "T00:00:00 00:02:00 192.0.2.3       0558568eedd67d622f5c8"
+            "3b35a115f796ab612cff5ad227247e46c2b020f441c 3E393AEAEFB8"
+            "4C7E89E2F547B3A107558FCA3A27 Yes              2019-01-04"
+            "T00:00:00 No                  No                  2019-0"
+            "1-03T00:00:00   00:00:30       00:00:01          :      "
+            "              00:15:00         2019-02-05T00:00:00 -2   "
+            "              ",
+        ))
         self.assertEqual(output, expected_output)
     def test_one_client(self):
         output = PrintTableCmd().output(self.one_client.values())
@@ -1011,8 +1036,10 @@ class TestDumpJSONCmd(TestCmd):
 
 class TestIsEnabledCmd(TestCmd):
     def test_is_enabled(self):
-        self.assertTrue(all(IsEnabledCmd().is_enabled(client, properties)
-                            for client, properties in self.clients.items()))
+        self.assertTrue(all(IsEnabledCmd().is_enabled(client,
+                                                      properties)
+                            for client, properties
+                            in self.clients.items()))
     def test_is_enabled_run_exits_successfully(self):
         with self.assertRaises(SystemExit) as e:
             IsEnabledCmd().run(self.one_client)
@@ -1211,7 +1238,8 @@ class Test_command_from_options(unittest.TestCase):
     def setUp(self):
         self.parser = argparse.ArgumentParser()
         add_command_line_options(self.parser)
-    def assert_command_from_args(self, args, command_cls, **cmd_attrs):
+    def assert_command_from_args(self, args, command_cls,
+                                 **cmd_attrs):
         """Assert that parsing ARGS should result in an instance of
 COMMAND_CLS with (optionally) all supplied attributes (CMD_ATTRS)."""
         options = self.parser.parse_args(args)
@@ -1386,7 +1414,8 @@ COMMAND_CLS with (optionally) all supplied attributes (CMD_ATTRS)."""
         self.assert_command_from_args(["-V", "foo"], IsEnabledCmd)
 
     def test_deny_before_remove(self):
-        options = self.parser.parse_args(["--deny", "--remove", "foo"])
+        options = self.parser.parse_args(["--deny", "--remove",
+                                          "foo"])
         check_option_syntax(self.parser, options)
         commands = commands_from_options(options)
         self.assertEqual(len(commands), 2)
@@ -1394,7 +1423,8 @@ COMMAND_CLS with (optionally) all supplied attributes (CMD_ATTRS)."""
         self.assertIsInstance(commands[1], RemoveCmd)
 
     def test_deny_before_remove_reversed(self):
-        options = self.parser.parse_args(["--remove", "--deny", "--all"])
+        options = self.parser.parse_args(["--remove", "--deny",
+                                          "--all"])
         check_option_syntax(self.parser, options)
         commands = commands_from_options(options)
         self.assertEqual(len(commands), 2)
@@ -1439,7 +1469,8 @@ class Test_check_option_syntax(unittest.TestCase):
             with self.temporarily_suppress_stderr():
                 yield
         # Exit code from argparse is guaranteed to be "2".  Reference:
-        # https://docs.python.org/3/library/argparse.html#exiting-methods
+        # https://docs.python.org/3/library
+        # /argparse.html#exiting-methods
         self.assertEqual(e.exception.code, 2)
 
     @staticmethod
