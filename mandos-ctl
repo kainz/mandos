@@ -79,13 +79,156 @@ except AttributeError:
     dbus.OBJECT_MANAGER_IFACE = "org.freedesktop.DBus.ObjectManager"
 
 
-def milliseconds_to_string(ms):
-    td = datetime.timedelta(0, 0, 0, ms)
-    return ("{days}{hours:02}:{minutes:02}:{seconds:02}"
-            .format(days="{}T".format(td.days) if td.days else "",
-                    hours=td.seconds // 3600,
-                    minutes=(td.seconds % 3600) // 60,
-                    seconds=td.seconds % 60))
+def main():
+    parser = argparse.ArgumentParser()
+
+    add_command_line_options(parser)
+
+    options = parser.parse_args()
+
+    check_option_syntax(parser, options)
+
+    clientnames = options.client
+
+    if options.debug:
+        log.setLevel(logging.DEBUG)
+
+    try:
+        bus = dbus.SystemBus()
+        log.debug("D-Bus: Connect to: (busname=%r, path=%r)",
+                  dbus_busname, server_dbus_path)
+        mandos_dbus_objc = bus.get_object(dbus_busname,
+                                          server_dbus_path)
+    except dbus.exceptions.DBusException:
+        log.critical("Could not connect to Mandos server")
+        sys.exit(1)
+
+    mandos_serv = dbus.Interface(mandos_dbus_objc,
+                                 dbus_interface=server_dbus_interface)
+    mandos_serv_object_manager = dbus.Interface(
+        mandos_dbus_objc, dbus_interface=dbus.OBJECT_MANAGER_IFACE)
+
+    # Filter out log message from dbus module
+    dbus_logger = logging.getLogger("dbus.proxies")
+    class NullFilter(logging.Filter):
+        def filter(self, record):
+            return False
+    dbus_filter = NullFilter()
+    try:
+        dbus_logger.addFilter(dbus_filter)
+        log.debug("D-Bus: %s:%s:%s.GetManagedObjects()", dbus_busname,
+                  server_dbus_path, dbus.OBJECT_MANAGER_IFACE)
+        mandos_clients = {path: ifs_and_props[client_dbus_interface]
+                          for path, ifs_and_props in
+                          mandos_serv_object_manager
+                          .GetManagedObjects().items()
+                          if client_dbus_interface in ifs_and_props}
+    except dbus.exceptions.DBusException as e:
+        log.critical("Failed to access Mandos server through D-Bus:"
+                     "\n%s", e)
+        sys.exit(1)
+    finally:
+        # restore dbus logger
+        dbus_logger.removeFilter(dbus_filter)
+
+    # Compile dict of (clients: properties) to process
+    clients = {}
+
+    if not clientnames:
+        clients = {objpath: properties
+                   for objpath, properties in mandos_clients.items()}
+    else:
+        for name in clientnames:
+            for objpath, properties in mandos_clients.items():
+                if properties["Name"] == name:
+                    clients[objpath] = properties
+                    break
+            else:
+                log.critical("Client not found on server: %r", name)
+                sys.exit(1)
+
+    # Run all commands on clients
+    commands = commands_from_options(options)
+    for command in commands:
+        command.run(clients, bus, mandos_serv)
+
+
+def add_command_line_options(parser):
+    parser.add_argument("--version", action="version",
+                        version="%(prog)s {}".format(version),
+                        help="show version number and exit")
+    parser.add_argument("-a", "--all", action="store_true",
+                        help="Select all clients")
+    parser.add_argument("-v", "--verbose", action="store_true",
+                        help="Print all fields")
+    parser.add_argument("-j", "--dump-json", action="store_true",
+                        help="Dump client data in JSON format")
+    enable_disable = parser.add_mutually_exclusive_group()
+    enable_disable.add_argument("-e", "--enable", action="store_true",
+                                help="Enable client")
+    enable_disable.add_argument("-d", "--disable",
+                                action="store_true",
+                                help="disable client")
+    parser.add_argument("-b", "--bump-timeout", action="store_true",
+                        help="Bump timeout for client")
+    start_stop_checker = parser.add_mutually_exclusive_group()
+    start_stop_checker.add_argument("--start-checker",
+                                    action="store_true",
+                                    help="Start checker for client")
+    start_stop_checker.add_argument("--stop-checker",
+                                    action="store_true",
+                                    help="Stop checker for client")
+    parser.add_argument("-V", "--is-enabled", action="store_true",
+                        help="Check if client is enabled")
+    parser.add_argument("-r", "--remove", action="store_true",
+                        help="Remove client")
+    parser.add_argument("-c", "--checker",
+                        help="Set checker command for client")
+    parser.add_argument("-t", "--timeout", type=string_to_delta,
+                        help="Set timeout for client")
+    parser.add_argument("--extended-timeout", type=string_to_delta,
+                        help="Set extended timeout for client")
+    parser.add_argument("-i", "--interval", type=string_to_delta,
+                        help="Set checker interval for client")
+    approve_deny_default = parser.add_mutually_exclusive_group()
+    approve_deny_default.add_argument(
+        "--approve-by-default", action="store_true",
+        default=None, dest="approved_by_default",
+        help="Set client to be approved by default")
+    approve_deny_default.add_argument(
+        "--deny-by-default", action="store_false",
+        dest="approved_by_default",
+        help="Set client to be denied by default")
+    parser.add_argument("--approval-delay", type=string_to_delta,
+                        help="Set delay before client approve/deny")
+    parser.add_argument("--approval-duration", type=string_to_delta,
+                        help="Set duration of one client approval")
+    parser.add_argument("-H", "--host", help="Set host for client")
+    parser.add_argument("-s", "--secret",
+                        type=argparse.FileType(mode="rb"),
+                        help="Set password blob (file) for client")
+    approve_deny = parser.add_mutually_exclusive_group()
+    approve_deny.add_argument(
+        "-A", "--approve", action="store_true",
+        help="Approve any current client request")
+    approve_deny.add_argument("-D", "--deny", action="store_true",
+                              help="Deny any current client request")
+    parser.add_argument("--debug", action="store_true",
+                        help="Debug mode (show D-Bus commands)")
+    parser.add_argument("--check", action="store_true",
+                        help="Run self-test")
+    parser.add_argument("client", nargs="*", help="Client name")
+
+
+def string_to_delta(interval):
+    """Parse a string and return a datetime.timedelta"""
+
+    try:
+        return rfc3339_duration_to_delta(interval)
+    except ValueError as e:
+        log.warning("%s - Parsing as pre-1.6.1 interval instead",
+                    ' '.join(e.args))
+    return parse_pre_1_6_1_interval(interval)
 
 
 def rfc3339_duration_to_delta(duration):
@@ -218,17 +361,6 @@ def rfc3339_duration_to_delta(duration):
     return value
 
 
-def string_to_delta(interval):
-    """Parse a string and return a datetime.timedelta"""
-
-    try:
-        return rfc3339_duration_to_delta(interval)
-    except ValueError as e:
-        log.warning("%s - Parsing as pre-1.6.1 interval instead",
-                    ' '.join(e.args))
-    return parse_pre_1_6_1_interval(interval)
-
-
 def parse_pre_1_6_1_interval(interval):
     """Parse an interval string as documented by Mandos before 1.6.1,
     and return a datetime.timedelta
@@ -272,9 +404,122 @@ def parse_pre_1_6_1_interval(interval):
     return value
 
 
-## Classes for commands.
+def check_option_syntax(parser, options):
+    """Apply additional restrictions on options, not expressible in
+argparse"""
 
-# Abstract classes first
+    def has_actions(options):
+        return any((options.enable,
+                    options.disable,
+                    options.bump_timeout,
+                    options.start_checker,
+                    options.stop_checker,
+                    options.is_enabled,
+                    options.remove,
+                    options.checker is not None,
+                    options.timeout is not None,
+                    options.extended_timeout is not None,
+                    options.interval is not None,
+                    options.approved_by_default is not None,
+                    options.approval_delay is not None,
+                    options.approval_duration is not None,
+                    options.host is not None,
+                    options.secret is not None,
+                    options.approve,
+                    options.deny))
+
+    if has_actions(options) and not (options.client or options.all):
+        parser.error("Options require clients names or --all.")
+    if options.verbose and has_actions(options):
+        parser.error("--verbose can only be used alone.")
+    if options.dump_json and (options.verbose
+                              or has_actions(options)):
+        parser.error("--dump-json can only be used alone.")
+    if options.all and not has_actions(options):
+        parser.error("--all requires an action.")
+    if options.is_enabled and len(options.client) > 1:
+        parser.error("--is-enabled requires exactly one client")
+    if options.remove:
+        options.remove = False
+        if has_actions(options) and not options.deny:
+            parser.error("--remove can only be combined with --deny")
+        options.remove = True
+
+
+def commands_from_options(options):
+
+    commands = []
+
+    if options.is_enabled:
+        commands.append(IsEnabledCmd())
+
+    if options.approve:
+        commands.append(ApproveCmd())
+
+    if options.deny:
+        commands.append(DenyCmd())
+
+    if options.remove:
+        commands.append(RemoveCmd())
+
+    if options.dump_json:
+        commands.append(DumpJSONCmd())
+
+    if options.enable:
+        commands.append(EnableCmd())
+
+    if options.disable:
+        commands.append(DisableCmd())
+
+    if options.bump_timeout:
+        commands.append(BumpTimeoutCmd())
+
+    if options.start_checker:
+        commands.append(StartCheckerCmd())
+
+    if options.stop_checker:
+        commands.append(StopCheckerCmd())
+
+    if options.approved_by_default is not None:
+        if options.approved_by_default:
+            commands.append(ApproveByDefaultCmd())
+        else:
+            commands.append(DenyByDefaultCmd())
+
+    if options.checker is not None:
+        commands.append(SetCheckerCmd(options.checker))
+
+    if options.host is not None:
+        commands.append(SetHostCmd(options.host))
+
+    if options.secret is not None:
+        commands.append(SetSecretCmd(options.secret))
+
+    if options.timeout is not None:
+        commands.append(SetTimeoutCmd(options.timeout))
+
+    if options.extended_timeout:
+        commands.append(
+            SetExtendedTimeoutCmd(options.extended_timeout))
+
+    if options.interval is not None:
+        commands.append(SetIntervalCmd(options.interval))
+
+    if options.approval_delay is not None:
+        commands.append(SetApprovalDelayCmd(options.approval_delay))
+
+    if options.approval_duration is not None:
+        commands.append(
+            SetApprovalDurationCmd(options.approval_duration))
+
+    # If no command option has been given, show table of clients,
+    # optionally verbosely
+    if not commands:
+        commands.append(PrintTableCmd(verbose=options.verbose))
+
+    return commands
+
+
 class Command(object):
     """Abstract class for commands"""
     def run(self, clients, bus=None, mandos=None):
@@ -287,6 +532,41 @@ class Command(object):
                       dbus_busname, str(clientpath))
             client = bus.get_object(dbus_busname, clientpath)
             self.run_on_one_client(client, properties)
+
+
+class IsEnabledCmd(Command):
+    def run(self, clients, bus=None, mandos=None):
+        client, properties = next(iter(clients.items()))
+        if self.is_enabled(client, properties):
+            sys.exit(0)
+        sys.exit(1)
+    def is_enabled(self, client, properties):
+        return properties["Enabled"]
+
+
+class ApproveCmd(Command):
+    def run_on_one_client(self, client, properties):
+        log.debug("D-Bus: %s:%s:%s.Approve(True)", dbus_busname,
+                  client.__dbus_object_path__, client_dbus_interface)
+        client.Approve(dbus.Boolean(True),
+                       dbus_interface=client_dbus_interface)
+
+
+class DenyCmd(Command):
+    def run_on_one_client(self, client, properties):
+        log.debug("D-Bus: %s:%s:%s.Approve(False)", dbus_busname,
+                  client.__dbus_object_path__, client_dbus_interface)
+        client.Approve(dbus.Boolean(False),
+                       dbus_interface=client_dbus_interface)
+
+
+class RemoveCmd(Command):
+    def run_on_one_client(self, client, properties):
+        log.debug("D-Bus: %s:%s:%s.RemoveClient(%r)", dbus_busname,
+                  server_dbus_path, server_dbus_interface,
+                  str(client.__dbus_object_path__))
+        self.mandos.RemoveClient(client.__dbus_object_path__)
+
 
 class PrintCmd(Command):
     """Abstract class for commands printing client details"""
@@ -302,40 +582,20 @@ class PrintCmd(Command):
     def output(self, clients):
         raise NotImplementedError()
 
-class PropertyCmd(Command):
-    """Abstract class for Actions for setting one client property"""
-    def run_on_one_client(self, client, properties):
-        """Set the Client's D-Bus property"""
-        log.debug("D-Bus: %s:%s:%s.Set(%r, %r, %r)", dbus_busname,
-                  client.__dbus_object_path__,
-                  dbus.PROPERTIES_IFACE, client_dbus_interface,
-                  self.propname, self.value_to_set
-                  if not isinstance(self.value_to_set, dbus.Boolean)
-                  else bool(self.value_to_set))
-        client.Set(client_dbus_interface, self.propname,
-                   self.value_to_set,
-                   dbus_interface=dbus.PROPERTIES_IFACE)
-    @property
-    def propname(self):
-        raise NotImplementedError()
 
-class PropertyValueCmd(PropertyCmd):
-    """Abstract class for PropertyCmd recieving a value as argument"""
-    def __init__(self, value):
-        self.value_to_set = value
+class DumpJSONCmd(PrintCmd):
+    def output(self, clients):
+        data = {client["Name"]:
+                {key: self.dbus_boolean_to_bool(client[key])
+                 for key in self.all_keywords}
+                for client in clients.values()}
+        return json.dumps(data, indent=4, separators=(',', ': '))
+    @staticmethod
+    def dbus_boolean_to_bool(value):
+        if isinstance(value, dbus.Boolean):
+            value = bool(value)
+        return value
 
-class MillisecondsPropertyValueArgumentCmd(PropertyValueCmd):
-    """Abstract class for PropertyValueCmd taking a value argument as
-a datetime.timedelta() but should store it as milliseconds."""
-    @property
-    def value_to_set(self):
-        return self._vts
-    @value_to_set.setter
-    def value_to_set(self, value):
-        """When setting, convert value from a datetime.timedelta"""
-        self._vts = int(round(value.total_seconds() * 1000))
-
-# Actual (non-abstract) command classes
 
 class PrintTableCmd(PrintCmd):
     def __init__(self, verbose=False):
@@ -424,83 +684,81 @@ class PrintTableCmd(PrintCmd):
                    for key in self.keywords})
 
 
+def milliseconds_to_string(ms):
+    td = datetime.timedelta(0, 0, 0, ms)
+    return ("{days}{hours:02}:{minutes:02}:{seconds:02}"
+            .format(days="{}T".format(td.days) if td.days else "",
+                    hours=td.seconds // 3600,
+                    minutes=(td.seconds % 3600) // 60,
+                    seconds=td.seconds % 60))
 
-class DumpJSONCmd(PrintCmd):
-    def output(self, clients):
-        data = {client["Name"]:
-                {key: self.dbus_boolean_to_bool(client[key])
-                 for key in self.all_keywords}
-                for client in clients.values()}
-        return json.dumps(data, indent=4, separators=(',', ': '))
-    @staticmethod
-    def dbus_boolean_to_bool(value):
-        if isinstance(value, dbus.Boolean):
-            value = bool(value)
-        return value
 
-class IsEnabledCmd(Command):
-    def run(self, clients, bus=None, mandos=None):
-        client, properties = next(iter(clients.items()))
-        if self.is_enabled(client, properties):
-            sys.exit(0)
-        sys.exit(1)
-    def is_enabled(self, client, properties):
-        return properties["Enabled"]
-
-class RemoveCmd(Command):
+class PropertyCmd(Command):
+    """Abstract class for Actions for setting one client property"""
     def run_on_one_client(self, client, properties):
-        log.debug("D-Bus: %s:%s:%s.RemoveClient(%r)", dbus_busname,
-                  server_dbus_path, server_dbus_interface,
-                  str(client.__dbus_object_path__))
-        self.mandos.RemoveClient(client.__dbus_object_path__)
+        """Set the Client's D-Bus property"""
+        log.debug("D-Bus: %s:%s:%s.Set(%r, %r, %r)", dbus_busname,
+                  client.__dbus_object_path__,
+                  dbus.PROPERTIES_IFACE, client_dbus_interface,
+                  self.propname, self.value_to_set
+                  if not isinstance(self.value_to_set, dbus.Boolean)
+                  else bool(self.value_to_set))
+        client.Set(client_dbus_interface, self.propname,
+                   self.value_to_set,
+                   dbus_interface=dbus.PROPERTIES_IFACE)
+    @property
+    def propname(self):
+        raise NotImplementedError()
 
-class ApproveCmd(Command):
-    def run_on_one_client(self, client, properties):
-        log.debug("D-Bus: %s:%s:%s.Approve(True)", dbus_busname,
-                  client.__dbus_object_path__, client_dbus_interface)
-        client.Approve(dbus.Boolean(True),
-                       dbus_interface=client_dbus_interface)
-
-class DenyCmd(Command):
-    def run_on_one_client(self, client, properties):
-        log.debug("D-Bus: %s:%s:%s.Approve(False)", dbus_busname,
-                  client.__dbus_object_path__, client_dbus_interface)
-        client.Approve(dbus.Boolean(False),
-                       dbus_interface=client_dbus_interface)
 
 class EnableCmd(PropertyCmd):
     propname = "Enabled"
     value_to_set = dbus.Boolean(True)
 
+
 class DisableCmd(PropertyCmd):
     propname = "Enabled"
     value_to_set = dbus.Boolean(False)
+
 
 class BumpTimeoutCmd(PropertyCmd):
     propname = "LastCheckedOK"
     value_to_set = ""
 
+
 class StartCheckerCmd(PropertyCmd):
     propname = "CheckerRunning"
     value_to_set = dbus.Boolean(True)
+
 
 class StopCheckerCmd(PropertyCmd):
     propname = "CheckerRunning"
     value_to_set = dbus.Boolean(False)
 
+
 class ApproveByDefaultCmd(PropertyCmd):
     propname = "ApprovedByDefault"
     value_to_set = dbus.Boolean(True)
+
 
 class DenyByDefaultCmd(PropertyCmd):
     propname = "ApprovedByDefault"
     value_to_set = dbus.Boolean(False)
 
+
+class PropertyValueCmd(PropertyCmd):
+    """Abstract class for PropertyCmd recieving a value as argument"""
+    def __init__(self, value):
+        self.value_to_set = value
+
+
 class SetCheckerCmd(PropertyValueCmd):
     propname = "Checker"
 
+
 class SetHostCmd(PropertyValueCmd):
     propname = "Host"
+
 
 class SetSecretCmd(PropertyValueCmd):
     propname = "Secret"
@@ -513,291 +771,40 @@ class SetSecretCmd(PropertyValueCmd):
         self._vts = value.read()
         value.close()
 
+
+class MillisecondsPropertyValueArgumentCmd(PropertyValueCmd):
+    """Abstract class for PropertyValueCmd taking a value argument as
+a datetime.timedelta() but should store it as milliseconds."""
+    @property
+    def value_to_set(self):
+        return self._vts
+    @value_to_set.setter
+    def value_to_set(self, value):
+        """When setting, convert value from a datetime.timedelta"""
+        self._vts = int(round(value.total_seconds() * 1000))
+
+
 class SetTimeoutCmd(MillisecondsPropertyValueArgumentCmd):
     propname = "Timeout"
+
 
 class SetExtendedTimeoutCmd(MillisecondsPropertyValueArgumentCmd):
     propname = "ExtendedTimeout"
 
+
 class SetIntervalCmd(MillisecondsPropertyValueArgumentCmd):
     propname = "Interval"
+
 
 class SetApprovalDelayCmd(MillisecondsPropertyValueArgumentCmd):
     propname = "ApprovalDelay"
 
+
 class SetApprovalDurationCmd(MillisecondsPropertyValueArgumentCmd):
     propname = "ApprovalDuration"
 
-def add_command_line_options(parser):
-    parser.add_argument("--version", action="version",
-                        version="%(prog)s {}".format(version),
-                        help="show version number and exit")
-    parser.add_argument("-a", "--all", action="store_true",
-                        help="Select all clients")
-    parser.add_argument("-v", "--verbose", action="store_true",
-                        help="Print all fields")
-    parser.add_argument("-j", "--dump-json", action="store_true",
-                        help="Dump client data in JSON format")
-    enable_disable = parser.add_mutually_exclusive_group()
-    enable_disable.add_argument("-e", "--enable", action="store_true",
-                                help="Enable client")
-    enable_disable.add_argument("-d", "--disable",
-                                action="store_true",
-                                help="disable client")
-    parser.add_argument("-b", "--bump-timeout", action="store_true",
-                        help="Bump timeout for client")
-    start_stop_checker = parser.add_mutually_exclusive_group()
-    start_stop_checker.add_argument("--start-checker",
-                                    action="store_true",
-                                    help="Start checker for client")
-    start_stop_checker.add_argument("--stop-checker",
-                                    action="store_true",
-                                    help="Stop checker for client")
-    parser.add_argument("-V", "--is-enabled", action="store_true",
-                        help="Check if client is enabled")
-    parser.add_argument("-r", "--remove", action="store_true",
-                        help="Remove client")
-    parser.add_argument("-c", "--checker",
-                        help="Set checker command for client")
-    parser.add_argument("-t", "--timeout", type=string_to_delta,
-                        help="Set timeout for client")
-    parser.add_argument("--extended-timeout", type=string_to_delta,
-                        help="Set extended timeout for client")
-    parser.add_argument("-i", "--interval", type=string_to_delta,
-                        help="Set checker interval for client")
-    approve_deny_default = parser.add_mutually_exclusive_group()
-    approve_deny_default.add_argument(
-        "--approve-by-default", action="store_true",
-        default=None, dest="approved_by_default",
-        help="Set client to be approved by default")
-    approve_deny_default.add_argument(
-        "--deny-by-default", action="store_false",
-        dest="approved_by_default",
-        help="Set client to be denied by default")
-    parser.add_argument("--approval-delay", type=string_to_delta,
-                        help="Set delay before client approve/deny")
-    parser.add_argument("--approval-duration", type=string_to_delta,
-                        help="Set duration of one client approval")
-    parser.add_argument("-H", "--host", help="Set host for client")
-    parser.add_argument("-s", "--secret",
-                        type=argparse.FileType(mode="rb"),
-                        help="Set password blob (file) for client")
-    approve_deny = parser.add_mutually_exclusive_group()
-    approve_deny.add_argument(
-        "-A", "--approve", action="store_true",
-        help="Approve any current client request")
-    approve_deny.add_argument("-D", "--deny", action="store_true",
-                              help="Deny any current client request")
-    parser.add_argument("--debug", action="store_true",
-                        help="Debug mode (show D-Bus commands)")
-    parser.add_argument("--check", action="store_true",
-                        help="Run self-test")
-    parser.add_argument("client", nargs="*", help="Client name")
-
-
-def commands_from_options(options):
-
-    commands = []
-
-    if options.dump_json:
-        commands.append(DumpJSONCmd())
-
-    if options.enable:
-        commands.append(EnableCmd())
-
-    if options.disable:
-        commands.append(DisableCmd())
-
-    if options.bump_timeout:
-        commands.append(BumpTimeoutCmd())
-
-    if options.start_checker:
-        commands.append(StartCheckerCmd())
-
-    if options.stop_checker:
-        commands.append(StopCheckerCmd())
-
-    if options.is_enabled:
-        commands.append(IsEnabledCmd())
-
-    if options.checker is not None:
-        commands.append(SetCheckerCmd(options.checker))
-
-    if options.timeout is not None:
-        commands.append(SetTimeoutCmd(options.timeout))
-
-    if options.extended_timeout:
-        commands.append(
-            SetExtendedTimeoutCmd(options.extended_timeout))
-
-    if options.interval is not None:
-        commands.append(SetIntervalCmd(options.interval))
-
-    if options.approved_by_default is not None:
-        if options.approved_by_default:
-            commands.append(ApproveByDefaultCmd())
-        else:
-            commands.append(DenyByDefaultCmd())
-
-    if options.approval_delay is not None:
-        commands.append(SetApprovalDelayCmd(options.approval_delay))
-
-    if options.approval_duration is not None:
-        commands.append(
-            SetApprovalDurationCmd(options.approval_duration))
-
-    if options.host is not None:
-        commands.append(SetHostCmd(options.host))
-
-    if options.secret is not None:
-        commands.append(SetSecretCmd(options.secret))
-
-    if options.approve:
-        commands.append(ApproveCmd())
-
-    if options.deny:
-        commands.append(DenyCmd())
-
-    if options.remove:
-        commands.append(RemoveCmd())
-
-    # If no command option has been given, show table of clients,
-    # optionally verbosely
-    if not commands:
-        commands.append(PrintTableCmd(verbose=options.verbose))
-
-    return commands
-
-
-def check_option_syntax(parser, options):
-    """Apply additional restrictions on options, not expressible in
-argparse"""
-
-    def has_actions(options):
-        return any((options.enable,
-                    options.disable,
-                    options.bump_timeout,
-                    options.start_checker,
-                    options.stop_checker,
-                    options.is_enabled,
-                    options.remove,
-                    options.checker is not None,
-                    options.timeout is not None,
-                    options.extended_timeout is not None,
-                    options.interval is not None,
-                    options.approved_by_default is not None,
-                    options.approval_delay is not None,
-                    options.approval_duration is not None,
-                    options.host is not None,
-                    options.secret is not None,
-                    options.approve,
-                    options.deny))
-
-    if has_actions(options) and not (options.client or options.all):
-        parser.error("Options require clients names or --all.")
-    if options.verbose and has_actions(options):
-        parser.error("--verbose can only be used alone.")
-    if options.dump_json and (options.verbose
-                              or has_actions(options)):
-        parser.error("--dump-json can only be used alone.")
-    if options.all and not has_actions(options):
-        parser.error("--all requires an action.")
-    if options.is_enabled and len(options.client) > 1:
-        parser.error("--is-enabled requires exactly one client")
-    if options.remove:
-        options.remove = False
-        if has_actions(options) and not options.deny:
-            parser.error("--remove can only be combined with --deny")
-        options.remove = True
-
-
-def main():
-    parser = argparse.ArgumentParser()
-
-    add_command_line_options(parser)
-
-    options = parser.parse_args()
-
-    check_option_syntax(parser, options)
-
-    clientnames = options.client
-
-    if options.debug:
-        log.setLevel(logging.DEBUG)
-
-    try:
-        bus = dbus.SystemBus()
-        log.debug("D-Bus: Connect to: (busname=%r, path=%r)",
-                  dbus_busname, server_dbus_path)
-        mandos_dbus_objc = bus.get_object(dbus_busname,
-                                          server_dbus_path)
-    except dbus.exceptions.DBusException:
-        log.critical("Could not connect to Mandos server")
-        sys.exit(1)
-
-    mandos_serv = dbus.Interface(mandos_dbus_objc,
-                                 dbus_interface=server_dbus_interface)
-    mandos_serv_object_manager = dbus.Interface(
-        mandos_dbus_objc, dbus_interface=dbus.OBJECT_MANAGER_IFACE)
-
-    # Filter out log message from dbus module
-    dbus_logger = logging.getLogger("dbus.proxies")
-    class NullFilter(logging.Filter):
-        def filter(self, record):
-            return False
-    dbus_filter = NullFilter()
-    try:
-        dbus_logger.addFilter(dbus_filter)
-        log.debug("D-Bus: %s:%s:%s.GetManagedObjects()", dbus_busname,
-                  server_dbus_path, dbus.OBJECT_MANAGER_IFACE)
-        mandos_clients = {path: ifs_and_props[client_dbus_interface]
-                          for path, ifs_and_props in
-                          mandos_serv_object_manager
-                          .GetManagedObjects().items()
-                          if client_dbus_interface in ifs_and_props}
-    except dbus.exceptions.DBusException as e:
-        log.critical("Failed to access Mandos server through D-Bus:"
-                     "\n%s", e)
-        sys.exit(1)
-    finally:
-        # restore dbus logger
-        dbus_logger.removeFilter(dbus_filter)
-
-    # Compile dict of (clients: properties) to process
-    clients = {}
-
-    if not clientnames:
-        clients = {objpath: properties
-                   for objpath, properties in mandos_clients.items()}
-    else:
-        for name in clientnames:
-            for objpath, properties in mandos_clients.items():
-                if properties["Name"] == name:
-                    clients[objpath] = properties
-                    break
-            else:
-                log.critical("Client not found on server: %r", name)
-                sys.exit(1)
-
-    # Run all commands on clients
-    commands = commands_from_options(options)
-    for command in commands:
-        command.run(clients, bus, mandos_serv)
 
 
-class Test_milliseconds_to_string(unittest.TestCase):
-    def test_all(self):
-        self.assertEqual(milliseconds_to_string(93785000),
-                         "1T02:03:05")
-    def test_no_days(self):
-        self.assertEqual(milliseconds_to_string(7385000), "02:03:05")
-    def test_all_zero(self):
-        self.assertEqual(milliseconds_to_string(0), "00:00:00")
-    def test_no_fractional_seconds(self):
-        self.assertEqual(milliseconds_to_string(400), "00:00:00")
-        self.assertEqual(milliseconds_to_string(900), "00:00:00")
-        self.assertEqual(milliseconds_to_string(1900), "00:00:01")
-
 class Test_string_to_delta(unittest.TestCase):
     def test_handles_basic_rfc3339(self):
         self.assertEqual(string_to_delta("PT0S"),
@@ -831,469 +838,137 @@ class Test_string_to_delta(unittest.TestCase):
         self.assertEqual(value, datetime.timedelta(0, 7200))
 
 
-class TestCmd(unittest.TestCase):
-    """Abstract class for tests of command classes"""
+class Test_check_option_syntax(unittest.TestCase):
+    # This mostly corresponds to the definition from has_actions() in
+    # check_option_syntax()
+    actions = {
+        # The actual values set here are not that important, but we do
+        # at least stick to the correct types, even though they are
+        # never used
+        "enable": True,
+        "disable": True,
+        "bump_timeout": True,
+        "start_checker": True,
+        "stop_checker": True,
+        "is_enabled": True,
+        "remove": True,
+        "checker": "x",
+        "timeout": datetime.timedelta(),
+        "extended_timeout": datetime.timedelta(),
+        "interval": datetime.timedelta(),
+        "approved_by_default": True,
+        "approval_delay": datetime.timedelta(),
+        "approval_duration": datetime.timedelta(),
+        "host": "x",
+        "secret": io.BytesIO(b"x"),
+        "approve": True,
+        "deny": True,
+    }
+
     def setUp(self):
-        testcase = self
-        class MockClient(object):
-            def __init__(self, name, **attributes):
-                self.__dbus_object_path__ = "/clients/{}".format(name)
-                self.attributes = attributes
-                self.attributes["Name"] = name
-                self.calls = []
-            def Set(self, interface, propname, value, dbus_interface):
-                testcase.assertEqual(interface, client_dbus_interface)
-                testcase.assertEqual(dbus_interface,
-                                     dbus.PROPERTIES_IFACE)
-                self.attributes[propname] = value
-            def Get(self, interface, propname, dbus_interface):
-                testcase.assertEqual(interface, client_dbus_interface)
-                testcase.assertEqual(dbus_interface,
-                                     dbus.PROPERTIES_IFACE)
-                return self.attributes[propname]
-            def Approve(self, approve, dbus_interface):
-                testcase.assertEqual(dbus_interface,
-                                     client_dbus_interface)
-                self.calls.append(("Approve", (approve,
-                                               dbus_interface)))
-        self.client = MockClient(
-            "foo",
-            KeyID=("92ed150794387c03ce684574b1139a65"
-                   "94a34f895daaaf09fd8ea90a27cddb12"),
-            Secret=b"secret",
-            Host="foo.example.org",
-            Enabled=dbus.Boolean(True),
-            Timeout=300000,
-            LastCheckedOK="2019-02-03T00:00:00",
-            Created="2019-01-02T00:00:00",
-            Interval=120000,
-            Fingerprint=("778827225BA7DE539C5A"
-                         "7CFA59CFF7CDBD9A5920"),
-            CheckerRunning=dbus.Boolean(False),
-            LastEnabled="2019-01-03T00:00:00",
-            ApprovalPending=dbus.Boolean(False),
-            ApprovedByDefault=dbus.Boolean(True),
-            LastApprovalRequest="",
-            ApprovalDelay=0,
-            ApprovalDuration=1000,
-            Checker="fping -q -- %(host)s",
-            ExtendedTimeout=900000,
-            Expires="2019-02-04T00:00:00",
-            LastCheckerStatus=0)
-        self.other_client = MockClient(
-            "barbar",
-            KeyID=("0558568eedd67d622f5c83b35a115f79"
-                   "6ab612cff5ad227247e46c2b020f441c"),
-            Secret=b"secretbar",
-            Host="192.0.2.3",
-            Enabled=dbus.Boolean(True),
-            Timeout=300000,
-            LastCheckedOK="2019-02-04T00:00:00",
-            Created="2019-01-03T00:00:00",
-            Interval=120000,
-            Fingerprint=("3E393AEAEFB84C7E89E2"
-                         "F547B3A107558FCA3A27"),
-            CheckerRunning=dbus.Boolean(True),
-            LastEnabled="2019-01-04T00:00:00",
-            ApprovalPending=dbus.Boolean(False),
-            ApprovedByDefault=dbus.Boolean(False),
-            LastApprovalRequest="2019-01-03T00:00:00",
-            ApprovalDelay=30000,
-            ApprovalDuration=1000,
-            Checker=":",
-            ExtendedTimeout=900000,
-            Expires="2019-02-05T00:00:00",
-            LastCheckerStatus=-2)
-        self.clients =  collections.OrderedDict(
-            [
-                ("/clients/foo", self.client.attributes),
-                ("/clients/barbar", self.other_client.attributes),
-            ])
-        self.one_client = {"/clients/foo": self.client.attributes}
-    @property
-    def bus(self):
-        class Bus(object):
-            @staticmethod
-            def get_object(client_bus_name, path):
-                self.assertEqual(client_bus_name, dbus_busname)
-                return {
-                    "/clients/foo": self.client,
-                    "/clients/barbar": self.other_client,
-                }[path]
-        return Bus()
+        self.parser = argparse.ArgumentParser()
+        add_command_line_options(self.parser)
 
-class TestPrintTableCmd(TestCmd):
-    def test_normal(self):
-        output = PrintTableCmd().output(self.clients.values())
-        expected_output = "\n".join((
-            "Name   Enabled Timeout  Last Successful Check",
-            "foo    Yes     00:05:00 2019-02-03T00:00:00  ",
-            "barbar Yes     00:05:00 2019-02-04T00:00:00  ",
-        ))
-        self.assertEqual(output, expected_output)
-    def test_verbose(self):
-        output = PrintTableCmd(verbose=True).output(
-            self.clients.values())
-        columns = (
-            (
-                "Name   ",
-                "foo    ",
-                "barbar ",
-            ),(
-                "Enabled ",
-                "Yes     ",
-                "Yes     ",
-            ),(
-                "Timeout  ",
-                "00:05:00 ",
-                "00:05:00 ",
-            ),(
-                "Last Successful Check ",
-                "2019-02-03T00:00:00   ",
-                "2019-02-04T00:00:00   ",
-            ),(
-                "Created             ",
-                "2019-01-02T00:00:00 ",
-                "2019-01-03T00:00:00 ",
-            ),(
-                "Interval ",
-                "00:02:00 ",
-                "00:02:00 ",
-            ),(
-                "Host            ",
-                "foo.example.org ",
-                "192.0.2.3       ",
-            ),(
-                ("Key ID                                             "
-                 "              "),
-                ("92ed150794387c03ce684574b1139a6594a34f895daaaf09fd8"
-                 "ea90a27cddb12 "),
-                ("0558568eedd67d622f5c83b35a115f796ab612cff5ad227247e"
-                 "46c2b020f441c "),
-            ),(
-                "Fingerprint                              ",
-                "778827225BA7DE539C5A7CFA59CFF7CDBD9A5920 ",
-                "3E393AEAEFB84C7E89E2F547B3A107558FCA3A27 ",
-            ),(
-                "Check Is Running ",
-                "No               ",
-                "Yes              ",
-            ),(
-                "Last Enabled        ",
-                "2019-01-03T00:00:00 ",
-                "2019-01-04T00:00:00 ",
-            ),(
-                "Approval Is Pending ",
-                "No                  ",
-                "No                  ",
-            ),(
-                "Approved By Default ",
-                "Yes                 ",
-                "No                  ",
-            ),(
-                "Last Approval Request ",
-                "                      ",
-                "2019-01-03T00:00:00   ",
-            ),(
-                "Approval Delay ",
-                "00:00:00       ",
-                "00:00:30       ",
-            ),(
-                "Approval Duration ",
-                "00:00:01          ",
-                "00:00:01          ",
-            ),(
-                "Checker              ",
-                "fping -q -- %(host)s ",
-                ":                    ",
-            ),(
-                "Extended Timeout ",
-                "00:15:00         ",
-                "00:15:00         ",
-            ),(
-                "Expires             ",
-                "2019-02-04T00:00:00 ",
-                "2019-02-05T00:00:00 ",
-            ),(
-                "Last Checker Status",
-                "0                  ",
-                "-2                 ",
-            )
-        )
-        num_lines = max(len(rows) for rows in columns)
-        expected_output = "\n".join("".join(rows[line]
-                                            for rows in columns)
-                                    for line in range(num_lines))
-        self.assertEqual(output, expected_output)
-    def test_one_client(self):
-        output = PrintTableCmd().output(self.one_client.values())
-        expected_output = """
-Name Enabled Timeout  Last Successful Check
-foo  Yes     00:05:00 2019-02-03T00:00:00  
-"""[1:-1]
-        self.assertEqual(output, expected_output)
-
-class TestDumpJSONCmd(TestCmd):
-    def setUp(self):
-        self.expected_json = {
-            "foo": {
-                "Name": "foo",
-                "KeyID": ("92ed150794387c03ce684574b1139a65"
-                          "94a34f895daaaf09fd8ea90a27cddb12"),
-                "Host": "foo.example.org",
-                "Enabled": True,
-                "Timeout": 300000,
-                "LastCheckedOK": "2019-02-03T00:00:00",
-                "Created": "2019-01-02T00:00:00",
-                "Interval": 120000,
-                "Fingerprint": ("778827225BA7DE539C5A"
-                                "7CFA59CFF7CDBD9A5920"),
-                "CheckerRunning": False,
-                "LastEnabled": "2019-01-03T00:00:00",
-                "ApprovalPending": False,
-                "ApprovedByDefault": True,
-                "LastApprovalRequest": "",
-                "ApprovalDelay": 0,
-                "ApprovalDuration": 1000,
-                "Checker": "fping -q -- %(host)s",
-                "ExtendedTimeout": 900000,
-                "Expires": "2019-02-04T00:00:00",
-                "LastCheckerStatus": 0,
-            },
-            "barbar": {
-                "Name": "barbar",
-                "KeyID": ("0558568eedd67d622f5c83b35a115f79"
-                          "6ab612cff5ad227247e46c2b020f441c"),
-                "Host": "192.0.2.3",
-                "Enabled": True,
-                "Timeout": 300000,
-                "LastCheckedOK": "2019-02-04T00:00:00",
-                "Created": "2019-01-03T00:00:00",
-                "Interval": 120000,
-                "Fingerprint": ("3E393AEAEFB84C7E89E2"
-                                "F547B3A107558FCA3A27"),
-                "CheckerRunning": True,
-                "LastEnabled": "2019-01-04T00:00:00",
-                "ApprovalPending": False,
-                "ApprovedByDefault": False,
-                "LastApprovalRequest": "2019-01-03T00:00:00",
-                "ApprovalDelay": 30000,
-                "ApprovalDuration": 1000,
-                "Checker": ":",
-                "ExtendedTimeout": 900000,
-                "Expires": "2019-02-05T00:00:00",
-                "LastCheckerStatus": -2,
-            },
-        }
-        return super(TestDumpJSONCmd, self).setUp()
-    def test_normal(self):
-        json_data = json.loads(DumpJSONCmd().output(self.clients))
-        self.assertDictEqual(json_data, self.expected_json)
-    def test_one_client(self):
-        clients = self.one_client
-        json_data = json.loads(DumpJSONCmd().output(clients))
-        expected_json = {"foo": self.expected_json["foo"]}
-        self.assertDictEqual(json_data, expected_json)
-
-class TestIsEnabledCmd(TestCmd):
-    def test_is_enabled(self):
-        self.assertTrue(all(IsEnabledCmd().is_enabled(client,
-                                                      properties)
-                            for client, properties
-                            in self.clients.items()))
-    def test_is_enabled_run_exits_successfully(self):
+    @contextlib.contextmanager
+    def assertParseError(self):
         with self.assertRaises(SystemExit) as e:
-            IsEnabledCmd().run(self.one_client)
-        if e.exception.code is not None:
-            self.assertEqual(e.exception.code, 0)
-        else:
-            self.assertIsNone(e.exception.code)
-    def test_is_enabled_run_exits_with_failure(self):
-        self.client.attributes["Enabled"] = dbus.Boolean(False)
-        with self.assertRaises(SystemExit) as e:
-            IsEnabledCmd().run(self.one_client)
-        if isinstance(e.exception.code, int):
-            self.assertNotEqual(e.exception.code, 0)
-        else:
-            self.assertIsNotNone(e.exception.code)
+            with self.temporarily_suppress_stderr():
+                yield
+        # Exit code from argparse is guaranteed to be "2".  Reference:
+        # https://docs.python.org/3/library
+        # /argparse.html#exiting-methods
+        self.assertEqual(e.exception.code, 2)
 
-class TestRemoveCmd(TestCmd):
-    def test_remove(self):
-        class MockMandos(object):
-            def __init__(self):
-                self.calls = []
-            def RemoveClient(self, dbus_path):
-                self.calls.append(("RemoveClient", (dbus_path,)))
-        mandos = MockMandos()
-        super(TestRemoveCmd, self).setUp()
-        RemoveCmd().run(self.clients, self.bus, mandos)
-        self.assertEqual(len(mandos.calls), 2)
-        for clientpath in self.clients:
-            self.assertIn(("RemoveClient", (clientpath,)),
-                          mandos.calls)
+    @staticmethod
+    @contextlib.contextmanager
+    def temporarily_suppress_stderr():
+        null = os.open(os.path.devnull, os.O_RDWR)
+        stderrcopy = os.dup(sys.stderr.fileno())
+        os.dup2(null, sys.stderr.fileno())
+        os.close(null)
+        try:
+            yield
+        finally:
+            # restore stderr
+            os.dup2(stderrcopy, sys.stderr.fileno())
+            os.close(stderrcopy)
 
-class TestApproveCmd(TestCmd):
-    def test_approve(self):
-        ApproveCmd().run(self.clients, self.bus)
-        for clientpath in self.clients:
-            client = self.bus.get_object(dbus_busname, clientpath)
-            self.assertIn(("Approve", (True, client_dbus_interface)),
-                          client.calls)
+    def check_option_syntax(self, options):
+        check_option_syntax(self.parser, options)
 
-class TestDenyCmd(TestCmd):
-    def test_deny(self):
-        DenyCmd().run(self.clients, self.bus)
-        for clientpath in self.clients:
-            client = self.bus.get_object(dbus_busname, clientpath)
-            self.assertIn(("Approve", (False, client_dbus_interface)),
-                          client.calls)
+    def test_actions_requires_client_or_all(self):
+        for action, value in self.actions.items():
+            options = self.parser.parse_args()
+            setattr(options, action, value)
+            with self.assertParseError():
+                self.check_option_syntax(options)
 
-class TestEnableCmd(TestCmd):
-    def test_enable(self):
-        for clientpath in self.clients:
-            client = self.bus.get_object(dbus_busname, clientpath)
-            client.attributes["Enabled"] = False
+    def test_actions_conflicts_with_verbose(self):
+        for action, value in self.actions.items():
+            options = self.parser.parse_args()
+            setattr(options, action, value)
+            options.verbose = True
+            with self.assertParseError():
+                self.check_option_syntax(options)
 
-        EnableCmd().run(self.clients, self.bus)
+    def test_dump_json_conflicts_with_verbose(self):
+        options = self.parser.parse_args()
+        options.dump_json = True
+        options.verbose = True
+        with self.assertParseError():
+            self.check_option_syntax(options)
 
-        for clientpath in self.clients:
-            client = self.bus.get_object(dbus_busname, clientpath)
-            self.assertTrue(client.attributes["Enabled"])
+    def test_dump_json_conflicts_with_action(self):
+        for action, value in self.actions.items():
+            options = self.parser.parse_args()
+            setattr(options, action, value)
+            options.dump_json = True
+            with self.assertParseError():
+                self.check_option_syntax(options)
 
-class TestDisableCmd(TestCmd):
-    def test_disable(self):
-        DisableCmd().run(self.clients, self.bus)
-        for clientpath in self.clients:
-            client = self.bus.get_object(dbus_busname, clientpath)
-            self.assertFalse(client.attributes["Enabled"])
+    def test_all_can_not_be_alone(self):
+        options = self.parser.parse_args()
+        options.all = True
+        with self.assertParseError():
+            self.check_option_syntax(options)
 
-class Unique(object):
-    """Class for objects which exist only to be unique objects, since
-unittest.mock.sentinel only exists in Python 3.3"""
+    def test_all_is_ok_with_any_action(self):
+        for action, value in self.actions.items():
+            options = self.parser.parse_args()
+            setattr(options, action, value)
+            options.all = True
+            self.check_option_syntax(options)
 
-class TestPropertyCmd(TestCmd):
-    """Abstract class for tests of PropertyCmd classes"""
-    def runTest(self):
-        if not hasattr(self, "command"):
-            return
-        values_to_get = getattr(self, "values_to_get",
-                                self.values_to_set)
-        for value_to_set, value_to_get in zip(self.values_to_set,
-                                              values_to_get):
-            for clientpath in self.clients:
-                client = self.bus.get_object(dbus_busname, clientpath)
-                old_value = client.attributes[self.propname]
-                self.assertNotIsInstance(old_value, Unique)
-                client.attributes[self.propname] = Unique()
-            self.run_command(value_to_set, self.clients)
-            for clientpath in self.clients:
-                client = self.bus.get_object(dbus_busname, clientpath)
-                value = client.attributes[self.propname]
-                self.assertNotIsInstance(value, Unique)
-                self.assertEqual(value, value_to_get)
-    def run_command(self, value, clients):
-        self.command().run(clients, self.bus)
+    def test_is_enabled_fails_without_client(self):
+        options = self.parser.parse_args()
+        options.is_enabled = True
+        with self.assertParseError():
+            self.check_option_syntax(options)
 
-class TestBumpTimeoutCmd(TestPropertyCmd):
-    command = BumpTimeoutCmd
-    propname = "LastCheckedOK"
-    values_to_set = [""]
+    def test_is_enabled_works_with_one_client(self):
+        options = self.parser.parse_args()
+        options.is_enabled = True
+        options.client = ["foo"]
+        self.check_option_syntax(options)
 
-class TestStartCheckerCmd(TestPropertyCmd):
-    command = StartCheckerCmd
-    propname = "CheckerRunning"
-    values_to_set = [dbus.Boolean(True)]
+    def test_is_enabled_fails_with_two_clients(self):
+        options = self.parser.parse_args()
+        options.is_enabled = True
+        options.client = ["foo", "barbar"]
+        with self.assertParseError():
+            self.check_option_syntax(options)
 
-class TestStopCheckerCmd(TestPropertyCmd):
-    command = StopCheckerCmd
-    propname = "CheckerRunning"
-    values_to_set = [dbus.Boolean(False)]
+    def test_remove_can_only_be_combined_with_action_deny(self):
+        for action, value in self.actions.items():
+            if action in {"remove", "deny"}:
+                continue
+            options = self.parser.parse_args()
+            setattr(options, action, value)
+            options.all = True
+            options.remove = True
+            with self.assertParseError():
+                self.check_option_syntax(options)
 
-class TestApproveByDefaultCmd(TestPropertyCmd):
-    command = ApproveByDefaultCmd
-    propname = "ApprovedByDefault"
-    values_to_set = [dbus.Boolean(True)]
-
-class TestDenyByDefaultCmd(TestPropertyCmd):
-    command = DenyByDefaultCmd
-    propname = "ApprovedByDefault"
-    values_to_set = [dbus.Boolean(False)]
-
-class TestPropertyValueCmd(TestPropertyCmd):
-    """Abstract class for tests of PropertyValueCmd classes"""
-    def runTest(self):
-        if type(self) is TestPropertyValueCmd:
-            return
-        return super(TestPropertyValueCmd, self).runTest()
-    def run_command(self, value, clients):
-        self.command(value).run(clients, self.bus)
-
-class TestSetCheckerCmd(TestPropertyValueCmd):
-    command = SetCheckerCmd
-    propname = "Checker"
-    values_to_set = ["", ":", "fping -q -- %s"]
-
-class TestSetHostCmd(TestPropertyValueCmd):
-    command = SetHostCmd
-    propname = "Host"
-    values_to_set = ["192.0.2.3", "foo.example.org"]
-
-class TestSetSecretCmd(TestPropertyValueCmd):
-    command = SetSecretCmd
-    propname = "Secret"
-    values_to_set = [io.BytesIO(b""),
-                     io.BytesIO(b"secret\0xyzzy\nbar")]
-    values_to_get = [b"", b"secret\0xyzzy\nbar"]
-
-class TestSetTimeoutCmd(TestPropertyValueCmd):
-    command = SetTimeoutCmd
-    propname = "Timeout"
-    values_to_set = [datetime.timedelta(),
-                     datetime.timedelta(minutes=5),
-                     datetime.timedelta(seconds=1),
-                     datetime.timedelta(weeks=1),
-                     datetime.timedelta(weeks=52)]
-    values_to_get = [0, 300000, 1000, 604800000, 31449600000]
-
-class TestSetExtendedTimeoutCmd(TestPropertyValueCmd):
-    command = SetExtendedTimeoutCmd
-    propname = "ExtendedTimeout"
-    values_to_set = [datetime.timedelta(),
-                     datetime.timedelta(minutes=5),
-                     datetime.timedelta(seconds=1),
-                     datetime.timedelta(weeks=1),
-                     datetime.timedelta(weeks=52)]
-    values_to_get = [0, 300000, 1000, 604800000, 31449600000]
-
-class TestSetIntervalCmd(TestPropertyValueCmd):
-    command = SetIntervalCmd
-    propname = "Interval"
-    values_to_set = [datetime.timedelta(),
-                     datetime.timedelta(minutes=5),
-                     datetime.timedelta(seconds=1),
-                     datetime.timedelta(weeks=1),
-                     datetime.timedelta(weeks=52)]
-    values_to_get = [0, 300000, 1000, 604800000, 31449600000]
-
-class TestSetApprovalDelayCmd(TestPropertyValueCmd):
-    command = SetApprovalDelayCmd
-    propname = "ApprovalDelay"
-    values_to_set = [datetime.timedelta(),
-                     datetime.timedelta(minutes=5),
-                     datetime.timedelta(seconds=1),
-                     datetime.timedelta(weeks=1),
-                     datetime.timedelta(weeks=52)]
-    values_to_get = [0, 300000, 1000, 604800000, 31449600000]
-
-class TestSetApprovalDurationCmd(TestPropertyValueCmd):
-    command = SetApprovalDurationCmd
-    propname = "ApprovalDuration"
-    values_to_set = [datetime.timedelta(),
-                     datetime.timedelta(minutes=5),
-                     datetime.timedelta(seconds=1),
-                     datetime.timedelta(weeks=1),
-                     datetime.timedelta(weeks=52)]
-    values_to_get = [0, 300000, 1000, 604800000, 31449600000]
 
 class Test_command_from_options(unittest.TestCase):
     def setUp(self):
@@ -1493,136 +1168,506 @@ COMMAND_CLS with (optionally) all supplied attributes (CMD_ATTRS)."""
         self.assertIsInstance(commands[1], RemoveCmd)
 
 
-class Test_check_option_syntax(unittest.TestCase):
-    # This mostly corresponds to the definition from has_actions() in
-    # check_option_syntax()
-    actions = {
-        # The actual values set here are not that important, but we do
-        # at least stick to the correct types, even though they are
-        # never used
-        "enable": True,
-        "disable": True,
-        "bump_timeout": True,
-        "start_checker": True,
-        "stop_checker": True,
-        "is_enabled": True,
-        "remove": True,
-        "checker": "x",
-        "timeout": datetime.timedelta(),
-        "extended_timeout": datetime.timedelta(),
-        "interval": datetime.timedelta(),
-        "approved_by_default": True,
-        "approval_delay": datetime.timedelta(),
-        "approval_duration": datetime.timedelta(),
-        "host": "x",
-        "secret": io.BytesIO(b"x"),
-        "approve": True,
-        "deny": True,
-    }
-
+class TestCmd(unittest.TestCase):
+    """Abstract class for tests of command classes"""
     def setUp(self):
-        self.parser = argparse.ArgumentParser()
-        add_command_line_options(self.parser)
+        testcase = self
+        class MockClient(object):
+            def __init__(self, name, **attributes):
+                self.__dbus_object_path__ = "/clients/{}".format(name)
+                self.attributes = attributes
+                self.attributes["Name"] = name
+                self.calls = []
+            def Set(self, interface, propname, value, dbus_interface):
+                testcase.assertEqual(interface, client_dbus_interface)
+                testcase.assertEqual(dbus_interface,
+                                     dbus.PROPERTIES_IFACE)
+                self.attributes[propname] = value
+            def Get(self, interface, propname, dbus_interface):
+                testcase.assertEqual(interface, client_dbus_interface)
+                testcase.assertEqual(dbus_interface,
+                                     dbus.PROPERTIES_IFACE)
+                return self.attributes[propname]
+            def Approve(self, approve, dbus_interface):
+                testcase.assertEqual(dbus_interface,
+                                     client_dbus_interface)
+                self.calls.append(("Approve", (approve,
+                                               dbus_interface)))
+        self.client = MockClient(
+            "foo",
+            KeyID=("92ed150794387c03ce684574b1139a65"
+                   "94a34f895daaaf09fd8ea90a27cddb12"),
+            Secret=b"secret",
+            Host="foo.example.org",
+            Enabled=dbus.Boolean(True),
+            Timeout=300000,
+            LastCheckedOK="2019-02-03T00:00:00",
+            Created="2019-01-02T00:00:00",
+            Interval=120000,
+            Fingerprint=("778827225BA7DE539C5A"
+                         "7CFA59CFF7CDBD9A5920"),
+            CheckerRunning=dbus.Boolean(False),
+            LastEnabled="2019-01-03T00:00:00",
+            ApprovalPending=dbus.Boolean(False),
+            ApprovedByDefault=dbus.Boolean(True),
+            LastApprovalRequest="",
+            ApprovalDelay=0,
+            ApprovalDuration=1000,
+            Checker="fping -q -- %(host)s",
+            ExtendedTimeout=900000,
+            Expires="2019-02-04T00:00:00",
+            LastCheckerStatus=0)
+        self.other_client = MockClient(
+            "barbar",
+            KeyID=("0558568eedd67d622f5c83b35a115f79"
+                   "6ab612cff5ad227247e46c2b020f441c"),
+            Secret=b"secretbar",
+            Host="192.0.2.3",
+            Enabled=dbus.Boolean(True),
+            Timeout=300000,
+            LastCheckedOK="2019-02-04T00:00:00",
+            Created="2019-01-03T00:00:00",
+            Interval=120000,
+            Fingerprint=("3E393AEAEFB84C7E89E2"
+                         "F547B3A107558FCA3A27"),
+            CheckerRunning=dbus.Boolean(True),
+            LastEnabled="2019-01-04T00:00:00",
+            ApprovalPending=dbus.Boolean(False),
+            ApprovedByDefault=dbus.Boolean(False),
+            LastApprovalRequest="2019-01-03T00:00:00",
+            ApprovalDelay=30000,
+            ApprovalDuration=1000,
+            Checker=":",
+            ExtendedTimeout=900000,
+            Expires="2019-02-05T00:00:00",
+            LastCheckerStatus=-2)
+        self.clients =  collections.OrderedDict(
+            [
+                ("/clients/foo", self.client.attributes),
+                ("/clients/barbar", self.other_client.attributes),
+            ])
+        self.one_client = {"/clients/foo": self.client.attributes}
+    @property
+    def bus(self):
+        class Bus(object):
+            @staticmethod
+            def get_object(client_bus_name, path):
+                self.assertEqual(client_bus_name, dbus_busname)
+                return {
+                    "/clients/foo": self.client,
+                    "/clients/barbar": self.other_client,
+                }[path]
+        return Bus()
 
-    @contextlib.contextmanager
-    def assertParseError(self):
+
+class TestIsEnabledCmd(TestCmd):
+    def test_is_enabled(self):
+        self.assertTrue(all(IsEnabledCmd().is_enabled(client,
+                                                      properties)
+                            for client, properties
+                            in self.clients.items()))
+    def test_is_enabled_run_exits_successfully(self):
         with self.assertRaises(SystemExit) as e:
-            with self.temporarily_suppress_stderr():
-                yield
-        # Exit code from argparse is guaranteed to be "2".  Reference:
-        # https://docs.python.org/3/library
-        # /argparse.html#exiting-methods
-        self.assertEqual(e.exception.code, 2)
+            IsEnabledCmd().run(self.one_client)
+        if e.exception.code is not None:
+            self.assertEqual(e.exception.code, 0)
+        else:
+            self.assertIsNone(e.exception.code)
+    def test_is_enabled_run_exits_with_failure(self):
+        self.client.attributes["Enabled"] = dbus.Boolean(False)
+        with self.assertRaises(SystemExit) as e:
+            IsEnabledCmd().run(self.one_client)
+        if isinstance(e.exception.code, int):
+            self.assertNotEqual(e.exception.code, 0)
+        else:
+            self.assertIsNotNone(e.exception.code)
 
-    @staticmethod
-    @contextlib.contextmanager
-    def temporarily_suppress_stderr():
-        null = os.open(os.path.devnull, os.O_RDWR)
-        stderrcopy = os.dup(sys.stderr.fileno())
-        os.dup2(null, sys.stderr.fileno())
-        os.close(null)
-        try:
-            yield
-        finally:
-            # restore stderr
-            os.dup2(stderrcopy, sys.stderr.fileno())
-            os.close(stderrcopy)
 
-    def check_option_syntax(self, options):
-        check_option_syntax(self.parser, options)
+class TestApproveCmd(TestCmd):
+    def test_approve(self):
+        ApproveCmd().run(self.clients, self.bus)
+        for clientpath in self.clients:
+            client = self.bus.get_object(dbus_busname, clientpath)
+            self.assertIn(("Approve", (True, client_dbus_interface)),
+                          client.calls)
 
-    def test_actions_requires_client_or_all(self):
-        for action, value in self.actions.items():
-            options = self.parser.parse_args()
-            setattr(options, action, value)
-            with self.assertParseError():
-                self.check_option_syntax(options)
 
-    def test_actions_conflicts_with_verbose(self):
-        for action, value in self.actions.items():
-            options = self.parser.parse_args()
-            setattr(options, action, value)
-            options.verbose = True
-            with self.assertParseError():
-                self.check_option_syntax(options)
+class TestDenyCmd(TestCmd):
+    def test_deny(self):
+        DenyCmd().run(self.clients, self.bus)
+        for clientpath in self.clients:
+            client = self.bus.get_object(dbus_busname, clientpath)
+            self.assertIn(("Approve", (False, client_dbus_interface)),
+                          client.calls)
 
-    def test_dump_json_conflicts_with_verbose(self):
-        options = self.parser.parse_args()
-        options.dump_json = True
-        options.verbose = True
-        with self.assertParseError():
-            self.check_option_syntax(options)
+class TestRemoveCmd(TestCmd):
+    def test_remove(self):
+        class MockMandos(object):
+            def __init__(self):
+                self.calls = []
+            def RemoveClient(self, dbus_path):
+                self.calls.append(("RemoveClient", (dbus_path,)))
+        mandos = MockMandos()
+        super(TestRemoveCmd, self).setUp()
+        RemoveCmd().run(self.clients, self.bus, mandos)
+        self.assertEqual(len(mandos.calls), 2)
+        for clientpath in self.clients:
+            self.assertIn(("RemoveClient", (clientpath,)),
+                          mandos.calls)
 
-    def test_dump_json_conflicts_with_action(self):
-        for action, value in self.actions.items():
-            options = self.parser.parse_args()
-            setattr(options, action, value)
-            options.dump_json = True
-            with self.assertParseError():
-                self.check_option_syntax(options)
 
-    def test_all_can_not_be_alone(self):
-        options = self.parser.parse_args()
-        options.all = True
-        with self.assertParseError():
-            self.check_option_syntax(options)
+class TestDumpJSONCmd(TestCmd):
+    def setUp(self):
+        self.expected_json = {
+            "foo": {
+                "Name": "foo",
+                "KeyID": ("92ed150794387c03ce684574b1139a65"
+                          "94a34f895daaaf09fd8ea90a27cddb12"),
+                "Host": "foo.example.org",
+                "Enabled": True,
+                "Timeout": 300000,
+                "LastCheckedOK": "2019-02-03T00:00:00",
+                "Created": "2019-01-02T00:00:00",
+                "Interval": 120000,
+                "Fingerprint": ("778827225BA7DE539C5A"
+                                "7CFA59CFF7CDBD9A5920"),
+                "CheckerRunning": False,
+                "LastEnabled": "2019-01-03T00:00:00",
+                "ApprovalPending": False,
+                "ApprovedByDefault": True,
+                "LastApprovalRequest": "",
+                "ApprovalDelay": 0,
+                "ApprovalDuration": 1000,
+                "Checker": "fping -q -- %(host)s",
+                "ExtendedTimeout": 900000,
+                "Expires": "2019-02-04T00:00:00",
+                "LastCheckerStatus": 0,
+            },
+            "barbar": {
+                "Name": "barbar",
+                "KeyID": ("0558568eedd67d622f5c83b35a115f79"
+                          "6ab612cff5ad227247e46c2b020f441c"),
+                "Host": "192.0.2.3",
+                "Enabled": True,
+                "Timeout": 300000,
+                "LastCheckedOK": "2019-02-04T00:00:00",
+                "Created": "2019-01-03T00:00:00",
+                "Interval": 120000,
+                "Fingerprint": ("3E393AEAEFB84C7E89E2"
+                                "F547B3A107558FCA3A27"),
+                "CheckerRunning": True,
+                "LastEnabled": "2019-01-04T00:00:00",
+                "ApprovalPending": False,
+                "ApprovedByDefault": False,
+                "LastApprovalRequest": "2019-01-03T00:00:00",
+                "ApprovalDelay": 30000,
+                "ApprovalDuration": 1000,
+                "Checker": ":",
+                "ExtendedTimeout": 900000,
+                "Expires": "2019-02-05T00:00:00",
+                "LastCheckerStatus": -2,
+            },
+        }
+        return super(TestDumpJSONCmd, self).setUp()
+    def test_normal(self):
+        json_data = json.loads(DumpJSONCmd().output(self.clients))
+        self.assertDictEqual(json_data, self.expected_json)
+    def test_one_client(self):
+        clients = self.one_client
+        json_data = json.loads(DumpJSONCmd().output(clients))
+        expected_json = {"foo": self.expected_json["foo"]}
+        self.assertDictEqual(json_data, expected_json)
 
-    def test_all_is_ok_with_any_action(self):
-        for action, value in self.actions.items():
-            options = self.parser.parse_args()
-            setattr(options, action, value)
-            options.all = True
-            self.check_option_syntax(options)
 
-    def test_is_enabled_fails_without_client(self):
-        options = self.parser.parse_args()
-        options.is_enabled = True
-        with self.assertParseError():
-            self.check_option_syntax(options)
+class TestPrintTableCmd(TestCmd):
+    def test_normal(self):
+        output = PrintTableCmd().output(self.clients.values())
+        expected_output = "\n".join((
+            "Name   Enabled Timeout  Last Successful Check",
+            "foo    Yes     00:05:00 2019-02-03T00:00:00  ",
+            "barbar Yes     00:05:00 2019-02-04T00:00:00  ",
+        ))
+        self.assertEqual(output, expected_output)
+    def test_verbose(self):
+        output = PrintTableCmd(verbose=True).output(
+            self.clients.values())
+        columns = (
+            (
+                "Name   ",
+                "foo    ",
+                "barbar ",
+            ),(
+                "Enabled ",
+                "Yes     ",
+                "Yes     ",
+            ),(
+                "Timeout  ",
+                "00:05:00 ",
+                "00:05:00 ",
+            ),(
+                "Last Successful Check ",
+                "2019-02-03T00:00:00   ",
+                "2019-02-04T00:00:00   ",
+            ),(
+                "Created             ",
+                "2019-01-02T00:00:00 ",
+                "2019-01-03T00:00:00 ",
+            ),(
+                "Interval ",
+                "00:02:00 ",
+                "00:02:00 ",
+            ),(
+                "Host            ",
+                "foo.example.org ",
+                "192.0.2.3       ",
+            ),(
+                ("Key ID                                             "
+                 "              "),
+                ("92ed150794387c03ce684574b1139a6594a34f895daaaf09fd8"
+                 "ea90a27cddb12 "),
+                ("0558568eedd67d622f5c83b35a115f796ab612cff5ad227247e"
+                 "46c2b020f441c "),
+            ),(
+                "Fingerprint                              ",
+                "778827225BA7DE539C5A7CFA59CFF7CDBD9A5920 ",
+                "3E393AEAEFB84C7E89E2F547B3A107558FCA3A27 ",
+            ),(
+                "Check Is Running ",
+                "No               ",
+                "Yes              ",
+            ),(
+                "Last Enabled        ",
+                "2019-01-03T00:00:00 ",
+                "2019-01-04T00:00:00 ",
+            ),(
+                "Approval Is Pending ",
+                "No                  ",
+                "No                  ",
+            ),(
+                "Approved By Default ",
+                "Yes                 ",
+                "No                  ",
+            ),(
+                "Last Approval Request ",
+                "                      ",
+                "2019-01-03T00:00:00   ",
+            ),(
+                "Approval Delay ",
+                "00:00:00       ",
+                "00:00:30       ",
+            ),(
+                "Approval Duration ",
+                "00:00:01          ",
+                "00:00:01          ",
+            ),(
+                "Checker              ",
+                "fping -q -- %(host)s ",
+                ":                    ",
+            ),(
+                "Extended Timeout ",
+                "00:15:00         ",
+                "00:15:00         ",
+            ),(
+                "Expires             ",
+                "2019-02-04T00:00:00 ",
+                "2019-02-05T00:00:00 ",
+            ),(
+                "Last Checker Status",
+                "0                  ",
+                "-2                 ",
+            )
+        )
+        num_lines = max(len(rows) for rows in columns)
+        expected_output = "\n".join("".join(rows[line]
+                                            for rows in columns)
+                                    for line in range(num_lines))
+        self.assertEqual(output, expected_output)
+    def test_one_client(self):
+        output = PrintTableCmd().output(self.one_client.values())
+        expected_output = """
+Name Enabled Timeout  Last Successful Check
+foo  Yes     00:05:00 2019-02-03T00:00:00  
+"""[1:-1]
+        self.assertEqual(output, expected_output)
 
-    def test_is_enabled_works_with_one_client(self):
-        options = self.parser.parse_args()
-        options.is_enabled = True
-        options.client = ["foo"]
-        self.check_option_syntax(options)
 
-    def test_is_enabled_fails_with_two_clients(self):
-        options = self.parser.parse_args()
-        options.is_enabled = True
-        options.client = ["foo", "barbar"]
-        with self.assertParseError():
-            self.check_option_syntax(options)
+class Test_milliseconds_to_string(unittest.TestCase):
+    def test_all(self):
+        self.assertEqual(milliseconds_to_string(93785000),
+                         "1T02:03:05")
+    def test_no_days(self):
+        self.assertEqual(milliseconds_to_string(7385000), "02:03:05")
+    def test_all_zero(self):
+        self.assertEqual(milliseconds_to_string(0), "00:00:00")
+    def test_no_fractional_seconds(self):
+        self.assertEqual(milliseconds_to_string(400), "00:00:00")
+        self.assertEqual(milliseconds_to_string(900), "00:00:00")
+        self.assertEqual(milliseconds_to_string(1900), "00:00:01")
 
-    def test_remove_can_only_be_combined_with_action_deny(self):
-        for action, value in self.actions.items():
-            if action in {"remove", "deny"}:
-                continue
-            options = self.parser.parse_args()
-            setattr(options, action, value)
-            options.all = True
-            options.remove = True
-            with self.assertParseError():
-                self.check_option_syntax(options)
+
+class Unique(object):
+    """Class for objects which exist only to be unique objects, since
+unittest.mock.sentinel only exists in Python 3.3"""
+
+
+class TestPropertyCmd(TestCmd):
+    """Abstract class for tests of PropertyCmd classes"""
+    def runTest(self):
+        if not hasattr(self, "command"):
+            return
+        values_to_get = getattr(self, "values_to_get",
+                                self.values_to_set)
+        for value_to_set, value_to_get in zip(self.values_to_set,
+                                              values_to_get):
+            for clientpath in self.clients:
+                client = self.bus.get_object(dbus_busname, clientpath)
+                old_value = client.attributes[self.propname]
+                self.assertNotIsInstance(old_value, Unique)
+                client.attributes[self.propname] = Unique()
+            self.run_command(value_to_set, self.clients)
+            for clientpath in self.clients:
+                client = self.bus.get_object(dbus_busname, clientpath)
+                value = client.attributes[self.propname]
+                self.assertNotIsInstance(value, Unique)
+                self.assertEqual(value, value_to_get)
+    def run_command(self, value, clients):
+        self.command().run(clients, self.bus)
+
+
+class TestEnableCmd(TestCmd):
+    def test_enable(self):
+        for clientpath in self.clients:
+            client = self.bus.get_object(dbus_busname, clientpath)
+            client.attributes["Enabled"] = False
+
+        EnableCmd().run(self.clients, self.bus)
+
+        for clientpath in self.clients:
+            client = self.bus.get_object(dbus_busname, clientpath)
+            self.assertTrue(client.attributes["Enabled"])
+
+
+class TestDisableCmd(TestCmd):
+    def test_disable(self):
+        DisableCmd().run(self.clients, self.bus)
+        for clientpath in self.clients:
+            client = self.bus.get_object(dbus_busname, clientpath)
+            self.assertFalse(client.attributes["Enabled"])
+
+
+class TestBumpTimeoutCmd(TestPropertyCmd):
+    command = BumpTimeoutCmd
+    propname = "LastCheckedOK"
+    values_to_set = [""]
+
+
+class TestStartCheckerCmd(TestPropertyCmd):
+    command = StartCheckerCmd
+    propname = "CheckerRunning"
+    values_to_set = [dbus.Boolean(True)]
+
+
+class TestStopCheckerCmd(TestPropertyCmd):
+    command = StopCheckerCmd
+    propname = "CheckerRunning"
+    values_to_set = [dbus.Boolean(False)]
+
+
+class TestApproveByDefaultCmd(TestPropertyCmd):
+    command = ApproveByDefaultCmd
+    propname = "ApprovedByDefault"
+    values_to_set = [dbus.Boolean(True)]
+
+
+class TestDenyByDefaultCmd(TestPropertyCmd):
+    command = DenyByDefaultCmd
+    propname = "ApprovedByDefault"
+    values_to_set = [dbus.Boolean(False)]
+
+
+class TestPropertyValueCmd(TestPropertyCmd):
+    """Abstract class for tests of PropertyValueCmd classes"""
+    def runTest(self):
+        if type(self) is TestPropertyValueCmd:
+            return
+        return super(TestPropertyValueCmd, self).runTest()
+    def run_command(self, value, clients):
+        self.command(value).run(clients, self.bus)
+
+
+class TestSetCheckerCmd(TestPropertyValueCmd):
+    command = SetCheckerCmd
+    propname = "Checker"
+    values_to_set = ["", ":", "fping -q -- %s"]
+
+
+class TestSetHostCmd(TestPropertyValueCmd):
+    command = SetHostCmd
+    propname = "Host"
+    values_to_set = ["192.0.2.3", "foo.example.org"]
+
+
+class TestSetSecretCmd(TestPropertyValueCmd):
+    command = SetSecretCmd
+    propname = "Secret"
+    values_to_set = [io.BytesIO(b""),
+                     io.BytesIO(b"secret\0xyzzy\nbar")]
+    values_to_get = [b"", b"secret\0xyzzy\nbar"]
+
+
+class TestSetTimeoutCmd(TestPropertyValueCmd):
+    command = SetTimeoutCmd
+    propname = "Timeout"
+    values_to_set = [datetime.timedelta(),
+                     datetime.timedelta(minutes=5),
+                     datetime.timedelta(seconds=1),
+                     datetime.timedelta(weeks=1),
+                     datetime.timedelta(weeks=52)]
+    values_to_get = [0, 300000, 1000, 604800000, 31449600000]
+
+
+class TestSetExtendedTimeoutCmd(TestPropertyValueCmd):
+    command = SetExtendedTimeoutCmd
+    propname = "ExtendedTimeout"
+    values_to_set = [datetime.timedelta(),
+                     datetime.timedelta(minutes=5),
+                     datetime.timedelta(seconds=1),
+                     datetime.timedelta(weeks=1),
+                     datetime.timedelta(weeks=52)]
+    values_to_get = [0, 300000, 1000, 604800000, 31449600000]
+
+
+class TestSetIntervalCmd(TestPropertyValueCmd):
+    command = SetIntervalCmd
+    propname = "Interval"
+    values_to_set = [datetime.timedelta(),
+                     datetime.timedelta(minutes=5),
+                     datetime.timedelta(seconds=1),
+                     datetime.timedelta(weeks=1),
+                     datetime.timedelta(weeks=52)]
+    values_to_get = [0, 300000, 1000, 604800000, 31449600000]
+
+
+class TestSetApprovalDelayCmd(TestPropertyValueCmd):
+    command = SetApprovalDelayCmd
+    propname = "ApprovalDelay"
+    values_to_set = [datetime.timedelta(),
+                     datetime.timedelta(minutes=5),
+                     datetime.timedelta(seconds=1),
+                     datetime.timedelta(weeks=1),
+                     datetime.timedelta(weeks=52)]
+    values_to_get = [0, 300000, 1000, 604800000, 31449600000]
+
+
+class TestSetApprovalDurationCmd(TestPropertyValueCmd):
+    command = SetApprovalDurationCmd
+    propname = "ApprovalDuration"
+    values_to_set = [datetime.timedelta(),
+                     datetime.timedelta(minutes=5),
+                     datetime.timedelta(seconds=1),
+                     datetime.timedelta(weeks=1),
+                     datetime.timedelta(weeks=52)]
+    values_to_get = [0, 300000, 1000, 604800000, 31449600000]
 
 
 
