@@ -1521,25 +1521,16 @@ class TestPropertyCmd(TestCmd):
         self.command().run(clients, self.bus)
 
 
-class TestEnableCmd(TestCmd):
-    def test_enable(self):
-        for clientpath in self.clients:
-            client = self.bus.get_object(dbus_busname, clientpath)
-            client.attributes["Enabled"] = False
-
-        EnableCmd().run(self.clients, self.bus)
-
-        for clientpath in self.clients:
-            client = self.bus.get_object(dbus_busname, clientpath)
-            self.assertTrue(client.attributes["Enabled"])
+class TestEnableCmd(TestPropertyCmd):
+    command = EnableCmd
+    propname = "Enabled"
+    values_to_set = [dbus.Boolean(True)]
 
 
-class TestDisableCmd(TestCmd):
-    def test_disable(self):
-        DisableCmd().run(self.clients, self.bus)
-        for clientpath in self.clients:
-            client = self.bus.get_object(dbus_busname, clientpath)
-            self.assertFalse(client.attributes["Enabled"])
+class TestDisableCmd(TestPropertyCmd):
+    command = DisableCmd
+    propname = "Enabled"
+    values_to_set = [dbus.Boolean(False)]
 
 
 class TestBumpTimeoutCmd(TestPropertyCmd):
