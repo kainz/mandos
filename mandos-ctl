@@ -636,11 +636,9 @@ class PrintTableCmd(OutputCmd):
             "LastCheckerStatus": "Last Checker Status",
         }
 
-        def __init__(self, clients, keywords, tableheaders=None):
+        def __init__(self, clients, keywords):
             self.clients = clients
             self.keywords = keywords
-            if tableheaders is not None:
-                self.tableheaders = tableheaders
 
         def __str__(self):
             return "\n".join(self.rows())
