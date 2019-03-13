@@ -1269,6 +1269,8 @@ class TestCmd(unittest.TestCase):
             def get_object(client_bus_name, path):
                 self.assertEqual(client_bus_name, dbus_busname)
                 return {
+                    # Note: "self" here is the TestCmd instance, not
+                    # the Bus instance, since this is a static method!
                     "/clients/foo": self.client,
                     "/clients/barbar": self.other_client,
                 }[path]
@@ -1513,11 +1515,6 @@ class TestPrintTableCmd(TestCmd):
         self.assertEqual(output, expected_output)
 
 
-class Unique(object):
-    """Class for objects which exist only to be unique objects, since
-unittest.mock.sentinel only exists in Python 3.3"""
-
-
 class TestPropertyCmd(TestCmd):
     """Abstract class for tests of PropertyCmd classes"""
     def runTest(self):
@@ -1530,14 +1527,19 @@ class TestPropertyCmd(TestCmd):
             for clientpath in self.clients:
                 client = self.bus.get_object(dbus_busname, clientpath)
                 old_value = client.attributes[self.propname]
-                self.assertNotIsInstance(old_value, Unique)
-                client.attributes[self.propname] = Unique()
+                self.assertNotIsInstance(old_value, self.Unique)
+                client.attributes[self.propname] = self.Unique()
             self.run_command(value_to_set, self.clients)
             for clientpath in self.clients:
                 client = self.bus.get_object(dbus_busname, clientpath)
                 value = client.attributes[self.propname]
-                self.assertNotIsInstance(value, Unique)
+                self.assertNotIsInstance(value, self.Unique)
                 self.assertEqual(value, value_to_get)
+
+    class Unique(object):
+        """Class for objects which exist only to be unique objects,
+since unittest.mock.sentinel only exists in Python 3.3"""
+
     def run_command(self, value, clients):
         self.command().run(clients, self.bus)
 
