@@ -590,7 +590,7 @@ class DumpJSONCmd(OutputCmd):
         data = {client["Name"]:
                 {key: self.dbus_boolean_to_bool(client[key])
                  for key in self.all_keywords}
-                for client in clients.values()}
+                for client in clients}
         return json.dumps(data, indent=4, separators=(',', ': '))
 
     @staticmethod
@@ -1391,12 +1391,13 @@ class TestDumpJSONCmd(TestCmd):
         return super(TestDumpJSONCmd, self).setUp()
 
     def test_normal(self):
-        json_data = json.loads(DumpJSONCmd().output(self.clients))
+        output = DumpJSONCmd().output(self.clients.values())
+        json_data = json.loads(output)
         self.assertDictEqual(json_data, self.expected_json)
 
     def test_one_client(self):
-        clients = self.one_client
-        json_data = json.loads(DumpJSONCmd().output(clients))
+        output = DumpJSONCmd().output(self.one_client.values())
+        json_data = json.loads(output)
         expected_json = {"foo": self.expected_json["foo"]}
         self.assertDictEqual(json_data, expected_json)
 
