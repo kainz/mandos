@@ -577,8 +577,10 @@ class OutputCmd(Command):
                     "LastApprovalRequest", "ApprovalDelay",
                     "ApprovalDuration", "Checker", "ExtendedTimeout",
                     "Expires", "LastCheckerStatus")
+
     def run(self, clients, bus=None, mandos=None):
         print(self.output(clients.values()))
+
     def output(self, clients):
         raise NotImplementedError()
 
@@ -590,6 +592,7 @@ class DumpJSONCmd(OutputCmd):
                  for key in self.all_keywords}
                 for client in clients.values()}
         return json.dumps(data, indent=4, separators=(',', ': '))
+
     @staticmethod
     def dbus_boolean_to_bool(value):
         if isinstance(value, dbus.Boolean):
@@ -696,6 +699,7 @@ class PrintTableCmd(OutputCmd):
 
 class PropertyCmd(Command):
     """Abstract class for Actions for setting one client property"""
+
     def run_on_one_client(self, client, properties):
         """Set the Client's D-Bus property"""
         log.debug("D-Bus: %s:%s:%s.Set(%r, %r, %r)", dbus_busname,
@@ -707,6 +711,7 @@ class PropertyCmd(Command):
         client.Set(client_dbus_interface, self.propname,
                    self.value_to_set,
                    dbus_interface=dbus.PROPERTIES_IFACE)
+
     @property
     def propname(self):
         raise NotImplementedError()
@@ -763,9 +768,11 @@ class SetHostCmd(PropertyValueCmd):
 
 class SetSecretCmd(PropertyValueCmd):
     propname = "Secret"
+
     @property
     def value_to_set(self):
         return self._vts
+
     @value_to_set.setter
     def value_to_set(self, value):
         """When setting, read data from supplied file object"""
@@ -776,9 +783,11 @@ class SetSecretCmd(PropertyValueCmd):
 class MillisecondsPropertyValueArgumentCmd(PropertyValueCmd):
     """Abstract class for PropertyValueCmd taking a value argument as
 a datetime.timedelta() but should store it as milliseconds."""
+
     @property
     def value_to_set(self):
         return self._vts
+
     @value_to_set.setter
     def value_to_set(self, value):
         """When setting, convert value from a datetime.timedelta"""
@@ -816,6 +825,7 @@ class Test_string_to_delta(unittest.TestCase):
                          datetime.timedelta(0, 1))
         self.assertEqual(string_to_delta("PT2H"),
                          datetime.timedelta(0, 7200))
+
     def test_falls_back_to_pre_1_6_1_with_warning(self):
         # assertLogs only exists in Python 3.4
         if hasattr(self, "assertLogs"):
@@ -1173,6 +1183,7 @@ COMMAND_CLS with (optionally) all supplied attributes (CMD_ATTRS)."""
 
 class TestCmd(unittest.TestCase):
     """Abstract class for tests of command classes"""
+
     def setUp(self):
         testcase = self
         class MockClient(object):
@@ -1250,6 +1261,7 @@ class TestCmd(unittest.TestCase):
                 ("/clients/barbar", self.other_client.attributes),
             ])
         self.one_client = {"/clients/foo": self.client.attributes}
+
     @property
     def bus(self):
         class Bus(object):
@@ -1269,6 +1281,7 @@ class TestIsEnabledCmd(TestCmd):
                                                       properties)
                             for client, properties
                             in self.clients.items()))
+
     def test_is_enabled_run_exits_successfully(self):
         with self.assertRaises(SystemExit) as e:
             IsEnabledCmd().run(self.one_client)
@@ -1276,6 +1289,7 @@ class TestIsEnabledCmd(TestCmd):
             self.assertEqual(e.exception.code, 0)
         else:
             self.assertIsNone(e.exception.code)
+
     def test_is_enabled_run_exits_with_failure(self):
         self.client.attributes["Enabled"] = dbus.Boolean(False)
         with self.assertRaises(SystemExit) as e:
@@ -1302,6 +1316,7 @@ class TestDenyCmd(TestCmd):
             client = self.bus.get_object(dbus_busname, clientpath)
             self.assertIn(("Approve", (False, client_dbus_interface)),
                           client.calls)
+
 
 class TestRemoveCmd(TestCmd):
     def test_remove(self):
@@ -1372,9 +1387,11 @@ class TestDumpJSONCmd(TestCmd):
             },
         }
         return super(TestDumpJSONCmd, self).setUp()
+
     def test_normal(self):
         json_data = json.loads(DumpJSONCmd().output(self.clients))
         self.assertDictEqual(json_data, self.expected_json)
+
     def test_one_client(self):
         clients = self.one_client
         json_data = json.loads(DumpJSONCmd().output(clients))
@@ -1391,6 +1408,7 @@ class TestPrintTableCmd(TestCmd):
             "barbar Yes     00:05:00 2019-02-04T00:00:00  ",
         ))
         self.assertEqual(output, expected_output)
+
     def test_verbose(self):
         output = PrintTableCmd(verbose=True).output(
             self.clients.values())
@@ -1485,6 +1503,7 @@ class TestPrintTableCmd(TestCmd):
                                             for rows in columns)
                                     for line in range(num_lines))
         self.assertEqual(output, expected_output)
+
     def test_one_client(self):
         output = PrintTableCmd().output(self.one_client.values())
         expected_output = "\n".join((
@@ -1567,10 +1586,12 @@ class TestDenyByDefaultCmd(TestPropertyCmd):
 
 class TestPropertyValueCmd(TestPropertyCmd):
     """Abstract class for tests of PropertyValueCmd classes"""
+
     def runTest(self):
         if type(self) is TestPropertyValueCmd:
             return
         return super(TestPropertyValueCmd, self).runTest()
+
     def run_command(self, value, clients):
         self.command(value).run(clients, self.bus)
 
