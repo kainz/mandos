@@ -118,11 +118,11 @@ def main():
         dbus_logger.addFilter(dbus_filter)
         log.debug("D-Bus: %s:%s:%s.GetManagedObjects()", dbus_busname,
                   server_dbus_path, dbus.OBJECT_MANAGER_IFACE)
-        mandos_clients = {path: ifs_and_props[client_dbus_interface]
-                          for path, ifs_and_props in
-                          mandos_serv_object_manager
-                          .GetManagedObjects().items()
-                          if client_dbus_interface in ifs_and_props}
+        all_clients = {path: ifs_and_props[client_dbus_interface]
+                       for path, ifs_and_props in
+                       mandos_serv_object_manager
+                       .GetManagedObjects().items()
+                       if client_dbus_interface in ifs_and_props}
     except dbus.exceptions.DBusException as e:
         log.critical("Failed to access Mandos server through D-Bus:"
                      "\n%s", e)
@@ -135,11 +135,10 @@ def main():
     clients = {}
 
     if not clientnames:
-        clients = {objpath: properties
-                   for objpath, properties in mandos_clients.items()}
+        clients = all_clients
     else:
         for name in clientnames:
-            for objpath, properties in mandos_clients.items():
+            for objpath, properties in all_clients.items():
                 if properties["Name"] == name:
                     clients[objpath] = properties
                     break
