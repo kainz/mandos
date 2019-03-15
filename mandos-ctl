@@ -1727,8 +1727,11 @@ def load_tests(loader, tests, none):
     return tests
 
 if __name__ == "__main__":
-    if should_only_run_tests():
-        # Call using ./tdd-python-script --check [--verbose]
-        unittest.main()
-    else:
-        main()
+    try:
+        if should_only_run_tests():
+            # Call using ./tdd-python-script --check [--verbose]
+            unittest.main()
+        else:
+            main()
+    finally:
+        logging.shutdown()
