@@ -108,28 +108,19 @@ def main():
     mandos_serv_object_manager = dbus.Interface(
         mandos_dbus_objc, dbus_interface=dbus.OBJECT_MANAGER_IFACE)
 
-    # Filter out log message from dbus module
-    dbus_logger = logging.getLogger("dbus.proxies")
-    class NullFilter(logging.Filter):
-        def filter(self, record):
-            return False
-    dbus_filter = NullFilter()
     try:
-        dbus_logger.addFilter(dbus_filter)
         log.debug("D-Bus: %s:%s:%s.GetManagedObjects()", dbus_busname,
                   server_dbus_path, dbus.OBJECT_MANAGER_IFACE)
-        all_clients = {path: ifs_and_props[client_dbus_interface]
-                       for path, ifs_and_props in
-                       mandos_serv_object_manager
-                       .GetManagedObjects().items()
-                       if client_dbus_interface in ifs_and_props}
+        with SilenceLogger("dbus.proxies"):
+            all_clients = {path: ifs_and_props[client_dbus_interface]
+                              for path, ifs_and_props in
+                              mandos_serv_object_manager
+                              .GetManagedObjects().items()
+                              if client_dbus_interface in ifs_and_props}
     except dbus.exceptions.DBusException as e:
         log.critical("Failed to access Mandos server through D-Bus:"
                      "\n%s", e)
         sys.exit(1)
-    finally:
-        # restore dbus logger
-        dbus_logger.removeFilter(dbus_filter)
 
     # Compile dict of (clients: properties) to process
     clients = {}
@@ -443,6 +434,25 @@ argparse"""
         if has_actions(options) and not options.deny:
             parser.error("--remove can only be combined with --deny")
         options.remove = True
+
+
+class SilenceLogger(object):
+    "Simple context manager to silence a particular logger"
+    def __init__(self, loggername):
+        self.logger = logging.getLogger(loggername)
+
+    def __enter__(self):
+        self.logger.addFilter(self.nullfilter)
+        return self
+
+    class NullFilter(logging.Filter):
+        def filter(self, record):
+            return False
+
+    nullfilter = NullFilter()
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.logger.removeFilter(self.nullfilter)
 
 
 def commands_from_options(options):
@@ -976,6 +986,34 @@ class Test_check_option_syntax(unittest.TestCase):
             options.remove = True
             with self.assertParseError():
                 self.check_option_syntax(options)
+
+
+class Test_SilenceLogger(unittest.TestCase):
+    loggername = "mandos-ctl.Test_SilenceLogger"
+    log = logging.getLogger(loggername)
+    log.propagate = False
+    log.addHandler(logging.NullHandler())
+
+    def setUp(self):
+        self.counting_filter = self.CountingFilter()
+
+    class CountingFilter(logging.Filter):
+        "Count number of records"
+        count = 0
+        def filter(self, record):
+            self.count += 1
+            return True
+
+    def test_should_filter_records_only_when_active(self):
+        try:
+            with SilenceLogger(self.loggername):
+                self.log.addFilter(self.counting_filter)
+                self.log.info("Filtered log message 1")
+            self.log.info("Non-filtered message 2")
+            self.log.info("Non-filtered message 3")
+        finally:
+            self.log.removeFilter(self.counting_filter)
+        self.assertEqual(self.counting_filter.count, 2)
 
 
 class Test_commands_from_options(unittest.TestCase):
