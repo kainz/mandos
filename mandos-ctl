@@ -102,26 +102,29 @@ def main():
     mandos_serv_object_manager = dbus.Interface(
         mandos_dbus_object, dbus_interface=dbus.OBJECT_MANAGER_IFACE)
 
+    log.debug("D-Bus: %s:%s:%s.GetManagedObjects()", dbus_busname,
+              server_dbus_path, dbus.OBJECT_MANAGER_IFACE)
     try:
-        log.debug("D-Bus: %s:%s:%s.GetManagedObjects()", dbus_busname,
-                  server_dbus_path, dbus.OBJECT_MANAGER_IFACE)
         with SilenceLogger("dbus.proxies"):
-            all_clients = {path: ifs_and_props[client_dbus_interface]
-                              for path, ifs_and_props in
-                              mandos_serv_object_manager
-                              .GetManagedObjects().items()
-                              if client_dbus_interface in ifs_and_props}
+            managed_objects = (mandos_serv_object_manager
+                               .GetManagedObjects())
     except dbus.exceptions.DBusException as e:
         log.critical("Failed to access Mandos server through D-Bus:"
                      "\n%s", e)
         sys.exit(1)
 
-    # Compile dict of (clients: properties) to process
-    clients = {}
+    all_clients = {}
+    for path, ifs_and_props in managed_objects.items():
+        try:
+            all_clients[path] = ifs_and_props[client_dbus_interface]
+        except KeyError:
+            pass
 
+    # Compile dict of (clientpath: properties) to process
     if not clientnames:
         clients = all_clients
     else:
+        clients = {}
         for name in clientnames:
             for objpath, properties in all_clients.items():
                 if properties["Name"] == name:
