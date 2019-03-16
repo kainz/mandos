@@ -954,11 +954,21 @@ class Test_check_option_syntax(unittest.TestCase):
     def check_option_syntax(self, options):
         check_option_syntax(self.parser, options)
 
-    def test_actions_conflicts_with_verbose(self):
+    def test_actions_all_conflicts_with_verbose(self):
+        for action, value in self.actions.items():
+            options = self.parser.parse_args()
+            setattr(options, action, value)
+            options.all = True
+            options.verbose = True
+            with self.assertParseError():
+                self.check_option_syntax(options)
+
+    def test_actions_with_client_conflicts_with_verbose(self):
         for action, value in self.actions.items():
             options = self.parser.parse_args()
             setattr(options, action, value)
             options.verbose = True
+            options.client = ["foo"]
             with self.assertParseError():
                 self.check_option_syntax(options)
 
@@ -990,17 +1000,27 @@ class Test_check_option_syntax(unittest.TestCase):
             options.all = True
             self.check_option_syntax(options)
 
+    def test_any_action_is_ok_with_one_client(self):
+        for action, value in self.actions.items():
+            options = self.parser.parse_args()
+            setattr(options, action, value)
+            options.client = ["foo"]
+            self.check_option_syntax(options)
+
+    def test_actions_except_is_enabled_are_ok_with_two_clients(self):
+        for action, value in self.actions.items():
+            if action == "is_enabled":
+                continue
+            options = self.parser.parse_args()
+            setattr(options, action, value)
+            options.client = ["foo", "barbar"]
+            self.check_option_syntax(options)
+
     def test_is_enabled_fails_without_client(self):
         options = self.parser.parse_args()
         options.is_enabled = True
         with self.assertParseError():
             self.check_option_syntax(options)
-
-    def test_is_enabled_works_with_one_client(self):
-        options = self.parser.parse_args()
-        options.is_enabled = True
-        options.client = ["foo"]
-        self.check_option_syntax(options)
 
     def test_is_enabled_fails_with_two_clients(self):
         options = self.parser.parse_args()
