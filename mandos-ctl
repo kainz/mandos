@@ -425,28 +425,31 @@ argparse"""
 
 
 def get_mandos_dbus_object(bus):
-    try:
-        log.debug("D-Bus: Connect to: (busname=%r, path=%r)",
-                  dbus_busname, server_dbus_path)
+    log.debug("D-Bus: Connect to: (busname=%r, path=%r)",
+              dbus_busname, server_dbus_path)
+    with if_dbus_exception_log_with_exception_and_exit(
+            "Could not connect to Mandos server: %s"):
         mandos_dbus_object = bus.get_object(dbus_busname,
                                             server_dbus_path)
-    except dbus.exceptions.DBusException:
-        log.critical("Could not connect to Mandos server")
-        sys.exit(1)
-
     return mandos_dbus_object
+
+
+@contextlib.contextmanager
+def if_dbus_exception_log_with_exception_and_exit(*args, **kwargs):
+    try:
+        yield
+    except dbus.exceptions.DBusException as e:
+        log.critical(*(args + (e,)), **kwargs)
+        sys.exit(1)
 
 
 def get_managed_objects(object_manager):
     log.debug("D-Bus: %s:%s:%s.GetManagedObjects()", dbus_busname,
               server_dbus_path, dbus.OBJECT_MANAGER_IFACE)
-    try:
+    with if_dbus_exception_log_with_exception_and_exit(
+            "Failed to access Mandos server through D-Bus:\n%s"):
         with SilenceLogger("dbus.proxies"):
             managed_objects = object_manager.GetManagedObjects()
-    except dbus.exceptions.DBusException as e:
-        log.critical("Failed to access Mandos server through D-Bus:"
-                     "\n%s", e)
-        sys.exit(1)
     return managed_objects
 
 
