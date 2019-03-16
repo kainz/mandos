@@ -1084,6 +1084,8 @@ class Test_get_managed_objects(TestCaseWithAssertLogs):
                     get_managed_objects(MockObjectManagerFailing())
         finally:
             dbus_logger.removeFilter(counting_handler)
+
+        # Make sure the dbus logger was suppressed
         self.assertEqual(counting_handler.count, 0)
 
         # Test that the dbus_logger still works
