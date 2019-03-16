@@ -1056,8 +1056,7 @@ class Test_get_managed_objects(TestCaseWithAssertLogs):
     def test_calls_and_returns_GetManagedObjects(self):
         managed_objects = {"/clients/foo": { "Name": "foo"}}
         class MockObjectManager(object):
-            @staticmethod
-            def GetManagedObjects():
+            def GetManagedObjects(self):
                 return managed_objects
         retval = get_managed_objects(MockObjectManager())
         self.assertDictEqual(managed_objects, retval)
@@ -1066,8 +1065,7 @@ class Test_get_managed_objects(TestCaseWithAssertLogs):
         dbus_logger = logging.getLogger("dbus.proxies")
 
         class MockObjectManagerFailing(object):
-            @staticmethod
-            def GetManagedObjects():
+            def GetManagedObjects(self):
                 dbus_logger.error("Test")
                 raise dbus.exceptions.DBusException("Test")
 
