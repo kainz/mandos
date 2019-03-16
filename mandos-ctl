@@ -125,8 +125,8 @@ def main():
                 log.critical("Client not found on server: %r", name)
                 sys.exit(1)
 
-    # Run all commands on clients
     commands = commands_from_options(options)
+
     for command in commands:
         command.run(clients, bus, mandos_serv)
 
@@ -232,31 +232,31 @@ def rfc3339_duration_to_delta(duration):
     >>> rfc3339_duration_to_delta("")
     Traceback (most recent call last):
     ...
-    ValueError: Invalid RFC 3339 duration: u''
+    ValueError: Invalid RFC 3339 duration: ""
     >>> # Must start with "P":
     >>> rfc3339_duration_to_delta("1D")
     Traceback (most recent call last):
     ...
-    ValueError: Invalid RFC 3339 duration: u'1D'
+    ValueError: Invalid RFC 3339 duration: "1D"
     >>> # Must use correct order
     >>> rfc3339_duration_to_delta("PT1S2M")
     Traceback (most recent call last):
     ...
-    ValueError: Invalid RFC 3339 duration: u'PT1S2M'
+    ValueError: Invalid RFC 3339 duration: "PT1S2M"
     >>> # Time needs time marker
     >>> rfc3339_duration_to_delta("P1H2S")
     Traceback (most recent call last):
     ...
-    ValueError: Invalid RFC 3339 duration: u'P1H2S'
+    ValueError: Invalid RFC 3339 duration: "P1H2S"
     >>> # Weeks can not be combined with anything else
     >>> rfc3339_duration_to_delta("P1D2W")
     Traceback (most recent call last):
     ...
-    ValueError: Invalid RFC 3339 duration: u'P1D2W'
+    ValueError: Invalid RFC 3339 duration: "P1D2W"
     >>> rfc3339_duration_to_delta("P2W2H")
     Traceback (most recent call last):
     ...
-    ValueError: Invalid RFC 3339 duration: u'P2W2H'
+    ValueError: Invalid RFC 3339 duration: "P2W2H"
     """
 
     # Parsing an RFC 3339 duration with regular expressions is not
@@ -333,7 +333,7 @@ def rfc3339_duration_to_delta(duration):
                 break
         else:
             # No currently valid tokens were found
-            raise ValueError("Invalid RFC 3339 duration: {!r}"
+            raise ValueError("Invalid RFC 3339 duration: \"{}\""
                              .format(duration))
     # End token found
     return value
@@ -872,6 +872,7 @@ class TestCaseWithAssertLogs(unittest.TestCase):
                                                     ("records",
                                                      "output"))
 
+
 class Test_string_to_delta(TestCaseWithAssertLogs):
     def test_handles_basic_rfc3339(self):
         self.assertEqual(string_to_delta("PT0S"),
@@ -930,7 +931,7 @@ class Test_check_option_syntax(unittest.TestCase):
     @contextlib.contextmanager
     def assertParseError(self):
         with self.assertRaises(SystemExit) as e:
-            with self.temporarily_suppress_stderr():
+            with self.redirect_stderr_to_devnull():
                 yield
         # Exit code from argparse is guaranteed to be "2".  Reference:
         # https://docs.python.org/3/library
@@ -939,7 +940,7 @@ class Test_check_option_syntax(unittest.TestCase):
 
     @staticmethod
     @contextlib.contextmanager
-    def temporarily_suppress_stderr():
+    def redirect_stderr_to_devnull():
         null = os.open(os.path.devnull, os.O_RDWR)
         stderrcopy = os.dup(sys.stderr.fileno())
         os.dup2(null, sys.stderr.fileno())
@@ -1007,7 +1008,25 @@ class Test_check_option_syntax(unittest.TestCase):
             options.client = ["foo"]
             self.check_option_syntax(options)
 
-    def test_actions_except_is_enabled_are_ok_with_two_clients(self):
+    def test_one_client_with_all_actions_except_is_enabled(self):
+        options = self.parser.parse_args()
+        for action, value in self.actions.items():
+            if action == "is_enabled":
+                continue
+            setattr(options, action, value)
+        options.client = ["foo"]
+        self.check_option_syntax(options)
+
+    def test_two_clients_with_all_actions_except_is_enabled(self):
+        options = self.parser.parse_args()
+        for action, value in self.actions.items():
+            if action == "is_enabled":
+                continue
+            setattr(options, action, value)
+        options.client = ["foo", "barbar"]
+        self.check_option_syntax(options)
+
+    def test_two_clients_are_ok_with_actions_except_is_enabled(self):
         for action, value in self.actions.items():
             if action == "is_enabled":
                 continue
