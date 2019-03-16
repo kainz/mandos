@@ -102,16 +102,7 @@ def main():
     mandos_serv_object_manager = dbus.Interface(
         mandos_dbus_object, dbus_interface=dbus.OBJECT_MANAGER_IFACE)
 
-    log.debug("D-Bus: %s:%s:%s.GetManagedObjects()", dbus_busname,
-              server_dbus_path, dbus.OBJECT_MANAGER_IFACE)
-    try:
-        with SilenceLogger("dbus.proxies"):
-            managed_objects = (mandos_serv_object_manager
-                               .GetManagedObjects())
-    except dbus.exceptions.DBusException as e:
-        log.critical("Failed to access Mandos server through D-Bus:"
-                     "\n%s", e)
-        sys.exit(1)
+    managed_objects = get_managed_objects(mandos_serv_object_manager)
 
     all_clients = {}
     for path, ifs_and_props in managed_objects.items():
@@ -444,6 +435,19 @@ def get_mandos_dbus_object(bus):
         sys.exit(1)
 
     return mandos_dbus_object
+
+
+def get_managed_objects(object_manager):
+    log.debug("D-Bus: %s:%s:%s.GetManagedObjects()", dbus_busname,
+              server_dbus_path, dbus.OBJECT_MANAGER_IFACE)
+    try:
+        with SilenceLogger("dbus.proxies"):
+            managed_objects = object_manager.GetManagedObjects()
+    except dbus.exceptions.DBusException as e:
+        log.critical("Failed to access Mandos server through D-Bus:"
+                     "\n%s", e)
+        sys.exit(1)
+    return managed_objects
 
 
 class SilenceLogger(object):
@@ -1030,6 +1034,49 @@ class Test_get_mandos_dbus_object(unittest.TestCase):
             try:
                 with self.assertRaises(SystemExit) as e:
                     get_mandos_dbus_object(bus=MockBusFailing())
+            finally:
+                log.removeFilter(critical_filter)
+            self.assertTrue(critical_filter.found)
+        if isinstance(e.exception.code, int):
+            self.assertNotEqual(e.exception.code, 0)
+        else:
+            self.assertIsNotNone(e.exception.code)
+
+    class CriticalFilter(logging.Filter):
+        """Don't show, but register, critical messages"""
+        found = False
+        def filter(self, record):
+            is_critical = record.levelno >= logging.CRITICAL
+            self.found = is_critical or self.found
+            return not is_critical
+
+
+class Test_get_managed_objects(unittest.TestCase):
+    def test_calls_and_returns_GetManagedObjects(self):
+        managed_objects = {"/clients/foo": { "Name": "foo"}}
+        class MockObjectManager(object):
+            @staticmethod
+            def GetManagedObjects():
+                return managed_objects
+        retval = get_managed_objects(MockObjectManager())
+        self.assertDictEqual(managed_objects, retval)
+
+    def test_logs_and_exits_on_dbus_error(self):
+        class MockObjectManagerFailing(object):
+            @staticmethod
+            def GetManagedObjects():
+                raise dbus.exceptions.DBusException("Test")
+
+        if hasattr(self, "assertLogs"):
+            with self.assertLogs(log, logging.CRITICAL):
+                with self.assertRaises(SystemExit):
+                    get_managed_objects(MockObjectManagerFailing())
+        else:
+            critical_filter = self.CriticalFilter()
+            log.addFilter(critical_filter)
+            try:
+                with self.assertRaises(SystemExit) as e:
+                    get_managed_objects(MockObjectManagerFailing())
             finally:
                 log.removeFilter(critical_filter)
             self.assertTrue(critical_filter.found)
