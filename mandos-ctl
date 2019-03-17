@@ -1502,7 +1502,6 @@ class TestBaseCommands(TestCommand):
             def RemoveClient(self, dbus_path):
                 self.calls.append(("RemoveClient", (dbus_path,)))
         mandos = MockMandos()
-        super(TestBaseCommands, self).setUp()
         command.Remove().run(self.clients, self.bus, mandos)
         self.assertEqual(len(mandos.calls), 2)
         for clientpath in self.clients:
