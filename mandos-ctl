@@ -1554,28 +1554,42 @@ class TestBaseCommands(TestCommand):
     }
 
     def test_DumpJSON_normal(self):
-        output = command.DumpJSON().output(self.clients.values())
-        json_data = json.loads(output)
+        with self.capture_stdout_to_buffer() as buffer:
+            command.DumpJSON().run(self.clients)
+        json_data = json.loads(buffer.getvalue())
         self.assertDictEqual(self.expected_json, json_data)
 
+    @staticmethod
+    @contextlib.contextmanager
+    def capture_stdout_to_buffer():
+        capture_buffer = io.StringIO()
+        old_stdout = sys.stdout
+        sys.stdout = capture_buffer
+        try:
+            yield capture_buffer
+        finally:
+            sys.stdout = old_stdout
+
     def test_DumpJSON_one_client(self):
-        output = command.DumpJSON().output(self.one_client.values())
-        json_data = json.loads(output)
+        with self.capture_stdout_to_buffer() as buffer:
+            command.DumpJSON().run(self.one_client)
+        json_data = json.loads(buffer.getvalue())
         expected_json = {"foo": self.expected_json["foo"]}
         self.assertDictEqual(expected_json, json_data)
 
     def test_PrintTable_normal(self):
-        output = command.PrintTable().output(self.clients.values())
+        with self.capture_stdout_to_buffer() as buffer:
+            command.PrintTable().run(self.clients)
         expected_output = "\n".join((
             "Name   Enabled Timeout  Last Successful Check",
             "foo    Yes     00:05:00 2019-02-03T00:00:00  ",
             "barbar Yes     00:05:00 2019-02-04T00:00:00  ",
-        ))
-        self.assertEqual(expected_output, output)
+        )) + "\n"
+        self.assertEqual(expected_output, buffer.getvalue())
 
     def test_PrintTable_verbose(self):
-        output = command.PrintTable(verbose=True).output(
-            self.clients.values())
+        with self.capture_stdout_to_buffer() as buffer:
+            command.PrintTable(verbose=True).run(self.clients)
         columns = (
             (
                 "Name   ",
@@ -1663,18 +1677,20 @@ class TestBaseCommands(TestCommand):
             )
         )
         num_lines = max(len(rows) for rows in columns)
-        expected_output = "\n".join("".join(rows[line]
-                                            for rows in columns)
-                                    for line in range(num_lines))
-        self.assertEqual(expected_output, output)
+        expected_output = ("\n".join("".join(rows[line]
+                                             for rows in columns)
+                                     for line in range(num_lines))
+                           + "\n")
+        self.assertEqual(expected_output, buffer.getvalue())
 
     def test_PrintTable_one_client(self):
-        output = command.PrintTable().output(self.one_client.values())
+        with self.capture_stdout_to_buffer() as buffer:
+            command.PrintTable().run(self.one_client)
         expected_output = "\n".join((
             "Name Enabled Timeout  Last Successful Check",
             "foo  Yes     00:05:00 2019-02-03T00:00:00  ",
-        ))
-        self.assertEqual(expected_output, output)
+        )) + "\n"
+        self.assertEqual(expected_output, buffer.getvalue())
 
 
 class TestPropertyCmd(TestCommand):
