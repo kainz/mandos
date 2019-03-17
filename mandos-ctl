@@ -1463,13 +1463,7 @@ class TestCommand(unittest.TestCase):
 
 class TestBaseCommands(TestCommand):
 
-    def test_IsEnabled(self):
-        self.assertTrue(all(command.IsEnabled().is_enabled(client,
-                                                      properties)
-                            for client, properties
-                            in self.clients.items()))
-
-    def test_IsEnabled_run_exits_successfully(self):
+    def test_IsEnabled_exits_successfully(self):
         with self.assertRaises(SystemExit) as e:
             command.IsEnabled().run(self.one_client)
         if e.exception.code is not None:
@@ -1477,7 +1471,7 @@ class TestBaseCommands(TestCommand):
         else:
             self.assertIsNone(e.exception.code)
 
-    def test_IsEnabled_run_exits_with_failure(self):
+    def test_IsEnabled_exits_with_failure(self):
         self.client.attributes["Enabled"] = dbus.Boolean(False)
         with self.assertRaises(SystemExit) as e:
             command.IsEnabled().run(self.one_client)
