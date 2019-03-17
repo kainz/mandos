@@ -886,13 +886,23 @@ class TestCaseWithAssertLogs(unittest.TestCase):
 
 
 class Test_string_to_delta(TestCaseWithAssertLogs):
-    def test_handles_basic_rfc3339(self):
+    # Just test basic RFC 3339 functionality here, the doc string for
+    # rfc3339_duration_to_delta() already has more comprehensive
+    # tests, which is run by doctest.
+
+    def test_rfc3339_zero_seconds(self):
         self.assertEqual(string_to_delta("PT0S"),
                          datetime.timedelta())
+
+    def test_rfc3339_zero_days(self):
         self.assertEqual(string_to_delta("P0D"),
                          datetime.timedelta())
+
+    def test_rfc3339_one_second(self):
         self.assertEqual(string_to_delta("PT1S"),
                          datetime.timedelta(0, 1))
+
+    def test_rfc3339_two_hours(self):
         self.assertEqual(string_to_delta("PT2H"),
                          datetime.timedelta(0, 7200))
 
@@ -1376,11 +1386,6 @@ class TestCommand(unittest.TestCase):
                 testcase.assertEqual(dbus_interface,
                                      dbus.PROPERTIES_IFACE)
                 self.attributes[propname] = value
-            def Get(self, interface, propname, dbus_interface):
-                testcase.assertEqual(interface, client_dbus_interface)
-                testcase.assertEqual(dbus_interface,
-                                     dbus.PROPERTIES_IFACE)
-                return self.attributes[propname]
             def Approve(self, approve, dbus_interface):
                 testcase.assertEqual(dbus_interface,
                                      client_dbus_interface)
@@ -1503,7 +1508,6 @@ class TestBaseCommands(TestCommand):
                 self.calls.append(("RemoveClient", (dbus_path,)))
         mandos = MockMandos()
         command.Remove().run(self.clients, self.bus, mandos)
-        self.assertEqual(len(mandos.calls), 2)
         for clientpath in self.clients:
             self.assertIn(("RemoveClient", (clientpath,)),
                           mandos.calls)
@@ -1695,7 +1699,6 @@ class TestPropertyCmd(TestCommand):
             for clientpath in self.clients:
                 client = self.bus.get_object(dbus_busname, clientpath)
                 old_value = client.attributes[self.propname]
-                self.assertNotIsInstance(old_value, self.Unique)
                 client.attributes[self.propname] = self.Unique()
             self.run_command(value_to_set, self.clients)
             for clientpath in self.clients:
