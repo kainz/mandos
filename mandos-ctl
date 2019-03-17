@@ -891,25 +891,24 @@ class Test_string_to_delta(TestCaseWithAssertLogs):
     # tests, which is run by doctest.
 
     def test_rfc3339_zero_seconds(self):
-        self.assertEqual(string_to_delta("PT0S"),
-                         datetime.timedelta())
+        self.assertEqual(datetime.timedelta(),
+                         string_to_delta("PT0S"))
 
     def test_rfc3339_zero_days(self):
-        self.assertEqual(string_to_delta("P0D"),
-                         datetime.timedelta())
+        self.assertEqual(datetime.timedelta(), string_to_delta("P0D"))
 
     def test_rfc3339_one_second(self):
-        self.assertEqual(string_to_delta("PT1S"),
-                         datetime.timedelta(0, 1))
+        self.assertEqual(datetime.timedelta(0, 1),
+                         string_to_delta("PT1S"))
 
     def test_rfc3339_two_hours(self):
-        self.assertEqual(string_to_delta("PT2H"),
-                         datetime.timedelta(0, 7200))
+        self.assertEqual(datetime.timedelta(0, 7200),
+                         string_to_delta("PT2H"))
 
     def test_falls_back_to_pre_1_6_1_with_warning(self):
         with self.assertLogs(log, logging.WARNING):
             value = string_to_delta("2h")
-        self.assertEqual(value, datetime.timedelta(0, 7200))
+        self.assertEqual(datetime.timedelta(0, 7200), value)
 
 
 class Test_check_option_syntax(unittest.TestCase):
@@ -958,7 +957,7 @@ class Test_check_option_syntax(unittest.TestCase):
         # Exit code from argparse is guaranteed to be "2".  Reference:
         # https://docs.python.org/3/library
         # /argparse.html#exiting-methods
-        self.assertEqual(e.exception.code, 2)
+        self.assertEqual(2, e.exception.code)
 
     @staticmethod
     @contextlib.contextmanager
@@ -1089,8 +1088,8 @@ class Test_get_mandos_dbus_object(TestCaseWithAssertLogs):
             def get_object(mockbus_self, busname, dbus_path):
                 # Note that "self" is still the testcase instance,
                 # this MockBus instance is in "mockbus_self".
-                self.assertEqual(busname, dbus_busname)
-                self.assertEqual(dbus_path, server_dbus_path)
+                self.assertEqual(dbus_busname, busname)
+                self.assertEqual(server_dbus_path, dbus_path)
                 mockbus_self.called = True
                 return mockbus_self
 
@@ -1108,7 +1107,7 @@ class Test_get_mandos_dbus_object(TestCaseWithAssertLogs):
                 bus = get_mandos_dbus_object(bus=MockBusFailing())
 
         if isinstance(e.exception.code, int):
-            self.assertNotEqual(e.exception.code, 0)
+            self.assertNotEqual(0, e.exception.code)
         else:
             self.assertIsNotNone(e.exception.code)
 
@@ -1147,14 +1146,14 @@ class Test_get_managed_objects(TestCaseWithAssertLogs):
             dbus_logger.removeFilter(counting_handler)
 
         # Make sure the dbus logger was suppressed
-        self.assertEqual(counting_handler.count, 0)
+        self.assertEqual(0, counting_handler.count)
 
         # Test that the dbus_logger still works
         with self.assertLogs(dbus_logger, logging.ERROR):
             dbus_logger.error("Test")
 
         if isinstance(e.exception.code, int):
-            self.assertNotEqual(e.exception.code, 0)
+            self.assertNotEqual(0, e.exception.code)
         else:
             self.assertIsNotNone(e.exception.code)
 
@@ -1175,11 +1174,11 @@ COMMAND_CLS with (optionally) all supplied attributes (CMD_ATTRS)."""
         options = self.parser.parse_args(args)
         check_option_syntax(self.parser, options)
         commands = commands_from_options(options)
-        self.assertEqual(len(commands), 1)
+        self.assertEqual(1, len(commands))
         command = commands[0]
         self.assertIsInstance(command, command_cls)
         for key, value in cmd_attrs.items():
-            self.assertEqual(getattr(command, key), value)
+            self.assertEqual(value, getattr(command, key))
 
     def test_is_enabled_short(self):
         self.assert_command_from_args(["-V", "foo"],
@@ -1207,7 +1206,7 @@ COMMAND_CLS with (optionally) all supplied attributes (CMD_ATTRS)."""
                                           "foo"])
         check_option_syntax(self.parser, options)
         commands = commands_from_options(options)
-        self.assertEqual(len(commands), 2)
+        self.assertEqual(2, len(commands))
         self.assertIsInstance(commands[0], command.Deny)
         self.assertIsInstance(commands[1], command.Remove)
 
@@ -1216,7 +1215,7 @@ COMMAND_CLS with (optionally) all supplied attributes (CMD_ATTRS)."""
                                           "--all"])
         check_option_syntax(self.parser, options)
         commands = commands_from_options(options)
-        self.assertEqual(len(commands), 2)
+        self.assertEqual(2, len(commands))
         self.assertIsInstance(commands[0], command.Deny)
         self.assertIsInstance(commands[1], command.Remove)
 
@@ -1382,13 +1381,13 @@ class TestCommand(unittest.TestCase):
                 self.attributes["Name"] = name
                 self.calls = []
             def Set(self, interface, propname, value, dbus_interface):
-                testcase.assertEqual(interface, client_dbus_interface)
-                testcase.assertEqual(dbus_interface,
-                                     dbus.PROPERTIES_IFACE)
+                testcase.assertEqual(client_dbus_interface, interface)
+                testcase.assertEqual(dbus.PROPERTIES_IFACE,
+                                     dbus_interface)
                 self.attributes[propname] = value
             def Approve(self, approve, dbus_interface):
-                testcase.assertEqual(dbus_interface,
-                                     client_dbus_interface)
+                testcase.assertEqual(client_dbus_interface,
+                                     dbus_interface)
                 self.calls.append(("Approve", (approve,
                                                dbus_interface)))
         self.client = MockClient(
@@ -1451,7 +1450,7 @@ class TestCommand(unittest.TestCase):
         class Bus(object):
             @staticmethod
             def get_object(client_bus_name, path):
-                self.assertEqual(client_bus_name, dbus_busname)
+                self.assertEqual(dbus_busname, client_bus_name)
                 return {
                     # Note: "self" here is the TestCmd instance, not
                     # the Bus instance, since this is a static method!
@@ -1467,7 +1466,7 @@ class TestBaseCommands(TestCommand):
         with self.assertRaises(SystemExit) as e:
             command.IsEnabled().run(self.one_client)
         if e.exception.code is not None:
-            self.assertEqual(e.exception.code, 0)
+            self.assertEqual(0, e.exception.code)
         else:
             self.assertIsNone(e.exception.code)
 
@@ -1476,7 +1475,7 @@ class TestBaseCommands(TestCommand):
         with self.assertRaises(SystemExit) as e:
             command.IsEnabled().run(self.one_client)
         if isinstance(e.exception.code, int):
-            self.assertNotEqual(e.exception.code, 0)
+            self.assertNotEqual(0, e.exception.code)
         else:
             self.assertIsNotNone(e.exception.code)
 
@@ -1560,13 +1559,13 @@ class TestBaseCommands(TestCommand):
     def test_DumpJSON_normal(self):
         output = command.DumpJSON().output(self.clients.values())
         json_data = json.loads(output)
-        self.assertDictEqual(json_data, self.expected_json)
+        self.assertDictEqual(self.expected_json, json_data)
 
     def test_DumpJSON_one_client(self):
         output = command.DumpJSON().output(self.one_client.values())
         json_data = json.loads(output)
         expected_json = {"foo": self.expected_json["foo"]}
-        self.assertDictEqual(json_data, expected_json)
+        self.assertDictEqual(expected_json, json_data)
 
     def test_PrintTable_normal(self):
         output = command.PrintTable().output(self.clients.values())
@@ -1575,7 +1574,7 @@ class TestBaseCommands(TestCommand):
             "foo    Yes     00:05:00 2019-02-03T00:00:00  ",
             "barbar Yes     00:05:00 2019-02-04T00:00:00  ",
         ))
-        self.assertEqual(output, expected_output)
+        self.assertEqual(expected_output, output)
 
     def test_PrintTable_verbose(self):
         output = command.PrintTable(verbose=True).output(
@@ -1670,7 +1669,7 @@ class TestBaseCommands(TestCommand):
         expected_output = "\n".join("".join(rows[line]
                                             for rows in columns)
                                     for line in range(num_lines))
-        self.assertEqual(output, expected_output)
+        self.assertEqual(expected_output, output)
 
     def test_PrintTable_one_client(self):
         output = command.PrintTable().output(self.one_client.values())
@@ -1678,7 +1677,7 @@ class TestBaseCommands(TestCommand):
             "Name Enabled Timeout  Last Successful Check",
             "foo  Yes     00:05:00 2019-02-03T00:00:00  ",
         ))
-        self.assertEqual(output, expected_output)
+        self.assertEqual(expected_output, output)
 
 
 class TestPropertyCmd(TestCommand):
@@ -1699,7 +1698,7 @@ class TestPropertyCmd(TestCommand):
                 client = self.bus.get_object(dbus_busname, clientpath)
                 value = client.attributes[self.propname]
                 self.assertNotIsInstance(value, self.Unique)
-                self.assertEqual(value, value_to_get)
+                self.assertEqual(value_to_get, value)
 
     class Unique(object):
         """Class for objects which exist only to be unique objects,
