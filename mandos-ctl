@@ -61,6 +61,8 @@ logging.captureWarnings(True)   # Show warnings via the logging system
 
 if sys.version_info.major == 2:
     str = unicode
+    import StringIO
+    io.StringIO = StringIO.StringIO
 
 locale.setlocale(locale.LC_ALL, "")
 
@@ -613,20 +615,14 @@ override this run() method instead.
                         "Checker", "ExtendedTimeout", "Expires",
                         "LastCheckerStatus")
 
-        def run(self, clients, bus=None, mandos=None):
-            print(self.output(clients.values()))
-
-        def output(self, clients):
-            raise NotImplementedError()
-
 
     class DumpJSON(Output):
-        def output(self, clients):
+        def run(self, clients, bus=None, mandos=None):
             data = {client["Name"]:
                     {key: self.dbus_boolean_to_bool(client[key])
                      for key in self.all_keywords}
-                    for client in clients}
-            return json.dumps(data, indent=4, separators=(',', ': '))
+                    for client in clients.values()}
+            print(json.dumps(data, indent=4, separators=(',', ': ')))
 
         @staticmethod
         def dbus_boolean_to_bool(value):
@@ -639,13 +635,13 @@ override this run() method instead.
         def __init__(self, verbose=False):
             self.verbose = verbose
 
-        def output(self, clients):
+        def run(self, clients, bus=None, mandos=None):
             default_keywords = ("Name", "Enabled", "Timeout",
                                 "LastCheckedOK")
             keywords = default_keywords
             if self.verbose:
                 keywords = self.all_keywords
-            return str(self.TableOfClients(clients, keywords))
+            print(self.TableOfClients(clients.values(), keywords))
 
         class TableOfClients(object):
             tableheaders = {
