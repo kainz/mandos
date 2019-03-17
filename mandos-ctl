@@ -962,16 +962,13 @@ class Test_check_option_syntax(unittest.TestCase):
     @staticmethod
     @contextlib.contextmanager
     def redirect_stderr_to_devnull():
-        null = os.open(os.path.devnull, os.O_RDWR)
-        stderrcopy = os.dup(sys.stderr.fileno())
-        os.dup2(null, sys.stderr.fileno())
-        os.close(null)
-        try:
-            yield
-        finally:
-            # restore stderr
-            os.dup2(stderrcopy, sys.stderr.fileno())
-            os.close(stderrcopy)
+        old_stderr = sys.stderr
+        with contextlib.closing(open(os.devnull, "w")) as null:
+            sys.stderr = null
+            try:
+                yield
+            finally:
+                sys.stderr = old_stderr
 
     def check_option_syntax(self, options):
         check_option_syntax(self.parser, options)
