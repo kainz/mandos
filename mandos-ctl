@@ -83,11 +83,9 @@ except AttributeError:
 
 def main():
     parser = argparse.ArgumentParser()
-
     add_command_line_options(parser)
 
     options = parser.parse_args()
-
     check_option_syntax(parser, options)
 
     clientnames = options.client
@@ -462,7 +460,6 @@ class SilenceLogger(object):
 
     def __enter__(self):
         self.logger.addFilter(self.nullfilter)
-        return self
 
     class NullFilter(logging.Filter):
         def filter(self, record):
@@ -728,7 +725,7 @@ override this run() method instead.
                                 seconds=td.seconds % 60))
 
 
-    class Property(Base):
+    class PropertySetter(Base):
         "Abstract class for Actions for setting one client property"
 
         def run_on_one_client(self, client, properties):
@@ -749,56 +746,57 @@ override this run() method instead.
             raise NotImplementedError()
 
 
-    class Enable(Property):
+    class Enable(PropertySetter):
         propname = "Enabled"
         value_to_set = dbus.Boolean(True)
 
 
-    class Disable(Property):
+    class Disable(PropertySetter):
         propname = "Enabled"
         value_to_set = dbus.Boolean(False)
 
 
-    class BumpTimeout(Property):
+    class BumpTimeout(PropertySetter):
         propname = "LastCheckedOK"
         value_to_set = ""
 
 
-    class StartChecker(Property):
+    class StartChecker(PropertySetter):
         propname = "CheckerRunning"
         value_to_set = dbus.Boolean(True)
 
 
-    class StopChecker(Property):
+    class StopChecker(PropertySetter):
         propname = "CheckerRunning"
         value_to_set = dbus.Boolean(False)
 
 
-    class ApproveByDefault(Property):
+    class ApproveByDefault(PropertySetter):
         propname = "ApprovedByDefault"
         value_to_set = dbus.Boolean(True)
 
 
-    class DenyByDefault(Property):
+    class DenyByDefault(PropertySetter):
         propname = "ApprovedByDefault"
         value_to_set = dbus.Boolean(False)
 
 
-    class PropertyValue(Property):
-        "Abstract class for Property recieving a value as argument"
+    class PropertySetterValue(PropertySetter):
+        """Abstract class for PropertySetter recieving a value as
+constructor argument instead of a class attribute."""
         def __init__(self, value):
             self.value_to_set = value
 
 
-    class SetChecker(PropertyValue):
+    class SetChecker(PropertySetterValue):
         propname = "Checker"
 
 
-    class SetHost(PropertyValue):
+    class SetHost(PropertySetterValue):
         propname = "Host"
 
 
-    class SetSecret(PropertyValue):
+    class SetSecret(PropertySetterValue):
         propname = "Secret"
 
         @property
@@ -812,9 +810,10 @@ override this run() method instead.
             value.close()
 
 
-    class MillisecondsPropertyValueArgument(PropertyValue):
-        """Abstract class for PropertyValue taking a value argument as
-a datetime.timedelta() but should store it as milliseconds."""
+    class PropertySetterValueMilliseconds(PropertySetterValue):
+        """Abstract class for PropertySetterValue taking a value
+argument as a datetime.timedelta() but should store it as
+milliseconds."""
 
         @property
         def value_to_set(self):
@@ -826,23 +825,23 @@ a datetime.timedelta() but should store it as milliseconds."""
             self._vts = int(round(value.total_seconds() * 1000))
 
 
-    class SetTimeout(MillisecondsPropertyValueArgument):
+    class SetTimeout(PropertySetterValueMilliseconds):
         propname = "Timeout"
 
 
-    class SetExtendedTimeout(MillisecondsPropertyValueArgument):
+    class SetExtendedTimeout(PropertySetterValueMilliseconds):
         propname = "ExtendedTimeout"
 
 
-    class SetInterval(MillisecondsPropertyValueArgument):
+    class SetInterval(PropertySetterValueMilliseconds):
         propname = "Interval"
 
 
-    class SetApprovalDelay(MillisecondsPropertyValueArgument):
+    class SetApprovalDelay(PropertySetterValueMilliseconds):
         propname = "ApprovalDelay"
 
 
-    class SetApprovalDuration(MillisecondsPropertyValueArgument):
+    class SetApprovalDuration(PropertySetterValueMilliseconds):
         propname = "ApprovalDuration"
 
 
@@ -1699,8 +1698,8 @@ class TestBaseCommands(TestCommand):
         self.assertEqual(expected_output, buffer.getvalue())
 
 
-class TestPropertyCmd(TestCommand):
-    """Abstract class for tests of command.Property classes"""
+class TestPropertySetterCmd(TestCommand):
+    """Abstract class for tests of command.PropertySetter classes"""
     def runTest(self):
         if not hasattr(self, "command"):
             return
@@ -1727,73 +1726,73 @@ since unittest.mock.sentinel only exists in Python 3.3"""
         self.command().run(clients, self.bus)
 
 
-class TestEnableCmd(TestPropertyCmd):
+class TestEnableCmd(TestPropertySetterCmd):
     command = command.Enable
     propname = "Enabled"
     values_to_set = [dbus.Boolean(True)]
 
 
-class TestDisableCmd(TestPropertyCmd):
+class TestDisableCmd(TestPropertySetterCmd):
     command = command.Disable
     propname = "Enabled"
     values_to_set = [dbus.Boolean(False)]
 
 
-class TestBumpTimeoutCmd(TestPropertyCmd):
+class TestBumpTimeoutCmd(TestPropertySetterCmd):
     command = command.BumpTimeout
     propname = "LastCheckedOK"
     values_to_set = [""]
 
 
-class TestStartCheckerCmd(TestPropertyCmd):
+class TestStartCheckerCmd(TestPropertySetterCmd):
     command = command.StartChecker
     propname = "CheckerRunning"
     values_to_set = [dbus.Boolean(True)]
 
 
-class TestStopCheckerCmd(TestPropertyCmd):
+class TestStopCheckerCmd(TestPropertySetterCmd):
     command = command.StopChecker
     propname = "CheckerRunning"
     values_to_set = [dbus.Boolean(False)]
 
 
-class TestApproveByDefaultCmd(TestPropertyCmd):
+class TestApproveByDefaultCmd(TestPropertySetterCmd):
     command = command.ApproveByDefault
     propname = "ApprovedByDefault"
     values_to_set = [dbus.Boolean(True)]
 
 
-class TestDenyByDefaultCmd(TestPropertyCmd):
+class TestDenyByDefaultCmd(TestPropertySetterCmd):
     command = command.DenyByDefault
     propname = "ApprovedByDefault"
     values_to_set = [dbus.Boolean(False)]
 
 
-class TestPropertyValueCmd(TestPropertyCmd):
-    """Abstract class for tests of PropertyValueCmd classes"""
+class TestPropertySetterValueCmd(TestPropertySetterCmd):
+    """Abstract class for tests of PropertySetterValueCmd classes"""
 
     def runTest(self):
-        if type(self) is TestPropertyValueCmd:
+        if type(self) is TestPropertySetterValueCmd:
             return
-        return super(TestPropertyValueCmd, self).runTest()
+        return super(TestPropertySetterValueCmd, self).runTest()
 
     def run_command(self, value, clients):
         self.command(value).run(clients, self.bus)
 
 
-class TestSetCheckerCmd(TestPropertyValueCmd):
+class TestSetCheckerCmd(TestPropertySetterValueCmd):
     command = command.SetChecker
     propname = "Checker"
     values_to_set = ["", ":", "fping -q -- %s"]
 
 
-class TestSetHostCmd(TestPropertyValueCmd):
+class TestSetHostCmd(TestPropertySetterValueCmd):
     command = command.SetHost
     propname = "Host"
     values_to_set = ["192.0.2.3", "client.example.org"]
 
 
-class TestSetSecretCmd(TestPropertyValueCmd):
+class TestSetSecretCmd(TestPropertySetterValueCmd):
     command = command.SetSecret
     propname = "Secret"
     values_to_set = [io.BytesIO(b""),
@@ -1801,7 +1800,7 @@ class TestSetSecretCmd(TestPropertyValueCmd):
     values_to_get = [f.getvalue() for f in values_to_set]
 
 
-class TestSetTimeoutCmd(TestPropertyValueCmd):
+class TestSetTimeoutCmd(TestPropertySetterValueCmd):
     command = command.SetTimeout
     propname = "Timeout"
     values_to_set = [datetime.timedelta(),
@@ -1812,7 +1811,7 @@ class TestSetTimeoutCmd(TestPropertyValueCmd):
     values_to_get = [dt.total_seconds()*1000 for dt in values_to_set]
 
 
-class TestSetExtendedTimeoutCmd(TestPropertyValueCmd):
+class TestSetExtendedTimeoutCmd(TestPropertySetterValueCmd):
     command = command.SetExtendedTimeout
     propname = "ExtendedTimeout"
     values_to_set = [datetime.timedelta(),
@@ -1823,7 +1822,7 @@ class TestSetExtendedTimeoutCmd(TestPropertyValueCmd):
     values_to_get = [dt.total_seconds()*1000 for dt in values_to_set]
 
 
-class TestSetIntervalCmd(TestPropertyValueCmd):
+class TestSetIntervalCmd(TestPropertySetterValueCmd):
     command = command.SetInterval
     propname = "Interval"
     values_to_set = [datetime.timedelta(),
@@ -1834,7 +1833,7 @@ class TestSetIntervalCmd(TestPropertyValueCmd):
     values_to_get = [dt.total_seconds()*1000 for dt in values_to_set]
 
 
-class TestSetApprovalDelayCmd(TestPropertyValueCmd):
+class TestSetApprovalDelayCmd(TestPropertySetterValueCmd):
     command = command.SetApprovalDelay
     propname = "ApprovalDelay"
     values_to_set = [datetime.timedelta(),
@@ -1845,7 +1844,7 @@ class TestSetApprovalDelayCmd(TestPropertyValueCmd):
     values_to_get = [dt.total_seconds()*1000 for dt in values_to_set]
 
 
-class TestSetApprovalDurationCmd(TestPropertyValueCmd):
+class TestSetApprovalDurationCmd(TestPropertySetterValueCmd):
     command = command.SetApprovalDuration
     propname = "ApprovalDuration"
     values_to_set = [datetime.timedelta(),
