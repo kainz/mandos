@@ -556,7 +556,6 @@ class command(object):
 but commands which want to operate on all clients at the same time can
 override this run() method instead.
 """
-            self.mandos = mandos
             for clientpath, properties in clients.items():
                 log.debug("D-Bus: Connect to: (busname=%r, path=%r)",
                           dbus_busname, str(clientpath))
@@ -593,12 +592,12 @@ override this run() method instead.
 
 
     class Remove(Base):
-        def run_on_one_client(self, client, properties):
-            log.debug("D-Bus: %s:%s:%s.RemoveClient(%r)",
-                      dbus_busname, server_dbus_path,
-                      server_dbus_interface,
-                      str(client.__dbus_object_path__))
-            self.mandos.RemoveClient(client.__dbus_object_path__)
+        def run(self, clients, bus, mandos):
+            for clientpath in clients.keys():
+                log.debug("D-Bus: %s:%s:%s.RemoveClient(%r)",
+                          dbus_busname, server_dbus_path,
+                          server_dbus_interface, clientpath)
+                mandos.RemoveClient(clientpath)
 
 
     class Output(Base):
