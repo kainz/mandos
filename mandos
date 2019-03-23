@@ -275,9 +275,8 @@ class PGPEngine(object):
 
 
 # Pretend that we have an Avahi module
-class Avahi(object):
-    """This isn't so much a class as it is a module-like namespace.
-    It is instantiated once, and simulates having an Avahi module."""
+class avahi(object):
+    """This isn't so much a class as it is a module-like namespace."""
     IF_UNSPEC = -1               # avahi-common/address.h
     PROTO_UNSPEC = -1            # avahi-common/address.h
     PROTO_INET = 0               # avahi-common/address.h
@@ -287,7 +286,8 @@ class Avahi(object):
     DBUS_INTERFACE_SERVER = DBUS_NAME + ".Server"
     DBUS_PATH_SERVER = "/"
 
-    def string_array_to_txt_array(self, t):
+    @staticmethod
+    def string_array_to_txt_array(t):
         return dbus.Array((dbus.ByteArray(s.encode("utf-8"))
                            for s in t), signature="ay")
     ENTRY_GROUP_ESTABLISHED = 2  # avahi-common/defs.h
@@ -298,7 +298,6 @@ class Avahi(object):
     SERVER_RUNNING = 2           # avahi-common/defs.h
     SERVER_COLLISION = 3         # avahi-common/defs.h
     SERVER_FAILURE = 4           # avahi-common/defs.h
-avahi = Avahi()
 
 
 class AvahiError(Exception):
@@ -504,24 +503,14 @@ class AvahiServiceToSyslog(AvahiService):
 
 
 # Pretend that we have a GnuTLS module
-class GnuTLS(object):
-    """This isn't so much a class as it is a module-like namespace.
-    It is instantiated once, and simulates having a GnuTLS module."""
+class gnutls(object):
+    """This isn't so much a class as it is a module-like namespace."""
 
     library = ctypes.util.find_library("gnutls")
     if library is None:
         library = ctypes.util.find_library("gnutls-deb0")
     _library = ctypes.cdll.LoadLibrary(library)
     del library
-    _need_version = b"3.3.0"
-    _tls_rawpk_version = b"3.6.6"
-
-    def __init__(self):
-        # Need to use "self" here, since this method is called before
-        # the assignment to the "gnutls" global variable happens.
-        if self.check_version(self._need_version) is None:
-            raise self.Error("Needs GnuTLS {} or later"
-                             .format(self._need_version))
 
     # Unless otherwise indicated, the constants and types below are
     # all from the gnutls/gnutls.h C header file.
@@ -569,18 +558,14 @@ class GnuTLS(object):
 
     # Exceptions
     class Error(Exception):
-        # We need to use the class name "GnuTLS" here, since this
-        # exception might be raised from within GnuTLS.__init__,
-        # which is called before the assignment to the "gnutls"
-        # global variable has happened.
         def __init__(self, message=None, code=None, args=()):
             # Default usage is by a message string, but if a return
             # code is passed, convert it to a string with
             # gnutls.strerror()
             self.code = code
             if message is None and code is not None:
-                message = GnuTLS.strerror(code)
-            return super(GnuTLS.Error, self).__init__(
+                message = gnutls.strerror(code)
+            return super(gnutls.Error, self).__init__(
                 message, *args)
 
     class CertificateSecurityError(Error):
@@ -744,6 +729,12 @@ class GnuTLS(object):
     check_version.argtypes = [ctypes.c_char_p]
     check_version.restype = ctypes.c_char_p
 
+    _need_version = b"3.3.0"
+    if check_version(_need_version) is None:
+        raise self.Error("Needs GnuTLS {} or later"
+                         .format(_need_version))
+
+    _tls_rawpk_version = b"3.6.6"
     has_rawpk = bool(check_version(_tls_rawpk_version))
 
     if has_rawpk:
@@ -810,8 +801,6 @@ class GnuTLS(object):
 
     # Remove non-public functions
     del _error_code, _retry_on_error
-# Create the global "gnutls" object, simulating a module
-gnutls = GnuTLS()
 
 
 def call_pipe(connection,       # : multiprocessing.Connection
