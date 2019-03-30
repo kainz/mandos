@@ -936,7 +936,7 @@ unittest.mock.sentinel only exists in Python 3.3"""
 class Test_string_to_delta(TestCaseWithAssertLogs):
     # Just test basic RFC 3339 functionality here, the doc string for
     # rfc3339_duration_to_delta() already has more comprehensive
-    # tests, which is run by doctest.
+    # tests, which are run by doctest.
 
     def test_rfc3339_zero_seconds(self):
         self.assertEqual(datetime.timedelta(),
