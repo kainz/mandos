@@ -2070,84 +2070,81 @@ class TestPropertySetterCmd(TestCommand):
     def runTest(self):
         if not hasattr(self, "command"):
             return              # Abstract TestCase class
-        values_to_get = getattr(self, "values_to_get",
-                                self.values_to_set)
-        for value_to_set, value_to_get in zip(self.values_to_set,
-                                              values_to_get):
+
+        if hasattr(self, "values_to_set"):
+            cmd_args = [(value,) for value in self.values_to_set]
+            values_to_get = getattr(self, "values_to_get",
+                                    self.values_to_set)
+        else:
+            cmd_args = [() for x in range(len(self.values_to_get))]
+            values_to_get = self.values_to_get
+        for value_to_get, cmd_arg in zip(values_to_get, cmd_args):
             for clientpath in self.bus.clients:
-                self.bus.clients[clientpath][self.propname] = Unique()
-            self.run_command(value_to_set, self.bus.clients)
+                self.bus.clients[clientpath][self.propname] = (
+                    Unique())
+            self.command(*cmd_arg).run(self.bus.clients, self.bus)
             for clientpath in self.bus.clients:
-                value = self.bus.clients[clientpath][self.propname]
+                value = (self.bus.clients[clientpath]
+                         [self.propname])
                 self.assertNotIsInstance(value, Unique)
                 self.assertEqual(value_to_get, value)
-
-    def run_command(self, value, clients):
-        self.command().run(clients, self.bus)
 
 
 class TestEnableCmd(TestPropertySetterCmd):
     command = command.Enable
     propname = "Enabled"
-    values_to_set = [True]
+    values_to_get = [True]
 
 
 class TestDisableCmd(TestPropertySetterCmd):
     command = command.Disable
     propname = "Enabled"
-    values_to_set = [False]
+    values_to_get = [False]
 
 
 class TestBumpTimeoutCmd(TestPropertySetterCmd):
     command = command.BumpTimeout
     propname = "LastCheckedOK"
-    values_to_set = [""]
+    values_to_get = [""]
 
 
 class TestStartCheckerCmd(TestPropertySetterCmd):
     command = command.StartChecker
     propname = "CheckerRunning"
-    values_to_set = [True]
+    values_to_get = [True]
 
 
 class TestStopCheckerCmd(TestPropertySetterCmd):
     command = command.StopChecker
     propname = "CheckerRunning"
-    values_to_set = [False]
+    values_to_get = [False]
 
 
 class TestApproveByDefaultCmd(TestPropertySetterCmd):
     command = command.ApproveByDefault
     propname = "ApprovedByDefault"
-    values_to_set = [True]
+    values_to_get = [True]
 
 
 class TestDenyByDefaultCmd(TestPropertySetterCmd):
     command = command.DenyByDefault
     propname = "ApprovedByDefault"
-    values_to_set = [False]
+    values_to_get = [False]
 
 
-class TestPropertySetterValueCmd(TestPropertySetterCmd):
-    """Abstract class for tests of PropertySetterValueCmd classes"""
-
-    def run_command(self, value, clients):
-        self.command(value).run(clients, self.bus)
-
-
-class TestSetCheckerCmd(TestPropertySetterValueCmd):
+class TestSetCheckerCmd(TestPropertySetterCmd):
     command = command.SetChecker
     propname = "Checker"
     values_to_set = ["", ":", "fping -q -- %s"]
 
 
-class TestSetHostCmd(TestPropertySetterValueCmd):
+class TestSetHostCmd(TestPropertySetterCmd):
     command = command.SetHost
     propname = "Host"
     values_to_set = ["192.0.2.3", "client.example.org"]
 
 
-class TestSetSecretCmd(TestPropertySetterValueCmd):
+class TestSetSecretCmd(TestPropertySetterCmd):
     command = command.SetSecret
     propname = "Secret"
     values_to_set = [io.BytesIO(b""),
@@ -2155,7 +2152,7 @@ class TestSetSecretCmd(TestPropertySetterValueCmd):
     values_to_get = [f.getvalue() for f in values_to_set]
 
 
-class TestSetTimeoutCmd(TestPropertySetterValueCmd):
+class TestSetTimeoutCmd(TestPropertySetterCmd):
     command = command.SetTimeout
     propname = "Timeout"
     values_to_set = [datetime.timedelta(),
@@ -2166,7 +2163,7 @@ class TestSetTimeoutCmd(TestPropertySetterValueCmd):
     values_to_get = [dt.total_seconds()*1000 for dt in values_to_set]
 
 
-class TestSetExtendedTimeoutCmd(TestPropertySetterValueCmd):
+class TestSetExtendedTimeoutCmd(TestPropertySetterCmd):
     command = command.SetExtendedTimeout
     propname = "ExtendedTimeout"
     values_to_set = [datetime.timedelta(),
@@ -2177,7 +2174,7 @@ class TestSetExtendedTimeoutCmd(TestPropertySetterValueCmd):
     values_to_get = [dt.total_seconds()*1000 for dt in values_to_set]
 
 
-class TestSetIntervalCmd(TestPropertySetterValueCmd):
+class TestSetIntervalCmd(TestPropertySetterCmd):
     command = command.SetInterval
     propname = "Interval"
     values_to_set = [datetime.timedelta(),
@@ -2188,7 +2185,7 @@ class TestSetIntervalCmd(TestPropertySetterValueCmd):
     values_to_get = [dt.total_seconds()*1000 for dt in values_to_set]
 
 
-class TestSetApprovalDelayCmd(TestPropertySetterValueCmd):
+class TestSetApprovalDelayCmd(TestPropertySetterCmd):
     command = command.SetApprovalDelay
     propname = "ApprovalDelay"
     values_to_set = [datetime.timedelta(),
@@ -2199,7 +2196,7 @@ class TestSetApprovalDelayCmd(TestPropertySetterValueCmd):
     values_to_get = [dt.total_seconds()*1000 for dt in values_to_set]
 
 
-class TestSetApprovalDurationCmd(TestPropertySetterValueCmd):
+class TestSetApprovalDurationCmd(TestPropertySetterCmd):
     command = command.SetApprovalDuration
     propname = "ApprovalDuration"
     values_to_set = [datetime.timedelta(),
