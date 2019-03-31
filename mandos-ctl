@@ -45,7 +45,6 @@ import logging
 import io
 import tempfile
 import contextlib
-import abc
 
 import dbus as dbus_python
 
