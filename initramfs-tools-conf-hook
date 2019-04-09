@@ -1,0 +1,14 @@
+# -*- shell-script -*-
+
+# The UMASK is set by the file "initramfs-tools-conf" (which is copied
+# to /usr/share/initramfs-tools/conf.d/mandos-conf on installation)
+# since there, as described therein, is the proper place to do that.
+# However, it is possible for other packages to override the UMASK in
+# any file in /usr/share/initramfs-tools/conf-hooks.d.  Therefore,
+# this file ("initramfs-tools-conf-hook") will be installed as
+# "zz-mandos" in that directory to make sure UMASK is set correctly.
+
+# For more information on the effects of setting UMASK, see the
+# aforementioned /usr/share/initramfs-tools/conf.d/mandos-conf file.
+
+UMASK=0027
