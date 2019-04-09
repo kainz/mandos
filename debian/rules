@@ -53,7 +53,7 @@ override_dh_auto_test-arch: ;
 #bpo#	-gnutls_version=$$(dpkg-query --showformat='$${Version}' \
 #bpo#		--show libgnutls30); \
 #bpo#	dpkg --compare-versions $$gnutls_version lt 3.6.0 \
-#bpo#		&& { cp --archive debian/control debian/control.orig; sed --expression='s/libgnutls28-dev (>= 3\.6\.6) |//' debian/control; }
+#bpo#		&& { cp --archive debian/control debian/control.orig; sed --in-place --expression='s/libgnutls28-dev (>= 3\.6\.6) |//' debian/control; }
 #bpo#	dh_shlibdeps
 #bpo#	-gnutls_version=$$(dpkg-query --showformat='$${Version}' \
 #bpo#		--show libgnutls30); \
