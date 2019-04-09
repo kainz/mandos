@@ -2,8 +2,8 @@
 /*
  * Password-prompt - Read a password from the terminal and print it
  * 
- * Copyright © 2008-2018 Teddy Hogeborn
- * Copyright © 2008-2018 Björn Påhlsson
+ * Copyright © 2008-2019 Teddy Hogeborn
+ * Copyright © 2008-2019 Björn Påhlsson
  * 
  * This file is part of Mandos.
  * 

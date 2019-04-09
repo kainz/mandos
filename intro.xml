@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
-<!ENTITY TIMESTAMP "2019-02-10">
+<!ENTITY TIMESTAMP "2019-03-30">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -144,7 +144,7 @@
       long, and will no longer give out the encrypted key.  The timing
       here is the only real weak point, and the method, frequency and
       timeout of the server’s checking can be adjusted to any desired
-      level of paranoia
+      level of paranoia.
     </para>
     <para>
       (The encrypted keys on the Mandos server is on its normal file
