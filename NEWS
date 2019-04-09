@@ -1,6 +1,12 @@
 This NEWS file records noteworthy changes, very tersely.
 See the manual for detailed information.
 
+Version 1.8.4 (2019-04-09)
+* Client
+** Fix minor memory leak in plugin-runner.
+* Server
+** mandos-ctl now has a --debug option to show D-Bus calls.
+
 Version 1.8.3 (2019-02-11)
 * No user-visible changes.
 
