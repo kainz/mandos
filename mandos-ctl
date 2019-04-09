@@ -571,6 +571,14 @@ class dbus_python_adapter(object):
                         for key, subval in value.items()}
             return value
 
+        def set_client_property(self, objectpath, key, value):
+            if key == "Secret":
+                if not isinstance(value, bytes):
+                    value = value.encode("utf-8")
+                value = self.dbus_python.ByteArray(value)
+            return self.set_property(self.busname, objectpath,
+                                     self.client_interface, key,
+                                     value)
 
     class SilenceLogger(object):
         "Simple context manager to silence a particular logger"
@@ -1312,13 +1320,22 @@ class Test_dbus_python_adapter_SystemBus(TestCaseWithAssertLogs):
                 @staticmethod
                 def get_object(busname, objectpath):
                     DBusObject = collections.namedtuple(
-                        "DBusObject", ("methodname",))
+                        "DBusObject", ("methodname", "Set"))
                     def method(*args, **kwargs):
                         self.assertEqual({"dbus_interface":
                                           "interface"},
                                          kwargs)
                         return func(*args)
-                    return DBusObject(methodname=method)
+                    def set_property(interface, key, value,
+                                     dbus_interface=None):
+                        self.assertEqual(
+                            "org.freedesktop.DBus.Properties",
+                            dbus_interface)
+                        self.assertEqual("Secret", key)
+                        return func(interface, key, value,
+                                    dbus_interface=dbus_interface)
+                    return DBusObject(methodname=method,
+                                      Set=set_property)
             class Boolean(object):
                 def __init__(self, value):
                     self.value = bool(value)
@@ -1329,6 +1346,8 @@ class Test_dbus_python_adapter_SystemBus(TestCaseWithAssertLogs):
             class ObjectPath(str):
                 pass
             class Dictionary(dict):
+                pass
+            class ByteArray(bytes):
                 pass
         return mock_dbus_python
 
@@ -1511,6 +1530,22 @@ class Test_dbus_python_adapter_SystemBus(TestCaseWithAssertLogs):
 
         # Make sure the dbus logger was suppressed
         self.assertEqual(0, counting_handler.count)
+
+    def test_Set_Secret_sends_bytearray(self):
+        ret = [None]
+        def func(*args, **kwargs):
+            ret[0] = (args, kwargs)
+        mock_dbus_python = self.MockDBusPython_func(func)
+        bus = dbus_python_adapter.SystemBus(mock_dbus_python)
+        bus.set_client_property("objectpath", "Secret", "value")
+        expected_call = (("se.recompile.Mandos.Client", "Secret",
+                          mock_dbus_python.ByteArray(b"value")),
+                         {"dbus_interface":
+                          "org.freedesktop.DBus.Properties"})
+        self.assertEqual(expected_call, ret[0])
+        if sys.version_info.major == 2:
+            self.assertIsInstance(ret[0][0][-1],
+                                  mock_dbus_python.ByteArray)
 
     def test_get_object_converts_to_correct_exception(self):
         bus = dbus_python_adapter.SystemBus(
