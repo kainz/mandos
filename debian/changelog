@@ -1,3 +1,15 @@
+mandos (1.8.4-1) unstable; urgency=medium
+
+  * Fix "dirs in initrd are not accessible by mandos plugin-runner" by
+    making sure UMASK is set, no matter what other packages have installed
+    in "/usr/share/initramfs-tools/conf-hooks.d". (Closes: #926641)
+  * Fix "LeakSanitizer: detected memory leaks, fails to decrypt"
+    by fixing memory leak in plugin-runner. (Closes: #926643)
+  * debian/mandos-client.dirs: Add
+    "usr/share/initramfs-tools/conf-hooks.d", needed by fix for #926641.
+
+ -- Teddy Hogeborn <teddy@recompile.se>  Tue, 09 Apr 2019 22:05:39 +0200
+
 mandos (1.8.3-3) unstable; urgency=medium
 
   * Fix "src:mandos: modifies d/control during build" by not doing that
