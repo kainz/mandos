@@ -425,6 +425,8 @@ install-client-nokey: all doc
 		$(INITRAMFSTOOLS)/hooks/mandos
 	install --mode=u=rw,go=r initramfs-tools-conf \
 		$(INITRAMFSTOOLS)/conf.d/mandos-conf
+	install --mode=u=rw,go=r initramfs-tools-conf-hook \
+		$(INITRAMFSTOOLS)/conf-hooks.d/zz-mandos
 	install initramfs-tools-script \
 		$(INITRAMFSTOOLS)/scripts/init-premount/mandos
 	install initramfs-tools-script-stop \

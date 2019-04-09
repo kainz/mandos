@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY COMMANDNAME "mandos-ctl">
-<!ENTITY TIMESTAMP "2019-02-10">
+<!ENTITY TIMESTAMP "2019-03-09">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -62,6 +62,22 @@
   <refsynopsisdiv>
     <cmdsynopsis>
       <command>&COMMANDNAME;</command>
+      <group>
+	  <arg choice="plain"><option>--verbose</option></arg>
+	  <arg choice="plain"><option>-v</option></arg>
+	  <sbr/>
+	  <arg choice="plain"><option>--dump-json</option></arg>
+	  <arg choice="plain"><option>-j</option></arg>
+      </group>
+      <arg><option>--debug</option></arg>
+      <group>
+	<arg rep='repeat' choice='plain'>
+	  <replaceable>CLIENT</replaceable>
+	</arg>
+      </group>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>&COMMANDNAME;</command>
       <group choice="req">
 	<group>
 	  <arg choice="plain"><option>--enable</option></arg>
@@ -78,15 +94,7 @@
 	<sbr/>
 	<group>
 	  <arg choice="plain"><option>--start-checker</option></arg>
-	</group>
-	<sbr/>
-	<group>
 	  <arg choice="plain"><option>--stop-checker</option></arg>
-	</group>
-	<sbr/>
-	<group>
-	  <arg choice="plain"><option>--remove</option></arg>
-	  <arg choice="plain"><option>-r</option></arg>
 	</group>
 	<sbr/>
 	<group>
@@ -133,13 +141,6 @@
 	</group>
 	<sbr/>
 	<group>
-	  <arg choice="plain"><option>--interval
-	  <replaceable>TIME</replaceable></option></arg>
-	  <arg choice="plain"><option>-i
-	  <replaceable>TIME</replaceable></option></arg>
-	</group>
-	<sbr/>
-	<group>
 	  <arg choice="plain"><option>--host
 	  <replaceable>STRING</replaceable></option></arg>
 	  <arg choice="plain"><option>-H
@@ -162,6 +163,7 @@
 	</group>
       </group>
       <sbr/>
+      <arg><option>--debug</option></arg>
       <group choice="req">
 	<arg choice="plain"><option>--all</option></arg>
 	<arg choice="plain"><option>-a</option></arg>
@@ -173,13 +175,18 @@
     <cmdsynopsis>
       <command>&COMMANDNAME;</command>
       <group>
-	  <arg choice="plain"><option>--verbose</option></arg>
-	  <arg choice="plain"><option>-v</option></arg>
-	  <sbr/>
-	  <arg choice="plain"><option>--dump-json</option></arg>
-	  <arg choice="plain"><option>-j</option></arg>
+	<arg choice="plain"><option>--deny</option></arg>
+	<arg choice="plain"><option>-D</option></arg>
       </group>
-      <group>
+      <group choice="req">
+	  <arg choice="plain"><option>--remove</option></arg>
+	  <arg choice="plain"><option>-r</option></arg>
+      </group>
+      <sbr/>
+      <arg><option>--debug</option></arg>
+      <group choice="req">
+	<arg choice="plain"><option>--all</option></arg>
+	<arg choice="plain"><option>-a</option></arg>
 	<arg rep='repeat' choice='plain'>
 	  <replaceable>CLIENT</replaceable>
 	</arg>
@@ -191,6 +198,7 @@
 	<arg choice="plain"><option>--is-enabled</option></arg>
 	<arg choice="plain"><option>-V</option></arg>
       </group>
+      <arg><option>--debug</option></arg>
       <arg choice='plain'><replaceable>CLIENT</replaceable></arg>
     </cmdsynopsis>
     <cmdsynopsis>
@@ -504,6 +512,15 @@
       </varlistentry>
       
       <varlistentry>
+	<term><option>--debug</option></term>
+	<listitem>
+	  <para>
+	    Show debug output; currently, this means show D-Bus calls.
+	  </para>
+	</listitem>
+      </varlistentry>
+      
+      <varlistentry>
 	<term><option>--check</option></term>
 	<listitem>
 	  <para>
@@ -581,7 +598,7 @@
       <para>
 
 <!-- do not wrap this line -->
-<userinput>&COMMANDNAME; --timeout="5m" --interval="1m" foo1.example.org foo2.example.org</userinput>
+<userinput>&COMMANDNAME; --timeout="PT5M" --interval="PT1M" foo1.example.org foo2.example.org</userinput>
 
       </para>
     </informalexample>

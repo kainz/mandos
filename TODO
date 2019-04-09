@@ -86,7 +86,6 @@
 *** TODO [#C] In Python 3.3, use shlex.quote() instead of re.escape()
 
 * mandos-ctl
-*** Handle "no D-Bus server" and/or "no Mandos server found" better
 ** TODO Remove old string_to_delta format				  :2:
 
 * TODO mandos-dispatch
