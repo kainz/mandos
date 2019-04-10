@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
-<!ENTITY TIMESTAMP "2019-03-30">
+<!ENTITY TIMESTAMP "2019-04-10">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -131,8 +131,8 @@
     </para>
     <para>
       So, at boot time, the Mandos client will ask for its encrypted
-      data over the network, decrypt it to get the password, use it to
-      decrypt the root file, and continue booting.
+      data over the network, decrypt it to get the password, use the
+      password to decrypt the root file system, and continue booting.
     </para>
     <para>
       Now, of course the initial RAM disk image is not on the
