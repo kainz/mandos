@@ -131,8 +131,9 @@
     </para>
     <para>
       So, at boot time, the Mandos client will ask for its encrypted
-      data over the network, decrypt it to get the password, use the
-      password to decrypt the root file system, and continue booting.
+      data over the network, decrypt the data to get the password, use
+      the password to decrypt the root file system, and the client can
+      then continue booting.
     </para>
     <para>
       Now, of course the initial RAM disk image is not on the
