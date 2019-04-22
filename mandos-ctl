@@ -1780,18 +1780,29 @@ class Test_commands_from_options(unittest.TestCase):
         self.assert_command_from_args(["--is-enabled", "client"],
                                       command.IsEnabled)
 
-    def assert_command_from_args(self, args, command_cls,
-                                 **cmd_attrs):
+    def assert_command_from_args(self, args, command_cls, length=1,
+                                 clients=None, **cmd_attrs):
         """Assert that parsing ARGS should result in an instance of
 COMMAND_CLS with (optionally) all supplied attributes (CMD_ATTRS)."""
         options = self.parser.parse_args(args)
         check_option_syntax(self.parser, options)
         commands = commands_from_options(options)
-        self.assertEqual(1, len(commands))
-        command = commands[0]
-        self.assertIsInstance(command, command_cls)
+        self.assertEqual(length, len(commands))
+        for command in commands:
+            if isinstance(command, command_cls):
+                break
+        else:
+            self.assertIsInstance(command, command_cls)
+        if clients is not None:
+            self.assertEqual(clients, options.client)
         for key, value in cmd_attrs.items():
             self.assertEqual(value, getattr(command, key))
+
+    def assert_commands_from_args(self, args, commands, clients=None):
+        for cmd in commands:
+            self.assert_command_from_args(args, cmd,
+                                          length=len(commands),
+                                          clients=clients)
 
     def test_is_enabled_short(self):
         self.assert_command_from_args(["-V", "client"],
@@ -1987,6 +1998,37 @@ COMMAND_CLS with (optionally) all supplied attributes (CMD_ATTRS)."""
     def test_print_table_verbose_short(self):
         self.assert_command_from_args(["-v"], command.PrintTable,
                                       verbose=True)
+
+
+    def test_manual_page_example_1(self):
+        self.assert_command_from_args("--verbose".split(),
+                                      command.PrintTable,
+                                      clients=[],
+                                      verbose=True)
+
+    def test_manual_page_example_2(self):
+        self.assert_command_from_args(
+            "--verbose foo1.example.org foo2.example.org".split(),
+            command.PrintTable, clients=["foo1.example.org",
+                                         "foo2.example.org"],
+            verbose=True)
+
+    def test_manual_page_example_3(self):
+        self.assert_command_from_args("--enable --all".split(),
+                                      command.Enable,
+                                      clients=[])
+
+    def test_manual_page_example_4(self):
+        self.assert_commands_from_args(
+            ("--timeout=PT5M --interval=PT1M foo1.example.org"
+             " foo2.example.org").split(),
+            [command.SetTimeout, command.SetInterval],
+            clients=["foo1.example.org", "foo2.example.org"])
+
+    def test_manual_page_example_5(self):
+        self.assert_command_from_args("--approve --all".split(),
+                                      command.Approve,
+                                      clients=[])
 
 
 class TestCommand(unittest.TestCase):
