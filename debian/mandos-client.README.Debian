@@ -60,12 +60,12 @@ packaging which are not also in the manual.
   Note that since the network interfaces are used in the initial RAM
   disk environment, the network interfaces *must* exist at that stage.
   Thus, an interface can *not* be a pseudo-interface such as "br0" or
-  "tun0"; instead, only real interfaces (such as "eth0") can be used.
-  This can be overcome by writing a "network hook" program to create
-  an interface (see mandos-client(8mandos)) and placing it in
-  "/etc/mandos/network-hooks.d", from where it will be copied into the
-  initial RAM disk.  Example network hook scripts can be found in
-  "/usr/share/doc/mandos-client/examples/network-hooks.d".
+  "tun0"; instead, only real interfaces (such as "enp1s0" or "eth0")
+  can be used. This can be overcome by writing a "network hook"
+  program to create an interface (see mandos-client(8mandos)) and
+  placing it in "/etc/mandos/network-hooks.d", from where it will be
+  copied into the initial RAM disk.  Example network hook scripts can
+  be found in "/usr/share/doc/mandos-client/examples/network-hooks.d".
 
 * User-Supplied Plugins
   
@@ -108,4 +108,4 @@ packaging which are not also in the manual.
   policy or other reasons, simply replace the existing dhparams.pem
   file and update the initital RAM disk image.
 
- -- Teddy Hogeborn <teddy@recompile.se>, Sat,  9 Feb 2019 15:08:04 +0100
+ -- Teddy Hogeborn <teddy@recompile.se>, Thu, 20 Jun 2019 20:28:25 +0200
