@@ -508,19 +508,23 @@ int main(int argc, char **argv){
     }
     if(sret < 0){
       int e = errno;
-      if(errno != EINTR and not feof(stdin)){
-	error_plus(0, errno, "getline");
-	switch(e){
-	case EBADF:
-	  status = EX_UNAVAILABLE;
+      if(errno != EINTR){
+	if(not feof(stdin)){
+	  error_plus(0, errno, "getline");
+	  switch(e){
+	  case EBADF:
+	    status = EX_UNAVAILABLE;
+	    break;
+	  case EIO:
+	  case EINVAL:
+	  default:
+	    status = EX_IOERR;
+	    break;
+	  }
 	  break;
-	case EIO:
-	case EINVAL:
-	default:
-	  status = EX_IOERR;
-	  break;
+	} else {
+	  clearerr(stdin);
 	}
-	break;
       }
     }
     /* if(sret == 0), then the only sensible thing to do is to retry
