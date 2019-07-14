@@ -45,8 +45,10 @@ htmldir:=man
 version:=1.8.4
 SED:=sed
 
-USER:=$(firstword $(subst :, ,$(shell getent passwd _mandos || getent passwd nobody || echo 65534)))
-GROUP:=$(firstword $(subst :, ,$(shell getent group _mandos || getent group nogroup || echo 65534)))
+USER:=$(firstword $(subst :, ,$(shell getent passwd _mandos \
+	|| getent passwd nobody || echo 65534)))
+GROUP:=$(firstword $(subst :, ,$(shell getent group _mandos \
+	|| getent group nogroup || echo 65534)))
 
 ## Use these settings for a traditional /usr/local install
 # PREFIX:=$(DESTDIR)/usr/local
@@ -92,7 +94,8 @@ LIBNL3_LIBS:=$(shell pkg-config --libs libnl-route-3.0)
 # Do not change these two
 CFLAGS+=$(WARN) $(DEBUG) $(FORTIFY) $(COVERAGE) \
 	$(OPTIMIZE) $(LANGUAGE) -DVERSION='"$(version)"'
-LDFLAGS+=-Xlinker --as-needed $(COVERAGE) $(LINK_FORTIFY) $(foreach flag,$(LINK_FORTIFY_LD),-Xlinker $(flag))
+LDFLAGS+=-Xlinker --as-needed $(COVERAGE) $(LINK_FORTIFY) $(strip \
+	) $(foreach flag,$(LINK_FORTIFY_LD),-Xlinker $(flag))
 
 # Commands to format a DocBook <refentry> document into a manual page
 DOCBOOKTOMAN=$(strip cd $(dir $<); xsltproc --nonet --xinclude \
