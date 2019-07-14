@@ -10,10 +10,12 @@ WARN:=-O -Wall -Wextra -Wdouble-promotion -Wformat=2 -Winit-self \
 	-Wmissing-format-attribute -Wnormalized=nfc -Wpacked \
 	-Wredundant-decls -Wnested-externs -Winline -Wvla \
 	-Wvolatile-register-var -Woverlength-strings
-#DEBUG:=-ggdb3 -fsanitize=address 
-# For info about _FORTIFY_SOURCE, see feature_test_macros(7)
-# and <https://gcc.gnu.org/ml/gcc-patches/2004-09/msg02055.html>.
-FORTIFY:=-D_FORTIFY_SOURCE=2 -fstack-protector-all -fPIC
+
+#DEBUG:=-ggdb3 -fsanitize=address $(SANITIZE)
+## Check which sanitizing options can be used
+#SANITIZE:=$(foreach option,$(ALL_SANITIZE_OPTIONS),$(shell \
+#	echo 'int main(){}' | $(CC) --language=c $(option) \
+#	/dev/stdin -o /dev/null >/dev/null 2>&1 && echo $(option)))
 # <https://developerblog.redhat.com/2014/10/16/gcc-undefined-behavior-sanitizer-ubsan/>
 ALL_SANITIZE_OPTIONS:=-fsanitize=leak -fsanitize=undefined \
         -fsanitize=shift -fsanitize=integer-divide-by-zero \
@@ -24,10 +26,10 @@ ALL_SANITIZE_OPTIONS:=-fsanitize=leak -fsanitize=undefined \
         -fsanitize=float-cast-overflow -fsanitize=nonnull-attribute \
         -fsanitize=returns-nonnull-attribute -fsanitize=bool \
         -fsanitize=enum
-# Check which sanitizing options can be used
-SANITIZE:=$(foreach option,$(ALL_SANITIZE_OPTIONS),$(shell \
-	echo 'int main(){}' | $(CC) --language=c $(option) /dev/stdin \
-	-o /dev/null >/dev/null 2>&1 && echo $(option)))
+
+# For info about _FORTIFY_SOURCE, see feature_test_macros(7)
+# and <https://gcc.gnu.org/ml/gcc-patches/2004-09/msg02055.html>.
+FORTIFY:=-D_FORTIFY_SOURCE=2 -fstack-protector-all -fPIC
 LINK_FORTIFY_LD:=-z relro -z now
 LINK_FORTIFY:=
 
@@ -88,7 +90,7 @@ LIBNL3_CFLAGS:=$(shell pkg-config --cflags-only-I libnl-route-3.0)
 LIBNL3_LIBS:=$(shell pkg-config --libs libnl-route-3.0)
 
 # Do not change these two
-CFLAGS+=$(WARN) $(DEBUG) $(FORTIFY) $(SANITIZE) $(COVERAGE) \
+CFLAGS+=$(WARN) $(DEBUG) $(FORTIFY) $(COVERAGE) \
 	$(OPTIMIZE) $(LANGUAGE) -DVERSION='"$(version)"'
 LDFLAGS+=-Xlinker --as-needed $(COVERAGE) $(LINK_FORTIFY) $(foreach flag,$(LINK_FORTIFY_LD),-Xlinker $(flag))
 
@@ -252,14 +254,12 @@ mandos.lsm: Makefile
 		--expression='s/\(mandos_\)[0-9.]\+\(\.orig\.tar\.gz\)/\1$(version)\2/' \
 		$@)
 
-# Need to add the GnuTLS, Avahi and GPGME libraries, and can't use
-# -fsanitize=leak because GnuTLS and GPGME both leak memory.
+# Need to add the GnuTLS, Avahi and GPGME libraries
 plugins.d/mandos-client: plugins.d/mandos-client.c
-	$(CC) $(filter-out -fsanitize=leak,$(CFLAGS)) $(strip\
-	) $(GNUTLS_CFLAGS) $(AVAHI_CFLAGS) $(GPGME_CFLAGS) $(strip\
-		) $(CPPFLAGS) $(LDFLAGS) $(TARGET_ARCH) $^ $(strip\
-		) -lrt $(GNUTLS_LIBS) $(AVAHI_LIBS) $(strip\
-		) $(GPGME_LIBS) $(LOADLIBES) $(LDLIBS) -o $@
+	$(LINK.c) $^ $(GNUTLS_CFLAGS) $(AVAHI_CFLAGS) $(strip\
+		) $(GPGME_CFLAGS) -lrt $(GNUTLS_LIBS) $(strip\
+		) $(AVAHI_LIBS) $(GPGME_LIBS) $(LOADLIBES) $(strip\
+		) $(LDLIBS) -o $@
 
 plugin-helpers/mandos-client-iprouteadddel: plugin-helpers/mandos-client-iprouteadddel.c
 	$(LINK.c) $(LIBNL3_CFLAGS) $^ $(LIBNL3_LIBS) $(strip\
