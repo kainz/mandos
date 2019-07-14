@@ -9,11 +9,11 @@ Description: New client option "key_id" is REQUIRED on server
  .
  mandos-keygen -F/dev/null|grep ^key_id
  .
- Note: the client must all also be using GnuTLS 3.6.6 or later; the server cannot serve passwords for both old and new clients!
+ Note: the clients must all also be using GnuTLS 3.6.6 or later; the server cannot serve passwords for both old and new clients!
  .
  Rationale: With GnuTLS 3.6.6, Mandos has been forced to stop using OpenPGP keys as TLS session keys.  A new TLS key pair will be generated on each client and will be used as identification, but the key ID of the public key needs to be added to this server, since this will now be used to identify the client to the server.
 
 Template: mandos/removed_bad_key_ids
 Type: note
 Description: Bad key IDs have been removed from clients.conf
- Bad key IDs, which were reported by a bug in Mandos client 1.8.0, have been removed from /etc/mandos/clients.conf
+ Bad key IDs, which were created by a bug in Mandos client 1.8.0, have been removed from /etc/mandos/clients.conf
