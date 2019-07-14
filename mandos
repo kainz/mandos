@@ -2605,6 +2605,8 @@ class IPv6_TCPServer(MultiprocessingMixInWithPipe,
                     raise
         # Only bind(2) the socket if we really need to.
         if self.server_address[0] or self.server_address[1]:
+            if self.server_address[1]:
+                self.allow_reuse_address = True
             if not self.server_address[0]:
                 if self.address_family == socket.AF_INET6:
                     any_address = "::"  # in6addr_any
