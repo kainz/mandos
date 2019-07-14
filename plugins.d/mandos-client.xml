@@ -525,8 +525,8 @@
 	  <para>
 	    This environment variable will be assumed to contain the
 	    directory containing any helper executables.  The use and
-	    nature of these helper executables, if any, is
-	    purposefully not documented.
+	    nature of these helper executables, if any, is purposely
+	    not documented.
 	</para>
 	</listitem>
       </varlistentry>
