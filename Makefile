@@ -260,7 +260,7 @@ mandos.lsm: Makefile
 # Need to add the GnuTLS, Avahi and GPGME libraries
 plugins.d/mandos-client: plugins.d/mandos-client.c
 	$(LINK.c) $^ $(GNUTLS_CFLAGS) $(AVAHI_CFLAGS) $(strip\
-		) $(GPGME_CFLAGS) -lrt $(GNUTLS_LIBS) $(strip\
+		) $(GPGME_CFLAGS) $(GNUTLS_LIBS) $(strip\
 		) $(AVAHI_LIBS) $(GPGME_LIBS) $(LOADLIBES) $(strip\
 		) $(LDLIBS) -o $@
 

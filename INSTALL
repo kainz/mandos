@@ -57,7 +57,7 @@
     fping ssh-client
     
 *** Mandos Client
-    + GNU C Library 2.16 https://gnu.org/software/libc/
+    + GNU C Library 2.17 https://gnu.org/software/libc/
     + initramfs-tools 0.85i
                         https://tracker.debian.org/pkg/initramfs-tools
     + GnuTLS 3.3        https://www.gnutls.org/
