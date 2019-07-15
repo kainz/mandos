@@ -25,7 +25,7 @@ ALL_SANITIZE_OPTIONS:=-fsanitize=leak -fsanitize=undefined \
         -fsanitize=object-size -fsanitize=float-divide-by-zero \
         -fsanitize=float-cast-overflow -fsanitize=nonnull-attribute \
         -fsanitize=returns-nonnull-attribute -fsanitize=bool \
-        -fsanitize=enum
+        -fsanitize=enum -fsanitize-address-use-after-scope
 
 # For info about _FORTIFY_SOURCE, see feature_test_macros(7)
 # and <https://gcc.gnu.org/ml/gcc-patches/2004-09/msg02055.html>.
