@@ -66,13 +66,14 @@
     + GnuPG 1.4.9       https://www.gnupg.org/
     + GPGME 1.1.6       https://www.gnupg.org/related_software/gpgme/
     + pkg-config https://www.freedesktop.org/wiki/Software/pkg-config/
+    + libnl-route 3     https://www.infradead.org/~tgr/libnl/
     
     Strongly recommended:
     + OpenSSH           http://www.openssh.com/
     
     Package names:
     initramfs-tools libgnutls-dev gnutls-bin libavahi-core-dev gnupg
-    libgpgme11-dev pkg-config ssh
+    libgpgme11-dev pkg-config ssh libnl-route-3-dev
 
 * Installing the Mandos server
   
