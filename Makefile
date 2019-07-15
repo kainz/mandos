@@ -264,6 +264,7 @@ plugins.d/mandos-client: plugins.d/mandos-client.c
 		) $(AVAHI_LIBS) $(GPGME_LIBS) $(LOADLIBES) $(strip\
 		) $(LDLIBS) -o $@
 
+# Need to add the libnl-route library
 plugin-helpers/mandos-client-iprouteadddel: plugin-helpers/mandos-client-iprouteadddel.c
 	$(LINK.c) $(LIBNL3_CFLAGS) $^ $(LIBNL3_LIBS) $(strip\
 		) $(LOADLIBES) $(LDLIBS) -o $@
