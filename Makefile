@@ -282,9 +282,12 @@ mostlyclean: clean
 maintainer-clean: clean
 	-rm --force --recursive keydir confdir statedir
 
-check:	all
+check: all
 	./mandos --check
 	./mandos-ctl --check
+	./mandos-keygen --version
+	./plugin-runner --version
+	./plugin-helpers/mandos-client-iprouteadddel --version
 
 # Run the client with a local config and key
 run-client: all keydir/seckey.txt keydir/pubkey.txt keydir/tls-privkey.pem keydir/tls-pubkey.pem
