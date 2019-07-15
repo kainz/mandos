@@ -1,0 +1,24 @@
+Test-Command: /usr/sbin/mandos --check
+Restrictions: superficial
+Features: test-name=mandos-check
+Depends: mandos
+
+Test-Command: /usr/sbin/mandos-ctl --check --verbose
+Restrictions: allow-stderr
+Features: test-name=mandos-ctl
+Depends: mandos
+
+Test-Command: /usr/sbin/mandos-keygen --version
+Restrictions: superficial
+Features: test-name=mandos-keygen-version
+Depends: mandos-client
+
+Test-Command: /usr/lib/$(dpkg-architecture -qDEB_HOST_MULTIARCH 2>/dev/null)/mandos/plugin-runner --version
+Restrictions: needs-root, superficial
+Features: test-name=plugin-runner-version
+Depends: mandos-client
+
+Test-Command: /usr/lib/$(dpkg-architecture -qDEB_HOST_MULTIARCH 2>/dev/null)/mandos/plugin-helpers/mandos-client-iprouteadddel --version
+Restrictions: needs-root, superficial
+Features: test-name=mandos-client-iprouteadddel-version
+Depends: mandos-client
