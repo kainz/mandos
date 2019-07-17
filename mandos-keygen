@@ -381,7 +381,7 @@ if [ "$mode" = password ]; then
     
     while [ ! -s "$SECFILE" ]; do
 	if [ -n "$PASSFILE" ]; then
-	    cat "$PASSFILE"
+	    cat -- "$PASSFILE"
 	else
 	    tty --quiet && stty -echo
 	    echo -n "Enter passphrase: " >/dev/tty
