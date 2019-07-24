@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY COMMANDNAME "mandos-client">
-<!ENTITY TIMESTAMP "2019-02-10">
+<!ENTITY TIMESTAMP "2019-07-24">
 <!ENTITY % common SYSTEM "../common.ent">
 %common;
 ]>
@@ -891,7 +891,7 @@
       </varlistentry>
       <varlistentry>
 	<term>
-	  <ulink url="http://www.avahi.org/">Avahi</ulink>
+	  <ulink url="https://www.avahi.org/">Avahi</ulink>
 	</term>
       <listitem>
 	<para>
