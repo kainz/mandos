@@ -107,9 +107,9 @@ DOCBOOKTOMAN=$(strip cd $(dir $<); xsltproc --nonet --xinclude \
 	/usr/share/xml/docbook/stylesheet/nwalsh/manpages/docbook.xsl \
 	$(notdir $<); \
 	if locale --all 2>/dev/null | grep --regexp='^en_US\.utf8$$' \
-	&& type man 2>/dev/null; then LANG=en_US.UTF-8 MANWIDTH=80 \
-	man --warnings --encoding=UTF-8 --local-file $(notdir $@); \
-	fi >/dev/null)
+	&& command -v man >/dev/null; then LANG=en_US.UTF-8 \
+	MANWIDTH=80 man --warnings --encoding=UTF-8 --local-file \
+	$(notdir $@); fi >/dev/null)
 
 DOCBOOKTOHTML=$(strip xsltproc --nonet --xinclude \
 	--param make.year.ranges		1 \
