@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY COMMANDNAME "plymouth">
-<!ENTITY TIMESTAMP "2019-02-10">
+<!ENTITY TIMESTAMP "2019-07-27">
 <!ENTITY % common SYSTEM "../common.ent">
 %common;
 ]>
@@ -61,6 +61,28 @@
   <refsynopsisdiv>
     <cmdsynopsis>
       <command>&COMMANDNAME;</command>
+      <arg choice="opt">
+	<option>--prompt <replaceable>PROMPT</replaceable></option>
+      </arg>
+      <arg><option>--debug</option></arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>&COMMANDNAME;</command>
+      <group choice="req">
+	<arg choice="plain"><option>--help</option></arg>
+	<arg choice="plain"><option>-?</option></arg>
+      </group>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>&COMMANDNAME;</command>
+      <arg choice="plain"><option>--usage</option></arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>&COMMANDNAME;</command>
+      <group choice="req">
+	<arg choice="plain"><option>--version</option></arg>
+	<arg choice="plain"><option>-V</option></arg>
+      </group>
     </cmdsynopsis>
   </refsynopsisdiv>
   
@@ -102,8 +124,68 @@
   <refsect1 id="options">
     <title>OPTIONS</title>
     <para>
-      This program takes no options.
+      This program is commonly not invoked from the command line; it
+      is normally started by the <application>Mandos</application>
+      plugin runner, see <citerefentry><refentrytitle
+      >plugin-runner</refentrytitle><manvolnum>8mandos</manvolnum>
+      </citerefentry>.  Any command line options this program accepts
+      are therefore normally provided by the plugin runner, and not
+      directly.
     </para>
+    
+    <variablelist>
+      <varlistentry>
+	<term><option>--prompt=<replaceable
+	>PROMPT</replaceable></option></term>
+	<listitem>
+	  <para>
+	    The password prompt.  Note that using this option will
+	    make this program ignore the <envar>cryptsource</envar>
+	    and <envar>crypttarget</envar> environment variables.
+	  </para>
+	</listitem>
+      </varlistentry>
+      
+      <varlistentry>
+	<term><option>--debug</option></term>
+	<listitem>
+	  <para>
+	    Enable debug mode.  This will enable a lot of output to
+	    standard error about what the program is doing.  The
+	    program will still perform all other functions normally.
+	  </para>
+	</listitem>
+      </varlistentry>
+      
+      <varlistentry>
+	<term><option>--help</option></term>
+	<term><option>-?</option></term>
+	<listitem>
+	  <para>
+	    Gives a help message about options and their meanings.
+	  </para>
+	</listitem>
+      </varlistentry>
+      
+      <varlistentry>
+	<term><option>--usage</option></term>
+	<listitem>
+	  <para>
+	    Gives a short usage message.
+	  </para>
+	</listitem>
+      </varlistentry>
+      
+      <varlistentry>
+	<term><option>--version</option></term>
+	<term><option>-V</option></term>
+	<listitem>
+	  <para>
+	    Prints the program version.
+	  </para>
+	</listitem>
+      </varlistentry>
+    </variablelist>
   </refsect1>
   
   <refsect1 id="exit_status">
@@ -125,7 +207,8 @@
 	<term><envar>crypttarget</envar></term>
 	<listitem>
 	  <para>
-	    If set, these environment variables will be assumed to
+	    If set, and if the <option>--prompt</option> option is not
+	    used, these environment variables will be assumed to
 	    contain the source device name and the target device
 	    mapper name, respectively, and will be shown as part of
 	    the prompt.
@@ -133,22 +216,13 @@
 	<para>
 	  These variables will normally be inherited from
 	  <citerefentry><refentrytitle>plugin-runner</refentrytitle>
-	  <manvolnum>8mandos</manvolnum></citerefentry>, which will
-	  normally have inherited them from
-	  <filename>/scripts/local-top/cryptroot</filename> in the
-	  initial <acronym>RAM</acronym> disk environment, which will
-	  have set them from parsing kernel arguments and
-	  <filename>/conf/conf.d/cryptroot</filename> (also in the
-	  initial RAM disk environment), which in turn will have been
-	  created when the initial RAM disk image was created by
-	  <filename
-	  >/usr/share/initramfs-tools/hooks/cryptroot</filename>, by
-	  extracting the information of the root file system from
-	  <filename >/etc/crypttab</filename>.
+	  <manvolnum>8mandos</manvolnum></citerefentry>, which might
+	  have in turn inherited them from its calling process.
 	</para>
 	<para>
 	  This behavior is meant to exactly mirror the behavior of
-	  <command>askpass</command>, the default password prompter.
+	  <command>askpass</command>, the default password prompter
+	  from initramfs-tools.
 	</para>
 	</listitem>
       </varlistentry>
@@ -221,10 +295,18 @@
     </para>
     <informalexample>
       <para>
-	This program takes no options.
+	Normal invocation needs no options:
       </para>
       <para>
 	<userinput>&COMMANDNAME;</userinput>
+      </para>
+    </informalexample>
+    <informalexample>
+      <para>
+	Show a different prompt.
+      </para>
+      <para>
+	<userinput>&COMMANDNAME; --prompt=Password</userinput>
       </para>
     </informalexample>
   </refsect1>
@@ -272,8 +354,6 @@
     <para>
       <citerefentry><refentrytitle>intro</refentrytitle>
       <manvolnum>8mandos</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>crypttab</refentrytitle>
-      <manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>plugin-runner</refentrytitle>
       <manvolnum>8mandos</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>proc</refentrytitle>

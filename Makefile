@@ -56,6 +56,7 @@ GROUP:=$(firstword $(subst :, ,$(shell getent group _mandos \
 # KEYDIR:=$(DESTDIR)/etc/mandos/keys
 # MANDIR:=$(PREFIX)/man
 # INITRAMFSTOOLS:=$(DESTDIR)/etc/initramfs-tools
+# DRACUTMODULE:=$(DESTDIR)/usr/lib/dracut/modules.d/90mandos
 # STATEDIR:=$(DESTDIR)/var/lib/mandos
 # LIBDIR:=$(PREFIX)/lib
 ##
@@ -66,6 +67,7 @@ CONFDIR:=$(DESTDIR)/etc/mandos
 KEYDIR:=$(DESTDIR)/etc/keys/mandos
 MANDIR:=$(PREFIX)/share/man
 INITRAMFSTOOLS:=$(DESTDIR)/usr/share/initramfs-tools
+DRACUTMODULE:=$(DESTDIR)/usr/lib/dracut/modules.d/90mandos
 STATEDIR:=$(DESTDIR)/var/lib/mandos
 LIBDIR:=$(shell \
 	for d in \
@@ -90,6 +92,8 @@ GPGME_LIBS:=$(shell gpgme-config --libs; getconf LFS_LIBS; \
 	getconf LFS_LDFLAGS)
 LIBNL3_CFLAGS:=$(shell pkg-config --cflags-only-I libnl-route-3.0)
 LIBNL3_LIBS:=$(shell pkg-config --libs libnl-route-3.0)
+GLIB_CFLAGS:=$(shell pkg-config --cflags glib-2.0)
+GLIB_LIBS:=$(shell pkg-config --libs glib-2.0)
 
 # Do not change these two
 CFLAGS+=$(WARN) $(DEBUG) $(FORTIFY) $(COVERAGE) \
@@ -128,10 +132,12 @@ PLUGINS:=plugins.d/password-prompt plugins.d/mandos-client \
 	plugins.d/usplash plugins.d/splashy plugins.d/askpass-fifo \
 	plugins.d/plymouth
 PLUGIN_HELPERS:=plugin-helpers/mandos-client-iprouteadddel
-CPROGS:=plugin-runner $(PLUGINS) $(PLUGIN_HELPERS)
+CPROGS:=plugin-runner dracut-module/password-agent $(PLUGINS) \
+	$(PLUGIN_HELPERS)
 PROGS:=mandos mandos-keygen mandos-ctl mandos-monitor $(CPROGS)
 DOCS:=mandos.8 mandos-keygen.8 mandos-monitor.8 mandos-ctl.8 \
 	mandos.conf.5 mandos-clients.conf.5 plugin-runner.8mandos \
+	dracut-module/password-agent.8mandos \
 	plugins.d/mandos-client.8mandos \
 	plugins.d/password-prompt.8mandos plugins.d/usplash.8mandos \
 	plugins.d/splashy.8mandos plugins.d/askpass-fifo.8mandos \
@@ -209,6 +215,15 @@ plugin-runner.8mandos.xhtml: plugin-runner.xml common.ent \
 		overview.xml legalnotice.xml
 	$(DOCBOOKTOHTML)
 
+dracut-module/password-agent.8mandos: \
+		dracut-module/password-agent.xml common.ent \
+		overview.xml legalnotice.xml
+	$(DOCBOOKTOMAN)
+dracut-module/password-agent.8mandos.xhtml: \
+		dracut-module/password-agent.xml common.ent \
+		overview.xml legalnotice.xml
+	$(DOCBOOKTOHTML)
+
 plugins.d/mandos-client.8mandos: plugins.d/mandos-client.xml \
 					common.ent \
 					mandos-options.xml \
@@ -269,6 +284,11 @@ plugin-helpers/mandos-client-iprouteadddel: plugin-helpers/mandos-client-iproute
 	$(LINK.c) $(LIBNL3_CFLAGS) $^ $(LIBNL3_LIBS) $(strip\
 		) $(LOADLIBES) $(LDLIBS) -o $@
 
+# Need to add the GLib and pthread libraries
+dracut-module/password-agent: dracut-module/password-agent.c
+	$(LINK.c) $(GLIB_CFLAGS) $^ $(GLIB_LIBS) -lpthread $(strip\
+		) $(LOADLIBES) $(LDLIBS) -o $@
+
 .PHONY : all doc html clean distclean mostlyclean maintainer-clean \
 	check run-client run-server install install-html \
 	install-server install-client-nokey install-client uninstall \
@@ -289,6 +309,7 @@ check: all
 	./mandos-keygen --version
 	./plugin-runner --version
 	./plugin-helpers/mandos-client-iprouteadddel --version
+	./dracut-module/password-agent --test
 
 # Run the client with a local config and key
 run-client: all keydir/seckey.txt keydir/pubkey.txt keydir/tls-privkey.pem keydir/tls-pubkey.pem
@@ -438,6 +459,15 @@ install-client-nokey: all doc
 		$(INITRAMFSTOOLS)/scripts/init-premount/mandos
 	install initramfs-tools-script-stop \
 		$(INITRAMFSTOOLS)/scripts/local-premount/mandos
+	install --directory $(DRACUTMODULE)
+	install --mode=u=rw,go=r --target-directory=$(DRACUTMODULE) \
+		dracut-module/ask-password-mandos.path \
+		dracut-module/ask-password-mandos.service
+	install --mode=u=rwxs,go=rx \
+		--target-directory=$(DRACUTMODULE) \
+		dracut-module/module-setup.sh \
+		dracut-module/cmdline-mandos.sh \
+		dracut-module/password-agent
 	install --mode=u=rw,go=r plugin-runner.conf $(CONFDIR)
 	gzip --best --to-stdout mandos-keygen.8 \
 		> $(MANDIR)/man8/mandos-keygen.8.gz
@@ -455,11 +485,22 @@ install-client-nokey: all doc
 		> $(MANDIR)/man8/askpass-fifo.8mandos.gz
 	gzip --best --to-stdout plugins.d/plymouth.8mandos \
 		> $(MANDIR)/man8/plymouth.8mandos.gz
+	gzip --best --to-stdout dracut-module/password-agent.8mandos \
+		> $(MANDIR)/man8/password-agent.8mandos.gz
 
 install-client: install-client-nokey
 # Post-installation stuff
 	-$(PREFIX)/sbin/mandos-keygen --dir "$(KEYDIR)"
-	update-initramfs -k all -u
+	if command -v update-initramfs >/dev/null; then \
+	    update-initramfs -k all -u; \
+	elif command -v dracut >/dev/null; then \
+	    for initrd in $(DESTDIR)/boot/initr*-$(shell uname --kernel-release); do \
+		if [ -w "$$initrd" ]; then \
+		    chmod go-r "$$initrd"; \
+		    dracut --force "$$initrd"; \
+		fi; \
+	    done; \
+	fi
 	echo "Now run mandos-keygen --password --dir $(KEYDIR)"
 
 uninstall: uninstall-server uninstall-client
@@ -492,6 +533,12 @@ uninstall-client:
 		$(INITRAMFSTOOLS)/hooks/mandos \
 		$(INITRAMFSTOOLS)/conf-hooks.d/mandos \
 		$(INITRAMFSTOOLS)/scripts/init-premount/mandos \
+		$(INITRAMFSTOOLS)/scripts/local-premount/mandos \
+		$(DRACUTMODULE)/ask-password-mandos.path \
+		$(DRACUTMODULE)/ask-password-mandos.service \
+		$(DRACUTMODULE)/module-setup.sh \
+		$(DRACUTMODULE)/cmdline-mandos.sh \
+		$(DRACUTMODULE)/password-agent \
 		$(MANDIR)/man8/mandos-keygen.8.gz \
 		$(MANDIR)/man8/plugin-runner.8mandos.gz \
 		$(MANDIR)/man8/mandos-client.8mandos.gz
@@ -500,9 +547,16 @@ uninstall-client:
 		$(MANDIR)/man8/splashy.8mandos.gz \
 		$(MANDIR)/man8/askpass-fifo.8mandos.gz \
 		$(MANDIR)/man8/plymouth.8mandos.gz \
+		$(MANDIR)/man8/password-agent.8mandos.gz \
 	-rmdir $(LIBDIR)/mandos/plugins.d $(CONFDIR)/plugins.d \
-		 $(LIBDIR)/mandos $(CONFDIR) $(KEYDIR)
-	update-initramfs -k all -u
+		 $(LIBDIR)/mandos $(CONFDIR) $(KEYDIR) $(DRACUTMODULE)
+	if command -v update-initramfs >/dev/null; then \
+	    update-initramfs -k all -u; \
+	elif command -v dracut >/dev/null; then \
+	    for initrd in $(DESTDIR)/boot/initr*-$(shell uname --kernel-release); do \
+		test -w "$$initrd" && dracut --force "$$initrd"; \
+	    done; \
+	fi
 
 purge: purge-server purge-client
 
