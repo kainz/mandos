@@ -1,0 +1,4 @@
+# We are both upstream and Debian maintainer for this package, so the
+# .asc signature can not exist until after the orig.tar.gz has been
+# built as part of the Debian package build.
+mandos source: orig-tarball-missing-upstream-signature mandos_*.tar.gz
