@@ -2,8 +2,8 @@
 # 
 # Initramfs unpacker - unpacks initramfs images into /tmp
 # 
-# Copyright © 2013-2018 Teddy Hogeborn
-# Copyright © 2013-2018 Björn Påhlsson
+# Copyright © 2013-2019 Teddy Hogeborn
+# Copyright © 2013-2019 Björn Påhlsson
 # 
 # This file is part of Mandos.
 #
@@ -43,25 +43,40 @@ for imgfile in "$@"; do
     if $cpio --quiet --list --file="$imgfile" >/dev/null 2>&1; then
 	# Number of bytes to skip to get to the compressed archive
 	skip=$(($(LANG=C $cpio --io-size=1 --list --file="$imgfile" 2>&1 \
-	    | sed --quiet --expression='s/^\([0-9]\+\) blocks$/\1/p')+8))
-	catimg="dd if=$imgfile bs=$skip skip=1 status=noxfer"
+		      | sed --quiet \
+			    --expression='s/^\([0-9]\+\) blocks$/\1/p')+8))
+	if [ -x /usr/lib/dracut/skipcpio ]; then
+	    catimg="/usr/lib/dracut/skipcpio $imgfile"
+	else
+	    catimg="dd if=$imgfile bs=$skip skip=1 status=noxfer"
+	fi
     else
+	echo "No microcode detected"
 	catimg="cat -- $imgfile"
     fi
-    # Determine the compression method
-    if { $catimg 2>/dev/null | zcat --test >/dev/null 2>&1;
-	    [ ${PIPESTATUS[-1]} -eq 0 ]; }; then
-	decomp="zcat"
-    elif { $catimg 2>/dev/null | bzip2 --test >/dev/null 2>&1;
-	    [ ${PIPESTATUS[-1]} -eq 0 ]; }; then
-	decomp="bzip2 --stdout --decompress"
-    elif { $catimg 2>/dev/null | lzop --test >/dev/null 2>&1;
-	    [ ${PIPESTATUS[-1]} -eq 0 ]; }; then
-	decomp="lzop --stdout --decompress"
-    else
-	echo "Error: Could not determine type of $imgfile" >&2
-	continue
-    fi
+    while :; do
+	# Determine the compression method
+	if { $catimg 2>/dev/null | zcat --test >/dev/null 2>&1;
+	     [ ${PIPESTATUS[-1]} -eq 0 ]; }; then
+	    decomp="zcat"
+	elif { $catimg 2>/dev/null | bzip2 --test >/dev/null 2>&1;
+	       [ ${PIPESTATUS[-1]} -eq 0 ]; }; then
+	    decomp="bzip2 --stdout --decompress"
+	elif { $catimg 2>/dev/null | lzop --test >/dev/null 2>&1;
+	       [ ${PIPESTATUS[-1]} -eq 0 ]; }; then
+	    decomp="lzop --stdout --decompress"
+	else
+	    skip=$((${skip}+1))
+	    echo "Could not determine compression of ${imgfile}; trying to skip ${skip} bytes" >&2
+	    catimg="dd if=$imgfile bs=$skip skip=1 status=noxfer"
+	    continue
+	fi
+	break
+    done
+    case "$catimg" in
+	*skipcpio*) echo "Microcode detected, skipping";;
+	*) echo "Microcode detected, skipping ${skip} bytes";;
+    esac
     $catimg 2>/dev/null | $decomp | ( cd -- "$imgdir" && $cpio --quiet )
     if [ ${PIPESTATUS[-1]} -eq 0 ]; then
 	echo "$imgfile unpacked into $imgdir"

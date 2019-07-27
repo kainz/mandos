@@ -22,3 +22,12 @@ Test-Command: /usr/lib/$(dpkg-architecture -qDEB_HOST_MULTIARCH 2>/dev/null)/man
 Restrictions: needs-root, superficial
 Features: test-name=mandos-client-iprouteadddel-version
 Depends: mandos-client
+
+Test-Command: /usr/lib/dracut/modules.d/90mandos/password-agent --test --verbose
+Features: test-name=password-agent
+Depends: mandos-client
+
+Test-Command: /usr/lib/dracut/modules.d/90mandos/password-agent --test --verbose -p /task-creators/start_mandos_client/suid
+Restrictions: needs-root
+Features: test-name=password-agent-suid
+Depends: mandos-client

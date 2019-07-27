@@ -816,9 +816,9 @@
   <refsect1 id="security">
     <title>SECURITY</title>
     <para>
-      This program is set-uid to root, but will switch back to the
-      original (and presumably non-privileged) user and group after
-      bringing up the network interface.
+      This program assumes that it is set-uid to root, and will switch
+      back to the original (and presumably non-privileged) user and
+      group after bringing up the network interface.
     </para>
     <para>
       To use this program for its intended purpose (see <xref
