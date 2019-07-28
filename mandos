@@ -586,7 +586,7 @@ class gnutls(object):
         def __init__(self, socket, credentials=None):
             self._c_object = gnutls.session_t()
             gnutls_flags = gnutls.CLIENT
-            if gnutls.check_version("3.5.6"):
+            if gnutls.check_version(b"3.5.6"):
                 gnutls_flags |= gnutls.NO_TICKETS
             if gnutls.has_rawpk:
                 gnutls_flags |= gnutls.ENABLE_RAWPK
@@ -794,7 +794,7 @@ class gnutls(object):
                                                     ctypes.c_size_t)]
         openpgp_crt_get_fingerprint.restype = _error_code
 
-    if check_version("3.6.4"):
+    if check_version(b"3.6.4"):
         certificate_type_get2 = _library.gnutls_certificate_type_get2
         certificate_type_get2.argtypes = [session_t, ctypes.c_int]
         certificate_type_get2.restype = _error_code
@@ -2287,7 +2287,7 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
             approval_required = False
             try:
                 if gnutls.has_rawpk:
-                    fpr = ""
+                    fpr = b""
                     try:
                         key_id = self.key_id(
                             self.peer_certificate(session))
@@ -2297,7 +2297,7 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
                     logger.debug("Key ID: %s", key_id)
 
                 else:
-                    key_id = ""
+                    key_id = b""
                     try:
                         fpr = self.fingerprint(
                             self.peer_certificate(session))
@@ -3244,9 +3244,9 @@ def main():
                         for k in ("name", "host"):
                             if isinstance(value[k], bytes):
                                 value[k] = value[k].decode("utf-8")
-                        if not value.has_key("key_id"):
+                        if "key_id" not in value:
                             value["key_id"] = ""
-                        elif not value.has_key("fingerprint"):
+                        elif "fingerprint" not in value:
                             value["fingerprint"] = ""
                     #  old_client_settings
                     # .keys()
