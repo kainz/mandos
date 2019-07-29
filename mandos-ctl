@@ -2002,10 +2002,10 @@ COMMAND_CLS with (optionally) all supplied attributes (CMD_ATTRS)."""
 
 
     def test_manual_page_example_1(self):
-        self.assert_command_from_args("--verbose".split(),
+        self.assert_command_from_args("",
                                       command.PrintTable,
                                       clients=[],
-                                      verbose=True)
+                                      verbose=False)
 
     def test_manual_page_example_2(self):
         self.assert_command_from_args(
