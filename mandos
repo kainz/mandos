@@ -821,9 +821,9 @@ class Client(object):
     approved:   bool(); 'None' if not yet approved/disapproved
     approval_delay: datetime.timedelta(); Time to wait for approval
     approval_duration: datetime.timedelta(); Duration of one approval
-    checker:    subprocess.Popen(); a running checker process used
-                                    to see if the client lives.
-                                    'None' if no process is running.
+    checker: multiprocessing.Process(); a running checker process used
+             to see if the client lives. 'None' if no process is
+             running.
     checker_callback_tag: a GLib event source tag, or None
     checker_command: string; External command which is run to check
                      if client lives.  %() expansions are done at
@@ -1036,11 +1036,12 @@ class Client(object):
     def checker_callback(self, source, condition, connection,
                          command):
         """The checker has completed, so take appropriate actions."""
-        self.checker_callback_tag = None
-        self.checker = None
         # Read return code from connection (see call_pipe)
         returncode = connection.recv()
         connection.close()
+        self.checker.join()
+        self.checker_callback_tag = None
+        self.checker = None
 
         if returncode >= 0:
             self.last_checker_status = returncode
