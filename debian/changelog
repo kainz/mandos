@@ -1,3 +1,30 @@
+mandos (1.8.5-1) unstable; urgency=medium
+
+  * New upstream release.
+  * Fix "does not reap children" by reaping children (Closes: #933387)
+  * debian/mandos-client.README.Debian: Use new-style interface name.
+  * debian/tests/control: New file; implements autopkgtest support.
+  * debian/mandos-client.lintian-overrides
+    (manpage-has-errors-from-man): Remove; unnecessary.
+  * debian/mandos.lintian-overrides
+    (init.d-script-needs-depends-on-lsb-base): - '' -
+  * debian/mandos-client.postinst (update_initramfs): Upstream now
+    supports dracut(8), so update commands here to and run the correct
+    command to update initramfs.
+  * debian/control (Build-Depends): Add GLib -dev package.
+    (mandos-client/Depends): Add dracut(8) as an alternative dependency to
+    initramfs-tools.
+    (mandos-client/Conflicts): New; set to "dracut-config-generic".
+    (debian/mandos-client.README.Debian): Update for dracut(8) support.
+  * debian/mandos-client.templates: Reflowed by debconf-gettextize(1).
+  * debian/mandos.templates: - '' -
+  * debian/po/POTFILES.in: New.
+  * debian/po/templates.pot: - '' -
+  * debian/source/lintian-overrides: New.
+  * debian/control (Standards-Version): Update to "4.4.0".
+
+ -- Teddy Hogeborn <teddy@recompile.se>  Tue, 30 Jul 2019 20:41:29 +0200
+
 mandos (1.8.4-1) unstable; urgency=medium
 
   * Fix "dirs in initrd are not accessible by mandos plugin-runner" by
