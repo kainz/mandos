@@ -38,6 +38,3 @@ mandos-client binary: no-debconf-config
 
 # The notice displayed from the postinst script really is critical
 mandos-client binary: postinst-uses-db-input
-
-# It is a really long line
-mandos-client binary: manpage-has-errors-from-man usr/share/man/man8/plugin-runner.8mandos.gz *: warning *: can't break line

@@ -61,7 +61,7 @@ touch /run/mandos-keep-running
 # Keep running plugin-runner and trying any password, until either a
 # password is accepted by cryptroot-unlock, or plugin-runner fails, or
 # the file /run/mandos-keep-running has been removed.
-while type cryptroot-unlock >/dev/null 2>&1; do
+while command -v cryptroot-unlock >/dev/null 2>&1; do
     /lib/mandos/plugin-runner > "$passfile" &
     echo $! > /run/mandos-plugin-runner.pid
     wait %% || break

@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY COMMANDNAME "plugin-runner">
-<!ENTITY TIMESTAMP "2019-02-10">
+<!ENTITY TIMESTAMP "2019-07-26">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -628,14 +628,14 @@
       <para>
 	Read a different configuration file, run plugins from a
 	different directory, specify an alternate plugin helper
-	directory and add two options to the
+	directory and add four options to the
 	<citerefentry><refentrytitle >mandos-client</refentrytitle>
 	<manvolnum>8mandos</manvolnum></citerefentry> plugin:
       </para>
       <para>
 
 <!-- do not wrap this line -->
-<userinput>cd /etc/keys/mandos; &COMMANDNAME;  --config-file=/etc/mandos/plugin-runner.conf --plugin-dir /usr/lib/x86_64-linux-gnu/mandos/plugins.d --plugin-helper-dir /usr/lib/x86_64-linux-gnu/mandos/plugin-helpers --options-for=mandos-client:--pubkey=pubkey.txt,--seckey=seckey.txt,--tls-pubkey=tls-pubkey.pem,--tls-privkey=tls-privkey.pem</userinput>
+<userinput>cd /etc/keys/mandos; &COMMANDNAME;  --config-file=/etc/mandos/plugin-runner.conf --plugin-dir /usr/lib/x86_64-linux-gnu/mandos/plugins.d --plugin-helper-dir /usr/lib/x86_64-linux-gnu/mandos/plugin-helpers --options-for=mandos-client:--pubkey=pubkey.txt,&#x200b;--seckey=seckey.txt,&#x200b;--tls-pubkey=tls-pubkey.pem,&#x200b;--tls-privkey=tls-privkey.pem</userinput>
 
       </para>
     </informalexample>

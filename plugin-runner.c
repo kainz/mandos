@@ -586,7 +586,11 @@ int main(int argc, char *argv[]){
       if(arg[0] == '\0'){
 	break;
       }
-      /* FALLTHROUGH */
+#if __GNUC__ >= 7
+      __attribute__((fallthrough));
+#else
+	  /* FALLTHROUGH */
+#endif
     default:
       return ARGP_ERR_UNKNOWN;
     }

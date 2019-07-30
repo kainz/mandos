@@ -10,10 +10,12 @@ WARN:=-O -Wall -Wextra -Wdouble-promotion -Wformat=2 -Winit-self \
 	-Wmissing-format-attribute -Wnormalized=nfc -Wpacked \
 	-Wredundant-decls -Wnested-externs -Winline -Wvla \
 	-Wvolatile-register-var -Woverlength-strings
-#DEBUG:=-ggdb3 -fsanitize=address 
-# For info about _FORTIFY_SOURCE, see feature_test_macros(7)
-# and <https://gcc.gnu.org/ml/gcc-patches/2004-09/msg02055.html>.
-FORTIFY:=-D_FORTIFY_SOURCE=2 -fstack-protector-all -fPIC
+
+#DEBUG:=-ggdb3 -fsanitize=address $(SANITIZE)
+## Check which sanitizing options can be used
+#SANITIZE:=$(foreach option,$(ALL_SANITIZE_OPTIONS),$(shell \
+#	echo 'int main(){}' | $(CC) --language=c $(option) \
+#	/dev/stdin -o /dev/null >/dev/null 2>&1 && echo $(option)))
 # <https://developerblog.redhat.com/2014/10/16/gcc-undefined-behavior-sanitizer-ubsan/>
 ALL_SANITIZE_OPTIONS:=-fsanitize=leak -fsanitize=undefined \
         -fsanitize=shift -fsanitize=integer-divide-by-zero \
@@ -23,11 +25,11 @@ ALL_SANITIZE_OPTIONS:=-fsanitize=leak -fsanitize=undefined \
         -fsanitize=object-size -fsanitize=float-divide-by-zero \
         -fsanitize=float-cast-overflow -fsanitize=nonnull-attribute \
         -fsanitize=returns-nonnull-attribute -fsanitize=bool \
-        -fsanitize=enum
-# Check which sanitizing options can be used
-SANITIZE:=$(foreach option,$(ALL_SANITIZE_OPTIONS),$(shell \
-	echo 'int main(){}' | $(CC) --language=c $(option) /dev/stdin \
-	-o /dev/null >/dev/null 2>&1 && echo $(option)))
+        -fsanitize=enum -fsanitize-address-use-after-scope
+
+# For info about _FORTIFY_SOURCE, see feature_test_macros(7)
+# and <https://gcc.gnu.org/ml/gcc-patches/2004-09/msg02055.html>.
+FORTIFY:=-D_FORTIFY_SOURCE=2 -fstack-protector-all -fPIC
 LINK_FORTIFY_LD:=-z relro -z now
 LINK_FORTIFY:=
 
@@ -43,8 +45,10 @@ htmldir:=man
 version:=1.8.4
 SED:=sed
 
-USER:=$(firstword $(subst :, ,$(shell getent passwd _mandos || getent passwd nobody || echo 65534)))
-GROUP:=$(firstword $(subst :, ,$(shell getent group _mandos || getent group nogroup || echo 65534)))
+USER:=$(firstword $(subst :, ,$(shell getent passwd _mandos \
+	|| getent passwd nobody || echo 65534)))
+GROUP:=$(firstword $(subst :, ,$(shell getent group _mandos \
+	|| getent group nogroup || echo 65534)))
 
 ## Use these settings for a traditional /usr/local install
 # PREFIX:=$(DESTDIR)/usr/local
@@ -52,6 +56,7 @@ GROUP:=$(firstword $(subst :, ,$(shell getent group _mandos || getent group nogr
 # KEYDIR:=$(DESTDIR)/etc/mandos/keys
 # MANDIR:=$(PREFIX)/man
 # INITRAMFSTOOLS:=$(DESTDIR)/etc/initramfs-tools
+# DRACUTMODULE:=$(DESTDIR)/usr/lib/dracut/modules.d/90mandos
 # STATEDIR:=$(DESTDIR)/var/lib/mandos
 # LIBDIR:=$(PREFIX)/lib
 ##
@@ -62,6 +67,7 @@ CONFDIR:=$(DESTDIR)/etc/mandos
 KEYDIR:=$(DESTDIR)/etc/keys/mandos
 MANDIR:=$(PREFIX)/share/man
 INITRAMFSTOOLS:=$(DESTDIR)/usr/share/initramfs-tools
+DRACUTMODULE:=$(DESTDIR)/usr/lib/dracut/modules.d/90mandos
 STATEDIR:=$(DESTDIR)/var/lib/mandos
 LIBDIR:=$(shell \
 	for d in \
@@ -86,11 +92,14 @@ GPGME_LIBS:=$(shell gpgme-config --libs; getconf LFS_LIBS; \
 	getconf LFS_LDFLAGS)
 LIBNL3_CFLAGS:=$(shell pkg-config --cflags-only-I libnl-route-3.0)
 LIBNL3_LIBS:=$(shell pkg-config --libs libnl-route-3.0)
+GLIB_CFLAGS:=$(shell pkg-config --cflags glib-2.0)
+GLIB_LIBS:=$(shell pkg-config --libs glib-2.0)
 
 # Do not change these two
-CFLAGS+=$(WARN) $(DEBUG) $(FORTIFY) $(SANITIZE) $(COVERAGE) \
+CFLAGS+=$(WARN) $(DEBUG) $(FORTIFY) $(COVERAGE) \
 	$(OPTIMIZE) $(LANGUAGE) -DVERSION='"$(version)"'
-LDFLAGS+=-Xlinker --as-needed $(COVERAGE) $(LINK_FORTIFY) $(foreach flag,$(LINK_FORTIFY_LD),-Xlinker $(flag))
+LDFLAGS+=-Xlinker --as-needed $(COVERAGE) $(LINK_FORTIFY) $(strip \
+	) $(foreach flag,$(LINK_FORTIFY_LD),-Xlinker $(flag))
 
 # Commands to format a DocBook <refentry> document into a manual page
 DOCBOOKTOMAN=$(strip cd $(dir $<); xsltproc --nonet --xinclude \
@@ -102,9 +111,9 @@ DOCBOOKTOMAN=$(strip cd $(dir $<); xsltproc --nonet --xinclude \
 	/usr/share/xml/docbook/stylesheet/nwalsh/manpages/docbook.xsl \
 	$(notdir $<); \
 	if locale --all 2>/dev/null | grep --regexp='^en_US\.utf8$$' \
-	&& type man 2>/dev/null; then LANG=en_US.UTF-8 MANWIDTH=80 \
-	man --warnings --encoding=UTF-8 --local-file $(notdir $@); \
-	fi >/dev/null)
+	&& command -v man >/dev/null; then LANG=en_US.UTF-8 \
+	MANWIDTH=80 man --warnings --encoding=UTF-8 --local-file \
+	$(notdir $@); fi >/dev/null)
 
 DOCBOOKTOHTML=$(strip xsltproc --nonet --xinclude \
 	--param make.year.ranges		1 \
@@ -123,10 +132,12 @@ PLUGINS:=plugins.d/password-prompt plugins.d/mandos-client \
 	plugins.d/usplash plugins.d/splashy plugins.d/askpass-fifo \
 	plugins.d/plymouth
 PLUGIN_HELPERS:=plugin-helpers/mandos-client-iprouteadddel
-CPROGS:=plugin-runner $(PLUGINS) $(PLUGIN_HELPERS)
+CPROGS:=plugin-runner dracut-module/password-agent $(PLUGINS) \
+	$(PLUGIN_HELPERS)
 PROGS:=mandos mandos-keygen mandos-ctl mandos-monitor $(CPROGS)
 DOCS:=mandos.8 mandos-keygen.8 mandos-monitor.8 mandos-ctl.8 \
 	mandos.conf.5 mandos-clients.conf.5 plugin-runner.8mandos \
+	dracut-module/password-agent.8mandos \
 	plugins.d/mandos-client.8mandos \
 	plugins.d/password-prompt.8mandos plugins.d/usplash.8mandos \
 	plugins.d/splashy.8mandos plugins.d/askpass-fifo.8mandos \
@@ -204,6 +215,15 @@ plugin-runner.8mandos.xhtml: plugin-runner.xml common.ent \
 		overview.xml legalnotice.xml
 	$(DOCBOOKTOHTML)
 
+dracut-module/password-agent.8mandos: \
+		dracut-module/password-agent.xml common.ent \
+		overview.xml legalnotice.xml
+	$(DOCBOOKTOMAN)
+dracut-module/password-agent.8mandos.xhtml: \
+		dracut-module/password-agent.xml common.ent \
+		overview.xml legalnotice.xml
+	$(DOCBOOKTOHTML)
+
 plugins.d/mandos-client.8mandos: plugins.d/mandos-client.xml \
 					common.ent \
 					mandos-options.xml \
@@ -252,17 +272,21 @@ mandos.lsm: Makefile
 		--expression='s/\(mandos_\)[0-9.]\+\(\.orig\.tar\.gz\)/\1$(version)\2/' \
 		$@)
 
-# Need to add the GnuTLS, Avahi and GPGME libraries, and can't use
-# -fsanitize=leak because GnuTLS and GPGME both leak memory.
+# Need to add the GnuTLS, Avahi and GPGME libraries
 plugins.d/mandos-client: plugins.d/mandos-client.c
-	$(CC) $(filter-out -fsanitize=leak,$(CFLAGS)) $(strip\
-	) $(GNUTLS_CFLAGS) $(AVAHI_CFLAGS) $(GPGME_CFLAGS) $(strip\
-		) $(CPPFLAGS) $(LDFLAGS) $(TARGET_ARCH) $^ $(strip\
-		) -lrt $(GNUTLS_LIBS) $(AVAHI_LIBS) $(strip\
-		) $(GPGME_LIBS) $(LOADLIBES) $(LDLIBS) -o $@
+	$(LINK.c) $^ $(GNUTLS_CFLAGS) $(AVAHI_CFLAGS) $(strip\
+		) $(GPGME_CFLAGS) $(GNUTLS_LIBS) $(strip\
+		) $(AVAHI_LIBS) $(GPGME_LIBS) $(LOADLIBES) $(strip\
+		) $(LDLIBS) -o $@
 
+# Need to add the libnl-route library
 plugin-helpers/mandos-client-iprouteadddel: plugin-helpers/mandos-client-iprouteadddel.c
 	$(LINK.c) $(LIBNL3_CFLAGS) $^ $(LIBNL3_LIBS) $(strip\
+		) $(LOADLIBES) $(LDLIBS) -o $@
+
+# Need to add the GLib and pthread libraries
+dracut-module/password-agent: dracut-module/password-agent.c
+	$(LINK.c) $(GLIB_CFLAGS) $^ $(GLIB_LIBS) -lpthread $(strip\
 		) $(LOADLIBES) $(LDLIBS) -o $@
 
 .PHONY : all doc html clean distclean mostlyclean maintainer-clean \
@@ -279,9 +303,13 @@ mostlyclean: clean
 maintainer-clean: clean
 	-rm --force --recursive keydir confdir statedir
 
-check:	all
+check: all
 	./mandos --check
 	./mandos-ctl --check
+	./mandos-keygen --version
+	./plugin-runner --version
+	./plugin-helpers/mandos-client-iprouteadddel --version
+	./dracut-module/password-agent --test
 
 # Run the client with a local config and key
 run-client: all keydir/seckey.txt keydir/pubkey.txt keydir/tls-privkey.pem keydir/tls-pubkey.pem
@@ -431,6 +459,15 @@ install-client-nokey: all doc
 		$(INITRAMFSTOOLS)/scripts/init-premount/mandos
 	install initramfs-tools-script-stop \
 		$(INITRAMFSTOOLS)/scripts/local-premount/mandos
+	install --directory $(DRACUTMODULE)
+	install --mode=u=rw,go=r --target-directory=$(DRACUTMODULE) \
+		dracut-module/ask-password-mandos.path \
+		dracut-module/ask-password-mandos.service
+	install --mode=u=rwxs,go=rx \
+		--target-directory=$(DRACUTMODULE) \
+		dracut-module/module-setup.sh \
+		dracut-module/cmdline-mandos.sh \
+		dracut-module/password-agent
 	install --mode=u=rw,go=r plugin-runner.conf $(CONFDIR)
 	gzip --best --to-stdout mandos-keygen.8 \
 		> $(MANDIR)/man8/mandos-keygen.8.gz
@@ -448,11 +485,22 @@ install-client-nokey: all doc
 		> $(MANDIR)/man8/askpass-fifo.8mandos.gz
 	gzip --best --to-stdout plugins.d/plymouth.8mandos \
 		> $(MANDIR)/man8/plymouth.8mandos.gz
+	gzip --best --to-stdout dracut-module/password-agent.8mandos \
+		> $(MANDIR)/man8/password-agent.8mandos.gz
 
 install-client: install-client-nokey
 # Post-installation stuff
 	-$(PREFIX)/sbin/mandos-keygen --dir "$(KEYDIR)"
-	update-initramfs -k all -u
+	if command -v update-initramfs >/dev/null; then \
+	    update-initramfs -k all -u; \
+	elif command -v dracut >/dev/null; then \
+	    for initrd in $(DESTDIR)/boot/initr*-$(shell uname --kernel-release); do \
+		if [ -w "$$initrd" ]; then \
+		    chmod go-r "$$initrd"; \
+		    dracut --force "$$initrd"; \
+		fi; \
+	    done; \
+	fi
 	echo "Now run mandos-keygen --password --dir $(KEYDIR)"
 
 uninstall: uninstall-server uninstall-client
@@ -485,6 +533,12 @@ uninstall-client:
 		$(INITRAMFSTOOLS)/hooks/mandos \
 		$(INITRAMFSTOOLS)/conf-hooks.d/mandos \
 		$(INITRAMFSTOOLS)/scripts/init-premount/mandos \
+		$(INITRAMFSTOOLS)/scripts/local-premount/mandos \
+		$(DRACUTMODULE)/ask-password-mandos.path \
+		$(DRACUTMODULE)/ask-password-mandos.service \
+		$(DRACUTMODULE)/module-setup.sh \
+		$(DRACUTMODULE)/cmdline-mandos.sh \
+		$(DRACUTMODULE)/password-agent \
 		$(MANDIR)/man8/mandos-keygen.8.gz \
 		$(MANDIR)/man8/plugin-runner.8mandos.gz \
 		$(MANDIR)/man8/mandos-client.8mandos.gz
@@ -493,9 +547,16 @@ uninstall-client:
 		$(MANDIR)/man8/splashy.8mandos.gz \
 		$(MANDIR)/man8/askpass-fifo.8mandos.gz \
 		$(MANDIR)/man8/plymouth.8mandos.gz \
+		$(MANDIR)/man8/password-agent.8mandos.gz \
 	-rmdir $(LIBDIR)/mandos/plugins.d $(CONFDIR)/plugins.d \
-		 $(LIBDIR)/mandos $(CONFDIR) $(KEYDIR)
-	update-initramfs -k all -u
+		 $(LIBDIR)/mandos $(CONFDIR) $(KEYDIR) $(DRACUTMODULE)
+	if command -v update-initramfs >/dev/null; then \
+	    update-initramfs -k all -u; \
+	elif command -v dracut >/dev/null; then \
+	    for initrd in $(DESTDIR)/boot/initr*-$(shell uname --kernel-release); do \
+		test -w "$$initrd" && dracut --force "$$initrd"; \
+	    done; \
+	fi
 
 purge: purge-server purge-client
 

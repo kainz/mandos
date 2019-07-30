@@ -135,18 +135,8 @@
 	<para>
 	  These variables will normally be inherited from
 	  <citerefentry><refentrytitle>plugin-runner</refentrytitle>
-	  <manvolnum>8mandos</manvolnum></citerefentry>, which will
-	  normally have inherited them from
-	  <filename>/scripts/local-top/cryptroot</filename> in the
-	  initial <acronym>RAM</acronym> disk environment, which will
-	  have set them from parsing kernel arguments and
-	  <filename>/conf/conf.d/cryptroot</filename> (also in the
-	  initial RAM disk environment), which in turn will have been
-	  created when the initial RAM disk image was created by
-	  <filename
-	  >/usr/share/initramfs-tools/hooks/cryptroot</filename>, by
-	  extracting the information of the root file system from
-	  <filename >/etc/crypttab</filename>.
+	  <manvolnum>8mandos</manvolnum></citerefentry>, which might
+	  have in turn inherited them from its calling process.
 	</para>
 	<para>
 	  This behavior is meant to exactly mirror the behavior of
@@ -276,8 +266,6 @@
     <para>
       <citerefentry><refentrytitle>intro</refentrytitle>
       <manvolnum>8mandos</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>crypttab</refentrytitle>
-      <manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>plugin-runner</refentrytitle>
       <manvolnum>8mandos</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>proc</refentrytitle>
