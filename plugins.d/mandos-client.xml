@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY COMMANDNAME "mandos-client">
-<!ENTITY TIMESTAMP "2019-02-10">
+<!ENTITY TIMESTAMP "2019-07-24">
 <!ENTITY % common SYSTEM "../common.ent">
 %common;
 ]>
@@ -525,8 +525,8 @@
 	  <para>
 	    This environment variable will be assumed to contain the
 	    directory containing any helper executables.  The use and
-	    nature of these helper executables, if any, is
-	    purposefully not documented.
+	    nature of these helper executables, if any, is purposely
+	    not documented.
 	</para>
 	</listitem>
       </varlistentry>
@@ -816,9 +816,9 @@
   <refsect1 id="security">
     <title>SECURITY</title>
     <para>
-      This program is set-uid to root, but will switch back to the
-      original (and presumably non-privileged) user and group after
-      bringing up the network interface.
+      This program assumes that it is set-uid to root, and will switch
+      back to the original (and presumably non-privileged) user and
+      group after bringing up the network interface.
     </para>
     <para>
       To use this program for its intended purpose (see <xref
@@ -891,7 +891,7 @@
       </varlistentry>
       <varlistentry>
 	<term>
-	  <ulink url="http://www.avahi.org/">Avahi</ulink>
+	  <ulink url="https://www.avahi.org/">Avahi</ulink>
 	</term>
       <listitem>
 	<para>

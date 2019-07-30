@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY COMMANDNAME "mandos-ctl">
-<!ENTITY TIMESTAMP "2019-03-09">
+<!ENTITY TIMESTAMP "2019-07-29">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -557,7 +557,11 @@
   
   <refsect1 id="example">
     <title>EXAMPLE</title>
+    <!-- Name of test methods in class Test_commands_from_options are
+         written in comments below.  When adding an example, add a
+         test too which tests the documented behavior. -->
     <informalexample>
+      <!-- Test method: test_manual_page_example_1() -->
       <para>
 	To list all clients:
       </para>
@@ -567,6 +571,7 @@
     </informalexample>
     
     <informalexample>
+      <!-- Test method: test_manual_page_example_2() -->
       <para>
 	To list <emphasis>all</emphasis> settings for the clients
         named <quote>foo1.example.org</quote> and <quote
@@ -581,6 +586,7 @@
     </informalexample>
     
     <informalexample>
+      <!-- Test method: test_manual_page_example_3() -->
       <para>
 	To enable all clients:
       </para>
@@ -590,6 +596,7 @@
     </informalexample>
     
     <informalexample>
+      <!-- Test method: test_manual_page_example_4() -->
       <para>
 	To change timeout and interval value for the clients
         named <quote>foo1.example.org</quote> and <quote
@@ -598,14 +605,15 @@
       <para>
 
 <!-- do not wrap this line -->
-<userinput>&COMMANDNAME; --timeout="PT5M" --interval="PT1M" foo1.example.org foo2.example.org</userinput>
+<userinput>&COMMANDNAME; --timeout=PT5M --interval=PT1M foo1.example.org foo2.example.org</userinput>
 
       </para>
     </informalexample>
     
     <informalexample>
+      <!-- Test method: test_manual_page_example_5() -->
       <para>
-	To approve all clients currently waiting for it:
+	To approve all clients currently waiting for approval:
       </para>
       <para>
 	<userinput>&COMMANDNAME; --approve --all</userinput>

@@ -40,7 +40,7 @@
 *** Mandos Server
     + GnuTLS 3.3          https://www.gnutls.org/
       (but not 3.6.0 or later, until 3.6.6, which works)
-    + Avahi 0.6.16        http://www.avahi.org/
+    + Avahi 0.6.16        https://www.avahi.org/
     + Python 2.7          https://www.python.org/
     + dbus-python 0.82.4 https://dbus.freedesktop.org/doc/dbus-python/
     + PyGObject 3.7.1     https://wiki.gnome.org/Projects/PyGObject
@@ -57,22 +57,29 @@
     fping ssh-client
     
 *** Mandos Client
-    + GNU C Library 2.16 https://gnu.org/software/libc/
-    + initramfs-tools 0.85i
-                        https://tracker.debian.org/pkg/initramfs-tools
+    + GNU C Library 2.17 https://gnu.org/software/libc/
     + GnuTLS 3.3        https://www.gnutls.org/
       (but not 3.6.0 or later, until 3.6.6 which works)
-    + Avahi 0.6.16      http://www.avahi.org/
+    + Avahi 0.6.16      https://www.avahi.org/
     + GnuPG 1.4.9       https://www.gnupg.org/
     + GPGME 1.1.6       https://www.gnupg.org/related_software/gpgme/
     + pkg-config https://www.freedesktop.org/wiki/Software/pkg-config/
+    + libnl-route 3     https://www.infradead.org/~tgr/libnl/
+    + GLib 2.40         http://www.gtk.org/
+    
+    One of:
+    + initramfs-tools 0.85i
+                        https://tracker.debian.org/pkg/initramfs-tools
+    + dracut 044+241
+         http://www.kernel.org/pub/linux/utils/boot/dracut/dracut.html
     
     Strongly recommended:
     + OpenSSH           http://www.openssh.com/
     
     Package names:
-    initramfs-tools libgnutls-dev gnutls-bin libavahi-core-dev gnupg
-    libgpgme11-dev pkg-config ssh
+    initramfs-tools dracut libgnutls-dev gnutls-bin libavahi-core-dev
+    gnupg libgpgme11-dev pkg-config ssh libnl-route-3-dev
+    libglib2.0-dev
 
 * Installing the Mandos server
   

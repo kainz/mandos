@@ -2,8 +2,8 @@
 /*
  * Plymouth - Read a password from Plymouth and output it
  * 
- * Copyright © 2010-2018 Teddy Hogeborn
- * Copyright © 2010-2018 Björn Påhlsson
+ * Copyright © 2010-2019 Teddy Hogeborn
+ * Copyright © 2010-2019 Björn Påhlsson
  * 
  * This file is part of Mandos.
  * 
@@ -53,8 +53,11 @@
 #include <errno.h>		/* TEMP_FAILURE_RETRY */
 #include <argz.h>		/* argz_count(), argz_extract() */
 #include <stdarg.h>		/* va_list, va_start(), ... */
+#include <argp.h>
 
 sig_atomic_t interrupted_by_signal = 0;
+const char *argp_program_version = "plymouth " VERSION;
+const char *argp_program_bug_address = "<mandos@recompile.se>";
 
 /* Used by Ubuntu 11.04 (Natty Narwahl) */
 const char plymouth_old_old_pid[] = "/dev/.initramfs/plymouth.pid";
@@ -69,12 +72,21 @@ const char *plymouthd_default_argv[] = {"/sbin/plymouthd",
 					"--mode=boot",
 					"--attach-to-session",
 					NULL };
+bool debug = false;
 
 static void termination_handler(__attribute__((unused))int signum){
   if(interrupted_by_signal){
     return;
   }
   interrupted_by_signal = 1;
+}
+
+__attribute__((format (gnu_printf, 2, 3), nonnull))
+int fprintf_plus(FILE *stream, const char *format, ...){
+  va_list ap;
+  va_start (ap, format);
+  fprintf(stream, "Mandos plugin %s: ", program_invocation_short_name);
+  return vfprintf(stream, format, ap);
 }
 
 /* Function to use when printing errors */
@@ -159,11 +171,18 @@ bool become_a_daemon(void){
 
 __attribute__((nonnull (2, 3)))
 bool exec_and_wait(pid_t *pid_return, const char *path,
-		   const char * const *argv, bool interruptable,
+		   const char * const * const argv, bool interruptable,
 		   bool daemonize){
   int status;
   int ret;
   pid_t pid;
+  if(debug){
+    for(const char * const *arg = argv; *arg != NULL; arg++){
+      fprintf_plus(stderr, "exec_and_wait arg: %s\n", *arg);
+    }
+    fprintf_plus(stderr, "exec_and_wait end of args\n");
+  }
+
   pid = fork();
   if(pid == -1){
     error_plus(0, errno, "fork");
@@ -209,11 +228,23 @@ bool exec_and_wait(pid_t *pid_return, const char *path,
 	  and ((not interrupted_by_signal)
 	       or (not interruptable)));
   if(interrupted_by_signal and interruptable){
+    if(debug){
+      fprintf_plus(stderr, "Interrupted by signal\n");
+    }
     return false;
   }
   if(ret == -1){
     error_plus(0, errno, "waitpid");
     return false;
+  }
+  if(debug){
+    if(WIFEXITED(status)){
+      fprintf_plus(stderr, "exec_and_wait exited: %d\n",
+		   WEXITSTATUS(status));
+    } else if(WIFSIGNALED(status)) {
+      fprintf_plus(stderr, "exec_and_wait signaled: %d\n",
+		   WTERMSIG(status));
+    }
   }
   if(WIFEXITED(status) and (WEXITSTATUS(status) == 0)){
     return true;
@@ -407,17 +438,69 @@ char **getargv(pid_t pid){
 
 int main(__attribute__((unused))int argc,
 	 __attribute__((unused))char **argv){
-  char *prompt;
+  char *prompt = NULL;
   char *prompt_arg;
   pid_t plymouth_command_pid;
   int ret;
   bool bret;
 
+  {
+    struct argp_option options[] = {
+      { .name = "prompt", .key = 128, .arg = "PROMPT",
+	.doc = "The prompt to show" },
+      { .name = "debug", .key = 129,
+	.doc = "Debug mode" },
+      { .name = NULL }
+    };
+    
+    __attribute__((nonnull(3)))
+    error_t parse_opt (int key, char *arg, __attribute__((unused))
+		       struct argp_state *state){
+      errno = 0;
+      switch (key){
+      case 128:			/* --prompt */
+	prompt = arg;
+	if(debug){
+	  fprintf_plus(stderr, "Custom prompt \"%s\"\n", prompt);
+	}
+	break;
+      case 129:			/* --debug */
+	debug = true;
+	break;
+      default:
+	return ARGP_ERR_UNKNOWN;
+      }
+      return errno;
+    }
+    
+    struct argp argp = { .options = options, .parser = parse_opt,
+			 .args_doc = "",
+			 .doc = "Mandos plymouth -- Read and"
+			 " output a password" };
+    ret = argp_parse(&argp, argc, argv, ARGP_IN_ORDER, NULL, NULL);
+    switch(ret){
+    case 0:
+      break;
+    case ENOMEM:
+    default:
+      errno = ret;
+      error_plus(0, errno, "argp_parse");
+      return EX_OSERR;
+    case EINVAL:
+      error_plus(0, errno, "argp_parse");
+      return EX_USAGE;
+    }
+  }
+  
   /* test -x /bin/plymouth */
   ret = access(plymouth_path, X_OK);
   if(ret == -1){
     /* Plymouth is probably not installed.  Don't print an error
        message, just exit. */
+    if(debug){
+      fprintf_plus(stderr, "Plymouth (%s) not found\n",
+		   plymouth_path);
+    }
     exit(EX_UNAVAILABLE);
   }
   
@@ -457,17 +540,27 @@ int main(__attribute__((unused))int argc,
     }
     /* Plymouth is probably not running.  Don't print an error
        message, just exit. */
+    if(debug){
+      fprintf_plus(stderr, "Plymouth not running\n");
+    }
     exit(EX_UNAVAILABLE);
   }
   
-  prompt = makeprompt();
-  ret = asprintf(&prompt_arg, "--prompt=%s", prompt);
-  free(prompt);
+  if(prompt != NULL){
+    ret = asprintf(&prompt_arg, "--prompt=%s", prompt);
+  } else {
+    char *made_prompt = makeprompt();
+    ret = asprintf(&prompt_arg, "--prompt=%s", made_prompt);
+    free(made_prompt);
+  }
   if(ret == -1){
     error_plus(EX_OSERR, errno, "asprintf");
   }
   
   /* plymouth ask-for-password --prompt="$prompt" */
+  if(debug){
+    fprintf_plus(stderr, "Prompting for password via Plymouth\n");
+  }
   bret = exec_and_wait(&plymouth_command_pid,
 		       plymouth_path, (const char *[])
 		       { plymouth_path, "ask-for-password",

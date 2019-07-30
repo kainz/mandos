@@ -27,9 +27,10 @@
 
 #include <termios.h>		/* struct termios, tcsetattr(),
 				   TCSAFLUSH, tcgetattr(), ECHO */
-#include <unistd.h>		/* struct termios, tcsetattr(),
-				   STDIN_FILENO, TCSAFLUSH,
-				   tcgetattr(), ECHO, readlink() */
+#include <unistd.h>		/* access(), struct termios,
+				   tcsetattr(), STDIN_FILENO,
+				   TCSAFLUSH, tcgetattr(), ECHO,
+				   readlink() */
 #include <signal.h>		/* sig_atomic_t, raise(), struct
 				   sigaction, sigemptyset(),
 				   sigaction(), sigaddset(), SIGINT,
@@ -110,6 +111,10 @@ bool conflict_detection(void){
      from the terminal.  Password-prompt will exit if it detects
      plymouth since plymouth performs the same functionality.
    */
+  if(access("/run/plymouth/pid", R_OK) == 0){
+    return true;
+  }
+  
   __attribute__((nonnull))
   int is_plymouth(const struct dirent *proc_entry){
     int ret;
@@ -234,6 +239,7 @@ int main(int argc, char **argv){
   struct termios t_new, t_old;
   char *buffer = NULL;
   char *prefix = NULL;
+  char *prompt = NULL;
   int status = EXIT_SUCCESS;
   struct sigaction old_action,
     new_action = { .sa_handler = termination_handler,
@@ -243,6 +249,9 @@ int main(int argc, char **argv){
       { .name = "prefix", .key = 'p',
 	.arg = "PREFIX", .flags = 0,
 	.doc = "Prefix shown before the prompt", .group = 2 },
+      { .name = "prompt", .key = 129,
+	.arg = "PROMPT", .flags = 0,
+	.doc = "The prompt to show", .group = 2 },
       { .name = "debug", .key = 128,
 	.doc = "Debug mode", .group = 3 },
       /*
@@ -261,11 +270,14 @@ int main(int argc, char **argv){
     error_t parse_opt (int key, char *arg, struct argp_state *state){
       errno = 0;
       switch (key){
-      case 'p':
+      case 'p':			/* --prefix */
 	prefix = arg;
 	break;
-      case 128:
+      case 128:			/* --debug */
 	debug = true;
+	break;
+      case 129:			/* --prompt */
+	prompt = arg;
 	break;
 	/*
 	 * These reproduce what we would get without ARGP_NO_HELP
@@ -427,7 +439,9 @@ int main(int argc, char **argv){
     if(prefix){
       fprintf(stderr, "%s ", prefix);
     }
-    {
+    if(prompt != NULL){
+      fprintf(stderr, "%s: ", prompt);
+    } else {
       const char *cryptsource = getenv("CRYPTTAB_SOURCE");
       const char *crypttarget = getenv("CRYPTTAB_NAME");
       /* Before cryptsetup 1.1.0~rc2 */
@@ -508,19 +522,23 @@ int main(int argc, char **argv){
     }
     if(sret < 0){
       int e = errno;
-      if(errno != EINTR and not feof(stdin)){
-	error_plus(0, errno, "getline");
-	switch(e){
-	case EBADF:
-	  status = EX_UNAVAILABLE;
+      if(errno != EINTR){
+	if(not feof(stdin)){
+	  error_plus(0, errno, "getline");
+	  switch(e){
+	  case EBADF:
+	    status = EX_UNAVAILABLE;
+	    break;
+	  case EIO:
+	  case EINVAL:
+	  default:
+	    status = EX_IOERR;
+	    break;
+	  }
 	  break;
-	case EIO:
-	case EINVAL:
-	default:
-	  status = EX_IOERR;
-	  break;
+	} else {
+	  clearerr(stdin);
 	}
-	break;
       }
     }
     /* if(sret == 0), then the only sensible thing to do is to retry

@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY COMMANDNAME "mandos-keygen">
-<!ENTITY TIMESTAMP "2019-02-10">
+<!ENTITY TIMESTAMP "2019-07-18">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -363,7 +363,9 @@
 	    >8</manvolnum></citerefentry>.  The host name or the name
 	    specified with the <option>--name</option> option is used
 	    for the section header.  All other options are ignored,
-	    and no key is created.
+	    and no key is created.  Note: white space is stripped from
+	    the beginning and from the end of the password; See <xref
+	    linkend="bugs"/>.
 	  </para>
 	</listitem>
       </varlistentry>
@@ -375,7 +377,8 @@
 	<listitem>
 	  <para>
 	    The same as <option>--password</option>, but read from
-	    <replaceable>FILE</replaceable>, not the terminal.
+	    <replaceable>FILE</replaceable>, not the terminal, and
+	    white space is not stripped from the password in any way.
 	  </para>
 	</listitem>
       </varlistentry>
@@ -489,6 +492,13 @@
   
   <refsect1 id="bugs">
     <title>BUGS</title>
+    <para>
+      The <option>--password</option>/<option>-p</option> option
+      strips white space from the start and from the end of the
+      password before using it.  If this is a problem, use the
+      <option>--passfile</option> option instead, which does not do
+      this.
+    </para>
     <xi:include href="bugs.xml"/>
   </refsect1>
   
