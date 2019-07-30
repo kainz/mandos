@@ -1,6 +1,19 @@
 This NEWS file records noteworthy changes, very tersely.
 See the manual for detailed information.
 
+Version 1.8.5 (2019-07-30)
+* Client
+** Support dracut(8) as well as initramfs-tools(7).
+** Minor bug fix: Allow the mandos-keygen --passfile option to use
+   passfiles with names starting with "-".
+** Document known limitation of mandos-keygen --password; it strips
+   white space from start and end of the password.
+* Server
+** Bug fix: The server used to fail to restart if the "port" setting
+   was used.  This has been fixed.
+** Minor bug fix: Reap zombies left over from checker runs.  (Debian
+   bug #933387)
+
 Version 1.8.4 (2019-04-09)
 * Client
 ** Fix minor memory leak in plugin-runner.
