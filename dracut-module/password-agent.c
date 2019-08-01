@@ -1071,9 +1071,11 @@ void read_inotify_event(const task_context task,
   /* "sufficient to read at least one event." - inotify(7) */
   const size_t ievent_size = (sizeof(struct inotify_event)
 			      + NAME_MAX + 1);
-  char ievent_buffer[sizeof(struct inotify_event) + NAME_MAX + 1];
-  struct inotify_event *ievent = ((struct inotify_event *)
-				  ievent_buffer);
+  struct {
+    struct inotify_event event;
+    char name_buffer[NAME_MAX + 1];
+  } ievent_buffer;
+  struct inotify_event *const ievent = &ievent_buffer.event;
 
   const ssize_t read_length = read(fd, ievent, ievent_size);
   if(read_length == 0){	/* EOF */
@@ -3929,9 +3931,11 @@ void test_read_inotify_event_IN_CLOSE_WRITE(__attribute__((unused))
   const size_t ievent_max_size = (sizeof(struct inotify_event)
 				  + NAME_MAX + 1);
   g_assert_cmpint(ievent_max_size, <=, PIPE_BUF);
-  char ievent_buffer[sizeof(struct inotify_event) + NAME_MAX + 1];
-  struct inotify_event *ievent = ((struct inotify_event *)
-				  ievent_buffer);
+  struct {
+    struct inotify_event event;
+    char name_buffer[NAME_MAX + 1];
+  } ievent_buffer;
+  struct inotify_event *const ievent = &ievent_buffer.event;
 
   const char dummy_file_name[] = "ask.dummy_file_name";
   ievent->mask = IN_CLOSE_WRITE;
@@ -3939,7 +3943,7 @@ void test_read_inotify_event_IN_CLOSE_WRITE(__attribute__((unused))
   memcpy(ievent->name, dummy_file_name, sizeof(dummy_file_name));
   const size_t ievent_size = (sizeof(struct inotify_event)
 			      + sizeof(dummy_file_name));
-  g_assert_cmpint(write(pipefds[1], ievent_buffer, ievent_size),
+  g_assert_cmpint(write(pipefds[1], (char *)ievent, ievent_size),
 		  ==, ievent_size);
   g_assert_cmpint(close(pipefds[1]), ==, 0);
 
@@ -4022,9 +4026,11 @@ void test_read_inotify_event_IN_MOVED_TO(__attribute__((unused))
   const size_t ievent_max_size = (sizeof(struct inotify_event)
 				  + NAME_MAX + 1);
   g_assert_cmpint(ievent_max_size, <=, PIPE_BUF);
-  char ievent_buffer[sizeof(struct inotify_event) + NAME_MAX + 1];
-  struct inotify_event *ievent = ((struct inotify_event *)
-				  ievent_buffer);
+  struct {
+    struct inotify_event event;
+    char name_buffer[NAME_MAX + 1];
+  } ievent_buffer;
+  struct inotify_event *const ievent = &ievent_buffer.event;
 
   const char dummy_file_name[] = "ask.dummy_file_name";
   ievent->mask = IN_MOVED_TO;
@@ -4032,7 +4038,7 @@ void test_read_inotify_event_IN_MOVED_TO(__attribute__((unused))
   memcpy(ievent->name, dummy_file_name, sizeof(dummy_file_name));
   const size_t ievent_size = (sizeof(struct inotify_event)
 			      + sizeof(dummy_file_name));
-  g_assert_cmpint(write(pipefds[1], ievent_buffer, ievent_size),
+  g_assert_cmpint(write(pipefds[1], (char *)ievent, ievent_size),
 		  ==, ievent_size);
   g_assert_cmpint(close(pipefds[1]), ==, 0);
 
@@ -4117,9 +4123,11 @@ static void test_read_inotify_event_IN_DELETE(__attribute__((unused))
   const size_t ievent_max_size = (sizeof(struct inotify_event)
 				  + NAME_MAX + 1);
   g_assert_cmpint(ievent_max_size, <=, PIPE_BUF);
-  char ievent_buffer[sizeof(struct inotify_event) + NAME_MAX + 1];
-  struct inotify_event *ievent = ((struct inotify_event *)
-				  ievent_buffer);
+  struct {
+    struct inotify_event event;
+    char name_buffer[NAME_MAX + 1];
+  } ievent_buffer;
+  struct inotify_event *const ievent = &ievent_buffer.event;
 
   const char dummy_file_name[] = "ask.dummy_file_name";
   ievent->mask = IN_DELETE;
@@ -4127,7 +4135,7 @@ static void test_read_inotify_event_IN_DELETE(__attribute__((unused))
   memcpy(ievent->name, dummy_file_name, sizeof(dummy_file_name));
   const size_t ievent_size = (sizeof(struct inotify_event)
 			      + sizeof(dummy_file_name));
-  g_assert_cmpint(write(pipefds[1], ievent_buffer, ievent_size),
+  g_assert_cmpint(write(pipefds[1], (char *)ievent, ievent_size),
 		  ==, ievent_size);
   g_assert_cmpint(close(pipefds[1]), ==, 0);
 
@@ -4199,9 +4207,11 @@ test_read_inotify_event_IN_CLOSE_WRITE_badname(__attribute__((unused))
   const size_t ievent_max_size = (sizeof(struct inotify_event)
 				  + NAME_MAX + 1);
   g_assert_cmpint(ievent_max_size, <=, PIPE_BUF);
-  char ievent_buffer[sizeof(struct inotify_event) + NAME_MAX + 1];
-  struct inotify_event *ievent = ((struct inotify_event *)
-				  ievent_buffer);
+  struct {
+    struct inotify_event event;
+    char name_buffer[NAME_MAX + 1];
+  } ievent_buffer;
+  struct inotify_event *const ievent = &ievent_buffer.event;
 
   const char dummy_file_name[] = "ignored.dummy_file_name";
   ievent->mask = IN_CLOSE_WRITE;
@@ -4209,7 +4219,7 @@ test_read_inotify_event_IN_CLOSE_WRITE_badname(__attribute__((unused))
   memcpy(ievent->name, dummy_file_name, sizeof(dummy_file_name));
   const size_t ievent_size = (sizeof(struct inotify_event)
 			      + sizeof(dummy_file_name));
-  g_assert_cmpint(write(pipefds[1], ievent_buffer, ievent_size),
+  g_assert_cmpint(write(pipefds[1], (char *)ievent, ievent_size),
 		  ==, ievent_size);
   g_assert_cmpint(close(pipefds[1]), ==, 0);
 
@@ -4273,9 +4283,11 @@ test_read_inotify_event_IN_MOVED_TO_badname(__attribute__((unused))
   const size_t ievent_max_size = (sizeof(struct inotify_event)
 				  + NAME_MAX + 1);
   g_assert_cmpint(ievent_max_size, <=, PIPE_BUF);
-  char ievent_buffer[sizeof(struct inotify_event) + NAME_MAX + 1];
-  struct inotify_event *ievent = ((struct inotify_event *)
-				  ievent_buffer);
+  struct {
+    struct inotify_event event;
+    char name_buffer[NAME_MAX + 1];
+  } ievent_buffer;
+  struct inotify_event *const ievent = &ievent_buffer.event;
 
   const char dummy_file_name[] = "ignored.dummy_file_name";
   ievent->mask = IN_MOVED_TO;
@@ -4283,7 +4295,7 @@ test_read_inotify_event_IN_MOVED_TO_badname(__attribute__((unused))
   memcpy(ievent->name, dummy_file_name, sizeof(dummy_file_name));
   const size_t ievent_size = (sizeof(struct inotify_event)
 			      + sizeof(dummy_file_name));
-  g_assert_cmpint(write(pipefds[1], ievent_buffer, ievent_size),
+  g_assert_cmpint(write(pipefds[1], (char *)ievent, ievent_size),
 		  ==, ievent_size);
   g_assert_cmpint(close(pipefds[1]), ==, 0);
 
@@ -4350,9 +4362,11 @@ void test_read_inotify_event_IN_DELETE_badname(__attribute__((unused))
   const size_t ievent_max_size = (sizeof(struct inotify_event)
 				  + NAME_MAX + 1);
   g_assert_cmpint(ievent_max_size, <=, PIPE_BUF);
-  char ievent_buffer[sizeof(struct inotify_event) + NAME_MAX + 1];
-  struct inotify_event *ievent = ((struct inotify_event *)
-				  ievent_buffer);
+  struct {
+    struct inotify_event event;
+    char name_buffer[NAME_MAX + 1];
+  } ievent_buffer;
+  struct inotify_event *const ievent = &ievent_buffer.event;
 
   const char dummy_file_name[] = "ignored.dummy_file_name";
   ievent->mask = IN_DELETE;
@@ -4360,7 +4374,7 @@ void test_read_inotify_event_IN_DELETE_badname(__attribute__((unused))
   memcpy(ievent->name, dummy_file_name, sizeof(dummy_file_name));
   const size_t ievent_size = (sizeof(struct inotify_event)
 			      + sizeof(dummy_file_name));
-  g_assert_cmpint(write(pipefds[1], ievent_buffer, ievent_size),
+  g_assert_cmpint(write(pipefds[1], (char *)ievent, ievent_size),
 		  ==, ievent_size);
   g_assert_cmpint(close(pipefds[1]), ==, 0);
 
