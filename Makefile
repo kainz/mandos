@@ -50,6 +50,8 @@ USER:=$(firstword $(subst :, ,$(shell getent passwd _mandos \
 GROUP:=$(firstword $(subst :, ,$(shell getent group _mandos \
 	|| getent group nogroup || echo 65534)))
 
+LINUXVERSION:=$(shell uname --kernel-release)
+
 ## Use these settings for a traditional /usr/local install
 # PREFIX:=$(DESTDIR)/usr/local
 # CONFDIR:=$(DESTDIR)/etc/mandos
@@ -71,7 +73,8 @@ DRACUTMODULE:=$(DESTDIR)/usr/lib/dracut/modules.d/90mandos
 STATEDIR:=$(DESTDIR)/var/lib/mandos
 LIBDIR:=$(shell \
 	for d in \
-	"/usr/lib/`dpkg-architecture -qDEB_HOST_MULTIARCH 2>/dev/null`" \
+	"/usr/lib/`dpkg-architecture \
+			-qDEB_HOST_MULTIARCH 2>/dev/null`" \
 	"`rpm --eval='%{_libdir}' 2>/dev/null`" /usr/lib; do \
 		if [ -d "$$d" -a "$$d" = "$${d%/}" ]; then \
 			echo "$(DESTDIR)$$d"; \
@@ -80,7 +83,8 @@ LIBDIR:=$(shell \
 	done)
 ##
 
-SYSTEMD:=$(DESTDIR)$(shell pkg-config systemd --variable=systemdsystemunitdir)
+SYSTEMD:=$(DESTDIR)$(shell pkg-config systemd \
+			--variable=systemdsystemunitdir)
 TMPFILES:=$(DESTDIR)$(shell pkg-config systemd --variable=tmpfilesdir)
 
 GNUTLS_CFLAGS:=$(shell pkg-config --cflags-only-I gnutls)
@@ -312,21 +316,27 @@ check: all
 	./dracut-module/password-agent --test
 
 # Run the client with a local config and key
-run-client: all keydir/seckey.txt keydir/pubkey.txt keydir/tls-privkey.pem keydir/tls-pubkey.pem
-	@echo "###################################################################"
-	@echo "# The following error messages are harmless and can be safely     #"
-	@echo "# ignored:                                                        #"
-	@echo "# From plugin-runner: setgid: Operation not permitted             #"
-	@echo "#                     setuid: Operation not permitted             #"
-	@echo "# From askpass-fifo:  mkfifo: Permission denied                   #"
-	@echo "# From mandos-client:                                             #"
-	@echo "#             Failed to raise privileges: Operation not permitted #"
-	@echo "#             Warning: network hook \"*\" exited with status *      #"
-	@echo "#                                                                 #"
-	@echo "# (The messages are caused by not running as root, but you should #"
-	@echo "# NOT run \"make run-client\" as root unless you also unpacked and  #"
-	@echo "# compiled Mandos as root, which is also NOT recommended.)        #"
-	@echo "###################################################################"
+run-client: all keydir/seckey.txt keydir/pubkey.txt \
+			keydir/tls-privkey.pem keydir/tls-pubkey.pem
+	@echo '######################################################'
+	@echo '# The following error messages are harmless and can  #'
+	@echo '#  be safely ignored:                                #'
+	@echo '## From plugin-runner:                               #'
+	@echo '# setgid: Operation not permitted                    #'
+	@echo '# setuid: Operation not permitted                    #'
+	@echo '## From askpass-fifo:                                #'
+	@echo '# mkfifo: Permission denied                          #'
+	@echo '## From mandos-client:                               #'
+	@echo '# Failed to raise privileges: Operation not permi... #'
+	@echo '# Warning: network hook "*" exited with status *     #'
+	@echo '# ioctl SIOCSIFFLAGS +IFF_UP: Operation not permi... #'
+	@echo '# Failed to bring up interface "*": Operation not... #'
+	@echo '#                                                    #'
+	@echo '# (The messages are caused by not running as root,   #'
+	@echo '# but you should NOT run "make run-client" as root   #'
+	@echo '# unless you also unpacked and compiled Mandos as    #'
+	@echo '# root, which is also NOT recommended.)              #'
+	@echo '######################################################'
 # We set GNOME_KEYRING_CONTROL to block pam_gnome_keyring
 	./plugin-runner --plugin-dir=plugins.d \
 		--plugin-helper-dir=plugin-helpers \
@@ -372,7 +382,8 @@ install-server: doc
 	elif install --directory --mode=u=rwx $(STATEDIR); then \
 		chown -- $(USER):$(GROUP) $(STATEDIR) || :; \
 	fi
-	if [ "$(TMPFILES)" != "$(DESTDIR)" -a -d "$(TMPFILES)" ]; then \
+	if [ "$(TMPFILES)" != "$(DESTDIR)" \
+			-a -d "$(TMPFILES)" ]; then \
 		install --mode=u=rw,go=r tmpfiles.d-mandos.conf \
 			$(TMPFILES)/mandos.conf; \
 	fi
@@ -425,7 +436,8 @@ install-client-nokey: all doc
 	install --mode=u=rwx,go=rx \
 		--target-directory=$(LIBDIR)/mandos plugin-runner
 	install --mode=u=rwx,go=rx \
-		--target-directory=$(LIBDIR)/mandos mandos-to-cryptroot-unlock
+		--target-directory=$(LIBDIR)/mandos \
+		mandos-to-cryptroot-unlock
 	install --mode=u=rwx,go=rx --target-directory=$(PREFIX)/sbin \
 		mandos-keygen
 	install --mode=u=rwx,go=rx \
@@ -494,7 +506,7 @@ install-client: install-client-nokey
 	if command -v update-initramfs >/dev/null; then \
 	    update-initramfs -k all -u; \
 	elif command -v dracut >/dev/null; then \
-	    for initrd in $(DESTDIR)/boot/initr*-$(shell uname --kernel-release); do \
+	    for initrd in $(DESTDIR)/boot/initr*-$(LINUXVERSION); do \
 		if [ -w "$$initrd" ]; then \
 		    chmod go-r "$$initrd"; \
 		    dracut --force "$$initrd"; \
@@ -553,7 +565,7 @@ uninstall-client:
 	if command -v update-initramfs >/dev/null; then \
 	    update-initramfs -k all -u; \
 	elif command -v dracut >/dev/null; then \
-	    for initrd in $(DESTDIR)/boot/initr*-$(shell uname --kernel-release); do \
+	    for initrd in $(DESTDIR)/boot/initr*-$(LINUXVERSION); do \
 		test -w "$$initrd" && dracut --force "$$initrd"; \
 	    done; \
 	fi
