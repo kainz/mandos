@@ -44,6 +44,7 @@ LANGUAGE:=-std=gnu11
 htmldir:=man
 version:=1.8.5
 SED:=sed
+PKG_CONFIG?=pkg-config
 
 USER:=$(firstword $(subst :, ,$(shell getent passwd _mandos \
 	|| getent passwd nobody || echo 65534)))
@@ -83,21 +84,22 @@ LIBDIR:=$(shell \
 	done)
 ##
 
-SYSTEMD:=$(DESTDIR)$(shell pkg-config systemd \
+SYSTEMD:=$(DESTDIR)$(shell $(PKG_CONFIG) systemd \
 			--variable=systemdsystemunitdir)
-TMPFILES:=$(DESTDIR)$(shell pkg-config systemd --variable=tmpfilesdir)
+TMPFILES:=$(DESTDIR)$(shell $(PKG_CONFIG) systemd \
+			--variable=tmpfilesdir)
 
-GNUTLS_CFLAGS:=$(shell pkg-config --cflags-only-I gnutls)
-GNUTLS_LIBS:=$(shell pkg-config --libs gnutls)
-AVAHI_CFLAGS:=$(shell pkg-config --cflags-only-I avahi-core)
-AVAHI_LIBS:=$(shell pkg-config --libs avahi-core)
+GNUTLS_CFLAGS:=$(shell $(PKG_CONFIG) --cflags-only-I gnutls)
+GNUTLS_LIBS:=$(shell $(PKG_CONFIG) --libs gnutls)
+AVAHI_CFLAGS:=$(shell $(PKG_CONFIG) --cflags-only-I avahi-core)
+AVAHI_LIBS:=$(shell $(PKG_CONFIG) --libs avahi-core)
 GPGME_CFLAGS:=$(shell gpgme-config --cflags; getconf LFS_CFLAGS)
 GPGME_LIBS:=$(shell gpgme-config --libs; getconf LFS_LIBS; \
 	getconf LFS_LDFLAGS)
-LIBNL3_CFLAGS:=$(shell pkg-config --cflags-only-I libnl-route-3.0)
-LIBNL3_LIBS:=$(shell pkg-config --libs libnl-route-3.0)
-GLIB_CFLAGS:=$(shell pkg-config --cflags glib-2.0)
-GLIB_LIBS:=$(shell pkg-config --libs glib-2.0)
+LIBNL3_CFLAGS:=$(shell $(PKG_CONFIG) --cflags-only-I libnl-route-3.0)
+LIBNL3_LIBS:=$(shell $(PKG_CONFIG) --libs libnl-route-3.0)
+GLIB_CFLAGS:=$(shell $(PKG_CONFIG) --cflags glib-2.0)
+GLIB_LIBS:=$(shell $(PKG_CONFIG) --libs glib-2.0)
 
 # Do not change these two
 CFLAGS+=$(WARN) $(DEBUG) $(FORTIFY) $(COVERAGE) \
