@@ -48,9 +48,9 @@
 #include <error.h>		/* error() */
 #include <sysexits.h>		/* EX_USAGE, EX_OSERR, EX_OSFILE */
 #include <errno.h>		/* errno, error_t, EACCES,
-				   ENAMETOOLONG, ENOENT, EEXIST,
-				   ECHILD, EPERM, ENOMEM, EAGAIN,
-				   EINTR, ENOBUFS, EADDRINUSE,
+				   ENAMETOOLONG, ENOENT, ENOTDIR,
+				   EEXIST, ECHILD, EPERM, ENOMEM,
+				   EAGAIN, EINTR, ENOBUFS, EADDRINUSE,
 				   ECONNREFUSED, ECONNRESET,
 				   ETOOMANYREFS, EMSGSIZE, EBADF,
 				   EINVAL */
@@ -84,14 +84,16 @@
 #include <fcntl.h>		/* O_CLOEXEC, O_NONBLOCK, fcntl(),
 				   F_GETFD, F_GETFL, FD_CLOEXEC,
 				   open(), O_WRONLY, O_NOCTTY,
-				   O_RDONLY */
+				   O_RDONLY, O_NOFOLLOW */
 #include <sys/wait.h>		/* waitpid(), WNOHANG, WIFEXITED(),
 				   WEXITSTATUS() */
 #include <limits.h>		/* PIPE_BUF, NAME_MAX, INT_MAX */
 #include <sys/inotify.h>	/* inotify_init1(), IN_NONBLOCK,
 				   IN_CLOEXEC, inotify_add_watch(),
 				   IN_CLOSE_WRITE, IN_MOVED_TO,
-				   IN_DELETE, struct inotify_event */
+				   IN_MOVED_FROM, IN_DELETE,
+				   IN_EXCL_UNLINK, IN_ONLYDIR,
+				   struct inotify_event */
 #include <fnmatch.h>		/* fnmatch(), FNM_FILE_NAME */
 #include <stdio.h>		/* asprintf(), FILE, fopen(),
 				   getline(), sscanf(), feof(),
