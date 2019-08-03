@@ -1018,7 +1018,7 @@ bool add_inotify_dir_watch(task_queue *const queue,
   }
 
   if(inotify_add_watch(fd, dir, IN_CLOSE_WRITE | IN_MOVED_TO
-		       | IN_MOVED_FROM| IN_DELETE)
+		       | IN_MOVED_FROM| IN_DELETE | IN_EXCL_UNLINK)
      == -1){
     error(0, errno, "Failed to create inotify watch on %s", dir);
     return false;
@@ -3801,6 +3801,82 @@ void test_add_inotify_dir_watch_IN_DELETE(__attribute__((unused))
   g_assert_cmpint((int)read_size, >, 0);
   g_assert_true(ievent->mask & IN_DELETE);
   g_assert_cmpstr(ievent->name, ==, basename(tempfile));
+
+  free(ievent);
+
+  g_assert_cmpint(rmdir(tempdir), ==, 0);
+}
+
+static
+void test_add_inotify_dir_watch_IN_EXCL_UNLINK(__attribute__((unused))
+					       test_fixture *fixture,
+					       __attribute__((unused))
+					       gconstpointer
+					       user_data){
+  __attribute__((cleanup(cleanup_close)))
+    const int epoll_fd = epoll_create1(EPOLL_CLOEXEC);
+  g_assert_cmpint(epoll_fd, >=, 0);
+  __attribute__((cleanup(cleanup_queue)))
+    task_queue *queue = create_queue();
+  g_assert_nonnull(queue);
+  __attribute__((cleanup(string_set_clear)))
+    string_set cancelled_filenames = {};
+  const mono_microsecs current_time = 0;
+
+  bool quit_now = false;
+  buffer password = {};
+  bool mandos_client_exited = false;
+  bool password_is_read = false;
+
+  __attribute__((cleanup(cleanup_string)))
+    char *tempdir = make_temporary_directory();
+  g_assert_nonnull(tempdir);
+
+  __attribute__((cleanup(cleanup_string)))
+    char *tempfile = make_temporary_file_in_directory(tempdir);
+  g_assert_nonnull(tempfile);
+  int tempfile_fd = open(tempfile, O_WRONLY | O_CLOEXEC | O_NOCTTY
+			 | O_NOFOLLOW);
+  g_assert_cmpint(tempfile_fd, >, 2);
+
+  g_assert_true(add_inotify_dir_watch(queue, epoll_fd, &quit_now,
+				      &password, tempdir,
+				      &cancelled_filenames,
+				      &current_time,
+				      &mandos_client_exited,
+				      &password_is_read));
+  g_assert_cmpint(unlink(tempfile), ==, 0);
+
+  g_assert_cmpuint((unsigned int)queue->length, >, 0);
+
+  const task_context *const added_read_task
+    = find_matching_task(queue,
+			 (task_context){ .func=read_inotify_event });
+  g_assert_nonnull(added_read_task);
+
+  g_assert_cmpint(added_read_task->fd, >, 2);
+  g_assert_true(fd_has_cloexec_and_nonblock(added_read_task->fd));
+
+  /* "sufficient to read at least one event." - inotify(7) */
+  const size_t ievent_size = (sizeof(struct inotify_event)
+			      + NAME_MAX + 1);
+  struct inotify_event *ievent = malloc(ievent_size);
+  g_assert_nonnull(ievent);
+
+  ssize_t read_size = 0;
+  read_size = read(added_read_task->fd, ievent, ievent_size);
+
+  g_assert_cmpint((int)read_size, >, 0);
+  g_assert_true(ievent->mask & IN_DELETE);
+  g_assert_cmpstr(ievent->name, ==, basename(tempfile));
+
+  g_assert_cmpint(close(tempfile_fd), ==, 0);
+
+  /* IN_EXCL_UNLINK should make the closing of the previously unlinked
+     file not appear as an ievent, so we should not see it now. */
+  read_size = read(added_read_task->fd, ievent, ievent_size);
+  g_assert_cmpint((int)read_size, ==, -1);
+  g_assert_true(errno == EAGAIN);
 
   free(ievent);
 
@@ -7837,6 +7913,8 @@ static bool run_tests(int argc, char *argv[]){
 	      test_add_inotify_dir_watch_IN_MOVED_TO);
   test_add_st("/task-creators/add_inotify_dir_watch/IN_MOVED_FROM",
 	      test_add_inotify_dir_watch_IN_MOVED_FROM);
+  test_add_st("/task-creators/add_inotify_dir_watch/IN_EXCL_UNLINK",
+	      test_add_inotify_dir_watch_IN_EXCL_UNLINK);
   test_add_st("/task-creators/add_inotify_dir_watch/IN_DELETE",
 	      test_add_inotify_dir_watch_IN_DELETE);
   test_add_st("/task/read_inotify_event/readerror",
