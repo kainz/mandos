@@ -50,6 +50,10 @@ case "$1" in
 		invoke-rc.d mandos start
 	    fi
 	fi
+	# Reload D-Bus daemon to be aware of the _mandos user & group
+	if [ -x /etc/init.d/dbus ]; then
+	    invoke-rc.d dbus force-reload || :
+	fi
 	if ! dpkg-statoverride --list "/var/lib/mandos" >/dev/null \
 	     2>&1; then
 	    chown _mandos:_mandos /var/lib/mandos

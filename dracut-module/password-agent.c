@@ -48,9 +48,9 @@
 #include <error.h>		/* error() */
 #include <sysexits.h>		/* EX_USAGE, EX_OSERR, EX_OSFILE */
 #include <errno.h>		/* errno, error_t, EACCES,
-				   ENAMETOOLONG, ENOENT, EEXIST,
-				   ECHILD, EPERM, ENOMEM, EAGAIN,
-				   EINTR, ENOBUFS, EADDRINUSE,
+				   ENAMETOOLONG, ENOENT, ENOTDIR,
+				   EEXIST, ECHILD, EPERM, ENOMEM,
+				   EAGAIN, EINTR, ENOBUFS, EADDRINUSE,
 				   ECONNREFUSED, ECONNRESET,
 				   ETOOMANYREFS, EMSGSIZE, EBADF,
 				   EINVAL */
@@ -83,14 +83,17 @@
 #include <sys/mman.h>		/* munlock(), mlock() */
 #include <fcntl.h>		/* O_CLOEXEC, O_NONBLOCK, fcntl(),
 				   F_GETFD, F_GETFL, FD_CLOEXEC,
-				   open(), O_WRONLY, O_RDONLY */
+				   open(), O_WRONLY, O_NOCTTY,
+				   O_RDONLY, O_NOFOLLOW */
 #include <sys/wait.h>		/* waitpid(), WNOHANG, WIFEXITED(),
 				   WEXITSTATUS() */
 #include <limits.h>		/* PIPE_BUF, NAME_MAX, INT_MAX */
 #include <sys/inotify.h>	/* inotify_init1(), IN_NONBLOCK,
 				   IN_CLOEXEC, inotify_add_watch(),
 				   IN_CLOSE_WRITE, IN_MOVED_TO,
-				   IN_DELETE, struct inotify_event */
+				   IN_MOVED_FROM, IN_DELETE,
+				   IN_EXCL_UNLINK, IN_ONLYDIR,
+				   struct inotify_event */
 #include <fnmatch.h>		/* fnmatch(), FNM_FILE_NAME */
 #include <stdio.h>		/* asprintf(), FILE, fopen(),
 				   getline(), sscanf(), feof(),
@@ -431,6 +434,7 @@ int main(int argc, char *argv[]){
     case EACCES:
     case ENAMETOOLONG:
     case ENOENT:
+    case ENOTDIR:
       return EX_OSFILE;
     default:
       return EX_OSERR;
@@ -1017,8 +1021,9 @@ bool add_inotify_dir_watch(task_queue *const queue,
     return false;
   }
 
-  if(inotify_add_watch(fd, dir, IN_CLOSE_WRITE
-		       | IN_MOVED_TO | IN_DELETE)
+  if(inotify_add_watch(fd, dir, IN_CLOSE_WRITE | IN_MOVED_TO
+		       | IN_MOVED_FROM| IN_DELETE | IN_EXCL_UNLINK
+		       | IN_ONLYDIR)
      == -1){
     error(0, errno, "Failed to create inotify watch on %s", dir);
     return false;
@@ -1071,9 +1076,11 @@ void read_inotify_event(const task_context task,
   /* "sufficient to read at least one event." - inotify(7) */
   const size_t ievent_size = (sizeof(struct inotify_event)
 			      + NAME_MAX + 1);
-  char ievent_buffer[sizeof(struct inotify_event) + NAME_MAX + 1];
-  struct inotify_event *ievent = ((struct inotify_event *)
-				  ievent_buffer);
+  struct {
+    struct inotify_event event;
+    char name_buffer[NAME_MAX + 1];
+  } ievent_buffer;
+  struct inotify_event *const ievent = &ievent_buffer.event;
 
   const ssize_t read_length = read(fd, ievent, ievent_size);
   if(read_length == 0){	/* EOF */
@@ -1117,7 +1124,7 @@ void read_inotify_event(const task_context task,
 	     immediately */
 	  queue->next_run = 1;
 	}
-      } else if(ievent->mask & IN_DELETE){
+      } else if(ievent->mask & (IN_MOVED_FROM | IN_DELETE)){
 	if(not string_set_add(cancelled_filenames,
 			      question_filename)){
 	  error(0, errno, "Could not add question %s to"
@@ -2220,7 +2227,8 @@ static void test_start_mandos_client_execv(test_fixture *fixture,
 
   {
     __attribute__((cleanup(cleanup_close)))
-      const int devnull_fd = open("/dev/null", O_WRONLY | O_CLOEXEC);
+      const int devnull_fd = open("/dev/null",
+				  O_WRONLY | O_CLOEXEC | O_NOCTTY);
     g_assert_cmpint(devnull_fd, >=, 0);
     __attribute__((cleanup(cleanup_close)))
       const int real_stderr_fd = dup(STDERR_FILENO);
@@ -2250,7 +2258,7 @@ static void test_start_mandos_client_execv(test_fixture *fixture,
     {
       __attribute__((cleanup(cleanup_close)))
 	const int devnull_fd = open("/dev/null",
-				    O_WRONLY | O_CLOEXEC);
+				    O_WRONLY | O_CLOEXEC | O_NOCTTY);
       g_assert_cmpint(devnull_fd, >=, 0);
       __attribute__((cleanup(cleanup_close)))
 	const int real_stderr_fd = dup(STDERR_FILENO);
@@ -2901,7 +2909,7 @@ void test_wait_for_mandos_client_exit_failure(test_fixture *fixture,
 
   __attribute__((cleanup(cleanup_close)))
     const int devnull_fd = open("/dev/null",
-				O_WRONLY | O_CLOEXEC);
+				O_WRONLY | O_CLOEXEC | O_NOCTTY);
   g_assert_cmpint(devnull_fd, >=, 0);
   __attribute__((cleanup(cleanup_close)))
     const int real_stderr_fd = dup(STDERR_FILENO);
@@ -2972,7 +2980,7 @@ void test_wait_for_mandos_client_exit_killed(test_fixture *fixture,
 
   __attribute__((cleanup(cleanup_close)))
     const int devnull_fd = open("/dev/null",
-				O_WRONLY | O_CLOEXEC);
+				O_WRONLY | O_CLOEXEC, O_NOCTTY);
   g_assert_cmpint(devnull_fd, >=, 0);
   __attribute__((cleanup(cleanup_close)))
     const int real_stderr_fd = dup(STDERR_FILENO);
@@ -3016,7 +3024,8 @@ void test_read_mandos_client_output_readerror(__attribute__((unused))
     buffer password = {};
 
   /* Reading /proc/self/mem from offset 0 will always give EIO */
-  const int fd = open("/proc/self/mem", O_RDONLY | O_CLOEXEC);
+  const int fd = open("/proc/self/mem",
+		      O_RDONLY | O_CLOEXEC | O_NOCTTY);
 
   bool password_is_read = false;
   bool quit_now = false;
@@ -3450,6 +3459,44 @@ static void test_add_inotify_dir_watch_fail(__attribute__((unused))
   g_assert_cmpuint((unsigned int)queue->length, ==, 0);
 }
 
+static void test_add_inotify_dir_watch_nondir(__attribute__((unused))
+					      test_fixture *fixture,
+					    __attribute__((unused))
+					      gconstpointer
+					      user_data){
+  __attribute__((cleanup(cleanup_close)))
+    const int epoll_fd = epoll_create1(EPOLL_CLOEXEC);
+  g_assert_cmpint(epoll_fd, >=, 0);
+  __attribute__((cleanup(cleanup_queue)))
+    task_queue *queue = create_queue();
+  g_assert_nonnull(queue);
+  __attribute__((cleanup(string_set_clear)))
+    string_set cancelled_filenames = {};
+  const mono_microsecs current_time = 0;
+
+  bool quit_now = false;
+  buffer password = {};
+  bool mandos_client_exited = false;
+  bool password_is_read = false;
+
+  const char not_a_directory[] = "/dev/tty";
+
+  FILE *real_stderr = stderr;
+  FILE *devnull = fopen("/dev/null", "we");
+  g_assert_nonnull(devnull);
+  stderr = devnull;
+  g_assert_false(add_inotify_dir_watch(queue, epoll_fd, &quit_now,
+				       &password, not_a_directory,
+				       &cancelled_filenames,
+				       &current_time,
+				       &mandos_client_exited,
+				       &password_is_read));
+  stderr = real_stderr;
+  g_assert_cmpint(fclose(devnull), ==, 0);
+
+  g_assert_cmpuint((unsigned int)queue->length, ==, 0);
+}
+
 static void test_add_inotify_dir_watch_EAGAIN(__attribute__((unused))
 					      test_fixture *fixture,
 					      __attribute__((unused))
@@ -3670,6 +3717,78 @@ void test_add_inotify_dir_watch_IN_MOVED_TO(__attribute__((unused))
 }
 
 static
+void test_add_inotify_dir_watch_IN_MOVED_FROM(__attribute__((unused))
+					      test_fixture *fixture,
+					      __attribute__((unused))
+					      gconstpointer
+					      user_data){
+  __attribute__((cleanup(cleanup_close)))
+    const int epoll_fd = epoll_create1(EPOLL_CLOEXEC);
+  g_assert_cmpint(epoll_fd, >=, 0);
+  __attribute__((cleanup(cleanup_queue)))
+    task_queue *queue = create_queue();
+  g_assert_nonnull(queue);
+  __attribute__((cleanup(string_set_clear)))
+    string_set cancelled_filenames = {};
+  const mono_microsecs current_time = 0;
+
+  bool quit_now = false;
+  buffer password = {};
+  bool mandos_client_exited = false;
+  bool password_is_read = false;
+
+  __attribute__((cleanup(cleanup_string)))
+    char *tempdir = make_temporary_directory();
+  g_assert_nonnull(tempdir);
+
+  __attribute__((cleanup(cleanup_string)))
+    char *tempfilename = make_temporary_file_in_directory(tempdir);
+  g_assert_nonnull(tempfilename);
+
+  __attribute__((cleanup(cleanup_string)))
+    char *targetdir = make_temporary_directory();
+  g_assert_nonnull(targetdir);
+
+  __attribute__((cleanup(cleanup_string)))
+    char *targetfilename = NULL;
+  g_assert_cmpint(asprintf(&targetfilename, "%s/%s", targetdir,
+			   basename(tempfilename)), >, 0);
+  g_assert_nonnull(targetfilename);
+
+  g_assert_true(add_inotify_dir_watch(queue, epoll_fd, &quit_now,
+				      &password, tempdir,
+				      &cancelled_filenames,
+				      &current_time,
+				      &mandos_client_exited,
+				      &password_is_read));
+
+  g_assert_cmpint(rename(tempfilename, targetfilename), ==, 0);
+
+  const task_context *const added_read_task
+    = find_matching_task(queue,
+			 (task_context){ .func=read_inotify_event });
+  g_assert_nonnull(added_read_task);
+
+  /* "sufficient to read at least one event." - inotify(7) */
+  const size_t ievent_size = (sizeof(struct inotify_event)
+			      + NAME_MAX + 1);
+  struct inotify_event *ievent = malloc(ievent_size);
+  g_assert_nonnull(ievent);
+
+  ssize_t read_size = read(added_read_task->fd, ievent, ievent_size);
+
+  g_assert_cmpint((int)read_size, >, 0);
+  g_assert_true(ievent->mask & IN_MOVED_FROM);
+  g_assert_cmpstr(ievent->name, ==, basename(tempfilename));
+
+  free(ievent);
+
+  g_assert_cmpint(unlink(targetfilename), ==, 0);
+  g_assert_cmpint(rmdir(targetdir), ==, 0);
+  g_assert_cmpint(rmdir(tempdir), ==, 0);
+}
+
+static
 void test_add_inotify_dir_watch_IN_DELETE(__attribute__((unused))
 					  test_fixture *fixture,
 					  __attribute__((unused))
@@ -3733,6 +3852,82 @@ void test_add_inotify_dir_watch_IN_DELETE(__attribute__((unused))
   g_assert_cmpint(rmdir(tempdir), ==, 0);
 }
 
+static
+void test_add_inotify_dir_watch_IN_EXCL_UNLINK(__attribute__((unused))
+					       test_fixture *fixture,
+					       __attribute__((unused))
+					       gconstpointer
+					       user_data){
+  __attribute__((cleanup(cleanup_close)))
+    const int epoll_fd = epoll_create1(EPOLL_CLOEXEC);
+  g_assert_cmpint(epoll_fd, >=, 0);
+  __attribute__((cleanup(cleanup_queue)))
+    task_queue *queue = create_queue();
+  g_assert_nonnull(queue);
+  __attribute__((cleanup(string_set_clear)))
+    string_set cancelled_filenames = {};
+  const mono_microsecs current_time = 0;
+
+  bool quit_now = false;
+  buffer password = {};
+  bool mandos_client_exited = false;
+  bool password_is_read = false;
+
+  __attribute__((cleanup(cleanup_string)))
+    char *tempdir = make_temporary_directory();
+  g_assert_nonnull(tempdir);
+
+  __attribute__((cleanup(cleanup_string)))
+    char *tempfile = make_temporary_file_in_directory(tempdir);
+  g_assert_nonnull(tempfile);
+  int tempfile_fd = open(tempfile, O_WRONLY | O_CLOEXEC | O_NOCTTY
+			 | O_NOFOLLOW);
+  g_assert_cmpint(tempfile_fd, >, 2);
+
+  g_assert_true(add_inotify_dir_watch(queue, epoll_fd, &quit_now,
+				      &password, tempdir,
+				      &cancelled_filenames,
+				      &current_time,
+				      &mandos_client_exited,
+				      &password_is_read));
+  g_assert_cmpint(unlink(tempfile), ==, 0);
+
+  g_assert_cmpuint((unsigned int)queue->length, >, 0);
+
+  const task_context *const added_read_task
+    = find_matching_task(queue,
+			 (task_context){ .func=read_inotify_event });
+  g_assert_nonnull(added_read_task);
+
+  g_assert_cmpint(added_read_task->fd, >, 2);
+  g_assert_true(fd_has_cloexec_and_nonblock(added_read_task->fd));
+
+  /* "sufficient to read at least one event." - inotify(7) */
+  const size_t ievent_size = (sizeof(struct inotify_event)
+			      + NAME_MAX + 1);
+  struct inotify_event *ievent = malloc(ievent_size);
+  g_assert_nonnull(ievent);
+
+  ssize_t read_size = 0;
+  read_size = read(added_read_task->fd, ievent, ievent_size);
+
+  g_assert_cmpint((int)read_size, >, 0);
+  g_assert_true(ievent->mask & IN_DELETE);
+  g_assert_cmpstr(ievent->name, ==, basename(tempfile));
+
+  g_assert_cmpint(close(tempfile_fd), ==, 0);
+
+  /* IN_EXCL_UNLINK should make the closing of the previously unlinked
+     file not appear as an ievent, so we should not see it now. */
+  read_size = read(added_read_task->fd, ievent, ievent_size);
+  g_assert_cmpint((int)read_size, ==, -1);
+  g_assert_true(errno == EAGAIN);
+
+  free(ievent);
+
+  g_assert_cmpint(rmdir(tempdir), ==, 0);
+}
+
 static void test_read_inotify_event_readerror(__attribute__((unused))
 					      test_fixture *fixture,
 					      __attribute__((unused))
@@ -3744,7 +3939,8 @@ static void test_read_inotify_event_readerror(__attribute__((unused))
   const mono_microsecs current_time = 0;
 
   /* Reading /proc/self/mem from offset 0 will always result in EIO */
-  const int fd = open("/proc/self/mem", O_RDONLY | O_CLOEXEC);
+  const int fd = open("/proc/self/mem",
+		      O_RDONLY | O_CLOEXEC | O_NOCTTY);
 
   bool quit_now = false;
   __attribute__((cleanup(cleanup_queue)))
@@ -3929,9 +4125,11 @@ void test_read_inotify_event_IN_CLOSE_WRITE(__attribute__((unused))
   const size_t ievent_max_size = (sizeof(struct inotify_event)
 				  + NAME_MAX + 1);
   g_assert_cmpint(ievent_max_size, <=, PIPE_BUF);
-  char ievent_buffer[sizeof(struct inotify_event) + NAME_MAX + 1];
-  struct inotify_event *ievent = ((struct inotify_event *)
-				  ievent_buffer);
+  struct {
+    struct inotify_event event;
+    char name_buffer[NAME_MAX + 1];
+  } ievent_buffer;
+  struct inotify_event *const ievent = &ievent_buffer.event;
 
   const char dummy_file_name[] = "ask.dummy_file_name";
   ievent->mask = IN_CLOSE_WRITE;
@@ -3939,7 +4137,7 @@ void test_read_inotify_event_IN_CLOSE_WRITE(__attribute__((unused))
   memcpy(ievent->name, dummy_file_name, sizeof(dummy_file_name));
   const size_t ievent_size = (sizeof(struct inotify_event)
 			      + sizeof(dummy_file_name));
-  g_assert_cmpint(write(pipefds[1], ievent_buffer, ievent_size),
+  g_assert_cmpint(write(pipefds[1], (char *)ievent, ievent_size),
 		  ==, ievent_size);
   g_assert_cmpint(close(pipefds[1]), ==, 0);
 
@@ -4022,9 +4220,11 @@ void test_read_inotify_event_IN_MOVED_TO(__attribute__((unused))
   const size_t ievent_max_size = (sizeof(struct inotify_event)
 				  + NAME_MAX + 1);
   g_assert_cmpint(ievent_max_size, <=, PIPE_BUF);
-  char ievent_buffer[sizeof(struct inotify_event) + NAME_MAX + 1];
-  struct inotify_event *ievent = ((struct inotify_event *)
-				  ievent_buffer);
+  struct {
+    struct inotify_event event;
+    char name_buffer[NAME_MAX + 1];
+  } ievent_buffer;
+  struct inotify_event *const ievent = &ievent_buffer.event;
 
   const char dummy_file_name[] = "ask.dummy_file_name";
   ievent->mask = IN_MOVED_TO;
@@ -4032,7 +4232,7 @@ void test_read_inotify_event_IN_MOVED_TO(__attribute__((unused))
   memcpy(ievent->name, dummy_file_name, sizeof(dummy_file_name));
   const size_t ievent_size = (sizeof(struct inotify_event)
 			      + sizeof(dummy_file_name));
-  g_assert_cmpint(write(pipefds[1], ievent_buffer, ievent_size),
+  g_assert_cmpint(write(pipefds[1], (char *)ievent, ievent_size),
 		  ==, ievent_size);
   g_assert_cmpint(close(pipefds[1]), ==, 0);
 
@@ -4098,6 +4298,91 @@ void test_read_inotify_event_IN_MOVED_TO(__attribute__((unused))
       }));
 }
 
+static
+void test_read_inotify_event_IN_MOVED_FROM(__attribute__((unused))
+					   test_fixture *fixture,
+					   __attribute__((unused))
+					   gconstpointer user_data){
+  __attribute__((cleanup(cleanup_close)))
+    const int epoll_fd = epoll_create1(EPOLL_CLOEXEC);
+  g_assert_cmpint(epoll_fd, >=, 0);
+  __attribute__((cleanup(string_set_clear)))
+    string_set cancelled_filenames = {};
+  const mono_microsecs current_time = 0;
+
+  int pipefds[2];
+  g_assert_cmpint(pipe2(pipefds, O_CLOEXEC | O_NONBLOCK), ==, 0);
+
+  /* "sufficient to read at least one event." - inotify(7) */
+  const size_t ievent_max_size = (sizeof(struct inotify_event)
+				  + NAME_MAX + 1);
+  g_assert_cmpint(ievent_max_size, <=, PIPE_BUF);
+  struct {
+    struct inotify_event event;
+    char name_buffer[NAME_MAX + 1];
+  } ievent_buffer;
+  struct inotify_event *const ievent = &ievent_buffer.event;
+
+  const char dummy_file_name[] = "ask.dummy_file_name";
+  ievent->mask = IN_MOVED_FROM;
+  ievent->len = sizeof(dummy_file_name);
+  memcpy(ievent->name, dummy_file_name, sizeof(dummy_file_name));
+  const size_t ievent_size = (sizeof(struct inotify_event)
+			      + sizeof(dummy_file_name));
+  g_assert_cmpint(write(pipefds[1], (char *)ievent, ievent_size),
+		  ==, ievent_size);
+  g_assert_cmpint(close(pipefds[1]), ==, 0);
+
+  bool quit_now = false;
+  buffer password = {};
+  bool mandos_client_exited = false;
+  bool password_is_read = false;
+  __attribute__((cleanup(cleanup_queue)))
+    task_queue *queue = create_queue();
+  g_assert_nonnull(queue);
+
+  task_context task = {
+    .func=read_inotify_event,
+    .epoll_fd=epoll_fd,
+    .fd=pipefds[0],
+    .quit_now=&quit_now,
+    .password=&password,
+    .filename=strdup("/nonexistent"),
+    .cancelled_filenames=&cancelled_filenames,
+    .current_time=&current_time,
+    .mandos_client_exited=&mandos_client_exited,
+    .password_is_read=&password_is_read,
+  };
+  task.func(task, queue);
+  g_assert_false(quit_now);
+  g_assert_true(queue->next_run == 0);
+  g_assert_cmpuint((unsigned int)queue->length, ==, 1);
+
+  g_assert_nonnull(find_matching_task(queue, (task_context){
+	.func=read_inotify_event,
+	.epoll_fd=epoll_fd,
+	.fd=pipefds[0],
+	.quit_now=&quit_now,
+	.password=&password,
+	.filename=task.filename,
+	.cancelled_filenames=&cancelled_filenames,
+	.current_time=&current_time,
+	.mandos_client_exited=&mandos_client_exited,
+	.password_is_read=&password_is_read,
+      }));
+
+  g_assert_true(epoll_set_contains(epoll_fd, pipefds[0],
+				   EPOLLIN | EPOLLRDHUP));
+
+  __attribute__((cleanup(cleanup_string)))
+    char *filename = NULL;
+  g_assert_cmpint(asprintf(&filename, "%s/%s", task.filename,
+			   dummy_file_name), >, 0);
+  g_assert_nonnull(filename);
+  g_assert_true(string_set_contains(*task.cancelled_filenames,
+				    filename));
+}
+
 static void test_read_inotify_event_IN_DELETE(__attribute__((unused))
 					      test_fixture *fixture,
 					      __attribute__((unused))
@@ -4117,9 +4402,11 @@ static void test_read_inotify_event_IN_DELETE(__attribute__((unused))
   const size_t ievent_max_size = (sizeof(struct inotify_event)
 				  + NAME_MAX + 1);
   g_assert_cmpint(ievent_max_size, <=, PIPE_BUF);
-  char ievent_buffer[sizeof(struct inotify_event) + NAME_MAX + 1];
-  struct inotify_event *ievent = ((struct inotify_event *)
-				  ievent_buffer);
+  struct {
+    struct inotify_event event;
+    char name_buffer[NAME_MAX + 1];
+  } ievent_buffer;
+  struct inotify_event *const ievent = &ievent_buffer.event;
 
   const char dummy_file_name[] = "ask.dummy_file_name";
   ievent->mask = IN_DELETE;
@@ -4127,7 +4414,7 @@ static void test_read_inotify_event_IN_DELETE(__attribute__((unused))
   memcpy(ievent->name, dummy_file_name, sizeof(dummy_file_name));
   const size_t ievent_size = (sizeof(struct inotify_event)
 			      + sizeof(dummy_file_name));
-  g_assert_cmpint(write(pipefds[1], ievent_buffer, ievent_size),
+  g_assert_cmpint(write(pipefds[1], (char *)ievent, ievent_size),
 		  ==, ievent_size);
   g_assert_cmpint(close(pipefds[1]), ==, 0);
 
@@ -4199,9 +4486,11 @@ test_read_inotify_event_IN_CLOSE_WRITE_badname(__attribute__((unused))
   const size_t ievent_max_size = (sizeof(struct inotify_event)
 				  + NAME_MAX + 1);
   g_assert_cmpint(ievent_max_size, <=, PIPE_BUF);
-  char ievent_buffer[sizeof(struct inotify_event) + NAME_MAX + 1];
-  struct inotify_event *ievent = ((struct inotify_event *)
-				  ievent_buffer);
+  struct {
+    struct inotify_event event;
+    char name_buffer[NAME_MAX + 1];
+  } ievent_buffer;
+  struct inotify_event *const ievent = &ievent_buffer.event;
 
   const char dummy_file_name[] = "ignored.dummy_file_name";
   ievent->mask = IN_CLOSE_WRITE;
@@ -4209,7 +4498,7 @@ test_read_inotify_event_IN_CLOSE_WRITE_badname(__attribute__((unused))
   memcpy(ievent->name, dummy_file_name, sizeof(dummy_file_name));
   const size_t ievent_size = (sizeof(struct inotify_event)
 			      + sizeof(dummy_file_name));
-  g_assert_cmpint(write(pipefds[1], ievent_buffer, ievent_size),
+  g_assert_cmpint(write(pipefds[1], (char *)ievent, ievent_size),
 		  ==, ievent_size);
   g_assert_cmpint(close(pipefds[1]), ==, 0);
 
@@ -4273,9 +4562,11 @@ test_read_inotify_event_IN_MOVED_TO_badname(__attribute__((unused))
   const size_t ievent_max_size = (sizeof(struct inotify_event)
 				  + NAME_MAX + 1);
   g_assert_cmpint(ievent_max_size, <=, PIPE_BUF);
-  char ievent_buffer[sizeof(struct inotify_event) + NAME_MAX + 1];
-  struct inotify_event *ievent = ((struct inotify_event *)
-				  ievent_buffer);
+  struct {
+    struct inotify_event event;
+    char name_buffer[NAME_MAX + 1];
+  } ievent_buffer;
+  struct inotify_event *const ievent = &ievent_buffer.event;
 
   const char dummy_file_name[] = "ignored.dummy_file_name";
   ievent->mask = IN_MOVED_TO;
@@ -4283,7 +4574,7 @@ test_read_inotify_event_IN_MOVED_TO_badname(__attribute__((unused))
   memcpy(ievent->name, dummy_file_name, sizeof(dummy_file_name));
   const size_t ievent_size = (sizeof(struct inotify_event)
 			      + sizeof(dummy_file_name));
-  g_assert_cmpint(write(pipefds[1], ievent_buffer, ievent_size),
+  g_assert_cmpint(write(pipefds[1], (char *)ievent, ievent_size),
 		  ==, ievent_size);
   g_assert_cmpint(close(pipefds[1]), ==, 0);
 
@@ -4330,6 +4621,91 @@ test_read_inotify_event_IN_MOVED_TO_badname(__attribute__((unused))
 				   EPOLLIN | EPOLLRDHUP));
 }
 
+static void
+test_read_inotify_event_IN_MOVED_FROM_badname(__attribute__((unused))
+					      test_fixture *fixture,
+					      __attribute__((unused))
+					      gconstpointer
+					      user_data){
+  __attribute__((cleanup(cleanup_close)))
+    const int epoll_fd = epoll_create1(EPOLL_CLOEXEC);
+  g_assert_cmpint(epoll_fd, >=, 0);
+  __attribute__((cleanup(string_set_clear)))
+    string_set cancelled_filenames = {};
+  const mono_microsecs current_time = 0;
+
+  int pipefds[2];
+  g_assert_cmpint(pipe2(pipefds, O_CLOEXEC | O_NONBLOCK), ==, 0);
+
+  /* "sufficient to read at least one event." - inotify(7) */
+  const size_t ievent_max_size = (sizeof(struct inotify_event)
+				  + NAME_MAX + 1);
+  g_assert_cmpint(ievent_max_size, <=, PIPE_BUF);
+  struct {
+    struct inotify_event event;
+    char name_buffer[NAME_MAX + 1];
+  } ievent_buffer;
+  struct inotify_event *const ievent = &ievent_buffer.event;
+
+  const char dummy_file_name[] = "ignored.dummy_file_name";
+  ievent->mask = IN_MOVED_FROM;
+  ievent->len = sizeof(dummy_file_name);
+  memcpy(ievent->name, dummy_file_name, sizeof(dummy_file_name));
+  const size_t ievent_size = (sizeof(struct inotify_event)
+			      + sizeof(dummy_file_name));
+  g_assert_cmpint(write(pipefds[1], (char *)ievent, ievent_size),
+		  ==, ievent_size);
+  g_assert_cmpint(close(pipefds[1]), ==, 0);
+
+  bool quit_now = false;
+  buffer password = {};
+  bool mandos_client_exited = false;
+  bool password_is_read = false;
+  __attribute__((cleanup(cleanup_queue)))
+    task_queue *queue = create_queue();
+  g_assert_nonnull(queue);
+
+  task_context task = {
+    .func=read_inotify_event,
+    .epoll_fd=epoll_fd,
+    .fd=pipefds[0],
+    .quit_now=&quit_now,
+    .password=&password,
+    .filename=strdup("/nonexistent"),
+    .cancelled_filenames=&cancelled_filenames,
+    .current_time=&current_time,
+    .mandos_client_exited=&mandos_client_exited,
+    .password_is_read=&password_is_read,
+  };
+  task.func(task, queue);
+  g_assert_false(quit_now);
+  g_assert_true(queue->next_run == 0);
+  g_assert_cmpuint((unsigned int)queue->length, ==, 1);
+
+  g_assert_nonnull(find_matching_task(queue, (task_context){
+	.func=read_inotify_event,
+	.epoll_fd=epoll_fd,
+	.fd=pipefds[0],
+	.quit_now=&quit_now,
+	.password=&password,
+	.filename=task.filename,
+	.cancelled_filenames=&cancelled_filenames,
+	.current_time=&current_time,
+	.mandos_client_exited=&mandos_client_exited,
+	.password_is_read=&password_is_read,
+      }));
+
+  g_assert_true(epoll_set_contains(epoll_fd, pipefds[0],
+				   EPOLLIN | EPOLLRDHUP));
+
+  __attribute__((cleanup(cleanup_string)))
+    char *filename = NULL;
+  g_assert_cmpint(asprintf(&filename, "%s/%s", task.filename,
+			   dummy_file_name), >, 0);
+  g_assert_nonnull(filename);
+  g_assert_false(string_set_contains(cancelled_filenames, filename));
+}
+
 static
 void test_read_inotify_event_IN_DELETE_badname(__attribute__((unused))
 					       test_fixture *fixture,
@@ -4350,9 +4726,11 @@ void test_read_inotify_event_IN_DELETE_badname(__attribute__((unused))
   const size_t ievent_max_size = (sizeof(struct inotify_event)
 				  + NAME_MAX + 1);
   g_assert_cmpint(ievent_max_size, <=, PIPE_BUF);
-  char ievent_buffer[sizeof(struct inotify_event) + NAME_MAX + 1];
-  struct inotify_event *ievent = ((struct inotify_event *)
-				  ievent_buffer);
+  struct {
+    struct inotify_event event;
+    char name_buffer[NAME_MAX + 1];
+  } ievent_buffer;
+  struct inotify_event *const ievent = &ievent_buffer.event;
 
   const char dummy_file_name[] = "ignored.dummy_file_name";
   ievent->mask = IN_DELETE;
@@ -4360,7 +4738,7 @@ void test_read_inotify_event_IN_DELETE_badname(__attribute__((unused))
   memcpy(ievent->name, dummy_file_name, sizeof(dummy_file_name));
   const size_t ievent_size = (sizeof(struct inotify_event)
 			      + sizeof(dummy_file_name));
-  g_assert_cmpint(write(pipefds[1], ievent_buffer, ievent_size),
+  g_assert_cmpint(write(pipefds[1], (char *)ievent, ievent_size),
 		  ==, ievent_size);
   g_assert_cmpint(close(pipefds[1]), ==, 0);
 
@@ -5253,7 +5631,8 @@ void test_connect_question_socket_bad_epoll(__attribute__((unused))
 					    __attribute__((unused))
 					    gconstpointer user_data){
   __attribute__((cleanup(cleanup_close)))
-    const int epoll_fd = open("/dev/null", O_WRONLY | O_CLOEXEC);
+    const int epoll_fd = open("/dev/null",
+			      O_WRONLY | O_CLOEXEC | O_NOCTTY);
   __attribute__((cleanup(cleanup_string)))
     char *const question_filename = strdup("/nonexistent/question");
   g_assert_nonnull(question_filename);
@@ -5663,7 +6042,8 @@ void test_send_password_to_socket_bad_epoll(__attribute__((unused))
 					    __attribute__((unused))
 					    gconstpointer user_data){
   __attribute__((cleanup(cleanup_close)))
-    const int epoll_fd = open("/dev/null", O_WRONLY | O_CLOEXEC);
+    const int epoll_fd = open("/dev/null",
+			      O_WRONLY | O_CLOEXEC | O_NOCTTY);
   __attribute__((cleanup(cleanup_string)))
     char *const question_filename = strdup("/nonexistent/question");
   g_assert_nonnull(question_filename);
@@ -5932,7 +6312,8 @@ bool assert_add_existing_questions_to_devnull(task_queue
 					      const char *const
 					      dirname){
   __attribute__((cleanup(cleanup_close)))
-    const int devnull_fd = open("/dev/null", O_WRONLY | O_CLOEXEC);
+    const int devnull_fd = open("/dev/null",
+				O_WRONLY | O_CLOEXEC | O_NOCTTY);
   g_assert_cmpint(devnull_fd, >=, 0);
   __attribute__((cleanup(cleanup_close)))
     const int real_stderr_fd = dup(STDERR_FILENO);
@@ -7573,12 +7954,18 @@ static bool run_tests(int argc, char *argv[]){
 	      test_add_inotify_dir_watch);
   test_add_st("/task-creators/add_inotify_dir_watch/fail",
 	      test_add_inotify_dir_watch_fail);
+  test_add_st("/task-creators/add_inotify_dir_watch/not-a-directory",
+	      test_add_inotify_dir_watch_nondir);
   test_add_st("/task-creators/add_inotify_dir_watch/EAGAIN",
 	      test_add_inotify_dir_watch_EAGAIN);
   test_add_st("/task-creators/add_inotify_dir_watch/IN_CLOSE_WRITE",
 	      test_add_inotify_dir_watch_IN_CLOSE_WRITE);
   test_add_st("/task-creators/add_inotify_dir_watch/IN_MOVED_TO",
 	      test_add_inotify_dir_watch_IN_MOVED_TO);
+  test_add_st("/task-creators/add_inotify_dir_watch/IN_MOVED_FROM",
+	      test_add_inotify_dir_watch_IN_MOVED_FROM);
+  test_add_st("/task-creators/add_inotify_dir_watch/IN_EXCL_UNLINK",
+	      test_add_inotify_dir_watch_IN_EXCL_UNLINK);
   test_add_st("/task-creators/add_inotify_dir_watch/IN_DELETE",
 	      test_add_inotify_dir_watch_IN_DELETE);
   test_add_st("/task/read_inotify_event/readerror",
@@ -7593,12 +7980,16 @@ static bool run_tests(int argc, char *argv[]){
 	      test_read_inotify_event_IN_CLOSE_WRITE);
   test_add_st("/task/read_inotify_event/IN_MOVED_TO",
 	      test_read_inotify_event_IN_MOVED_TO);
+  test_add_st("/task/read_inotify_event/IN_MOVED_FROM",
+	      test_read_inotify_event_IN_MOVED_FROM);
   test_add_st("/task/read_inotify_event/IN_DELETE",
 	      test_read_inotify_event_IN_DELETE);
   test_add_st("/task/read_inotify_event/IN_CLOSE_WRITE/badname",
 	      test_read_inotify_event_IN_CLOSE_WRITE_badname);
   test_add_st("/task/read_inotify_event/IN_MOVED_TO/badname",
 	      test_read_inotify_event_IN_MOVED_TO_badname);
+  test_add_st("/task/read_inotify_event/IN_MOVED_FROM/badname",
+	      test_read_inotify_event_IN_MOVED_FROM_badname);
   test_add_st("/task/read_inotify_event/IN_DELETE/badname",
 	      test_read_inotify_event_IN_DELETE_badname);
   test_add_st("/task/open_and_parse_question/ENOENT",
