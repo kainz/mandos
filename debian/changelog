@@ -1,3 +1,13 @@
+mandos (1.8.6-1) unstable; urgency=medium
+
+  * New upstream release.
+  * Fix "mandos FTCBFS: hard codes build architecture pkg-config"
+    by making pkg-config overridable (Closes: #933701)
+  * debian/mandos.postinst (configure): After creating (or renaming) user
+    & group, reload D-Bus daemon (if present).
+
+ -- Teddy Hogeborn <teddy@recompile.se>  Sat, 03 Aug 2019 14:51:01 +0200
+
 mandos (1.8.5-1) unstable; urgency=medium
 
   * New upstream release.
