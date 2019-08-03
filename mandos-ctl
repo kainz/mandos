@@ -78,7 +78,7 @@ if sys.version_info.major == 2:
 
 locale.setlocale(locale.LC_ALL, "")
 
-version = "1.8.5"
+version = "1.8.6"
 
 
 def main():
