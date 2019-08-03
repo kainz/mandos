@@ -431,6 +431,7 @@ int main(int argc, char *argv[]){
     case EACCES:
     case ENAMETOOLONG:
     case ENOENT:
+    case ENOTDIR:
       return EX_OSFILE;
     default:
       return EX_OSERR;
@@ -1018,7 +1019,8 @@ bool add_inotify_dir_watch(task_queue *const queue,
   }
 
   if(inotify_add_watch(fd, dir, IN_CLOSE_WRITE | IN_MOVED_TO
-		       | IN_MOVED_FROM| IN_DELETE | IN_EXCL_UNLINK)
+		       | IN_MOVED_FROM| IN_DELETE | IN_EXCL_UNLINK
+		       | IN_ONLYDIR)
      == -1){
     error(0, errno, "Failed to create inotify watch on %s", dir);
     return false;
@@ -3442,6 +3444,44 @@ static void test_add_inotify_dir_watch_fail(__attribute__((unused))
   stderr = devnull;
   g_assert_false(add_inotify_dir_watch(queue, epoll_fd, &quit_now,
 				       &password, nonexistent_dir,
+				       &cancelled_filenames,
+				       &current_time,
+				       &mandos_client_exited,
+				       &password_is_read));
+  stderr = real_stderr;
+  g_assert_cmpint(fclose(devnull), ==, 0);
+
+  g_assert_cmpuint((unsigned int)queue->length, ==, 0);
+}
+
+static void test_add_inotify_dir_watch_nondir(__attribute__((unused))
+					      test_fixture *fixture,
+					    __attribute__((unused))
+					      gconstpointer
+					      user_data){
+  __attribute__((cleanup(cleanup_close)))
+    const int epoll_fd = epoll_create1(EPOLL_CLOEXEC);
+  g_assert_cmpint(epoll_fd, >=, 0);
+  __attribute__((cleanup(cleanup_queue)))
+    task_queue *queue = create_queue();
+  g_assert_nonnull(queue);
+  __attribute__((cleanup(string_set_clear)))
+    string_set cancelled_filenames = {};
+  const mono_microsecs current_time = 0;
+
+  bool quit_now = false;
+  buffer password = {};
+  bool mandos_client_exited = false;
+  bool password_is_read = false;
+
+  const char not_a_directory[] = "/dev/tty";
+
+  FILE *real_stderr = stderr;
+  FILE *devnull = fopen("/dev/null", "we");
+  g_assert_nonnull(devnull);
+  stderr = devnull;
+  g_assert_false(add_inotify_dir_watch(queue, epoll_fd, &quit_now,
+				       &password, not_a_directory,
 				       &cancelled_filenames,
 				       &current_time,
 				       &mandos_client_exited,
@@ -7905,6 +7945,8 @@ static bool run_tests(int argc, char *argv[]){
 	      test_add_inotify_dir_watch);
   test_add_st("/task-creators/add_inotify_dir_watch/fail",
 	      test_add_inotify_dir_watch_fail);
+  test_add_st("/task-creators/add_inotify_dir_watch/not-a-directory",
+	      test_add_inotify_dir_watch_nondir);
   test_add_st("/task-creators/add_inotify_dir_watch/EAGAIN",
 	      test_add_inotify_dir_watch_EAGAIN);
   test_add_st("/task-creators/add_inotify_dir_watch/IN_CLOSE_WRITE",
