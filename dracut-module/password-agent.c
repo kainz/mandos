@@ -83,7 +83,8 @@
 #include <sys/mman.h>		/* munlock(), mlock() */
 #include <fcntl.h>		/* O_CLOEXEC, O_NONBLOCK, fcntl(),
 				   F_GETFD, F_GETFL, FD_CLOEXEC,
-				   open(), O_WRONLY, O_RDONLY */
+				   open(), O_WRONLY, O_NOCTTY,
+				   O_RDONLY */
 #include <sys/wait.h>		/* waitpid(), WNOHANG, WIFEXITED(),
 				   WEXITSTATUS() */
 #include <limits.h>		/* PIPE_BUF, NAME_MAX, INT_MAX */
@@ -2224,7 +2225,8 @@ static void test_start_mandos_client_execv(test_fixture *fixture,
 
   {
     __attribute__((cleanup(cleanup_close)))
-      const int devnull_fd = open("/dev/null", O_WRONLY | O_CLOEXEC);
+      const int devnull_fd = open("/dev/null",
+				  O_WRONLY | O_CLOEXEC | O_NOCTTY);
     g_assert_cmpint(devnull_fd, >=, 0);
     __attribute__((cleanup(cleanup_close)))
       const int real_stderr_fd = dup(STDERR_FILENO);
@@ -2254,7 +2256,7 @@ static void test_start_mandos_client_execv(test_fixture *fixture,
     {
       __attribute__((cleanup(cleanup_close)))
 	const int devnull_fd = open("/dev/null",
-				    O_WRONLY | O_CLOEXEC);
+				    O_WRONLY | O_CLOEXEC | O_NOCTTY);
       g_assert_cmpint(devnull_fd, >=, 0);
       __attribute__((cleanup(cleanup_close)))
 	const int real_stderr_fd = dup(STDERR_FILENO);
@@ -2905,7 +2907,7 @@ void test_wait_for_mandos_client_exit_failure(test_fixture *fixture,
 
   __attribute__((cleanup(cleanup_close)))
     const int devnull_fd = open("/dev/null",
-				O_WRONLY | O_CLOEXEC);
+				O_WRONLY | O_CLOEXEC | O_NOCTTY);
   g_assert_cmpint(devnull_fd, >=, 0);
   __attribute__((cleanup(cleanup_close)))
     const int real_stderr_fd = dup(STDERR_FILENO);
@@ -2976,7 +2978,7 @@ void test_wait_for_mandos_client_exit_killed(test_fixture *fixture,
 
   __attribute__((cleanup(cleanup_close)))
     const int devnull_fd = open("/dev/null",
-				O_WRONLY | O_CLOEXEC);
+				O_WRONLY | O_CLOEXEC, O_NOCTTY);
   g_assert_cmpint(devnull_fd, >=, 0);
   __attribute__((cleanup(cleanup_close)))
     const int real_stderr_fd = dup(STDERR_FILENO);
@@ -3020,7 +3022,8 @@ void test_read_mandos_client_output_readerror(__attribute__((unused))
     buffer password = {};
 
   /* Reading /proc/self/mem from offset 0 will always give EIO */
-  const int fd = open("/proc/self/mem", O_RDONLY | O_CLOEXEC);
+  const int fd = open("/proc/self/mem",
+		      O_RDONLY | O_CLOEXEC | O_NOCTTY);
 
   bool password_is_read = false;
   bool quit_now = false;
@@ -3934,7 +3937,8 @@ static void test_read_inotify_event_readerror(__attribute__((unused))
   const mono_microsecs current_time = 0;
 
   /* Reading /proc/self/mem from offset 0 will always result in EIO */
-  const int fd = open("/proc/self/mem", O_RDONLY | O_CLOEXEC);
+  const int fd = open("/proc/self/mem",
+		      O_RDONLY | O_CLOEXEC | O_NOCTTY);
 
   bool quit_now = false;
   __attribute__((cleanup(cleanup_queue)))
@@ -5625,7 +5629,8 @@ void test_connect_question_socket_bad_epoll(__attribute__((unused))
 					    __attribute__((unused))
 					    gconstpointer user_data){
   __attribute__((cleanup(cleanup_close)))
-    const int epoll_fd = open("/dev/null", O_WRONLY | O_CLOEXEC);
+    const int epoll_fd = open("/dev/null",
+			      O_WRONLY | O_CLOEXEC | O_NOCTTY);
   __attribute__((cleanup(cleanup_string)))
     char *const question_filename = strdup("/nonexistent/question");
   g_assert_nonnull(question_filename);
@@ -6035,7 +6040,8 @@ void test_send_password_to_socket_bad_epoll(__attribute__((unused))
 					    __attribute__((unused))
 					    gconstpointer user_data){
   __attribute__((cleanup(cleanup_close)))
-    const int epoll_fd = open("/dev/null", O_WRONLY | O_CLOEXEC);
+    const int epoll_fd = open("/dev/null",
+			      O_WRONLY | O_CLOEXEC | O_NOCTTY);
   __attribute__((cleanup(cleanup_string)))
     char *const question_filename = strdup("/nonexistent/question");
   g_assert_nonnull(question_filename);
@@ -6304,7 +6310,8 @@ bool assert_add_existing_questions_to_devnull(task_queue
 					      const char *const
 					      dirname){
   __attribute__((cleanup(cleanup_close)))
-    const int devnull_fd = open("/dev/null", O_WRONLY | O_CLOEXEC);
+    const int devnull_fd = open("/dev/null",
+				O_WRONLY | O_CLOEXEC | O_NOCTTY);
   g_assert_cmpint(devnull_fd, >=, 0);
   __attribute__((cleanup(cleanup_close)))
     const int real_stderr_fd = dup(STDERR_FILENO);
