@@ -80,6 +80,7 @@ import codecs
 
 import dbus
 import dbus.service
+import gi
 from gi.repository import GLib
 from dbus.mainloop.glib import DBusGMainLoop
 import ctypes
@@ -114,6 +115,9 @@ except AttributeError:
 
 if sys.version_info.major == 2:
     str = unicode
+
+if sys.version_info < (3, 2):
+    configparser.Configparser = configparser.SafeConfigParser
 
 version = "1.8.5"
 stored_state_file = "clients.pickle"
@@ -2998,10 +3002,10 @@ def main():
     del priority
 
     # Parse config file for server-global settings
-    server_config = configparser.SafeConfigParser(server_defaults)
+    server_config = configparser.ConfigParser(server_defaults)
     del server_defaults
     server_config.read(os.path.join(options.configdir, "mandos.conf"))
-    # Convert the SafeConfigParser object to a dict
+    # Convert the ConfigParser object to a dict
     server_settings = server_config.defaults()
     # Use the appropriate methods on the non-string config options
     for option in ("debug", "use_dbus", "use_ipv6", "restore",
@@ -3079,8 +3083,7 @@ def main():
                                   server_settings["servicename"])))
 
     # Parse config file with clients
-    client_config = configparser.SafeConfigParser(Client
-                                                  .client_defaults)
+    client_config = configparser.ConfigParser(Client.client_defaults)
     client_config.read(os.path.join(server_settings["configdir"],
                                     "clients.conf"))
 
@@ -3157,9 +3160,10 @@ def main():
         # Close all input and output, do double fork, etc.
         daemon()
 
-    # multiprocessing will use threads, so before we use GLib we need
-    # to inform GLib that threads will be used.
-    GLib.threads_init()
+    if gi.version_info < (3, 10, 2):
+        # multiprocessing will use threads, so before we use GLib we
+        # need to inform GLib that threads will be used.
+        GLib.threads_init()
 
     global main_loop
     # From the Avahi example code
