@@ -2,3 +2,6 @@
 # .asc signature can not exist until after the orig.tar.gz has been
 # built as part of the Debian package build.
 mandos source: orig-tarball-missing-upstream-signature mandos_*.tar.gz
+
+# We want to backport to stretch for as long as reasonably practical
+mandos source: package-uses-old-debhelper-compat-version 10
