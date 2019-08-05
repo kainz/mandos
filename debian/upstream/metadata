@@ -1,0 +1,13 @@
+# -*- yaml -*-
+---
+Bug-Submit: mailto:mandos-dev@recompile.se
+Changelog: https://bzr.recompile.se/loggerhead/mandos/trunk/view/head:/NEWS
+Contact: mandos@recompile.se
+Documentation: https://www.recompile.se/mandos/man/intro.8mandos
+FAQ: https://www.recompile.se/mandos/man/intro.8mandos#faq
+Name: Mandos
+Other-References: https://www.recompile.se/mandos
+Registration: https://mail.recompile.se/cgi-bin/mailman/listinfo/mandos-dev
+Repository: https://ftp.recompile.se/pub/mandos/trunk
+Repository-Browse: https://bzr.recompile.se/loggerhead/mandos/trunk/files
+Security-Contact: mandos@recompile.se

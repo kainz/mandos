@@ -12,9 +12,9 @@ Author:		teddy@recompile.se (Teddy Hogeborn),
 Maintained-by:	teddy@recompile.se (Teddy Hogeborn),
 		belorn@recompile.se (Björn Påhlsson)
 Primary-site:	https://www.recompile.se/mandos
-		230K mandos_1.8.6.orig.tar.gz
+		233K mandos_1.8.6.orig.tar.gz
 Alternate-site:	ftp://ftp.recompile.se/pub/mandos
-		230K mandos_1.8.6.orig.tar.gz
+		233K mandos_1.8.6.orig.tar.gz
 Platforms:	Requires GCC, GNU libC, Avahi, GnuPG, Python 2.7, and
 		various other libraries.  While made for Debian
 		GNU/Linux, it is probably portable to other
