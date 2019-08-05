@@ -31,7 +31,17 @@ set -e
 # Update the initial RAM file system image
 update_initramfs()
 {
-    update-initramfs -u -k all || :
+    if command -v update-initramfs >/dev/null; then
+	update-initramfs -k all -u
+    elif command -v dracut >/dev/null; then
+	# Logic taken from dracut.postinst
+	for kernel in /boot/vmlinu[xz]-*; do
+	    kversion="${kernel#/boot/vmlinu[xz]-}"
+	    if [ "$kversion" != "*" ]; then
+		/etc/kernel/postinst.d/dracut "$kversion"
+	    fi
+	done
+    fi
 }
 
 case "$1" in
