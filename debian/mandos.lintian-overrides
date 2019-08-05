@@ -10,3 +10,7 @@ mandos binary: no-debconf-config
 
 # The notice displayed from the postinst script really is critical
 mandos binary: postinst-uses-db-input
+
+# These are very important to work around bugs or changes in the old
+# versions, and there is no pressing need to remove them.
+mandos binary: maintainer-script-supports-ancient-package-version *
