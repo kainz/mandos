@@ -1,3 +1,23 @@
+mandos (1.8.7-1) unstable; urgency=medium
+
+  * New upstream release.
+  * debian/upstream/metadata: New.
+  * debian/mandos-client.postrm: Use the same logic as the
+    update_initramfs function in debian/mandos-client.postinst.
+  * debian/mandos-client.templates (mandos-client/key_id): Line which
+    should not be wrapped should be prefixed by a space.
+  * debian/mandos.templates (mandos/key_id): - '' -
+  * debian/po/en_US.po: New "translation" from ASCII to UTF-8.
+  * debian/po/templates.pot: Updated.
+  * debian/source/lintian-overrides
+    (package-uses-old-debhelper-compat-version): New; set to "10".
+  * debian/mandos-client.lintian-overrides
+    (maintainer-script-supports-ancient-package-version): New.
+    debian/mandos.lintian-overrides
+    (maintainer-script-supports-ancient-package-version): - '' -
+
+ -- Teddy Hogeborn <teddy@recompile.se>  Mon, 05 Aug 2019 23:22:00 +0200
+
 mandos (1.8.6-1) unstable; urgency=medium
 
   * New upstream release.
