@@ -41,6 +41,7 @@ endif
 #COVERAGE=--coverage
 OPTIMIZE:=-Os -fno-strict-aliasing
 LANGUAGE:=-std=gnu11
+FEATURES:=-D_FILE_OFFSET_BITS=64
 htmldir:=man
 version:=1.8.6
 SED:=sed
@@ -102,8 +103,8 @@ GLIB_CFLAGS:=$(shell $(PKG_CONFIG) --cflags glib-2.0)
 GLIB_LIBS:=$(shell $(PKG_CONFIG) --libs glib-2.0)
 
 # Do not change these two
-CFLAGS+=$(WARN) $(DEBUG) $(FORTIFY) $(COVERAGE) \
-	$(OPTIMIZE) $(LANGUAGE) -DVERSION='"$(version)"'
+CFLAGS+=$(WARN) $(DEBUG) $(FORTIFY) $(COVERAGE) $(OPTIMIZE) \
+	$(LANGUAGE) $(FEATURES) -DVERSION='"$(version)"'
 LDFLAGS+=-Xlinker --as-needed $(COVERAGE) $(LINK_FORTIFY) $(strip \
 	) $(foreach flag,$(LINK_FORTIFY_LD),-Xlinker $(flag))
 

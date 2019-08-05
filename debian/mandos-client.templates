@@ -5,7 +5,7 @@ _description: New client option "${key_id}" is REQUIRED on server
  file, otherwise this computer most likely will not reboot unattended. 
  This option:
  .
- ${key_id}
+  ${key_id}
  .
  must be added (all on one line!) on the Mandos server host, in the file
  /etc/mandos/clients.conf, right before the "fingerprint" option for this
