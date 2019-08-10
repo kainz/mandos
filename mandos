@@ -88,6 +88,9 @@ import ctypes.util
 import xml.dom.minidom
 import inspect
 
+if sys.version_info.major == 2:
+    __metaclass__ = type
+
 # Try to find the value of SO_BINDTODEVICE:
 try:
     # This is where SO_BINDTODEVICE is in Python 3.3 (or 3.4?) and
@@ -183,7 +186,7 @@ class PGPError(Exception):
     pass
 
 
-class PGPEngine(object):
+class PGPEngine:
     """A simple class for OpenPGP symmetric encryption & decryption"""
 
     def __init__(self):
@@ -279,7 +282,7 @@ class PGPEngine(object):
 
 
 # Pretend that we have an Avahi module
-class avahi(object):
+class avahi:
     """This isn't so much a class as it is a module-like namespace."""
     IF_UNSPEC = -1               # avahi-common/address.h
     PROTO_UNSPEC = -1            # avahi-common/address.h
@@ -319,7 +322,7 @@ class AvahiGroupError(AvahiError):
     pass
 
 
-class AvahiService(object):
+class AvahiService:
     """An Avahi (Zeroconf) service.
 
     Attributes:
@@ -507,7 +510,7 @@ class AvahiServiceToSyslog(AvahiService):
 
 
 # Pretend that we have a GnuTLS module
-class gnutls(object):
+class gnutls:
     """This isn't so much a class as it is a module-like namespace."""
 
     library = ctypes.util.find_library("gnutls")
@@ -576,7 +579,7 @@ class gnutls(object):
         pass
 
     # Classes
-    class Credentials(object):
+    class Credentials:
         def __init__(self):
             self._c_object = gnutls.certificate_credentials_t()
             gnutls.certificate_allocate_credentials(
@@ -586,7 +589,7 @@ class gnutls(object):
         def __del__(self):
             gnutls.certificate_free_credentials(self._c_object)
 
-    class ClientSession(object):
+    class ClientSession:
         def __init__(self, socket, credentials=None):
             self._c_object = gnutls.session_t()
             gnutls_flags = gnutls.CLIENT
@@ -818,7 +821,7 @@ def call_pipe(connection,       # : multiprocessing.Connection
     connection.close()
 
 
-class Client(object):
+class Client:
     """A representation of a client host served by this server.
 
     Attributes:
@@ -2213,7 +2216,7 @@ class ClientDBus(Client, DBusObjectWithProperties):
     del _interface
 
 
-class ProxyClient(object):
+class ProxyClient:
     def __init__(self, child_pipe, key_id, fpr, address):
         self._pipe = child_pipe
         self._pipe.send(('init', key_id, fpr, address))
@@ -2492,7 +2495,7 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
         return hex_fpr
 
 
-class MultiprocessingMixIn(object):
+class MultiprocessingMixIn:
     """Like socketserver.ThreadingMixIn, but with multiprocessing"""
 
     def sub_process_main(self, request, address):
@@ -2510,7 +2513,7 @@ class MultiprocessingMixIn(object):
         return proc
 
 
-class MultiprocessingMixInWithPipe(MultiprocessingMixIn, object):
+class MultiprocessingMixInWithPipe(MultiprocessingMixIn):
     """ adds a pipe to the MixIn """
 
     def process_request(self, request, client_address):
@@ -2531,7 +2534,7 @@ class MultiprocessingMixInWithPipe(MultiprocessingMixIn, object):
 
 
 class IPv6_TCPServer(MultiprocessingMixInWithPipe,
-                     socketserver.TCPServer, object):
+                     socketserver.TCPServer):
     """IPv6-capable TCP server.  Accepts 'None' as address and/or port
 
     Attributes:
