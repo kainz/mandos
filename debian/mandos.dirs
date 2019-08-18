@@ -7,3 +7,4 @@ usr/sbin
 var/lib/mandos
 lib/systemd/system
 usr/lib/tmpfiles.d
+usr/lib/sysusers.d

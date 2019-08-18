@@ -46,6 +46,9 @@ import io
 import tempfile
 import contextlib
 
+if sys.version_info.major == 2:
+    __metaclass__ = type
+
 try:
     import pydbus
     import gi
@@ -53,10 +56,10 @@ try:
 except ImportError:
     import dbus as dbus_python
     pydbus = None
-    class gi(object):
+    class gi:
         """Dummy gi module, for the tests"""
-        class repository(object):
-            class GLib(object):
+        class repository:
+            class GLib:
                 class Error(Exception):
                     pass
 
@@ -467,9 +470,9 @@ argparse"""
         parser.error("--remove can only be combined with --deny")
 
 
-class dbus(object):
+class dbus:
 
-    class SystemBus(object):
+    class SystemBus:
 
         object_manager_iface = "org.freedesktop.DBus.ObjectManager"
         def get_managed_objects(self, busname, objectpath):
@@ -521,7 +524,7 @@ class dbus(object):
         pass
 
 
-class dbus_python_adapter(object):
+class dbus_python_adapter:
 
     class SystemBus(dbus.MandosBus):
         """Use dbus-python"""
@@ -581,7 +584,7 @@ class dbus_python_adapter(object):
                                      self.client_interface, key,
                                      value)
 
-    class SilenceLogger(object):
+    class SilenceLogger:
         "Simple context manager to silence a particular logger"
         def __init__(self, loggername):
             self.logger = logging.getLogger(loggername)
@@ -616,7 +619,7 @@ class dbus_python_adapter(object):
                 return new_object
 
 
-class pydbus_adapter(object):
+class pydbus_adapter:
     class SystemBus(dbus.MandosBus):
         def __init__(self, module=pydbus):
             self.pydbus = module
@@ -712,10 +715,10 @@ def commands_from_options(options):
     return commands
 
 
-class command(object):
+class command:
     """A namespace for command classes"""
 
-    class Base(object):
+    class Base:
         """Abstract base class for commands"""
         def run(self, clients, bus=None):
             """Normal commands should implement run_on_one_client(),
@@ -784,7 +787,7 @@ override this run() method instead.
                 keywords = self.all_keywords
             print(self.TableOfClients(clients.values(), keywords))
 
-        class TableOfClients(object):
+        class TableOfClients:
             tableheaders = {
                 "Name": "Name",
                 "Enabled": "Enabled",
@@ -1021,7 +1024,7 @@ class TestCaseWithAssertLogs(unittest.TestCase):
                                                      "output"))
 
 
-class Unique(object):
+class Unique:
     """Class for objects which exist only to be unique objects, since
 unittest.mock.sentinel only exists in Python 3.3"""
 
@@ -1311,13 +1314,13 @@ class Test_dbus_MandosBus(unittest.TestCase):
 class Test_dbus_python_adapter_SystemBus(TestCaseWithAssertLogs):
 
     def MockDBusPython_func(self, func):
-        class mock_dbus_python(object):
+        class mock_dbus_python:
             """mock dbus-python module"""
-            class exceptions(object):
+            class exceptions:
                 """Pseudo-namespace"""
                 class DBusException(Exception):
                     pass
-            class SystemBus(object):
+            class SystemBus:
                 @staticmethod
                 def get_object(busname, objectpath):
                     DBusObject = collections.namedtuple(
@@ -1337,7 +1340,7 @@ class Test_dbus_python_adapter_SystemBus(TestCaseWithAssertLogs):
                                     dbus_interface=dbus_interface)
                     return DBusObject(methodname=method,
                                       Set=set_property)
-            class Boolean(object):
+            class Boolean:
                 def __init__(self, value):
                     self.value = bool(value)
                 def __bool__(self):
@@ -1555,9 +1558,9 @@ class Test_dbus_python_adapter_SystemBus(TestCaseWithAssertLogs):
             self.call_method(bus, "methodname", "busname",
                              "objectpath", "interface")
 
-    class fake_dbus_python_raises_exception_on_connect(object):
+    class fake_dbus_python_raises_exception_on_connect:
         """fake dbus-python module"""
-        class exceptions(object):
+        class exceptions:
             """Pseudo-namespace"""
             class DBusException(Exception):
                 pass
@@ -1571,9 +1574,9 @@ class Test_dbus_python_adapter_SystemBus(TestCaseWithAssertLogs):
 
 
 class Test_dbus_python_adapter_CachingBus(unittest.TestCase):
-    class mock_dbus_python(object):
+    class mock_dbus_python:
         """mock dbus-python modules"""
-        class SystemBus(object):
+        class SystemBus:
             @staticmethod
             def get_object(busname, objectpath):
                 return Unique()
@@ -1625,9 +1628,9 @@ class Test_dbus_python_adapter_CachingBus(unittest.TestCase):
 class Test_pydbus_adapter_SystemBus(TestCaseWithAssertLogs):
 
     def Stub_pydbus_func(self, func):
-        class stub_pydbus(object):
+        class stub_pydbus:
             """stub pydbus module"""
-            class SystemBus(object):
+            class SystemBus:
                 @staticmethod
                 def get(busname, objectpath):
                     DBusObject = collections.namedtuple(
@@ -1679,7 +1682,7 @@ class Test_pydbus_adapter_SystemBus(TestCaseWithAssertLogs):
             self.call_method(bus, "methodname", "busname",
                              "objectpath", "interface")
 
-    class fake_pydbus_raises_exception_on_connect(object):
+    class fake_pydbus_raises_exception_on_connect:
         """fake dbus-python module"""
         @classmethod
         def SystemBus(cls):
@@ -1689,11 +1692,11 @@ class Test_pydbus_adapter_SystemBus(TestCaseWithAssertLogs):
             return Bus(get=get)
 
     def test_set_property_uses_setattr(self):
-        class Object(object):
+        class Object:
             pass
         obj = Object()
-        class pydbus_spy(object):
-            class SystemBus(object):
+        class pydbus_spy:
+            class SystemBus:
                 @staticmethod
                 def get(busname, objectpath):
                     return {"interface": obj}
@@ -1706,8 +1709,8 @@ class Test_pydbus_adapter_SystemBus(TestCaseWithAssertLogs):
     def test_get_suppresses_xml_deprecation_warning(self):
         if sys.version_info.major >= 3:
             return
-        class stub_pydbus_get(object):
-            class SystemBus(object):
+        class stub_pydbus_get:
+            class SystemBus:
                 @staticmethod
                 def get(busname, objectpath):
                     warnings.warn_explicit(
@@ -1721,9 +1724,9 @@ class Test_pydbus_adapter_SystemBus(TestCaseWithAssertLogs):
 
 
 class Test_pydbus_adapter_CachingBus(unittest.TestCase):
-    class stub_pydbus(object):
+    class stub_pydbus:
         """stub pydbus module"""
-        class SystemBus(object):
+        class SystemBus:
             @staticmethod
             def get(busname, objectpath):
                 return Unique()

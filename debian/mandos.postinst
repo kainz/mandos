@@ -27,6 +27,11 @@ case "$1" in
 		*:Mandos\ password\ system,,,:/nonexistent:/bin/false)
 		    usermod --login _mandos mandos
 		    groupmod --new-name _mandos mandos
+		    # Reload D-Bus daemon to be aware of the _mandos
+		    # user & group
+		    if [ -x /etc/init.d/dbus ]; then
+			invoke-rc.d dbus force-reload || :
+		    fi
 		    ;;
 	    esac
 	fi
@@ -36,6 +41,11 @@ case "$1" in
 		--home /nonexistent --no-create-home --group \
 		--disabled-password --gecos "Mandos password system" \
 		_mandos
+	    # Reload D-Bus daemon to be aware of the _mandos user &
+	    # group
+	    if [ -x /etc/init.d/dbus ]; then
+		invoke-rc.d dbus force-reload || :
+	    fi
 	elif dpkg --compare-versions "$2" eq 1.7.4-1 \
 		|| dpkg --compare-versions "$2" eq "1.7.4-1~bpo8+1"
 	then
@@ -49,10 +59,6 @@ case "$1" in
 	    if [ "$start" = yes ]; then
 		invoke-rc.d mandos start
 	    fi
-	fi
-	# Reload D-Bus daemon to be aware of the _mandos user & group
-	if [ -x /etc/init.d/dbus ]; then
-	    invoke-rc.d dbus force-reload || :
 	fi
 	if ! dpkg-statoverride --list "/var/lib/mandos" >/dev/null \
 	     2>&1; then
