@@ -43,7 +43,7 @@ OPTIMIZE:=-Os -fno-strict-aliasing
 LANGUAGE:=-std=gnu11
 FEATURES:=-D_FILE_OFFSET_BITS=64
 htmldir:=man
-version:=1.8.7
+version:=1.8.8
 SED:=sed
 PKG_CONFIG?=pkg-config
 
