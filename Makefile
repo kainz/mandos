@@ -89,6 +89,8 @@ SYSTEMD:=$(DESTDIR)$(shell $(PKG_CONFIG) systemd \
 			--variable=systemdsystemunitdir)
 TMPFILES:=$(DESTDIR)$(shell $(PKG_CONFIG) systemd \
 			--variable=tmpfilesdir)
+SYSUSERS:=$(DESTDIR)$(shell $(PKG_CONFIG) systemd \
+			--variable=sysusersdir)
 
 GNUTLS_CFLAGS:=$(shell $(PKG_CONFIG) --cflags-only-I gnutls)
 GNUTLS_LIBS:=$(shell $(PKG_CONFIG) --libs gnutls)
@@ -389,6 +391,11 @@ install-server: doc
 			-a -d "$(TMPFILES)" ]; then \
 		install --mode=u=rw,go=r tmpfiles.d-mandos.conf \
 			$(TMPFILES)/mandos.conf; \
+	fi
+	if [ "$(SYSUSERS)" != "$(DESTDIR)" \
+			-a -d "$(SYSUSERS)" ]; then \
+		install --mode=u=rw,go=r sysusers.d-mandos.conf \
+			$(SYSUSERS)/mandos.conf; \
 	fi
 	install --mode=u=rwx,go=rx mandos $(PREFIX)/sbin/mandos
 	install --mode=u=rwx,go=rx --target-directory=$(PREFIX)/sbin \
