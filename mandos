@@ -122,7 +122,7 @@ if sys.version_info.major == 2:
 if sys.version_info < (3, 2):
     configparser.Configparser = configparser.SafeConfigParser
 
-version = "1.8.7"
+version = "1.8.8"
 stored_state_file = "clients.pickle"
 
 logger = logging.getLogger()

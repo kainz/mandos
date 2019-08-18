@@ -1,6 +1,9 @@
 This NEWS file records noteworthy changes, very tersely.
 See the manual for detailed information.
 
+Version 1.8.8 (2019-08-18)
+* No user-visible changes
+
 Version 1.8.7 (2019-08-05)
 * Client:
 ** Always compile with LFS (Large File Support) enabled.
