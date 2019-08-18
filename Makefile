@@ -436,6 +436,11 @@ install-client-nokey: all doc
 	install --directory --mode=u=rwx $(KEYDIR) \
 		$(LIBDIR)/mandos/plugins.d \
 		$(LIBDIR)/mandos/plugin-helpers
+	if [ "$(SYSUSERS)" != "$(DESTDIR)" \
+			-a -d "$(SYSUSERS)" ]; then \
+		install --mode=u=rw,go=r sysusers.d-mandos.conf \
+			$(SYSUSERS)/mandos-client.conf; \
+	fi
 	if [ "$(CONFDIR)" != "$(LIBDIR)/mandos" ]; then \
 		install --mode=u=rwx \
 			--directory "$(CONFDIR)/plugins.d" \
