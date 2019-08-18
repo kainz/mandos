@@ -1,3 +1,20 @@
+mandos (1.8.8-1) unstable; urgency=medium
+
+  * New upstream release.
+  * debian/po/de.po: New; Fix "[INTL:de] Initial German debconf
+    translation" by including the contributed translation (Closes:
+    #934373)
+  * debian/po/fr.po: New; Fix "[INTL:fr] French debconf templates
+    translation" by including the contributed translation (Closes:
+    #934888)
+  * debian/po/sv.po: New Swedish translation.
+  * debian/mandos.postinst: Only reload D-Bus daemon if new user was
+    created.
+  * debian/mandos.dirs (usr/lib/sysusers.d): New.
+  * debian/mandos-client.dirs (usr/lib/sysusers.d): - '' -
+
+ -- Teddy Hogeborn <teddy@recompile.se>  Sun, 18 Aug 2019 22:01:13 +0200
+
 mandos (1.8.7-1) unstable; urgency=medium
 
   * New upstream release.
