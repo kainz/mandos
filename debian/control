@@ -9,8 +9,8 @@ Build-Depends: debhelper (>= 10), docbook-xml, docbook-xsl,
 	libglib2.0-dev (>=2.40), libgnutls28-dev (>= 3.3.0),
 	libgnutls28-dev (>= 3.6.6) | libgnutls28-dev (<< 3.6.0),
 	xsltproc, pkg-config, libnl-route-3-dev, systemd
-Build-Depends-Indep: systemd, python (>= 2.7), python (<< 3),
-	python-dbus, python-gi, po-debconf
+Build-Depends-Indep: python (>= 2.7), python (<< 3), python-dbus,
+	python-gi, po-debconf
 Standards-Version: 4.4.0
 Vcs-Bzr: https://ftp.recompile.se/pub/mandos/trunk
 Vcs-Browser: https://bzr.recompile.se/loggerhead/mandos/trunk/files
