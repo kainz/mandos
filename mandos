@@ -92,6 +92,11 @@ import inspect
 if sys.version_info.major == 2:
     __metaclass__ = type
 
+# Show warnings by default
+if not sys.warnoptions:
+    import warnings
+    warnings.simplefilter("default")
+
 # Try to find the value of SO_BINDTODEVICE:
 try:
     # This is where SO_BINDTODEVICE is in Python 3.3 (or 3.4?) and
@@ -127,6 +132,7 @@ version = "1.8.8"
 stored_state_file = "clients.pickle"
 
 logger = logging.getLogger()
+logging.captureWarnings(True)   # Show warnings via the logging system
 syslogger = None
 
 try:
