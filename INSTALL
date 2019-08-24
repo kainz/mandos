@@ -43,7 +43,7 @@
     + Avahi 0.6.16        https://www.avahi.org/
     + Python 2.7          https://www.python.org/
     + dbus-python 0.82.4 https://dbus.freedesktop.org/doc/dbus-python/
-    + PyGObject 3.7.1     https://wiki.gnome.org/Projects/PyGObject
+    + PyGObject 3.8      https://wiki.gnome.org/Projects/PyGObject
     + pkg-config https://www.freedesktop.org/wiki/Software/pkg-config/
     + Urwid 1.0.1         http://urwid.org/
       (Only needed by the "mandos-monitor" tool.)
