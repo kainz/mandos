@@ -628,10 +628,11 @@ class UserInterface(object):
                             path=path)
 
         self.refresh()
-        self._input_callback_tag = (GLib.io_add_watch
-                                    (sys.stdin.fileno(),
-                                     GLib.IO_IN,
-                                     self.process_input))
+        self._input_callback_tag = (
+            GLib.io_add_watch(
+                GLib.IOChannel.unix_new(sys.stdin.fileno()),
+                GLib.PRIORITY_DEFAULT, GLib.IO_IN,
+                self.process_input))
         self.main_loop.run()
         # Main loop has finished, we should close everything now
         GLib.source_remove(self._input_callback_tag)
