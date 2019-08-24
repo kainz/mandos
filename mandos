@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# -*- mode: python; coding: utf-8 -*-
+# -*- mode: python; after-save-hook: (lambda () (let ((command (if (fboundp 'file-local-name) (file-local-name (buffer-file-name)) (or (file-remote-p (buffer-file-name) 'localname) (buffer-file-name))))) (if (= (progn (if (get-buffer "*Test*") (kill-buffer "*Test*")) (process-file-shell-command (format "%s --check" (shell-quote-argument command)) nil "*Test*")) 0) (let ((w (get-buffer-window "*Test*"))) (if w (delete-window w))) (progn (with-current-buffer "*Test*" (compilation-mode)) (display-buffer "*Test*" '(display-buffer-in-side-window)))))); coding: utf-8 -*-
 #
 # Mandos server - give out binary blobs to connecting clients.
 #
@@ -77,6 +77,7 @@ import tempfile
 import itertools
 import collections
 import codecs
+import unittest
 
 import dbus
 import dbus.service
@@ -2975,11 +2976,6 @@ def main():
 
     options = parser.parse_args()
 
-    if options.check:
-        import doctest
-        fail_count, test_count = doctest.testmod()
-        sys.exit(os.EX_OK if fail_count == 0 else 1)
-
     # Default values for config file for server-global settings
     if gnutls.has_rawpk:
         priority = ("SECURE128:!CTYPE-X.509:+CTYPE-RAWPK:!RSA"
@@ -3619,6 +3615,29 @@ def main():
     # Must run before the D-Bus bus name gets deregistered
     cleanup()
 
+
+def should_only_run_tests():
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument("--check", action='store_true')
+    args, unknown_args = parser.parse_known_args()
+    run_tests = args.check
+    if run_tests:
+        # Remove --check argument from sys.argv
+        sys.argv[1:] = unknown_args
+    return run_tests
+
+# Add all tests from doctest strings
+def load_tests(loader, tests, none):
+    import doctest
+    tests.addTests(doctest.DocTestSuite())
+    return tests
 
 if __name__ == '__main__':
-    main()
+    try:
+        if should_only_run_tests():
+            # Call using ./mandos --check [--verbose]
+            unittest.main()
+        else:
+            main()
+    finally:
+        logging.shutdown()
