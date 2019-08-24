@@ -1150,7 +1150,7 @@ class Client:
                 kwargs=popen_args)
             self.checker.start()
             self.checker_callback_tag = GLib.io_add_watch(
-                pipe[0].fileno(), GLib.IO_IN,
+                pipe[0].fileno(), GLib.PRIORITY_DEFAULT, GLib.IO_IN,
                 self.checker_callback, pipe[0], command)
         # Re-run this periodically if run by GLib.timeout_add
         return True
@@ -2680,7 +2680,7 @@ class MandosServer(IPv6_TCPServer):
     def add_pipe(self, parent_pipe, proc):
         # Call "handle_ipc" for both data and EOF events
         GLib.io_add_watch(
-            parent_pipe.fileno(),
+            parent_pipe.fileno(), GLib.PRIORITY_DEFAULT,
             GLib.IO_IN | GLib.IO_HUP,
             functools.partial(self.handle_ipc,
                               parent_pipe=parent_pipe,
@@ -2725,7 +2725,7 @@ class MandosServer(IPv6_TCPServer):
                 return False
 
             GLib.io_add_watch(
-                parent_pipe.fileno(),
+                parent_pipe.fileno(), GLib.PRIORITY_DEFAULT,
                 GLib.IO_IN | GLib.IO_HUP,
                 functools.partial(self.handle_ipc,
                                   parent_pipe=parent_pipe,
@@ -3602,7 +3602,8 @@ def main():
                 sys.exit(1)
             # End of Avahi example code
 
-        GLib.io_add_watch(tcp_server.fileno(), GLib.IO_IN,
+        GLib.io_add_watch(tcp_server.fileno(), GLib.PRIORITY_DEFAULT,
+                          GLib.IO_IN,
                           lambda *args, **kwargs:
                           (tcp_server.handle_request
                            (*args[2:], **kwargs) or True))
