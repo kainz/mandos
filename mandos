@@ -2765,20 +2765,20 @@ class MandosServer(IPv6_TCPServer):
 def rfc3339_duration_to_delta(duration):
     """Parse an RFC 3339 "duration" and return a datetime.timedelta
 
-    >>> rfc3339_duration_to_delta("P7D")
-    datetime.timedelta(7)
-    >>> rfc3339_duration_to_delta("PT60S")
-    datetime.timedelta(0, 60)
-    >>> rfc3339_duration_to_delta("PT60M")
-    datetime.timedelta(0, 3600)
-    >>> rfc3339_duration_to_delta("PT24H")
-    datetime.timedelta(1)
-    >>> rfc3339_duration_to_delta("P1W")
-    datetime.timedelta(7)
-    >>> rfc3339_duration_to_delta("PT5M30S")
-    datetime.timedelta(0, 330)
-    >>> rfc3339_duration_to_delta("P1DT3M20S")
-    datetime.timedelta(1, 200)
+    >>> rfc3339_duration_to_delta("P7D") == datetime.timedelta(7)
+    True
+    >>> rfc3339_duration_to_delta("PT60S") == datetime.timedelta(0, 60)
+    True
+    >>> rfc3339_duration_to_delta("PT60M") == datetime.timedelta(0, 3600)
+    True
+    >>> rfc3339_duration_to_delta("PT24H") == datetime.timedelta(1)
+    True
+    >>> rfc3339_duration_to_delta("P1W") == datetime.timedelta(7)
+    True
+    >>> rfc3339_duration_to_delta("PT5M30S") == datetime.timedelta(0, 330)
+    True
+    >>> rfc3339_duration_to_delta("P1DT3M20S") == datetime.timedelta(1, 200)
+    True
     """
 
     # Parsing an RFC 3339 duration with regular expressions is not
@@ -2864,18 +2864,18 @@ def rfc3339_duration_to_delta(duration):
 def string_to_delta(interval):
     """Parse a string and return a datetime.timedelta
 
-    >>> string_to_delta('7d')
-    datetime.timedelta(7)
-    >>> string_to_delta('60s')
-    datetime.timedelta(0, 60)
-    >>> string_to_delta('60m')
-    datetime.timedelta(0, 3600)
-    >>> string_to_delta('24h')
-    datetime.timedelta(1)
-    >>> string_to_delta('1w')
-    datetime.timedelta(7)
-    >>> string_to_delta('5m 30s')
-    datetime.timedelta(0, 330)
+    >>> string_to_delta('7d') == datetime.timedelta(7)
+    True
+    >>> string_to_delta('60s') == datetime.timedelta(0, 60)
+    True
+    >>> string_to_delta('60m') == datetime.timedelta(0, 3600)
+    True
+    >>> string_to_delta('24h') == datetime.timedelta(1)
+    True
+    >>> string_to_delta('1w') == datetime.timedelta(7)
+    True
+    >>> string_to_delta('5m 30s') == datetime.timedelta(0, 330)
+    True
     """
 
     try:
