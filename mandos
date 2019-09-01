@@ -203,7 +203,7 @@ class PGPEngine:
             output = subprocess.check_output(["gpgconf"])
             for line in output.splitlines():
                 name, text, path = line.split(b":")
-                if name == "gpg":
+                if name == b"gpg":
                     self.gpg = path
                     break
         except OSError as e:
@@ -214,7 +214,7 @@ class PGPEngine:
                           '--force-mdc',
                           '--quiet']
         # Only GPG version 1 has the --no-use-agent option.
-        if self.gpg == "gpg" or self.gpg.endswith("/gpg"):
+        if self.gpg == b"gpg" or self.gpg.endswith(b"/gpg"):
             self.gnupgargs.append("--no-use-agent")
 
     def __enter__(self):
@@ -3251,8 +3251,8 @@ def main():
                              if isinstance(s, bytes)
                              else s) for s in
                             value["client_structure"]]
-                        # .name & .host
-                        for k in ("name", "host"):
+                        # .name, .host, and .checker_command
+                        for k in ("name", "host", "checker_command"):
                             if isinstance(value[k], bytes):
                                 value[k] = value[k].decode("utf-8")
                         if "key_id" not in value:
@@ -3268,11 +3268,12 @@ def main():
                         for key, value in
                         bytes_old_client_settings.items()}
                     del bytes_old_client_settings
-                    # .host
+                    # .host and .checker_command
                     for value in old_client_settings.values():
-                        if isinstance(value["host"], bytes):
-                            value["host"] = (value["host"]
-                                             .decode("utf-8"))
+                        for attribute in ("host", "checker_command"):
+                            if isinstance(value[attribute], bytes):
+                                value[attribute] = (value[attribute]
+                                                    .decode("utf-8"))
             os.remove(stored_state_path)
         except IOError as e:
             if e.errno == errno.ENOENT:
