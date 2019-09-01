@@ -33,7 +33,7 @@ except ImportError:
 
 import sys
 import os
-
+import warnings
 import datetime
 
 import urwid.curses_display
@@ -636,7 +636,9 @@ class UserInterface(object):
         self.main_loop.run()
         # Main loop has finished, we should close everything now
         GLib.source_remove(self._input_callback_tag)
-        self.screen.stop()
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", BytesWarning)
+            self.screen.stop()
 
     def stop(self):
         self.main_loop.quit()
