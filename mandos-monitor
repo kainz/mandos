@@ -467,10 +467,9 @@ class UserInterface(object):
         self.busname = domain + '.Mandos'
         self.main_loop = GLib.MainLoop()
 
-    def client_not_found(self, fingerprint, address):
-        self.log_message("Client with address {} and fingerprint {}"
-                         " could not be found"
-                         .format(address, fingerprint))
+    def client_not_found(self, key_id, address):
+        self.log_message("Client with address {} and key ID {} could"
+                         " not be found".format(address, key_id))
 
     def rebuild(self):
         """This rebuilds the User Interface.
