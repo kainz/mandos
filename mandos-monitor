@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3 -bb
 # -*- mode: python; coding: utf-8 -*-
 #
 # Mandos Monitor - Control and monitor the Mandos server
@@ -33,7 +33,7 @@ except ImportError:
 
 import sys
 import os
-
+import warnings
 import datetime
 
 import urwid.curses_display
@@ -467,10 +467,9 @@ class UserInterface(object):
         self.busname = domain + '.Mandos'
         self.main_loop = GLib.MainLoop()
 
-    def client_not_found(self, fingerprint, address):
-        self.log_message("Client with address {} and fingerprint {}"
-                         " could not be found"
-                         .format(address, fingerprint))
+    def client_not_found(self, key_id, address):
+        self.log_message("Client with address {} and key ID {} could"
+                         " not be found".format(address, key_id))
 
     def rebuild(self):
         """This rebuilds the User Interface.
@@ -628,14 +627,17 @@ class UserInterface(object):
                             path=path)
 
         self.refresh()
-        self._input_callback_tag = (GLib.io_add_watch
-                                    (sys.stdin.fileno(),
-                                     GLib.IO_IN,
-                                     self.process_input))
+        self._input_callback_tag = (
+            GLib.io_add_watch(
+                GLib.IOChannel.unix_new(sys.stdin.fileno()),
+                GLib.PRIORITY_DEFAULT, GLib.IO_IN,
+                self.process_input))
         self.main_loop.run()
         # Main loop has finished, we should close everything now
         GLib.source_remove(self._input_callback_tag)
-        self.screen.stop()
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", BytesWarning)
+            self.screen.stop()
 
     def stop(self):
         self.main_loop.quit()

@@ -41,9 +41,12 @@
     + GnuTLS 3.3          https://www.gnutls.org/
       (but not 3.6.0 or later, until 3.6.6, which works)
     + Avahi 0.6.16        https://www.avahi.org/
-    + Python 2.7          https://www.python.org/
+    + Python 3           https://www.python.org/
+      Note: Python 2.7 is still supported, if the "mandos",
+      "mandos-ctl", and "mandos-monitor" files are edited to contain
+      "#!/usr/bin/python" instead of python3.
     + dbus-python 0.82.4 https://dbus.freedesktop.org/doc/dbus-python/
-    + PyGObject 3.7.1     https://wiki.gnome.org/Projects/PyGObject
+    + PyGObject 3.8      https://wiki.gnome.org/Projects/PyGObject
     + pkg-config https://www.freedesktop.org/wiki/Software/pkg-config/
     + Urwid 1.0.1         http://urwid.org/
       (Only needed by the "mandos-monitor" tool.)
@@ -53,8 +56,8 @@
     + ssh-keyscan from OpenSSH http://www.openssh.com/
     
     Package names:
-    avahi-daemon python python-dbus python-gi python-urwid pkg-config
-    fping ssh-client
+    avahi-daemon python3 python3-dbus python3-gi python3-urwid
+    pkg-config fping ssh-client
     
 *** Mandos Client
     + GNU C Library 2.17 https://gnu.org/software/libc/

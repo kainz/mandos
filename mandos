@@ -1,5 +1,5 @@
-#!/usr/bin/python
-# -*- mode: python; coding: utf-8 -*-
+#!/usr/bin/python3 -b
+# -*- mode: python; after-save-hook: (lambda () (let ((command (if (fboundp 'file-local-name) (file-local-name (buffer-file-name)) (or (file-remote-p (buffer-file-name) 'localname) (buffer-file-name))))) (if (= (progn (if (get-buffer "*Test*") (kill-buffer "*Test*")) (process-file-shell-command (format "%s --check" (shell-quote-argument command)) nil "*Test*")) 0) (let ((w (get-buffer-window "*Test*"))) (if w (delete-window w))) (progn (with-current-buffer "*Test*" (compilation-mode)) (display-buffer "*Test*" '(display-buffer-in-side-window)))))); coding: utf-8 -*-
 #
 # Mandos server - give out binary blobs to connecting clients.
 #
@@ -77,6 +77,7 @@ import tempfile
 import itertools
 import collections
 import codecs
+import unittest
 
 import dbus
 import dbus.service
@@ -90,6 +91,11 @@ import inspect
 
 if sys.version_info.major == 2:
     __metaclass__ = type
+
+# Show warnings by default
+if not sys.warnoptions:
+    import warnings
+    warnings.simplefilter("default")
 
 # Try to find the value of SO_BINDTODEVICE:
 try:
@@ -126,6 +132,7 @@ version = "1.8.8"
 stored_state_file = "clients.pickle"
 
 logger = logging.getLogger()
+logging.captureWarnings(True)   # Show warnings via the logging system
 syslogger = None
 
 try:
@@ -196,7 +203,7 @@ class PGPEngine:
             output = subprocess.check_output(["gpgconf"])
             for line in output.splitlines():
                 name, text, path = line.split(b":")
-                if name == "gpg":
+                if name == b"gpg":
                     self.gpg = path
                     break
         except OSError as e:
@@ -207,7 +214,7 @@ class PGPEngine:
                           '--force-mdc',
                           '--quiet']
         # Only GPG version 1 has the --no-use-agent option.
-        if self.gpg == "gpg" or self.gpg.endswith("/gpg"):
+        if self.gpg == b"gpg" or self.gpg.endswith(b"/gpg"):
             self.gnupgargs.append("--no-use-agent")
 
     def __enter__(self):
@@ -1046,7 +1053,8 @@ class Client:
         # Read return code from connection (see call_pipe)
         returncode = connection.recv()
         connection.close()
-        self.checker.join()
+        if self.checker is not None:
+            self.checker.join()
         self.checker_callback_tag = None
         self.checker = None
 
@@ -1143,7 +1151,8 @@ class Client:
                 kwargs=popen_args)
             self.checker.start()
             self.checker_callback_tag = GLib.io_add_watch(
-                pipe[0].fileno(), GLib.IO_IN,
+                GLib.IOChannel.unix_new(pipe[0].fileno()),
+                GLib.PRIORITY_DEFAULT, GLib.IO_IN,
                 self.checker_callback, pipe[0], command)
         # Re-run this periodically if run by GLib.timeout_add
         return True
@@ -2673,8 +2682,8 @@ class MandosServer(IPv6_TCPServer):
     def add_pipe(self, parent_pipe, proc):
         # Call "handle_ipc" for both data and EOF events
         GLib.io_add_watch(
-            parent_pipe.fileno(),
-            GLib.IO_IN | GLib.IO_HUP,
+            GLib.IOChannel.unix_new(parent_pipe.fileno()),
+            GLib.PRIORITY_DEFAULT, GLib.IO_IN | GLib.IO_HUP,
             functools.partial(self.handle_ipc,
                               parent_pipe=parent_pipe,
                               proc=proc))
@@ -2718,8 +2727,8 @@ class MandosServer(IPv6_TCPServer):
                 return False
 
             GLib.io_add_watch(
-                parent_pipe.fileno(),
-                GLib.IO_IN | GLib.IO_HUP,
+                GLib.IOChannel.unix_new(parent_pipe.fileno()),
+                GLib.PRIORITY_DEFAULT, GLib.IO_IN | GLib.IO_HUP,
                 functools.partial(self.handle_ipc,
                                   parent_pipe=parent_pipe,
                                   proc=proc,
@@ -2757,20 +2766,20 @@ class MandosServer(IPv6_TCPServer):
 def rfc3339_duration_to_delta(duration):
     """Parse an RFC 3339 "duration" and return a datetime.timedelta
 
-    >>> rfc3339_duration_to_delta("P7D")
-    datetime.timedelta(7)
-    >>> rfc3339_duration_to_delta("PT60S")
-    datetime.timedelta(0, 60)
-    >>> rfc3339_duration_to_delta("PT60M")
-    datetime.timedelta(0, 3600)
-    >>> rfc3339_duration_to_delta("PT24H")
-    datetime.timedelta(1)
-    >>> rfc3339_duration_to_delta("P1W")
-    datetime.timedelta(7)
-    >>> rfc3339_duration_to_delta("PT5M30S")
-    datetime.timedelta(0, 330)
-    >>> rfc3339_duration_to_delta("P1DT3M20S")
-    datetime.timedelta(1, 200)
+    >>> rfc3339_duration_to_delta("P7D") == datetime.timedelta(7)
+    True
+    >>> rfc3339_duration_to_delta("PT60S") == datetime.timedelta(0, 60)
+    True
+    >>> rfc3339_duration_to_delta("PT60M") == datetime.timedelta(0, 3600)
+    True
+    >>> rfc3339_duration_to_delta("PT24H") == datetime.timedelta(1)
+    True
+    >>> rfc3339_duration_to_delta("P1W") == datetime.timedelta(7)
+    True
+    >>> rfc3339_duration_to_delta("PT5M30S") == datetime.timedelta(0, 330)
+    True
+    >>> rfc3339_duration_to_delta("P1DT3M20S") == datetime.timedelta(1, 200)
+    True
     """
 
     # Parsing an RFC 3339 duration with regular expressions is not
@@ -2856,18 +2865,18 @@ def rfc3339_duration_to_delta(duration):
 def string_to_delta(interval):
     """Parse a string and return a datetime.timedelta
 
-    >>> string_to_delta('7d')
-    datetime.timedelta(7)
-    >>> string_to_delta('60s')
-    datetime.timedelta(0, 60)
-    >>> string_to_delta('60m')
-    datetime.timedelta(0, 3600)
-    >>> string_to_delta('24h')
-    datetime.timedelta(1)
-    >>> string_to_delta('1w')
-    datetime.timedelta(7)
-    >>> string_to_delta('5m 30s')
-    datetime.timedelta(0, 330)
+    >>> string_to_delta('7d') == datetime.timedelta(7)
+    True
+    >>> string_to_delta('60s') == datetime.timedelta(0, 60)
+    True
+    >>> string_to_delta('60m') == datetime.timedelta(0, 3600)
+    True
+    >>> string_to_delta('24h') == datetime.timedelta(1)
+    True
+    >>> string_to_delta('1w') == datetime.timedelta(7)
+    True
+    >>> string_to_delta('5m 30s') == datetime.timedelta(0, 330)
+    True
     """
 
     try:
@@ -2974,11 +2983,6 @@ def main():
                         default=None)
 
     options = parser.parse_args()
-
-    if options.check:
-        import doctest
-        fail_count, test_count = doctest.testmod()
-        sys.exit(os.EX_OK if fail_count == 0 else 1)
 
     # Default values for config file for server-global settings
     if gnutls.has_rawpk:
@@ -3248,8 +3252,8 @@ def main():
                              if isinstance(s, bytes)
                              else s) for s in
                             value["client_structure"]]
-                        # .name & .host
-                        for k in ("name", "host"):
+                        # .name, .host, and .checker_command
+                        for k in ("name", "host", "checker_command"):
                             if isinstance(value[k], bytes):
                                 value[k] = value[k].decode("utf-8")
                         if "key_id" not in value:
@@ -3265,11 +3269,12 @@ def main():
                         for key, value in
                         bytes_old_client_settings.items()}
                     del bytes_old_client_settings
-                    # .host
+                    # .host and .checker_command
                     for value in old_client_settings.values():
-                        if isinstance(value["host"], bytes):
-                            value["host"] = (value["host"]
-                                             .decode("utf-8"))
+                        for attribute in ("host", "checker_command"):
+                            if isinstance(value[attribute], bytes):
+                                value[attribute] = (value[attribute]
+                                                    .decode("utf-8"))
             os.remove(stored_state_path)
         except IOError as e:
             if e.errno == errno.ENOENT:
@@ -3600,10 +3605,11 @@ def main():
                 sys.exit(1)
             # End of Avahi example code
 
-        GLib.io_add_watch(tcp_server.fileno(), GLib.IO_IN,
-                          lambda *args, **kwargs:
-                          (tcp_server.handle_request
-                           (*args[2:], **kwargs) or True))
+        GLib.io_add_watch(
+            GLib.IOChannel.unix_new(tcp_server.fileno()),
+            GLib.PRIORITY_DEFAULT, GLib.IO_IN,
+            lambda *args, **kwargs: (tcp_server.handle_request
+                                     (*args[2:], **kwargs) or True))
 
         logger.debug("Starting main loop")
         main_loop.run()
@@ -3619,6 +3625,29 @@ def main():
     # Must run before the D-Bus bus name gets deregistered
     cleanup()
 
+
+def should_only_run_tests():
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument("--check", action='store_true')
+    args, unknown_args = parser.parse_known_args()
+    run_tests = args.check
+    if run_tests:
+        # Remove --check argument from sys.argv
+        sys.argv[1:] = unknown_args
+    return run_tests
+
+# Add all tests from doctest strings
+def load_tests(loader, tests, none):
+    import doctest
+    tests.addTests(doctest.DocTestSuite())
+    return tests
 
 if __name__ == '__main__':
-    main()
+    try:
+        if should_only_run_tests():
+            # Call using ./mandos --check [--verbose]
+            unittest.main()
+        else:
+            main()
+    finally:
+        logging.shutdown()
