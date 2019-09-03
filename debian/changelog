@@ -1,3 +1,15 @@
+mandos (1.8.9-1) unstable; urgency=medium
+
+  * New upstream release.
+  * Fix "Python2 removal in sid/bullseye" by using Python 3 instead
+    (Closes: #936987)
+  * debian/control (Build-Depends, Build-Depends-Indep): Move "systemd"
+    from indep to regular build-depends.
+    (Build-Depends-Indep, Package: mandos/Depends): Depend on Python 3 and
+    Python 3 modules instead of Python 2.
+
+ -- Teddy Hogeborn <teddy@recompile.se>  Tue, 03 Sep 2019 20:58:27 +0200
+
 mandos (1.8.8-1) unstable; urgency=medium
 
   * New upstream release.
