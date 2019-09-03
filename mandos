@@ -1053,7 +1053,8 @@ class Client:
         # Read return code from connection (see call_pipe)
         returncode = connection.recv()
         connection.close()
-        self.checker.join()
+        if self.checker is not None:
+            self.checker.join()
         self.checker_callback_tag = None
         self.checker = None
 
