@@ -1,5 +1,5 @@
 Test-Command: /usr/sbin/mandos --check
-Restrictions: superficial
+Restrictions: superficial, allow-stderr
 Features: test-name=mandos-check
 Depends: mandos
 
