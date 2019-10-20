@@ -148,7 +148,7 @@ typedef struct {
   mono_microsecs next_run;
 } __attribute__((designated_init)) task_queue;
 
-/* "func_type" - A function type for task functions
+/* "task_func" - A function type for task functions
 
    I.e. functions for the code which runs when a task is run, all have
    this type */
