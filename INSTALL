@@ -90,7 +90,7 @@
   
   2. On the computer to run as a Mandos server, run the following
      command:
-     For Debian: su -c 'make install-server'
+     For Debian: su - -c 'make install-server'
      For Ubuntu: sudo make install-server
      
      (This creates a configuration without any clients configured; you
@@ -102,14 +102,14 @@
   
   2. On the computer to run as a Mandos client, run the following
      command:
-     For Debian: su -c 'make install-client'
+     For Debian: su - -c 'make install-client'
      For Ubuntu: sudo make install-client
      
      This will also create an OpenPGP key, which will take some time
      and entropy, so be patient.
   
   3. Run the following command:
-     For Debian: su -c 'mandos-keygen --password'
+     For Debian: su - -c 'mandos-keygen --password'
      For Ubuntu: sudo mandos-keygen --password
      
      When prompted, enter the password/passphrase for the encrypted
@@ -127,7 +127,7 @@
 	# update-initramfs -k all -u
   
   5. On the server computer, start the server by running the command
-     For Debian: su -c 'invoke-rc.d mandos start'
+     For Debian: su - -c 'invoke-rc.d mandos start'
      For Ubuntu: sudo service mandos start
      
      At this point, it is possible to verify that the correct password
