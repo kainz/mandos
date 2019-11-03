@@ -35,6 +35,8 @@ import sys
 import os
 import warnings
 import datetime
+import locale
+import logging
 
 import urwid.curses_display
 import urwid
@@ -43,10 +45,6 @@ from dbus.mainloop.glib import DBusGMainLoop
 from gi.repository import GLib
 
 import dbus
-
-import locale
-
-import logging
 
 if sys.version_info.major == 2:
     str = unicode
@@ -57,14 +55,14 @@ logging.basicConfig(level="NOTSET", # Show all messages
 
 logging.captureWarnings(True)   # Show warnings via the logging system
 
-locale.setlocale(locale.LC_ALL, '')
+locale.setlocale(locale.LC_ALL, "")
 
-logging.getLogger('dbus.proxies').setLevel(logging.CRITICAL)
+logging.getLogger("dbus.proxies").setLevel(logging.CRITICAL)
 
 # Some useful constants
-domain = 'se.recompile'
-server_interface = domain + '.Mandos'
-client_interface = domain + '.Mandos.Client'
+domain = "se.recompile"
+server_interface = domain + ".Mandos"
+client_interface = domain + ".Mandos.Client"
 version = "1.8.9"
 
 try:
@@ -167,7 +165,7 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
                                          self.rejected,
                                          client_interface,
                                          byte_arrays=True))
-        log.debug('Created client %s', self.properties["Name"])
+        log.debug("Created client %s", self.properties["Name"])
 
     def using_timer(self, flag):
         """Call this method with True or False when timer should be
@@ -185,17 +183,17 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
     def checker_completed(self, exitstatus, condition, command):
         if exitstatus == 0:
             log.debug('Checker for client %s (command "%s")'
-                      ' succeeded', self.properties["Name"], command)
+                      " succeeded", self.properties["Name"], command)
             self.update()
             return
         # Checker failed
         if os.WIFEXITED(condition):
             log.info('Checker for client %s (command "%s") failed'
-                     ' with exit code %d', self.properties["Name"],
+                     " with exit code %d", self.properties["Name"],
                      command, os.WEXITSTATUS(condition))
         elif os.WIFSIGNALED(condition):
             log.info('Checker for client %s (command "%s") was'
-                     ' killed by signal %d', self.properties["Name"],
+                     " killed by signal %d", self.properties["Name"],
                      command, os.WTERMSIG(condition))
         self.update()
 
@@ -249,7 +247,7 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
         # Rebuild focus and non-focus widgets using current properties
 
         # Base part of a client. Name!
-        base = '{name}: '.format(name=self.properties["Name"])
+        base = "{name}: ".format(name=self.properties["Name"])
         if not self.properties["Enabled"]:
             message = "DISABLED"
             self.using_timer(False)
@@ -277,11 +275,11 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
                 timer = datetime.timedelta(0)
             else:
                 expires = (datetime.datetime.strptime
-                           (expires, '%Y-%m-%dT%H:%M:%S.%f'))
+                           (expires, "%Y-%m-%dT%H:%M:%S.%f"))
                 timer = max(expires - datetime.datetime.utcnow(),
                             datetime.timedelta())
-            message = ('A checker has failed! Time until client'
-                       ' gets disabled: {}'
+            message = ("A checker has failed! Time until client"
+                       " gets disabled: {}"
                        .format(str(timer).rsplit(".", 1)[0]))
             self.using_timer(True)
         else:
@@ -471,7 +469,7 @@ class UserInterface(object):
                            "Mandos Monitor version " + version))
         self.add_log_line(("bold", "q: Quit  ?: Help"))
 
-        self.busname = domain + '.Mandos'
+        self.busname = domain + ".Mandos"
         self.main_loop = GLib.MainLoop()
 
     def client_not_found(self, key_id, address):
