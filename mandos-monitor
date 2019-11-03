@@ -1,4 +1,4 @@
-#!/usr/bin/python3 -bb
+#!/usr/bin/python3 -bbI
 # -*- mode: python; coding: utf-8 -*-
 #
 # Mandos Monitor - Control and monitor the Mandos server
