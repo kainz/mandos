@@ -156,10 +156,13 @@ htmldocs:=$(addsuffix .xhtml,$(DOCS))
 
 objects:=$(addsuffix .o,$(CPROGS))
 
+.PHONY: all
 all: $(PROGS) mandos.lsm
 
+.PHONY: doc
 doc: $(DOCS)
 
+.PHONY: html
 html: $(htmldocs)
 
 %.5: %.xml common.ent legalnotice.xml
@@ -295,20 +298,19 @@ plugin-helpers/mandos-client-iprouteadddel: LDLIBS += $(LIBNL3_LIBS)
 dracut-module/password-agent: CFLAGS += $(GLIB_CFLAGS)
 dracut-module/password-agent: LDLIBS += $(GLIB_LIBS) -lpthread
 
-.PHONY : all doc html clean distclean mostlyclean maintainer-clean \
-	check run-client run-server install install-html \
-	install-server install-client-nokey install-client uninstall \
-	uninstall-server uninstall-client purge purge-server \
-	purge-client
-
+.PHONY: clean
 clean:
 	-rm --force $(CPROGS) $(objects) $(htmldocs) $(DOCS) core
 
+.PHONY: distclean
 distclean: clean
+.PHONY: mostlyclean
 mostlyclean: clean
+.PHONY: maintainer-clean
 maintainer-clean: clean
 	-rm --force --recursive keydir confdir statedir
 
+.PHONY: check
 check: all
 	./mandos --check
 	./mandos-ctl --check
@@ -318,6 +320,7 @@ check: all
 	./dracut-module/password-agent --test
 
 # Run the client with a local config and key
+.PHONY: run-client
 run-client: all keydir/seckey.txt keydir/pubkey.txt \
 			keydir/tls-privkey.pem keydir/tls-pubkey.pem
 	@echo '######################################################'
@@ -353,6 +356,7 @@ keydir/seckey.txt keydir/pubkey.txt keydir/tls-privkey.pem keydir/tls-pubkey.pem
 	./mandos-keygen --dir keydir --force
 
 # Run the server with a local config
+.PHONY: run-server
 run-server: confdir/mandos.conf confdir/clients.conf statedir
 	./mandos --debug --no-dbus --configdir=confdir \
 		--statedir=statedir $(SERVERARGS)
@@ -369,13 +373,16 @@ confdir/clients.conf: clients.conf keydir/seckey.txt keydir/tls-pubkey.pem
 statedir:
 	install --directory statedir
 
+.PHONY: install
 install: install-server install-client-nokey
 
+.PHONY: install-html
 install-html: html
 	install --directory $(htmldir)
 	install --mode=u=rw,go=r --target-directory=$(htmldir) \
 		$(htmldocs)
 
+.PHONY: install-server
 install-server: doc
 	install --directory $(CONFDIR)
 	if install --directory --mode=u=rwx --owner=$(USER) \
@@ -428,6 +435,7 @@ install-server: doc
 	gzip --best --to-stdout intro.8mandos \
 		> $(MANDIR)/man8/intro.8mandos.gz
 
+.PHONY: install-client-nokey
 install-client-nokey: all doc
 	install --directory $(LIBDIR)/mandos $(CONFDIR)
 	install --directory --mode=u=rwx $(KEYDIR) \
@@ -512,6 +520,7 @@ install-client-nokey: all doc
 	gzip --best --to-stdout dracut-module/password-agent.8mandos \
 		> $(MANDIR)/man8/password-agent.8mandos.gz
 
+.PHONY: install-client
 install-client: install-client-nokey
 # Post-installation stuff
 	-$(PREFIX)/sbin/mandos-keygen --dir "$(KEYDIR)"
@@ -527,8 +536,10 @@ install-client: install-client-nokey
 	fi
 	echo "Now run mandos-keygen --password --dir $(KEYDIR)"
 
+.PHONY: uninstall
 uninstall: uninstall-server uninstall-client
 
+.PHONY: uninstall-server
 uninstall-server:
 	-rm --force $(PREFIX)/sbin/mandos \
 		$(PREFIX)/sbin/mandos-ctl \
@@ -541,6 +552,7 @@ uninstall-server:
 	update-rc.d -f mandos remove
 	-rmdir $(CONFDIR)
 
+.PHONY: uninstall-client
 uninstall-client:
 # Refuse to uninstall client if /etc/crypttab is explicitly configured
 # to use it.
@@ -582,8 +594,10 @@ uninstall-client:
 	    done; \
 	fi
 
+.PHONY: purge
 purge: purge-server purge-client
 
+.PHONY: purge-server
 purge-server: uninstall-server
 	-rm --force $(CONFDIR)/mandos.conf $(CONFDIR)/clients.conf \
 		$(DESTDIR)/etc/dbus-1/system.d/mandos.conf
@@ -594,6 +608,7 @@ purge-server: uninstall-server
 		$(DESTDIR)/var/run/mandos.pid
 	-rmdir $(CONFDIR)
 
+.PHONY: purge-client
 purge-client: uninstall-client
 	-shred --remove $(KEYDIR)/seckey.txt $(KEYDIR)/tls-privkey.pem
 	-rm --force $(CONFDIR)/plugin-runner.conf \
