@@ -282,21 +282,18 @@ mandos.lsm: Makefile
 		$@)
 
 # Need to add the GnuTLS, Avahi and GPGME libraries
-plugins.d/mandos-client: plugins.d/mandos-client.c
-	$(LINK.c) $^ $(GNUTLS_CFLAGS) $(AVAHI_CFLAGS) $(strip\
-		) $(GPGME_CFLAGS) $(GNUTLS_LIBS) $(strip\
-		) $(AVAHI_LIBS) $(GPGME_LIBS) $(LOADLIBES) $(strip\
-		) $(LDLIBS) -o $@
+plugins.d/mandos-client: CFLAGS += $(GNUTLS_CFLAGS) $(strip \
+	) $(AVAHI_CFLAGS) $(GPGME_CFLAGS)
+plugins.d/mandos-client: LDLIBS += $(GNUTLS_LIBS) $(strip \
+	) $(AVAHI_LIBS) $(GPGME_LIBS)
 
 # Need to add the libnl-route library
-plugin-helpers/mandos-client-iprouteadddel: plugin-helpers/mandos-client-iprouteadddel.c
-	$(LINK.c) $(LIBNL3_CFLAGS) $^ $(LIBNL3_LIBS) $(strip\
-		) $(LOADLIBES) $(LDLIBS) -o $@
+plugin-helpers/mandos-client-iprouteadddel: CFLAGS += $(LIBNL3_CFLAGS)
+plugin-helpers/mandos-client-iprouteadddel: LDLIBS += $(LIBNL3_LIBS)
 
 # Need to add the GLib and pthread libraries
-dracut-module/password-agent: dracut-module/password-agent.c
-	$(LINK.c) $(GLIB_CFLAGS) $^ $(GLIB_LIBS) -lpthread $(strip\
-		) $(LOADLIBES) $(LDLIBS) -o $@
+dracut-module/password-agent: CFLAGS += $(GLIB_CFLAGS)
+dracut-module/password-agent: LDLIBS += $(GLIB_LIBS) -lpthread
 
 .PHONY : all doc html clean distclean mostlyclean maintainer-clean \
 	check run-client run-server install install-html \
