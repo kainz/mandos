@@ -1413,8 +1413,7 @@ class DBusObjectWithProperties(DBusObjectWithAnnotations):
                 raise ValueError("Byte arrays not supported for non-"
                                  "'ay' signature {!r}"
                                  .format(prop._dbus_signature))
-            value = dbus.ByteArray(b''.join(chr(byte)
-                                            for byte in value))
+            value = dbus.ByteArray(bytes(value))
         prop(value)
 
     @dbus.service.method(dbus.PROPERTIES_IFACE,
