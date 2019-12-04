@@ -48,6 +48,7 @@ import contextlib
 
 if sys.version_info.major == 2:
     __metaclass__ = type
+    str = unicode
 
 try:
     import pydbus
@@ -75,7 +76,6 @@ logging.basicConfig(level="INFO", # Show info level messages
 logging.captureWarnings(True)   # Show warnings via the logging system
 
 if sys.version_info.major == 2:
-    str = unicode
     import StringIO
     io.StringIO = StringIO.StringIO
 

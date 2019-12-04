@@ -91,6 +91,7 @@ import inspect
 
 if sys.version_info.major == 2:
     __metaclass__ = type
+    str = unicode
 
 # Show warnings by default
 if not sys.warnoptions:
@@ -121,9 +122,6 @@ except AttributeError:
         except (OSError, ValueError, IndexError):
             # No value found
             SO_BINDTODEVICE = None
-
-if sys.version_info.major == 2:
-    str = unicode
 
 if sys.version_info < (3, 2):
     configparser.Configparser = configparser.SafeConfigParser
