@@ -47,6 +47,7 @@ from gi.repository import GLib
 import dbus
 
 if sys.version_info.major == 2:
+    __metaclass__ = type
     str = unicode
 
 log = logging.getLogger(os.path.basename(sys.argv[0]))
@@ -88,7 +89,7 @@ def isoformat_to_datetime(iso):
                              int(fraction*1000000))  # Microseconds
 
 
-class MandosClientPropertyCache(object):
+class MandosClientPropertyCache:
     """This wraps a Mandos Client D-Bus proxy object, caches the
     properties and calls a hook function when any of them are
     changed.
@@ -406,7 +407,7 @@ class ConstrainedListBox(urwid.ListBox):
         return ret
 
 
-class UserInterface(object):
+class UserInterface:
     """This is the entire user interface - the whole screen
     with boxes, lists of client widgets, etc.
     """
