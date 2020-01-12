@@ -1632,7 +1632,7 @@ class Test_dbus_python_adapter_SystemBus(TestCaseWithAssertLogs):
         finally:
             dbus_logger.removeFilter(counting_handler)
 
-        self.assertNotIsInstance(e, dbus.ConnectFailed)
+        self.assertNotIsInstance(e.exception, dbus.ConnectFailed)
 
         # Make sure the dbus logger was suppressed
         self.assertEqual(0, counting_handler.count)
@@ -1775,7 +1775,7 @@ class Test_pydbus_adapter_SystemBus(TestCaseWithAssertLogs):
             self.call_method(bus, "methodname", "busname",
                              "objectpath", "interface")
 
-        self.assertNotIsInstance(e, dbus.ConnectFailed)
+        self.assertNotIsInstance(e.exception, dbus.ConnectFailed)
 
     def test_get_converts_to_correct_exception(self):
         bus = pydbus_adapter.SystemBus(
