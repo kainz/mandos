@@ -497,6 +497,11 @@ class dbus:
                              self.properties_iface, interface, key,
                              value)
 
+        def call_method(self, methodname, busname, objectpath,
+                        interface, *args):
+            raise NotImplementedError()
+
+
     class MandosBus(SystemBus):
         busname_domain = "se.recompile"
         busname = busname_domain + ".Mandos"
