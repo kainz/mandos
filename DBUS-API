@@ -55,10 +55,10 @@ This file documents the D-Bus interface to the Mandos server.
    
    | Name                    | Type | Access     | clients.conf        |
    |-------------------------+------+------------+---------------------|
-   | ApprovedByDefault       | b    | Read/Write | approved_by_default |
    | ApprovalDelay (a)       | t    | Read/Write | approval_delay      |
    | ApprovalDuration (a)    | t    | Read/Write | approval_duration   |
    | ApprovalPending (b)     | b    | Read       | N/A                 |
+   | ApprovedByDefault       | b    | Read/Write | approved_by_default |
    | Checker                 | s    | Read/Write | checker             |
    | CheckerRunning (c)      | b    | Read/Write | N/A                 |
    | Created (d)             | s    | Read       | N/A                 |
@@ -66,9 +66,9 @@ This file documents the D-Bus interface to the Mandos server.
    | Expires (f)             | s    | Read       | N/A                 |
    | ExtendedTimeout (a)     | t    | Read/Write | extended_timeout    |
    | Fingerprint             | s    | Read       | fingerprint         |
-   | KeyID                   | s    | Read       | key_id              |
    | Host                    | s    | Read/Write | host                |
    | Interval (a)            | t    | Read/Write | interval            |
+   | KeyID                   | s    | Read       | key_id              |
    | LastApprovalRequest (g) | s    | Read       | N/A                 |
    | LastCheckedOK (h)       | s    | Read/Write | N/A                 |
    | LastCheckerStatus (i)   | n    | Read       | N/A                 |
