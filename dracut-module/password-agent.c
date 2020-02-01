@@ -8092,10 +8092,10 @@ static bool should_only_run_tests(int *argc_p, char **argv_p[]){
   g_option_context_set_help_enabled(context, FALSE);
   g_option_context_set_ignore_unknown_options(context, TRUE);
 
-  gboolean run_tests = FALSE;
+  gboolean should_run_tests = FALSE;
   GOptionEntry entries[] = {
     { "test", 0, 0, G_OPTION_ARG_NONE,
-      &run_tests, "Run tests", NULL },
+      &should_run_tests, "Run tests", NULL },
     { NULL }
   };
   g_option_context_add_main_entries(context, entries, NULL);
@@ -8108,5 +8108,5 @@ static bool should_only_run_tests(int *argc_p, char **argv_p[]){
   }
 
   g_option_context_free(context);
-  return run_tests != FALSE;
+  return should_run_tests != FALSE;
 }
