@@ -78,6 +78,7 @@ import itertools
 import collections
 import codecs
 import unittest
+import random
 
 import dbus
 import dbus.service
@@ -1035,7 +1036,8 @@ class Client:
         if self.checker_initiator_tag is not None:
             GLib.source_remove(self.checker_initiator_tag)
         self.checker_initiator_tag = GLib.timeout_add(
-            int(self.interval.total_seconds() * 1000),
+            random.randrange(int(self.interval.total_seconds() * 1000
+                                 + 1)),
             self.start_checker)
         # Schedule a disable() when 'timeout' has passed
         if self.disable_initiator_tag is not None:
