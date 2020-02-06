@@ -94,6 +94,15 @@ if sys.version_info.major == 2:
     __metaclass__ = type
     str = unicode
 
+# Add collections.abc.Callable if it does not exist
+try:
+    collections.abc.Callable
+except AttributeError:
+    class abc:
+        Callable = collections.Callable
+    collections.abc = abc
+    del abc
+
 # Show warnings by default
 if not sys.warnoptions:
     import warnings
@@ -2748,7 +2757,7 @@ class MandosServer(IPv6_TCPServer):
         if command == 'getattr':
             attrname = request[1]
             if isinstance(client_object.__getattribute__(attrname),
-                          collections.Callable):
+                          collections.abc.Callable):
                 parent_pipe.send(('function', ))
             else:
                 parent_pipe.send((
