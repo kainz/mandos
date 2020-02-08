@@ -82,8 +82,6 @@
 ** TODO Error handling on error parsing config files
 ** TODO init.d script error handling
 ** TODO D-Bus server properties; address, port, interface, etc.		  :2:
-** Python 3								  :2:
-*** TODO [#C] In Python 3.3, use shlex.quote() instead of re.escape()
 
 * mandos-ctl
 ** TODO Remove old string_to_delta format				  :2:
