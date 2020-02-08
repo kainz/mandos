@@ -79,6 +79,7 @@ import collections
 import codecs
 import unittest
 import random
+import shlex
 
 import dbus
 import dbus.service
@@ -102,6 +103,12 @@ except AttributeError:
         Callable = collections.Callable
     collections.abc = abc
     del abc
+
+# Add shlex.quote if it does not exist
+try:
+    shlex.quote
+except AttributeError:
+    shlex.quote = re.escape
 
 # Show warnings by default
 if not sys.warnoptions:
@@ -1127,7 +1134,7 @@ class Client:
         if self.checker is None:
             # Escape attributes for the shell
             escaped_attrs = {
-                attr: re.escape(str(getattr(self, attr)))
+                attr: shlex.quote(str(getattr(self, attr)))
                 for attr in self.runtime_expansions}
             try:
                 command = self.checker_command % escaped_attrs
