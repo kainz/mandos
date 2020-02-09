@@ -26,8 +26,8 @@
 #define _GNU_SOURCE		/* TEMP_FAILURE_RETRY(), getline(),
 				   O_CLOEXEC, pipe2() */
 #include <stddef.h>		/* size_t, NULL */
-#include <stdlib.h>		/* malloc(), exit(), EXIT_SUCCESS,
-				   realloc() */
+#include <stdlib.h>		/* malloc(), reallocarray(), realloc(),
+				   EXIT_SUCCESS, exit() */
 #include <stdbool.h>		/* bool, true, false */
 #include <stdio.h>		/* fileno(), fprintf(),
 				   stderr, STDOUT_FILENO, fclose() */
@@ -179,8 +179,19 @@ static bool add_to_char_array(const char *new, char ***array,
   /* Resize the pointed-to array to hold one more pointer */
   char **new_array = NULL;
   do {
-    new_array = realloc(*array, sizeof(char *)
-			* (size_t) ((*len) + 2));
+#if defined(__GLIBC_PREREQ) and __GLIBC_PREREQ(2, 26)
+    new_array = reallocarray(*array, (size_t)((*len) + 2),
+			     sizeof(char *));
+#else
+    if(((size_t)((*len) + 2)) > (SIZE_MAX / sizeof(char *))){
+      /* overflow */
+      new_array = NULL;
+      errno = ENOMEM;
+    } else {
+      new_array = realloc(*array, (size_t)((*len) + 2)
+			  * sizeof(char *));
+    }
+#endif
   } while(new_array == NULL and errno == EINTR);
   /* Malloc check */
   if(new_array == NULL){
@@ -708,10 +719,21 @@ int main(int argc, char *argv[]){
 	
 	custom_argc += 1;
 	{
-	  char **new_argv = realloc(custom_argv, sizeof(char *)
-				    * ((size_t)custom_argc + 1));
+#if defined(__GLIBC_PREREQ) and __GLIBC_PREREQ(2, 26)
+	  char **new_argv = reallocarray(custom_argv, (size_t)custom_argc + 1,
+					 sizeof(char *));
+#else
+	  char **new_argv = NULL;
+	  if(((size_t)custom_argc + 1) > (SIZE_MAX / sizeof(char *))){
+	    /* overflow */
+	    errno = ENOMEM;
+	  } else {
+	    new_argv = realloc(custom_argv, ((size_t)custom_argc + 1)
+			       * sizeof(char *));
+	  }
+#endif
 	  if(new_argv == NULL){
-	    error(0, errno, "realloc");
+	    error(0, errno, "reallocarray");
 	    exitstatus = EX_OSERR;
 	    free(new_arg);
 	    free(org_line);
