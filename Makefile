@@ -354,6 +354,12 @@ run-client: all keydir/seckey.txt keydir/pubkey.txt \
 keydir/seckey.txt keydir/pubkey.txt keydir/tls-privkey.pem keydir/tls-pubkey.pem: mandos-keygen
 	install --directory keydir
 	./mandos-keygen --dir keydir --force
+	if ! [ -e keydir/tls-privkey.pem ]; then \
+		install --mode=u=rw /dev/null keydir/tls-privkey.pem; \
+	fi
+	if ! [ -e keydir/tls-pubkey.pem ]; then \
+		install --mode=u=rw /dev/null keydir/tls-pubkey.pem; \
+	fi
 
 # Run the server with a local config
 .PHONY: run-server
