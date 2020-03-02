@@ -868,6 +868,12 @@ bool start_mandos_client(task_queue *const queue,
   }
   close(pipefds[1]);
 
+  if(pid == -1){
+    error(0, errno, "Failed to fork()");
+    close(pipefds[0]);
+    return false;
+  }
+
   if(not add_to_queue(queue, (task_context){
 	.func=wait_for_mandos_client_exit,
 	.pid=pid,
@@ -2190,6 +2196,10 @@ bool is_privileged(void){
     }
     exit(EXIT_SUCCESS);
   }
+  if(pid == -1){
+    error(EXIT_FAILURE, errno, "Failed to fork()");
+  }
+
   int status;
   waitpid(pid, &status, 0);
   if(WIFEXITED(status) and (WEXITSTATUS(status) == EXIT_SUCCESS)){
