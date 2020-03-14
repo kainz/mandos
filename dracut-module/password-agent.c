@@ -5958,6 +5958,9 @@ void test_send_password_to_socket_EMSGSIZE(__attribute__((unused))
 					   test_fixture *fixture,
 					   __attribute__((unused))
 					   gconstpointer user_data){
+#ifndef __amd64__
+  g_test_skip("Skipping EMSGSIZE test on non-AMD64 platform");
+#else
   __attribute__((cleanup(cleanup_close)))
     const int epoll_fd = epoll_create1(EPOLL_CLOEXEC);
   g_assert_cmpint(epoll_fd, >=, 0);
@@ -6016,6 +6019,7 @@ void test_send_password_to_socket_EMSGSIZE(__attribute__((unused))
   g_assert_cmpuint((unsigned int)queue->length, ==, 0);
   g_assert_true(string_set_contains(cancelled_filenames,
 				    question_filename));
+#endif
 }
 
 static void test_send_password_to_socket_retry(__attribute__((unused))
