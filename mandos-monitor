@@ -1,4 +1,4 @@
-#!/usr/bin/python3 -bb
+#!/usr/bin/python3 -bbI
 # -*- mode: python; coding: utf-8 -*-
 #
 # Mandos Monitor - Control and monitor the Mandos server
@@ -35,6 +35,8 @@ import sys
 import os
 import warnings
 import datetime
+import locale
+import logging
 
 import urwid.curses_display
 import urwid
@@ -44,21 +46,24 @@ from gi.repository import GLib
 
 import dbus
 
-import locale
-
-import logging
-
 if sys.version_info.major == 2:
+    __metaclass__ = type
     str = unicode
 
-locale.setlocale(locale.LC_ALL, '')
+log = logging.getLogger(os.path.basename(sys.argv[0]))
+logging.basicConfig(level="NOTSET", # Show all messages
+                    format="%(message)s") # Show basic log messages
 
-logging.getLogger('dbus.proxies').setLevel(logging.CRITICAL)
+logging.captureWarnings(True)   # Show warnings via the logging system
+
+locale.setlocale(locale.LC_ALL, "")
+
+logging.getLogger("dbus.proxies").setLevel(logging.CRITICAL)
 
 # Some useful constants
-domain = 'se.recompile'
-server_interface = domain + '.Mandos'
-client_interface = domain + '.Mandos.Client'
+domain = "se.recompile"
+server_interface = domain + ".Mandos"
+client_interface = domain + ".Mandos.Client"
 version = "1.8.9"
 
 try:
@@ -84,7 +89,7 @@ def isoformat_to_datetime(iso):
                              int(fraction*1000000))  # Microseconds
 
 
-class MandosClientPropertyCache(object):
+class MandosClientPropertyCache:
     """This wraps a Mandos Client D-Bus proxy object, caches the
     properties and calls a hook function when any of them are
     changed.
@@ -122,15 +127,13 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
     """
 
     def __init__(self, server_proxy_object=None, update_hook=None,
-                 delete_hook=None, logger=None, **kwargs):
+                 delete_hook=None, **kwargs):
         # Called on update
         self.update_hook = update_hook
         # Called on delete
         self.delete_hook = delete_hook
         # Mandos Server proxy object
         self.server_proxy_object = server_proxy_object
-        # Logger
-        self.logger = logger
 
         self._update_timer_callback_tag = None
 
@@ -163,8 +166,7 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
                                          self.rejected,
                                          client_interface,
                                          byte_arrays=True))
-        self.logger('Created client {}'
-                    .format(self.properties["Name"]), level=0)
+        log.debug("Created client %s", self.properties["Name"])
 
     def using_timer(self, flag):
         """Call this method with True or False when timer should be
@@ -172,54 +174,49 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
         """
         if flag and self._update_timer_callback_tag is None:
             # Will update the shown timer value every second
-            self._update_timer_callback_tag = (GLib.timeout_add
-                                               (1000,
-                                                self.update_timer))
+            self._update_timer_callback_tag = (
+                GLib.timeout_add(1000,
+                                 glib_safely(self.update_timer)))
         elif not (flag or self._update_timer_callback_tag is None):
             GLib.source_remove(self._update_timer_callback_tag)
             self._update_timer_callback_tag = None
 
     def checker_completed(self, exitstatus, condition, command):
         if exitstatus == 0:
-            self.logger('Checker for client {} (command "{}")'
-                        ' succeeded'.format(self.properties["Name"],
-                                            command), level=0)
+            log.debug('Checker for client %s (command "%s")'
+                      " succeeded", self.properties["Name"], command)
             self.update()
             return
         # Checker failed
         if os.WIFEXITED(condition):
-            self.logger('Checker for client {} (command "{}") failed'
-                        ' with exit code {}'
-                        .format(self.properties["Name"], command,
-                                os.WEXITSTATUS(condition)))
+            log.info('Checker for client %s (command "%s") failed'
+                     " with exit code %d", self.properties["Name"],
+                     command, os.WEXITSTATUS(condition))
         elif os.WIFSIGNALED(condition):
-            self.logger('Checker for client {} (command "{}") was'
-                        ' killed by signal {}'
-                        .format(self.properties["Name"], command,
-                                os.WTERMSIG(condition)))
+            log.info('Checker for client %s (command "%s") was'
+                     " killed by signal %d", self.properties["Name"],
+                     command, os.WTERMSIG(condition))
         self.update()
 
     def checker_started(self, command):
         """Server signals that a checker started."""
-        self.logger('Client {} started checker "{}"'
-                    .format(self.properties["Name"],
-                            command), level=0)
+        log.debug('Client %s started checker "%s"',
+                  self.properties["Name"], command)
 
     def got_secret(self):
-        self.logger('Client {} received its secret'
-                    .format(self.properties["Name"]))
+        log.info("Client %s received its secret",
+                 self.properties["Name"])
 
     def need_approval(self, timeout, default):
         if not default:
-            message = 'Client {} needs approval within {} seconds'
+            message = "Client %s needs approval within %f seconds"
         else:
-            message = 'Client {} will get its secret in {} seconds'
-        self.logger(message.format(self.properties["Name"],
-                                   timeout/1000))
+            message = "Client %s will get its secret in %f seconds"
+        log.info(message, self.properties["Name"], timeout/1000)
 
     def rejected(self, reason):
-        self.logger('Client {} was rejected; reason: {}'
-                    .format(self.properties["Name"], reason))
+        log.info("Client %s was rejected; reason: %s",
+                 self.properties["Name"], reason)
 
     def selectable(self):
         """Make this a "selectable" widget.
@@ -251,7 +248,7 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
         # Rebuild focus and non-focus widgets using current properties
 
         # Base part of a client. Name!
-        base = '{name}: '.format(name=self.properties["Name"])
+        base = "{name}: ".format(name=self.properties["Name"])
         if not self.properties["Enabled"]:
             message = "DISABLED"
             self.using_timer(False)
@@ -279,11 +276,11 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
                 timer = datetime.timedelta(0)
             else:
                 expires = (datetime.datetime.strptime
-                           (expires, '%Y-%m-%dT%H:%M:%S.%f'))
+                           (expires, "%Y-%m-%dT%H:%M:%S.%f"))
                 timer = max(expires - datetime.datetime.utcnow(),
                             datetime.timedelta())
-            message = ('A checker has failed! Time until client'
-                       ' gets disabled: {}'
+            message = ("A checker has failed! Time until client"
+                       " gets disabled: {}"
                        .format(str(timer).rsplit(".", 1)[0]))
             self.using_timer(True)
         else:
@@ -387,6 +384,16 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
             self.update()
 
 
+def glib_safely(func, retval=True):
+    def safe_func(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except Exception:
+            log.exception("")
+            return retval
+    return safe_func
+
+
 class ConstrainedListBox(urwid.ListBox):
     """Like a normal urwid.ListBox, but will consume all "up" or
     "down" key presses, thus not allowing any containing widgets to
@@ -400,11 +407,11 @@ class ConstrainedListBox(urwid.ListBox):
         return ret
 
 
-class UserInterface(object):
+class UserInterface:
     """This is the entire user interface - the whole screen
     with boxes, lists of client widgets, etc.
     """
-    def __init__(self, max_log_length=1000, log_level=1):
+    def __init__(self, max_log_length=1000):
         DBusGMainLoop(set_as_default=True)
 
         self.screen = urwid.curses_display.Screen()
@@ -447,8 +454,6 @@ class UserInterface(object):
         self.log = urwid.SimpleListWalker([])
         self.max_log_length = max_log_length
 
-        self.log_level = log_level
-
         # We keep a reference to the log widget so we can remove it
         # from the ListWalker without it getting destroyed
         self.logbox = ConstrainedListBox(self.log)
@@ -458,18 +463,19 @@ class UserInterface(object):
         self.log_visible = True
         self.log_wrap = "any"
 
-        self.rebuild()
-        self.log_message_raw(("bold",
-                              "Mandos Monitor version " + version))
-        self.log_message_raw(("bold",
-                              "q: Quit  ?: Help"))
+        self.loghandler = UILogHandler(self)
 
-        self.busname = domain + '.Mandos'
+        self.rebuild()
+        self.add_log_line(("bold",
+                           "Mandos Monitor version " + version))
+        self.add_log_line(("bold", "q: Quit  ?: Help"))
+
+        self.busname = domain + ".Mandos"
         self.main_loop = GLib.MainLoop()
 
     def client_not_found(self, key_id, address):
-        self.log_message("Client with address {} and key ID {} could"
-                         " not be found".format(address, key_id))
+        log.info("Client with address %s and key ID %s could"
+                 " not be found", address, key_id)
 
     def rebuild(self):
         """This rebuilds the User Interface.
@@ -486,22 +492,11 @@ class UserInterface(object):
             self.uilist.append(self.logbox)
         self.topwidget = urwid.Pile(self.uilist)
 
-    def log_message(self, message, level=1):
-        """Log message formatted with timestamp"""
-        if level < self.log_level:
-            return
-        timestamp = datetime.datetime.now().isoformat()
-        self.log_message_raw("{}: {}".format(timestamp, message),
-                             level=level)
-
-    def log_message_raw(self, markup, level=1):
-        """Add a log message to the log buffer."""
-        if level < self.log_level:
-            return
+    def add_log_line(self, markup):
         self.log.append(urwid.Text(markup, wrap=self.log_wrap))
         if self.max_log_length:
             if len(self.log) > self.max_log_length:
-                del self.log[0:len(self.log)-self.max_log_length-1]
+                del self.log[0:(len(self.log) - self.max_log_length)]
         self.logbox.set_focus(len(self.logbox.body.contents)-1,
                               coming_from="above")
         self.refresh()
@@ -510,8 +505,7 @@ class UserInterface(object):
         """Toggle visibility of the log buffer."""
         self.log_visible = not self.log_visible
         self.rebuild()
-        self.log_message("Log visibility changed to: {}"
-                         .format(self.log_visible), level=0)
+        log.debug("Log visibility changed to: %s", self.log_visible)
 
     def change_log_display(self):
         """Change type of log display.
@@ -522,8 +516,7 @@ class UserInterface(object):
             self.log_wrap = "clip"
         for textwidget in self.log:
             textwidget.set_wrap_mode(self.log_wrap)
-        self.log_message("Wrap mode: {}".format(self.log_wrap),
-                         level=0)
+        log.debug("Wrap mode: %s", self.log_wrap)
 
     def find_and_remove_client(self, path, interfaces):
         """Find a client by its object path and remove it.
@@ -537,8 +530,7 @@ class UserInterface(object):
             client = self.clients_dict[path]
         except KeyError:
             # not found?
-            self.log_message("Unknown client {!r} removed"
-                             .format(path))
+            log.warning("Unknown client %s removed", path)
             return
         client.delete()
 
@@ -557,7 +549,6 @@ class UserInterface(object):
             proxy_object=client_proxy_object,
             update_hook=self.refresh,
             delete_hook=self.remove_client,
-            logger=self.log_message,
             properties=dict(ifs_and_props[client_interface])),
                         path=path)
 
@@ -583,6 +574,11 @@ class UserInterface(object):
 
     def run(self):
         """Start the main loop and exit when it's done."""
+        log.addHandler(self.loghandler)
+        self.orig_log_propagate = log.propagate
+        log.propagate = False
+        self.orig_log_level = log.level
+        log.setLevel("INFO")
         self.bus = dbus.SystemBus()
         mandos_dbus_objc = self.bus.get_object(
             self.busname, "/", follow_name_owner_changes=True)
@@ -592,11 +588,9 @@ class UserInterface(object):
             mandos_clients = (self.mandos_serv
                               .GetAllClientsWithProperties())
             if not mandos_clients:
-                self.log_message_raw(("bold",
-                                      "Note: Server has no clients."))
+                log.warning("Note: Server has no clients.")
         except dbus.exceptions.DBusException:
-            self.log_message_raw(("bold",
-                                  "Note: No Mandos server running."))
+            log.warning("Note: No Mandos server running.")
             mandos_clients = dbus.Dictionary()
 
         (self.mandos_serv
@@ -622,8 +616,7 @@ class UserInterface(object):
                 proxy_object=client_proxy_object,
                 properties=client,
                 update_hook=self.refresh,
-                delete_hook=self.remove_client,
-                logger=self.log_message),
+                delete_hook=self.remove_client),
                             path=path)
 
         self.refresh()
@@ -631,7 +624,7 @@ class UserInterface(object):
             GLib.io_add_watch(
                 GLib.IOChannel.unix_new(sys.stdin.fileno()),
                 GLib.PRIORITY_DEFAULT, GLib.IO_IN,
-                self.process_input))
+                glib_safely(self.process_input)))
         self.main_loop.run()
         # Main loop has finished, we should close everything now
         GLib.source_remove(self._input_callback_tag)
@@ -641,6 +634,8 @@ class UserInterface(object):
 
     def stop(self):
         self.main_loop.quit()
+        log.removeHandler(self.loghandler)
+        log.propagate = self.orig_log_propagate
 
     def process_input(self, source, condition):
         keys = self.screen.get_input()
@@ -679,26 +674,25 @@ class UserInterface(object):
                 if not self.log_visible:
                     self.log_visible = True
                     self.rebuild()
-                self.log_message_raw(("bold",
-                                      "  ".
-                                      join(("q: Quit",
-                                            "?: Help",
-                                            "l: Log window toggle",
-                                            "TAB: Switch window",
-                                            "w: Wrap (log lines)",
-                                            "v: Toggle verbose log",
-                                            ))))
-                self.log_message_raw(("bold",
-                                      "  "
-                                      .join(("Clients:",
-                                             "+: Enable",
-                                             "-: Disable",
-                                             "R: Remove",
-                                             "s: Start new checker",
-                                             "S: Stop checker",
-                                             "C: Checker OK",
-                                             "a: Approve",
-                                             "d: Deny"))))
+                self.add_log_line(("bold",
+                                   "  ".join(("q: Quit",
+                                              "?: Help",
+                                              "l: Log window toggle",
+                                              "TAB: Switch window",
+                                              "w: Wrap (log lines)",
+                                              "v: Toggle verbose log",
+                                   ))))
+                self.add_log_line(("bold",
+                                   "  ".join(("Clients:",
+                                              "+: Enable",
+                                              "-: Disable",
+                                              "R: Remove",
+                                              "s: Start new checker",
+                                              "S: Stop checker",
+                                              "C: Checker OK",
+                                              "a: Approve",
+                                              "d: Deny",
+                                   ))))
                 self.refresh()
             elif key == "tab":
                 if self.topwidget.get_focus() is self.logbox:
@@ -707,12 +701,12 @@ class UserInterface(object):
                     self.topwidget.set_focus(self.logbox)
                 self.refresh()
             elif key == "v":
-                if self.log_level == 0:
-                    self.log_level = 1
-                    self.log_message("Verbose mode: Off")
+                if log.level < logging.INFO:
+                    log.setLevel(logging.INFO)
+                    log.info("Verbose mode: Off")
                 else:
-                    self.log_level = 0
-                    self.log_message("Verbose mode: On")
+                    log.setLevel(logging.NOTSET)
+                    log.info("Verbose mode: On")
             # elif (key == "end" or key == "meta >" or key == "G"
             #       or key == ">"):
             #     pass            # xxx end-of-buffer
@@ -737,12 +731,28 @@ class UserInterface(object):
         return True
 
 
+class UILogHandler(logging.Handler):
+    def __init__(self, ui, *args, **kwargs):
+        self.ui = ui
+        super(UILogHandler, self).__init__(*args, **kwargs)
+        self.setFormatter(
+            logging.Formatter("%(asctime)s: %(message)s"))
+    def emit(self, record):
+        msg = self.format(record)
+        if record.levelno > logging.INFO:
+            msg = ("bold", msg)
+        self.ui.add_log_line(msg)
+
+
 ui = UserInterface()
 try:
     ui.run()
 except KeyboardInterrupt:
-    ui.screen.stop()
-except Exception as e:
-    ui.log_message(str(e))
-    ui.screen.stop()
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", "", BytesWarning)
+        ui.screen.stop()
+except Exception:
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", "", BytesWarning)
+        ui.screen.stop()
     raise

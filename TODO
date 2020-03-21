@@ -6,49 +6,47 @@
 * mandos-applet
 
 * mandos-client
-** TODO A --server option which only adds to the server list.
-   (Unlike --connect, which implicitly disables zeroconf.)
-** TODO [#B] Use capabilities instead of seteuid().
-   https://forums.grsecurity.net/viewtopic.php?f=7&t=2522
-** TODO [#B] Use getaddrinfo(hints=AI_NUMERICHOST) instead of inet_pton()
-** TODO [#C] Make start_mandos_communication() take "struct server".
-** TODO [#C] --interfaces=regex,eth*,noregex (bridge-utils-interfaces(5))
-** TODO [#A] Detect partial writes to stdout and exit with EX_TEMPFAIL
-** TODO [#B] Use reallocarray() with GNU LibC 2.29 or later.
+** TODO A ~--server~ option which only adds to the server list.
+   (Unlike ~--connect~, which implicitly disables ZeroConf.)
+** TODO [#B] Use [[man:capabilities][capabilities]] instead of [[info:libc#Setting%20User%20ID][seteuid()]].
+   [[https://forums.grsecurity.net/viewtopic.php?f=7&t=2522]]
+** TODO [#B] Use ~getaddrinfo(hints=AI_NUMERICHOST)~ instead of ~inet_pton()~
+** TODO [#C] Make ~start_mandos_communication()~ take ~struct server~.
+** TODO [#C] ~--interfaces=regex,eth*,noregex~ [[man:bridge-utils-interfaces][bridge-utils-interfaces(5)]]
+** TODO [#A] Detect partial writes to stdout and exit with ~EX_TEMPFAIL~
 
 * splashy
-** TODO [#B] use scandir(3) instead of readdir(3)
-** TODO [#A] Detect partial writes to stdout and exit with EX_TEMPFAIL
+** TODO [#B] use [[info:libc#Scanning%20Directory%20Content][scandir(3)]] instead of [[info:libc#Reading/Closing%20Directory][readdir(3)]]
+** TODO [#A] Detect partial writes to stdout and exit with ~EX_TEMPFAIL~
 
 * usplash (Deprecated)
 ** TODO [#B] Make it work again
-** TODO [#B] use scandir(3) instead of readdir(3)
-** TODO [#A] Detect partial writes to stdout and exit with EX_TEMPFAIL
+** TODO [#B] use [[info:libc#Scanning%20Directory%20Content][scandir(3)]] instead of [[info:libc#Reading/Closing%20Directory][readdir(3)]]
+** TODO [#A] Detect partial writes to stdout and exit with ~EX_TEMPFAIL~
 
 * askpass-fifo
-** TODO [#A] Detect partial writes to stdout and exit with EX_TEMPFAIL
+** TODO [#A] Detect partial writes to stdout and exit with ~EX_TEMPFAIL~
 
 * password-prompt
-** TODO [#B] lock stdin (with flock()?)
-** TODO [#A] Detect partial writes to stdout and exit with EX_TEMPFAIL
+** TODO [#B] lock stdin (with [[info:libc#File%20Locks][flock()]]?)
+** TODO [#A] Detect partial writes to stdout and exit with ~EX_TEMPFAIL~
 
 * plymouth
-** TODO [#A] Detect partial writes to stdout and exit with EX_TEMPFAIL
-** TODO [#B] Use reallocarray() with GNU LibC 2.29 or later.
+** TODO [#A] Detect partial writes to stdout and exit with ~EX_TEMPFAIL~
 
 * TODO [#B] passdev
 
 * plugin-runner
 ** TODO handle printing for errors for plugins
 *** Hook up stderr of plugins, buffer them, and prepend "Mandos Plugin [plugin name]"
-** TODO [#C] use same file name rules as run-parts(8)
+** TODO [#C] use same file name rules as [[man:run-parts][run-parts(8)]]
 ** kernel command line option for debug info
-** TODO [#A] Restart plugins which exit with EX_TEMPFAIL
+** TODO [#A] Restart plugins which exit with ~EX_TEMPFAIL~
 
 * mandos (server)
-** TODO [#B] --notify-command
+** TODO [#B] ~--notify-command~
    This would allow the mandos.service to use
-   --notify-command="systemd-notify --pid --ready"
+   ~--notify-command="systemd-notify --pid --ready"~
 ** TODO [#B] python-systemd
 *** import systemd.daemon; systemd.daemon.notify()
 ** TODO [#B] Log level							  :BUGS:
@@ -61,29 +59,26 @@
 ** TODO [#B] Global enable/disable flag
 ** TODO [#B] By-client countdown on number of secrets given
 ** D-Bus Client method NeedsPassword(50) - Timeout, default disapprove
-    + SetPass(u"gazonk", True) -> Approval, persistent
+    + SetPass("gazonk", True) -> Approval, persistent
     + Approve(False) -> Close client connection immediately
 ** TODO [#C] python-parsedatetime
 ** TODO Separate logging logic to own object
-** TODO [#B] Limit approval_delay to max gnutls/tls timeout value
-** TODO [#B] break the wait on approval_delay if connection dies
-** TODO Generate Client.runtime_expansions from client options + extra
+** TODO [#B] Limit ~approval_delay~ to max GnuTLS/TLS timeout value
+** TODO [#B] break the wait on ~approval_delay~ if connection dies
+** TODO Generate ~Client.runtime_expansions~ from client options + extra
 ** TODO Allow %%(checker)s as a runtime expansion
 ** TODO D-Bus AddClient() method on server object
 ** TODO Use org.freedesktop.DBus.Method.NoReply annotation on async methods. :2:
 ** TODO Save state periodically to recover better from hard shutdowns
 ** TODO CheckerCompleted method, deprecate CheckedOK
-** TODO Secret Service API?
-   https://standards.freedesktop.org/secret-service/
+** TODO [[https://standards.freedesktop.org/secret-service/][Secret Service]] API?
 ** TODO Remove D-Bus interfaces with old domain name			  :2:
-** TODO Remove old string_to_delta format				  :2:
+** TODO Remove old ~string_to_delta~ format                               :2:
 ** TODO http://0pointer.de/blog/projects/stateless.html
-*** File in /usr/lib/sysusers.d to create user+group "_mandos"
+*** File in /usr/lib/sysusers.d to create user+group "~_mandos~"
 ** TODO Error handling on error parsing config files
 ** TODO init.d script error handling
 ** TODO D-Bus server properties; address, port, interface, etc.		  :2:
-** Python 3								  :2:
-*** TODO [#C] In Python 3.3, use shlex.quote() instead of re.escape()
 
 * mandos-ctl
 ** TODO Remove old string_to_delta format				  :2:
@@ -93,7 +88,7 @@
   arguments.
 
 * mandos-monitor
-** TODO --servicename						       :BUGS:
+** TODO ~--servicename~                                                :BUGS:
 ** TODO help should be toggleable
 ** Urwid client data displayer
    Better view of client data in the listing
@@ -101,17 +96,17 @@
 ** Print a nice "We are sorry" message, save stack trace to log.
 
 * mandos-keygen
-** TODO "--secfile" option
+** TODO "~--secfile~" option
    Using the "secfile" option instead of "secret"
-** TODO [#B] "--test" option
+** TODO [#B] "~--test~" option
    For testing decryption before rebooting.
 
 * Package
 ** /usr/share/initramfs-tools/hooks/mandos
-*** TODO [#C] use same file name rules as run-parts(8)
+*** TODO [#C] use same file name rules as [[man:run-parts][run-parts(8)]]
 *** TODO [#C] Do not install in initrd.img if configured not to.
     Use "/etc/initramfs-tools/hooksconf.d/mandos"?
-** TODO [#C] $(pkg-config --variable=completionsdir bash-completion)
+** TODO [#C] ~$(pkg-config --variable=completionsdir bash-completion)~
    From XML sources directly?
 
 * Side Stuff
@@ -122,3 +117,4 @@
 
 
 #+STARTUP: showall
+#+FILETAGS: :mandos:

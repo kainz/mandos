@@ -142,8 +142,9 @@ done
 # Get DEVICE from initramfs.conf and other files
 . /etc/initramfs-tools/initramfs.conf
 for conf in /etc/initramfs-tools/conf.d/*; do
-    if [ -n `basename \"$conf\" | grep '^[[:alnum:]][[:alnum:]\._-]*$' \
-	| grep -v '\.dpkg-.*$'` ]; then
+    if [ -n "`basename \"$conf\" \
+	| grep '^[[:alnum:]][[:alnum:]\._-]*$' \
+	| grep -v '\.dpkg-.*$'`" ]; then
 	[ -f "${conf}" ] && . "${conf}"
     fi
 done

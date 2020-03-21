@@ -72,6 +72,10 @@ install(){
 	chmod u-s "${initdir}/${plugindir}/mandos-client"
 	inst "${moddir}/ask-password-mandos.service" \
 	     "${systemdsystemunitdir}/ask-password-mandos.service"
+	if [ -d /etc/systemd/system/ask-password-mandos.service.d ]; then
+	    inst /etc/systemd/system/ask-password-mandos.service.d
+	    inst_multiple -o /etc/systemd/system/ask-password-mandos.service.d/*.conf
+	fi
 	if [ ${mandos_user} != 65534 ]; then
 	    sed --in-place \
 		--expression="s,^ExecStart=/lib/mandos/password-agent ,&--user=${mandos_user} ," \
@@ -209,7 +213,7 @@ install(){
 		    # Use Diffie-Hellman parameters file
 		    if dracut_module_included "systemd"; then
 			sed --in-place \
-			    --expression='/^ExecStart/s/$/ --dh-params=\/etc\/mandos\/keys\/dhparams.pem/' \
+			    --expression='/^ExecStart/s/ \$MANDOS_CLIENT_OPTIONS/ --dh-params=\/etc\/mandos\/keys\/dhparams.pem&/' \
 			    "${initdir}/${systemdsystemunitdir}/ask-password-mandos.service"
 		    else
 			sed --in-place \

@@ -1,0 +1,158 @@
+# Translation of mandos debconf messages to European Portuguese
+# Copyright (C) 2019 THE mandos'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the mandos package.
+#
+# Américo Monteiro <a_monteiro@gmx.com>, 2019.
+msgid ""
+msgstr ""
+"Project-Id-Version: mandos 1.8.9-2\n"
+"Report-Msgid-Bugs-To: mandos@packages.debian.org\n"
+"POT-Creation-Date: 2019-08-05 22:57+0200\n"
+"PO-Revision-Date: 2019-10-18 18:45+0000\n"
+"Last-Translator: Américo Monteiro <a_monteiro@gmx.com>\n"
+"Language-Team: Portuguese <>\n"
+"Language: pt\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"X-Generator: Lokalize 2.0\n"
+
+#. Type: note
+#. Description
+#: ../mandos.templates:1001
+msgid "New client option \"key_id\" is REQUIRED on server"
+msgstr "Nova opção \"key_id\" de cliente é NECESSÁRIA no servidor"
+
+#. Type: note
+#. Description
+#: ../mandos.templates:1001
+msgid ""
+"A new \"key_id\" client option is REQUIRED in the clients.conf file, "
+"otherwise the client most likely will not reboot unattended.  This option:"
+msgstr ""
+"Uma nova opção de cliente \"key_id\" é NECESSÁRIA no ficheiro clients.conf, "
+"caso contrário o mais provável é o cliente não conseguir reinicicar sozinho. "
+"Esta opção:"
+
+#. Type: note
+#. Description
+#: ../mandos.templates:1001
+msgid " key_id = <HEXSTRING>"
+msgstr " key_id = <HEXSTRING>"
+
+#. Type: note
+#. Description
+#: ../mandos.templates:1001
+msgid ""
+"must be added in the file /etc/mandos/clients.conf, right before the "
+"\"fingerprint\" option, for each Mandos client.  You must edit that file and "
+"add this option for all clients.  To see the correct key ID for each client, "
+"run this command (on each client):"
+msgstr ""
+"tem de ser adicionada ao ficheiro /etc/mandos/clients.conf, logo antes "
+"da opção \"fingerprint\", para cada cliente Mandos. Você tem de editar esse "
+"ficheiro e adicionar esta opção para todos os clientes. Para ver a key ID "
+"para cada cliente, corra este comando (em cada cliente):"
+
+#. Type: note
+#. Description
+#: ../mandos.templates:1001
+msgid " mandos-keygen -F/dev/null|grep ^key_id"
+msgstr " mandos-keygen -F/dev/null|grep ^key_id"
+
+#. Type: note
+#. Description
+#: ../mandos.templates:1001
+msgid ""
+"Note: the clients must all also be using GnuTLS 3.6.6 or later; the server "
+"cannot serve passwords for both old and new clients!"
+msgstr ""
+"Note: os clientes têm de também usar GnuTLS 3.6.6 ou posterior; o servidor "
+"não consegue servir palavras passe para ambos clientes antigos e novos!"
+
+#. Type: note
+#. Description
+#: ../mandos.templates:1001
+msgid ""
+"Rationale: With GnuTLS 3.6.6, Mandos has been forced to stop using OpenPGP "
+"keys as TLS session keys.  A new TLS key pair will be generated on each "
+"client and will be used as identification, but the key ID of the public key "
+"needs to be added to this server, since this will now be used to identify "
+"the client to the server."
+msgstr ""
+"Razão: Com GnuTLS 3.6.6, o Mandos foi forçado a parar de usar chaves OpenPGP "
+"como chaves de sessão TLS. Será gerado um novo par de chaves TLS em cada "
+"cliente e será usado como identificação, mas o ID de chave da chave pública "
+"precisa de ser adicionada a este servidor, pois esta irá agora ser usada "
+"para identificar o cliente no servidor."
+
+#. Type: note
+#. Description
+#: ../mandos.templates:2001
+msgid "Bad key IDs have been removed from clients.conf"
+msgstr "IDs de chave errados foram removidos de clients.conf"
+
+#. Type: note
+#. Description
+#: ../mandos.templates:2001
+msgid ""
+"Bad key IDs, which were created by a bug in Mandos client 1.8.0, have been "
+"removed from /etc/mandos/clients.conf"
+msgstr ""
+"IDs de chave errados, que foram criados por um bug no cliente Mandos 1.8.0, "
+"foram removidos de /etc/mandos/clients.conf"
+
+#. Type: note
+#. description
+#: ../mandos-client.templates:1001
+msgid "New client option \"${key_id}\" is REQUIRED on server"
+msgstr "Nova opção \"${key_id}\" de cliente é NECESSÁRIA no servidor"
+
+#. Type: note
+#. description
+#: ../mandos-client.templates:1001
+msgid ""
+"A new \"key_id\" client option is REQUIRED in the server's clients.conf "
+"file, otherwise this computer most likely will not reboot unattended.  This "
+"option:"
+msgstr ""
+"Uma nova opção \"key_id\" de cliente é NECESSÁRIA no ficheiro clients.conf "
+"do servidor, caso contrário, é bem provável que este computador não consiga "
+"reiniciar sozinho. Esta opção:"
+
+#. Type: note
+#. description
+#: ../mandos-client.templates:1001
+msgid " ${key_id}"
+msgstr " ${key_id}"
+
+#. Type: note
+#. description
+#: ../mandos-client.templates:1001
+msgid ""
+"must be added (all on one line!) on the Mandos server host, in the file /etc/"
+"mandos/clients.conf, right before the \"fingerprint\" option for this Mandos "
+"client.  You must edit that file on that server and add this option."
+msgstr ""
+"tem de ser adicionada (toda numa linha) na máquina servidor do Mandos, no "
+"ficheiro /etc/mandos/clients.conf, logo antes da opção \"fingerprint\" para "
+"este cliente Mandos. Você tem de editar esse ficheiro nesse servidor e "
+"adicionar esta opção."
+
+#. Type: note
+#. description
+#: ../mandos-client.templates:1001
+msgid ""
+"With GnuTLS 3.6.6, Mandos has been forced to stop using OpenPGP keys as TLS "
+"session keys.  A new TLS key pair has been generated and will be used as "
+"identification, but the key ID of the public key needs to be added to the "
+"server, since this will now be used to identify the client to the server."
+msgstr ""
+"Com GnuTLS 3.6.6, o Mandos foi forçado a parar de usar chaves OpenPGP "
+"como chaves de sessão TLS. Foi gerado um novo par de chaves TLS e será "
+"usado como identificação, mas o ID de chave da chave pública precisa de ser "
+"adicionada ao servidor, pois esta irá agora ser usada para identificar o "
+"cliente no servidor."
+
+

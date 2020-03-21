@@ -14,4 +14,3 @@ plugins.d/usplash
 plugins.d/plymouth
 plugin-helpers/mandos-client-iprouteadddel
 dracut-module/password-agent
-.tramp_history

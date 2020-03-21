@@ -44,7 +44,7 @@
 				   STDERR_FILENO, execv(), access() */
 #include <stdlib.h>		/* free(), EXIT_FAILURE, realloc(),
 				   EXIT_SUCCESS, malloc(), _exit(),
-				   getenv() */
+				   getenv(), reallocarray() */
 #include <dirent.h>		/* scandir(), alphasort() */
 #include <inttypes.h>		/* intmax_t, strtoumax(), SCNuMAX */
 #include <sys/stat.h>		/* struct stat, lstat() */
@@ -204,9 +204,20 @@ bool exec_and_wait(pid_t *pid_return, const char *path,
     char **tmp;
     int i = 0;
     for (; argv[i] != NULL; i++){
-      tmp = realloc(new_argv, sizeof(const char *) * ((size_t)i + 2));
+#if defined(__GLIBC_PREREQ) and __GLIBC_PREREQ(2, 26)
+      tmp = reallocarray(new_argv, ((size_t)i + 2),
+			 sizeof(const char *));
+#else
+      if(((size_t)i + 2) > (SIZE_MAX / sizeof(const char *))){
+	/* overflow */
+	tmp = NULL;
+	errno = ENOMEM;
+      } else {
+	tmp = realloc(new_argv, ((size_t)i + 2) * sizeof(const char *));
+      }
+#endif
       if(tmp == NULL){
-	error_plus(0, errno, "realloc");
+	error_plus(0, errno, "reallocarray");
 	free(new_argv);
 	_exit(EX_OSERR);
       }
