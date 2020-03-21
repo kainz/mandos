@@ -1,3 +1,15 @@
+mandos (1.8.10-1) unstable; urgency=medium
+
+  * Fix "[INTL:pt] Updated Portuguese translation - debconf messages"
+    by including the contributed translation (Closes: #942595)
+  * Fix "[INTL:nl] Dutch translation of debconf messages" by including the
+    contributed translation (Closes: #946006)
+  * Fix "flaky autopkgtest on arm64" by skipping the flaky test on
+    non-amd64 (Closes: #953799)
+  * debian/control (Standards-Version): Update to "4.5.0".
+
+ -- Teddy Hogeborn <teddy@recompile.se>  Sat, 21 Mar 2020 17:45:01 +0100
+
 mandos (1.8.9-2) unstable; urgency=medium
 
   * Fix failing autopkgtest.

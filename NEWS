@@ -1,6 +1,15 @@
 This NEWS file records noteworthy changes, very tersely.
 See the manual for detailed information.
 
+Version 1.8.10 (2020-03-21)
+* Server
+** Fix bug when setting a client's D-Bus "Secret" property
+** Start client checkers after a random delay
+** When using systemd, allow easier modification of server options
+** Better log messages in mandos-monitor
+* Client
+** When using dracut & systemd, allow easier modification of options
+
 Version 1.8.9 (2019-09-03)
 * No user-visible changes
 
