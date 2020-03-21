@@ -1,4 +1,4 @@
-#!/usr/bin/python3 -b
+#!/usr/bin/python3 -bI
 # -*- mode: python; after-save-hook: (lambda () (let ((command (if (fboundp 'file-local-name) (file-local-name (buffer-file-name)) (or (file-remote-p (buffer-file-name) 'localname) (buffer-file-name))))) (if (= (progn (if (get-buffer "*Test*") (kill-buffer "*Test*")) (process-file-shell-command (format "%s --check" (shell-quote-argument command)) nil "*Test*")) 0) (let ((w (get-buffer-window "*Test*"))) (if w (delete-window w))) (progn (with-current-buffer "*Test*" (compilation-mode)) (display-buffer "*Test*" '(display-buffer-in-side-window)))))); coding: utf-8 -*-
 #
 # Mandos server - give out binary blobs to connecting clients.
@@ -78,6 +78,8 @@ import itertools
 import collections
 import codecs
 import unittest
+import random
+import shlex
 
 import dbus
 import dbus.service
@@ -91,6 +93,22 @@ import inspect
 
 if sys.version_info.major == 2:
     __metaclass__ = type
+    str = unicode
+
+# Add collections.abc.Callable if it does not exist
+try:
+    collections.abc.Callable
+except AttributeError:
+    class abc:
+        Callable = collections.Callable
+    collections.abc = abc
+    del abc
+
+# Add shlex.quote if it does not exist
+try:
+    shlex.quote
+except AttributeError:
+    shlex.quote = re.escape
 
 # Show warnings by default
 if not sys.warnoptions:
@@ -121,9 +139,6 @@ except AttributeError:
         except (OSError, ValueError, IndexError):
             # No value found
             SO_BINDTODEVICE = None
-
-if sys.version_info.major == 2:
-    str = unicode
 
 if sys.version_info < (3, 2):
     configparser.Configparser = configparser.SafeConfigParser
@@ -1037,7 +1052,8 @@ class Client:
         if self.checker_initiator_tag is not None:
             GLib.source_remove(self.checker_initiator_tag)
         self.checker_initiator_tag = GLib.timeout_add(
-            int(self.interval.total_seconds() * 1000),
+            random.randrange(int(self.interval.total_seconds() * 1000
+                                 + 1)),
             self.start_checker)
         # Schedule a disable() when 'timeout' has passed
         if self.disable_initiator_tag is not None:
@@ -1118,7 +1134,7 @@ class Client:
         if self.checker is None:
             # Escape attributes for the shell
             escaped_attrs = {
-                attr: re.escape(str(getattr(self, attr)))
+                attr: shlex.quote(str(getattr(self, attr)))
                 for attr in self.runtime_expansions}
             try:
                 command = self.checker_command % escaped_attrs
@@ -1413,8 +1429,7 @@ class DBusObjectWithProperties(DBusObjectWithAnnotations):
                 raise ValueError("Byte arrays not supported for non-"
                                  "'ay' signature {!r}"
                                  .format(prop._dbus_signature))
-            value = dbus.ByteArray(b''.join(chr(byte)
-                                            for byte in value))
+            value = dbus.ByteArray(bytes(value))
         prop(value)
 
     @dbus.service.method(dbus.PROPERTIES_IFACE,
@@ -2749,7 +2764,7 @@ class MandosServer(IPv6_TCPServer):
         if command == 'getattr':
             attrname = request[1]
             if isinstance(client_object.__getattribute__(attrname),
-                          collections.Callable):
+                          collections.abc.Callable):
                 parent_pipe.send(('function', ))
             else:
                 parent_pipe.send((

@@ -49,7 +49,7 @@
 #include <sysexits.h>		/* EX_USAGE, EX_OSERR, EX_OSFILE */
 #include <errno.h>		/* errno, error_t, EACCES,
 				   ENAMETOOLONG, ENOENT, ENOTDIR,
-				   EEXIST, ECHILD, EPERM, ENOMEM,
+				   ENOMEM, EEXIST, ECHILD, EPERM,
 				   EAGAIN, EINTR, ENOBUFS, EADDRINUSE,
 				   ECONNREFUSED, ECONNRESET,
 				   ETOOMANYREFS, EMSGSIZE, EBADF,
@@ -73,6 +73,7 @@
 				   ARGP_ERR_UNKNOWN, ARGP_KEY_ARGS,
 				   struct argp, argp_parse(),
 				   ARGP_NO_EXIT */
+#include <stdint.h>		/* SIZE_MAX */
 #include <unistd.h>		/* uid_t, gid_t, close(), pipe2(),
 				   fork(), _exit(), dup2(),
 				   STDOUT_FILENO, setresgid(),
@@ -95,11 +96,10 @@
 				   IN_EXCL_UNLINK, IN_ONLYDIR,
 				   struct inotify_event */
 #include <fnmatch.h>		/* fnmatch(), FNM_FILE_NAME */
-#include <stdio.h>		/* asprintf(), FILE, fopen(),
-				   getline(), sscanf(), feof(),
-				   ferror(), fclose(), stderr,
-				   rename(), fdopen(), fprintf(),
-				   fscanf() */
+#include <stdio.h>		/* asprintf(), FILE, stderr, fopen(),
+				   fclose(), getline(), sscanf(),
+				   feof(), ferror(), rename(),
+				   fdopen(), fprintf(), fscanf() */
 #include <glib.h>    /* GKeyFile, g_key_file_free(), g_key_file_new(),
 			GError, g_key_file_load_from_file(),
 			G_KEY_FILE_NONE, TRUE, G_FILE_ERROR_NOENT,
@@ -148,7 +148,7 @@ typedef struct {
   mono_microsecs next_run;
 } __attribute__((designated_init)) task_queue;
 
-/* "func_type" - A function type for task functions
+/* "task_func" - A function type for task functions
 
    I.e. functions for the code which runs when a task is run, all have
    this type */
@@ -651,6 +651,13 @@ task_queue *create_queue(void){
 
 __attribute__((nonnull, warn_unused_result))
 bool add_to_queue(task_queue *const queue, const task_context task){
+  if((queue->length + 1) > (SIZE_MAX / sizeof(task_context))){
+    /* overflow */
+    error(0, ENOMEM, "Failed to allocate %" PRIuMAX
+  	  " tasks for queue->tasks", (uintmax_t)(queue->length + 1));
+    errno = ENOMEM;
+    return false;
+  }
   const size_t needed_size = sizeof(task_context)*(queue->length + 1);
   if(needed_size > (queue->allocated)){
     task_context *const new_tasks = realloc(queue->tasks,
@@ -860,6 +867,12 @@ bool start_mandos_client(task_queue *const queue,
     _exit(EXIT_FAILURE);
   }
   close(pipefds[1]);
+
+  if(pid == -1){
+    error(0, errno, "Failed to fork()");
+    close(pipefds[0]);
+    return false;
+  }
 
   if(not add_to_queue(queue, (task_context){
 	.func=wait_for_mandos_client_exit,
@@ -1884,6 +1897,29 @@ static void test_add_to_queue(__attribute__((unused))
   g_assert_true(queue->tasks[0].func == dummy_func);
 }
 
+static void test_add_to_queue_overflow(__attribute__((unused))
+				       test_fixture *fixture,
+				       __attribute__((unused))
+				       gconstpointer user_data){
+  __attribute__((cleanup(cleanup_queue)))
+    task_queue *queue = create_queue();
+  g_assert_nonnull(queue);
+  g_assert_true(queue->length == 0);
+  queue->length = SIZE_MAX / sizeof(task_context); /* fake max size */
+
+  FILE *real_stderr = stderr;
+  FILE *devnull = fopen("/dev/null", "we");
+  g_assert_nonnull(devnull);
+  stderr = devnull;
+  const bool ret = add_to_queue(queue,
+				(task_context){ .func=dummy_func });
+  g_assert_true(errno == ENOMEM);
+  g_assert_false(ret);
+  stderr = real_stderr;
+  g_assert_cmpint(fclose(devnull), ==, 0);
+  queue->length = 0;		/* Restore real size */
+}
+
 static void dummy_func(__attribute__((unused))
 		       const task_context task,
 		       __attribute__((unused))
@@ -2160,6 +2196,10 @@ bool is_privileged(void){
     }
     exit(EXIT_SUCCESS);
   }
+  if(pid == -1){
+    error(EXIT_FAILURE, errno, "Failed to fork()");
+  }
+
   int status;
   waitpid(pid, &status, 0);
   if(WIFEXITED(status) and (WEXITSTATUS(status) == EXIT_SUCCESS)){
@@ -5918,6 +5958,9 @@ void test_send_password_to_socket_EMSGSIZE(__attribute__((unused))
 					   test_fixture *fixture,
 					   __attribute__((unused))
 					   gconstpointer user_data){
+#ifndef __amd64__
+  g_test_skip("Skipping EMSGSIZE test on non-AMD64 platform");
+#else
   __attribute__((cleanup(cleanup_close)))
     const int epoll_fd = epoll_create1(EPOLL_CLOEXEC);
   g_assert_cmpint(epoll_fd, >=, 0);
@@ -5976,6 +6019,7 @@ void test_send_password_to_socket_EMSGSIZE(__attribute__((unused))
   g_assert_cmpuint((unsigned int)queue->length, ==, 0);
   g_assert_true(string_set_contains(cancelled_filenames,
 				    question_filename));
+#endif
 }
 
 static void test_send_password_to_socket_retry(__attribute__((unused))
@@ -7862,6 +7906,7 @@ static bool run_tests(int argc, char *argv[]){
   test_add("/parse_arguments/mixed", test_parse_arguments_mixed);
   test_add("/queue/create", test_create_queue);
   test_add("/queue/add", test_add_to_queue);
+  test_add("/queue/add/overflow", test_add_to_queue_overflow);
   test_add("/queue/has_question/empty",
 	   test_queue_has_question_empty);
   test_add("/queue/has_question/false",
@@ -8092,10 +8137,10 @@ static bool should_only_run_tests(int *argc_p, char **argv_p[]){
   g_option_context_set_help_enabled(context, FALSE);
   g_option_context_set_ignore_unknown_options(context, TRUE);
 
-  gboolean run_tests = FALSE;
+  gboolean should_run_tests = FALSE;
   GOptionEntry entries[] = {
     { "test", 0, 0, G_OPTION_ARG_NONE,
-      &run_tests, "Run tests", NULL },
+      &should_run_tests, "Run tests", NULL },
     { NULL }
   };
   g_option_context_add_main_entries(context, entries, NULL);
@@ -8108,5 +8153,5 @@ static bool should_only_run_tests(int *argc_p, char **argv_p[]){
   }
 
   g_option_context_free(context);
-  return run_tests != FALSE;
+  return should_run_tests != FALSE;
 }

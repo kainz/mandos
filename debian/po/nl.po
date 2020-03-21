@@ -1,0 +1,156 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the mandos package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: mandos_1.8.9-2\n"
+"Report-Msgid-Bugs-To: mandos@packages.debian.org\n"
+"POT-Creation-Date: 2019-08-05 22:57+0200\n"
+"PO-Revision-Date: 2019-11-12 14:26+0100\n"
+"Language: nl\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Last-Translator: Frans Spiesschaert <Frans.Spiesschaert@yucom.be>\n"
+"Language-Team: Debian Dutch l10n Team <debian-l10n-dutch@lists.debian.org>\n"
+"X-Generator: Poedit 1.8.11\n"
+
+#. Type: note
+#. Description
+#: ../mandos.templates:1001
+msgid "New client option \"key_id\" is REQUIRED on server"
+msgstr "Nieuwe client-optie \"key_id\" is VERPLICHT op de server"
+
+#. Type: note
+#. Description
+#: ../mandos.templates:1001
+msgid ""
+"A new \"key_id\" client option is REQUIRED in the clients.conf file, "
+"otherwise the client most likely will not reboot unattended.  This option:"
+msgstr ""
+"In het bestand clients.conf is een nieuwe client-optie \"key_id\" VERPLICHT, "
+"anders zal de client hoogstwaarschijnlijk niet onbeheerd heropstarten. Deze "
+"optie:"
+
+#. Type: note
+#. Description
+#: ../mandos.templates:1001
+msgid " key_id = <HEXSTRING>"
+msgstr " key_id = <HEXTEKENREEKS>"
+
+#. Type: note
+#. Description
+#: ../mandos.templates:1001
+msgid ""
+"must be added in the file /etc/mandos/clients.conf, right before the "
+"\"fingerprint\" option, for each Mandos client.  You must edit that file and "
+"add this option for all clients.  To see the correct key ID for each client, "
+"run this command (on each client):"
+msgstr ""
+"moet voor elke Mandos-client toegevoegd worden in het bestand /etc/mandos/"
+"clients.conf, net voor de optie \"fingerprint\". U moet dat bestand bewerken "
+"en deze optie voor alle clients toevoegen. Om van elke client het correcte "
+"key_id te kennen, moet u het volgende commando (op iedere client) uitvoeren:"
+
+#. Type: note
+#. Description
+#: ../mandos.templates:1001
+msgid " mandos-keygen -F/dev/null|grep ^key_id"
+msgstr " mandos-keygen -F/dev/null|grep ^key_id"
+
+#. Type: note
+#. Description
+#: ../mandos.templates:1001
+msgid ""
+"Note: the clients must all also be using GnuTLS 3.6.6 or later; the server "
+"cannot serve passwords for both old and new clients!"
+msgstr ""
+"Opmerking: alle clients moeten GnuTLS 3.6.6 of recenter gebruiken; de server "
+"is niet in staat om wachtwoorden te geven voor zowel oude als nieuwe clients!"
+
+#. Type: note
+#. Description
+#: ../mandos.templates:1001
+msgid ""
+"Rationale: With GnuTLS 3.6.6, Mandos has been forced to stop using OpenPGP "
+"keys as TLS session keys.  A new TLS key pair will be generated on each "
+"client and will be used as identification, but the key ID of the public key "
+"needs to be added to this server, since this will now be used to identify "
+"the client to the server."
+msgstr ""
+"Motivering: met de komst van GnuTLS 3.6.6 werd Mandos gedwongen te stoppen "
+"met het gebruik van OpenPGP-sleutels als TLS-sessiesleutels. Op iedere "
+"client zal een nieuw TLS-sleutelpaar gegenereerd worden om als identificatie "
+"te dienen, maar de sleutel-ID van de publieke sleutel moet op deze server "
+"toegevoegd worden, aangezien deze nu gebruikt zal worden om de client bij de "
+"server te identificeren."
+
+#. Type: note
+#. Description
+#: ../mandos.templates:2001
+msgid "Bad key IDs have been removed from clients.conf"
+msgstr "Slechte sleutel-ID's werden uit clients.conf verwijderd"
+
+#. Type: note
+#. Description
+#: ../mandos.templates:2001
+msgid ""
+"Bad key IDs, which were created by a bug in Mandos client 1.8.0, have been "
+"removed from /etc/mandos/clients.conf"
+msgstr ""
+"Slechte sleutel-ID's die wegens een bug in Mandos client 1.8.0 gecreëerd "
+"werden, werden verwijderd uit /etc/mandos/clients.conf"
+
+#. Type: note
+#. description
+#: ../mandos-client.templates:1001
+msgid "New client option \"${key_id}\" is REQUIRED on server"
+msgstr "Nieuwe client-optie \"${key_id}\" is VERPLICHT op de server"
+
+#. Type: note
+#. description
+#: ../mandos-client.templates:1001
+msgid ""
+"A new \"key_id\" client option is REQUIRED in the server's clients.conf "
+"file, otherwise this computer most likely will not reboot unattended.  This "
+"option:"
+msgstr ""
+"In het bestand clients.conf op de server is een nieuwe client-optie \"key_id"
+"\" VERPLICHT, anders zal deze computer hoogstwaarschijnlijk niet onbeheerd "
+"heropstarten. Deze optie:"
+
+#. Type: note
+#. description
+#: ../mandos-client.templates:1001
+msgid " ${key_id}"
+msgstr " ${key_id}"
+
+#. Type: note
+#. description
+#: ../mandos-client.templates:1001
+msgid ""
+"must be added (all on one line!) on the Mandos server host, in the file /etc/"
+"mandos/clients.conf, right before the \"fingerprint\" option for this Mandos "
+"client.  You must edit that file on that server and add this option."
+msgstr ""
+"moet voor deze Mandos-client op de Mandos-servercomputer toegevoegd worden "
+"(alles op één regel!) in het bestand /etc/mandos/clients.conf, net voor de "
+"optie \"fingerprint\". U moet dat bestand op de server bewerken en deze "
+"optie toevoegen."
+
+#. Type: note
+#. description
+#: ../mandos-client.templates:1001
+msgid ""
+"With GnuTLS 3.6.6, Mandos has been forced to stop using OpenPGP keys as TLS "
+"session keys.  A new TLS key pair has been generated and will be used as "
+"identification, but the key ID of the public key needs to be added to the "
+"server, since this will now be used to identify the client to the server."
+msgstr ""
+"Met de komst van GnuTLS 3.6.6 werd Mandos gedwongen te stoppen met het "
+"gebruik van OpenPGP-sleutels als TLS-sessiesleutels. Een nieuw TLS-"
+"sleutelpaar werd gegenereerd om als identificatie te dienen, maar de sleutel-"
+"ID van de publieke sleutel moet op de server toegevoegd worden, aangezien "
+"deze nu gebruikt zal worden om de client bij de server te identificeren."
