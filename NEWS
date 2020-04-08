@@ -1,6 +1,11 @@
 This NEWS file records noteworthy changes, very tersely.
 See the manual for detailed information.
 
+Version 1.8.11
+* Client
+** Fix file descriptor leak when adding or removing local routes to
+   unreachable hosts on the local network.
+
 Version 1.8.10 (2020-03-21)
 * Server
 ** Fix bug when setting a client's D-Bus "Secret" property
