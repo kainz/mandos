@@ -1074,6 +1074,7 @@ static bool add_delete_local_route(const bool add,
       ret = setgid(0);
       if(ret == -1){
 	perror_plus("setgid");
+	close(devnull);
 	_exit(EX_NOPERM);
       }
       /* Reset supplementary groups */
@@ -1081,18 +1082,19 @@ static bool add_delete_local_route(const bool add,
       ret = setgroups(0, NULL);
       if(ret == -1){
 	perror_plus("setgroups");
+	close(devnull);
 	_exit(EX_NOPERM);
       }
     }
     ret = dup2(devnull, STDIN_FILENO);
     if(ret == -1){
       perror_plus("dup2(devnull, STDIN_FILENO)");
+      close(devnull);
       _exit(EX_OSERR);
     }
     ret = close(devnull);
     if(ret == -1){
       perror_plus("close");
-      _exit(EX_OSERR);
     }
     ret = dup2(STDERR_FILENO, STDOUT_FILENO);
     if(ret == -1){
@@ -1133,7 +1135,12 @@ static bool add_delete_local_route(const bool add,
   }
   if(pid == -1){
     perror_plus("fork");
+    close(devnull);
     return false;
+  }
+  ret = close(devnull);
+  if(ret == -1){
+    perror_plus("close");
   }
   int status;
   pid_t pret = -1;
