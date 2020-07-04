@@ -9,8 +9,8 @@
  * "browse_callback", and parts of "main".
  * 
  * Everything else is
- * Copyright © 2008-2019 Teddy Hogeborn
- * Copyright © 2008-2019 Björn Påhlsson
+ * Copyright © 2008-2020 Teddy Hogeborn
+ * Copyright © 2008-2020 Björn Påhlsson
  * 
  * This file is part of Mandos.
  * 
@@ -396,9 +396,8 @@ static bool init_gpgme(const char * const seckey,
 	fprintf_plus(stderr,
 		     "Setting system clock to key file mtime");
       }
-      time_t keytime = keystat.st_mtim.tv_sec;
-      if(stime(&keytime) != 0){
-	perror_plus("stime");
+      if(clock_settime(CLOCK_REALTIME, &keystat.st_mtim) != 0){
+	perror_plus("clock_settime");
       }
       ret = lower_privileges();
       if(ret != 0){
