@@ -1,3 +1,12 @@
+mandos (1.8.12-1) unstable; urgency=medium
+
+  * New upstream release.
+  * Fix "FTBFS with glibc 2.31 (uses removed stime function)" by using
+    clock_settime() instead. (Closes: #964226)
+  * debian/copyright: Update copyright year to 2020.
+
+ -- Teddy Hogeborn <teddy@recompile.se>  Sat, 04 Jul 2020 14:58:26 +0200
+
 mandos (1.8.11-1) unstable; urgency=medium
 
   * New upstream release.
