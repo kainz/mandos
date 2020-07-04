@@ -1,10 +1,10 @@
 #!/usr/bin/python3 -bbI
 # -*- after-save-hook: (lambda () (let ((command (if (fboundp 'file-local-name) (file-local-name (buffer-file-name)) (or (file-remote-p (buffer-file-name) 'localname) (buffer-file-name))))) (if (= (progn (if (get-buffer "*Test*") (kill-buffer "*Test*")) (process-file-shell-command (format "%s --check" (shell-quote-argument command)) nil "*Test*")) 0) (let ((w (get-buffer-window "*Test*"))) (if w (delete-window w))) (progn (with-current-buffer "*Test*" (compilation-mode)) (display-buffer "*Test*" '(display-buffer-in-side-window)))))); coding: utf-8 -*-
 #
-# Mandos Monitor - Control and monitor the Mandos server
+# Mandos Control - Control or query the Mandos server
 #
-# Copyright © 2008-2019 Teddy Hogeborn
-# Copyright © 2008-2019 Björn Påhlsson
+# Copyright © 2008-2020 Teddy Hogeborn
+# Copyright © 2008-2020 Björn Påhlsson
 #
 # This file is part of Mandos.
 #
@@ -726,7 +726,7 @@ class dbussy_adapter:
             with self.convert_exception(dbus.Error):
                 value =  method(*args)
             # DBussy returns values either as an empty list or as a
-            # tuple: (signature, value)
+            # list of one element with the return value
             if value:
                 return self.type_filter(value[0])
 
@@ -738,6 +738,8 @@ class dbussy_adapter:
 
         def type_filter(self, value):
             """Convert the most bothersome types to Python types"""
+            # A D-Bus Variant value is represented as the Python type
+            # Tuple[dbussy.DBUS.Signature, Any]
             if isinstance(value, tuple):
                 if (len(value) == 2
                     and isinstance(value[0],

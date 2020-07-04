@@ -177,5 +177,10 @@ if [ -r /conf/conf.d/cryptroot ]; then
 	rm -f /conf/conf.d/cryptroot.mandos
     fi
 elif [ -x /usr/bin/cryptroot-unlock ]; then
-    setsid /lib/mandos/mandos-to-cryptroot-unlock &
+    # Use setsid if available
+    if command -v setsid >/dev/null 2>&1; then
+	setsid /lib/mandos/mandos-to-cryptroot-unlock &
+    else
+	/lib/mandos/mandos-to-cryptroot-unlock &
+    fi
 fi
