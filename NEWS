@@ -1,7 +1,12 @@
 This NEWS file records noteworthy changes, very tersely.
 See the manual for detailed information.
 
-Version 1.8.11
+Version 1.8.12 (2020-07-04)
+* Client
+** Fix compatibility with the GNU C Library version 2.31.
+** In initramfs-tools boots, only use setsid(1) when available.
+
+Version 1.8.11 (2020-04-08)
 * Client
 ** Fix file descriptor leak when adding or removing local routes to
    unreachable hosts on the local network.

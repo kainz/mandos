@@ -23,7 +23,7 @@
 # Contact the authors at <mandos@recompile.se>.
 # 
 
-VERSION="1.8.11"
+VERSION="1.8.12"
 
 KEYDIR="/etc/keys/mandos"
 KEYTYPE=RSA
