@@ -524,7 +524,8 @@ class AvahiService:
 class AvahiServiceToSyslog(AvahiService):
     def rename(self, *args, **kwargs):
         """Add the new name to the syslog messages"""
-        ret = super(AvahiServiceToSyslog, self).rename(*args, **kwargs)
+        ret = super(AvahiServiceToSyslog, self).rename(*args,
+                                                       **kwargs)
         syslogger.setFormatter(logging.Formatter(
             'Mandos ({}) [%(process)d]: %(levelname)s: %(message)s'
             .format(self.name)))
@@ -774,7 +775,8 @@ class gnutls:
 
         x509_crt_fmt_t = ctypes.c_int
 
-        # All the function declarations below are from gnutls/abstract.h
+        # All the function declarations below are from
+        # gnutls/abstract.h
         pubkey_init = _library.gnutls_pubkey_init
         pubkey_init.argtypes = [ctypes.POINTER(pubkey_t)]
         pubkey_init.restype = _error_code
@@ -794,7 +796,8 @@ class gnutls:
         pubkey_deinit.argtypes = [pubkey_t]
         pubkey_deinit.restype = None
     else:
-        # All the function declarations below are from gnutls/openpgp.h
+        # All the function declarations below are from
+        # gnutls/openpgp.h
 
         openpgp_crt_init = _library.gnutls_openpgp_crt_init
         openpgp_crt_init.argtypes = [ctypes.POINTER(openpgp_crt_t)]
@@ -806,9 +809,13 @@ class gnutls:
                                        openpgp_crt_fmt_t]
         openpgp_crt_import.restype = _error_code
 
-        openpgp_crt_verify_self = _library.gnutls_openpgp_crt_verify_self
-        openpgp_crt_verify_self.argtypes = [openpgp_crt_t, ctypes.c_uint,
-                                            ctypes.POINTER(ctypes.c_uint)]
+        openpgp_crt_verify_self = \
+            _library.gnutls_openpgp_crt_verify_self
+        openpgp_crt_verify_self.argtypes = [
+            openpgp_crt_t,
+            ctypes.c_uint,
+            ctypes.POINTER(ctypes.c_uint),
+        ]
         openpgp_crt_verify_self.restype = _error_code
 
         openpgp_crt_deinit = _library.gnutls_openpgp_crt_deinit
@@ -2468,11 +2475,12 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
         buf = ctypes.create_string_buffer(32)
         buf_len = ctypes.c_size_t(len(buf))
         # Get the key ID from the raw public key into the buffer
-        gnutls.pubkey_get_key_id(pubkey,
-                                 gnutls.KEYID_USE_SHA256,
-                                 ctypes.cast(ctypes.byref(buf),
-                                             ctypes.POINTER(ctypes.c_ubyte)),
-                                 ctypes.byref(buf_len))
+        gnutls.pubkey_get_key_id(
+            pubkey,
+            gnutls.KEYID_USE_SHA256,
+            ctypes.cast(ctypes.byref(buf),
+                        ctypes.POINTER(ctypes.c_ubyte)),
+            ctypes.byref(buf_len))
         # Deinit the certificate
         gnutls.pubkey_deinit(pubkey)
 
@@ -2723,7 +2731,8 @@ class MandosServer(IPv6_TCPServer):
             address = request[3]
 
             for c in self.clients.values():
-                if key_id == "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855":
+                if key_id == ("E3B0C44298FC1C149AFBF4C8996FB924"
+                              "27AE41E4649B934CA495991B7852B855"):
                     continue
                 if key_id and c.key_id == key_id:
                     client = c
@@ -2781,20 +2790,22 @@ class MandosServer(IPv6_TCPServer):
 def rfc3339_duration_to_delta(duration):
     """Parse an RFC 3339 "duration" and return a datetime.timedelta
 
-    >>> rfc3339_duration_to_delta("P7D") == datetime.timedelta(7)
+    >>> timedelta = datetime.timedelta
+    >>> rfc3339_duration_to_delta("P7D") == timedelta(7)
     True
-    >>> rfc3339_duration_to_delta("PT60S") == datetime.timedelta(0, 60)
+    >>> rfc3339_duration_to_delta("PT60S") == timedelta(0, 60)
     True
-    >>> rfc3339_duration_to_delta("PT60M") == datetime.timedelta(0, 3600)
+    >>> rfc3339_duration_to_delta("PT60M") == timedelta(0, 3600)
     True
-    >>> rfc3339_duration_to_delta("PT24H") == datetime.timedelta(1)
+    >>> rfc3339_duration_to_delta("PT24H") == timedelta(1)
     True
-    >>> rfc3339_duration_to_delta("P1W") == datetime.timedelta(7)
+    >>> rfc3339_duration_to_delta("P1W") == timedelta(7)
     True
-    >>> rfc3339_duration_to_delta("PT5M30S") == datetime.timedelta(0, 330)
+    >>> rfc3339_duration_to_delta("PT5M30S") == timedelta(0, 330)
     True
-    >>> rfc3339_duration_to_delta("P1DT3M20S") == datetime.timedelta(1, 200)
+    >>> rfc3339_duration_to_delta("P1DT3M20S") == timedelta(1, 200)
     True
+    >>> del timedelta
     """
 
     # Parsing an RFC 3339 duration with regular expressions is not
