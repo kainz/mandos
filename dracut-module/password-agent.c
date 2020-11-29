@@ -1193,8 +1193,8 @@ void open_and_parse_question(const task_context task,
   bool *const password_is_read = task.password_is_read;
 
   /* We use the GLib "Key-value file parser" functions to parse the
-     question file.  See <https://www.freedesktop.org/wiki/Software
-     /systemd/PasswordAgents/> for specification of contents */
+     question file.  See <https://systemd.io/PASSWORD_AGENTS/> for
+     specification of contents */
   __attribute__((nonnull))
     void cleanup_g_key_file(GKeyFile **key_file){
     if(*key_file != NULL){
@@ -1490,8 +1490,8 @@ void send_password_to_socket(const task_context task,
 	 not. You may but don't have to include a final NUL byte in
 	 your message.
 
-	 — <https://www.freedesktop.org/wiki/Software/systemd/
-	 PasswordAgents/> (Wed 08 Oct 2014 02:14:28 AM UTC)
+	 — <https://systemd.io/PASSWORD_AGENTS/> (Tue, 15 Sep 2020
+	 14:24:20 GMT)
       */
       send_buffer[0] = '+';	/* Prefix with "+" */
       /* Always add an extra NUL */
