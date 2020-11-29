@@ -1,6 +1,6 @@
 Template: mandos/key_id
 Type: note
-_Description: New client option "key_id" is REQUIRED on server
+Description: New client option "key_id" is REQUIRED on server
  A new "key_id" client option is REQUIRED in the clients.conf file,
  otherwise the client most likely will not reboot unattended.  This option:
  .
@@ -24,6 +24,6 @@ _Description: New client option "key_id" is REQUIRED on server
 
 Template: mandos/removed_bad_key_ids
 Type: note
-_Description: Bad key IDs have been removed from clients.conf
+Description: Bad key IDs have been removed from clients.conf
  Bad key IDs, which were created by a bug in Mandos client 1.8.0, have been
  removed from /etc/mandos/clients.conf
