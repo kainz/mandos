@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
-<!ENTITY TIMESTAMP "2019-08-04">
+<!ENTITY TIMESTAMP "2020-09-16">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -403,11 +403,11 @@
       As for <citerefentry><refentrytitle>systemd</refentrytitle
       ><manvolnum>1</manvolnum></citerefentry> in particular, it has
       its own <ulink
-      url="https://www.freedesktop.org/wiki/Software/systemd/PasswordAgents/"
-      >Password Agents</ulink> system.  Mandos uses this via its
+      url="https://systemd.io/PASSWORD_AGENTS/">Password
+      Agents</ulink> system.  Mandos uses this via its
       <citerefentry><refentrytitle>password-agent</refentrytitle
-      ><manvolnum>8mandos</manvolnum></citerefentry> program, which
-      is run instead of <citerefentry><refentrytitle
+      ><manvolnum>8mandos</manvolnum></citerefentry> program, which is
+      run instead of <citerefentry><refentrytitle
       >plugin-runner</refentrytitle><manvolnum>8mandos</manvolnum
       ></citerefentry> when <citerefentry><refentrytitle
       >systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
