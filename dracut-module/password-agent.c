@@ -5807,7 +5807,7 @@ void test_connect_question_socket_usable(__attribute__((unused))
   char write_data[PIPE_BUF];
   {
     /* Construct test password buffer */
-    /* Start with + since that is what the real procotol uses */
+    /* Start with + since that is what the real protocol uses */
     write_data[0] = '+';
     /* Set a special character at string end just to mark the end */
     write_data[sizeof(write_data)-2] = 'y';
@@ -5980,7 +5980,7 @@ void test_send_password_to_socket_EMSGSIZE(__attribute__((unused))
     g_assert_true(errno == EPERM or errno == ENOMEM);
   }
   /* Construct test password buffer */
-  /* Start with + since that is what the real procotol uses */
+  /* Start with + since that is what the real protocol uses */
   password.data[0] = '+';
   /* Set a special character at string end just to mark the end */
   password.data[oversized-3] = 'y';
