@@ -1,6 +1,10 @@
 This NEWS file records noteworthy changes, very tersely.
 See the manual for detailed information.
 
+Version 1.8.13 (2020-11-30)
+* Client
+** Fix unreliable test in password-agent(8mandos).
+
 Version 1.8.12 (2020-07-04)
 * Client
 ** Fix compatibility with the GNU C Library version 2.31.
