@@ -1,6 +1,6 @@
 Template: mandos-client/key_id
 Type: note
-_description: New client option "${key_id}" is REQUIRED on server
+_Description: New client option "${key_id}" is REQUIRED on server
  A new "key_id" client option is REQUIRED in the server's clients.conf
  file, otherwise this computer most likely will not reboot unattended. 
  This option:

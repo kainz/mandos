@@ -1193,8 +1193,8 @@ void open_and_parse_question(const task_context task,
   bool *const password_is_read = task.password_is_read;
 
   /* We use the GLib "Key-value file parser" functions to parse the
-     question file.  See <https://www.freedesktop.org/wiki/Software
-     /systemd/PasswordAgents/> for specification of contents */
+     question file.  See <https://systemd.io/PASSWORD_AGENTS/> for
+     specification of contents */
   __attribute__((nonnull))
     void cleanup_g_key_file(GKeyFile **key_file){
     if(*key_file != NULL){
@@ -1490,8 +1490,8 @@ void send_password_to_socket(const task_context task,
 	 not. You may but don't have to include a final NUL byte in
 	 your message.
 
-	 — <https://www.freedesktop.org/wiki/Software/systemd/
-	 PasswordAgents/> (Wed 08 Oct 2014 02:14:28 AM UTC)
+	 — <https://systemd.io/PASSWORD_AGENTS/> (Tue, 15 Sep 2020
+	 14:24:20 GMT)
       */
       send_buffer[0] = '+';	/* Prefix with "+" */
       /* Always add an extra NUL */
@@ -1502,7 +1502,7 @@ void send_password_to_socket(const task_context task,
       errno = 0;
       ssize_t ssret = send(fd, send_buffer, send_buffer_length,
 			   MSG_NOSIGNAL);
-      const error_t saved_errno = errno;
+      const error_t saved_errno = (ssret < 0) ? errno : 0;
 #if defined(__GLIBC_PREREQ) and __GLIBC_PREREQ(2, 25)
       explicit_bzero(send_buffer, send_buffer_length);
 #else
@@ -1526,8 +1526,8 @@ void send_password_to_socket(const task_context task,
 	  /* Retry, below */
 	  break;
 	case EMSGSIZE:
-	  error(0, 0, "Password of size %" PRIuMAX " is too big",
-		(uintmax_t)password->length);
+	  error(0, saved_errno, "Password of size %" PRIuMAX
+		" is too big", (uintmax_t)password->length);
 #if __GNUC__ < 7
 	  /* FALLTHROUGH */
 #else
@@ -1535,7 +1535,9 @@ void send_password_to_socket(const task_context task,
 #endif
 	case 0:
 	  if(ssret >= 0 and ssret < (ssize_t)send_buffer_length){
-	    error(0, 0, "Password only partially sent to socket");
+	    error(0, 0, "Password only partially sent to socket %s: %"
+		  PRIuMAX " out of %" PRIuMAX " bytes sent", filename,
+		  (uintmax_t)ssret, (uintmax_t)send_buffer_length);
 	  }
 #if __GNUC__ < 7
 	  /* FALLTHROUGH */
@@ -5807,7 +5809,7 @@ void test_connect_question_socket_usable(__attribute__((unused))
   char write_data[PIPE_BUF];
   {
     /* Construct test password buffer */
-    /* Start with + since that is what the real procotol uses */
+    /* Start with + since that is what the real protocol uses */
     write_data[0] = '+';
     /* Set a special character at string end just to mark the end */
     write_data[sizeof(write_data)-2] = 'y';
@@ -5958,9 +5960,6 @@ void test_send_password_to_socket_EMSGSIZE(__attribute__((unused))
 					   test_fixture *fixture,
 					   __attribute__((unused))
 					   gconstpointer user_data){
-#ifndef __amd64__
-  g_test_skip("Skipping EMSGSIZE test on non-AMD64 platform");
-#else
   __attribute__((cleanup(cleanup_close)))
     const int epoll_fd = epoll_create1(EPOLL_CLOEXEC);
   g_assert_cmpint(epoll_fd, >=, 0);
@@ -5968,31 +5967,68 @@ void test_send_password_to_socket_EMSGSIZE(__attribute__((unused))
   char *const filename = strdup("/nonexistent/socket");
   __attribute__((cleanup(string_set_clear)))
     string_set cancelled_filenames = {};
-  const size_t oversized = 1024*1024; /* Limit seems to be 212960 */
-  __attribute__((cleanup(cleanup_buffer)))
-    buffer password = {
-    .data=malloc(oversized),
-    .length=oversized,
-    .allocated=oversized,
+  int socketfds[2];
+
+  /* Find a message size which triggers EMSGSIZE */
+  __attribute__((cleanup(cleanup_string)))
+    char *message_buffer = NULL;
+  size_t message_size = PIPE_BUF + 1;
+  for(ssize_t ssret = 0; ssret >= 0; message_size += 1024){
+    if(message_size >= 1024*1024*1024){ /* 1 GiB */
+      g_test_skip("Skipping EMSGSIZE test: Will not try 1GiB");
+      return;
+    }
+    free(message_buffer);
+    message_buffer = malloc(message_size);
+    if(message_buffer == NULL){
+      g_test_skip("Skipping EMSGSIZE test");
+      g_test_message("Failed to malloc() %" PRIuMAX " bytes",
+		     (uintmax_t)message_size);
+      return;
+    }
+    /* Fill buffer with 'x' */
+    memset(message_buffer, 'x', message_size);
+    /* Create a new socketpair for each message size to avoid having
+       to empty the pipe by reading the message to a separate buffer
+    */
+    g_assert_cmpint(socketpair(PF_LOCAL, SOCK_DGRAM
+			       | SOCK_NONBLOCK | SOCK_CLOEXEC, 0,
+			       socketfds), ==, 0);
+    ssret = send(socketfds[1], message_buffer, message_size,
+		 MSG_NOSIGNAL);
+    error_t saved_errno = errno;
+    g_assert_cmpint(close(socketfds[0]), ==, 0);
+    g_assert_cmpint(close(socketfds[1]), ==, 0);
+
+    if(ssret < 0){
+      if(saved_errno != EMSGSIZE) {
+	g_test_skip("Skipping EMSGSIZE test");
+	g_test_message("Error on send(): %s", strerror(saved_errno));
+	return;
+      }
+    } else if(ssret != (ssize_t)message_size){
+      g_test_skip("Skipping EMSGSIZE test");
+      g_test_message("Partial send(): %" PRIuMAX " of %" PRIdMAX
+		     " bytes", (uintmax_t)ssret,
+		     (intmax_t)message_size);
+      return;
+    }
+  }
+  g_test_message("EMSGSIZE triggered by %" PRIdMAX " bytes",
+		 (intmax_t)message_size);
+
+  buffer password = {
+    .data=message_buffer,
+    .length=message_size - 2,	/* Compensate for added '+' and NUL */
+    .allocated=message_size,
   };
-  g_assert_nonnull(password.data);
   if(mlock(password.data, password.allocated) != 0){
     g_assert_true(errno == EPERM or errno == ENOMEM);
   }
-  /* Construct test password buffer */
-  /* Start with + since that is what the real procotol uses */
-  password.data[0] = '+';
-  /* Set a special character at string end just to mark the end */
-  password.data[oversized-3] = 'y';
-  /* Set NUL at buffer end, as suggested by the protocol */
-  password.data[oversized-2] = '\0';
-  /* Fill rest of password with 'x' */
-  memset(password.data+1, 'x', oversized-3);
 
   __attribute__((cleanup(cleanup_queue)))
     task_queue *queue = create_queue();
   g_assert_nonnull(queue);
-  int socketfds[2];
   g_assert_cmpint(socketpair(PF_LOCAL, SOCK_DGRAM
 			     | SOCK_NONBLOCK | SOCK_CLOEXEC, 0,
 			     socketfds), ==, 0);
@@ -6019,7 +6055,6 @@ void test_send_password_to_socket_EMSGSIZE(__attribute__((unused))
   g_assert_cmpuint((unsigned int)queue->length, ==, 0);
   g_assert_true(string_set_contains(cancelled_filenames,
 				    question_filename));
-#endif
 }
 
 static void test_send_password_to_socket_retry(__attribute__((unused))
