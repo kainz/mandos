@@ -1,3 +1,14 @@
+mandos (1.8.13-1) unstable; urgency=medium
+
+  * New upstream release.
+  * Fix "password-agent autopkgtest does not seem to be reliable"
+    by making the test more reliable (Closes: #975457)
+  * debian/mandos-client.templates: Rename "_description" header to
+    "_Description".
+  * debian/control (Standards-Version): Change to "4.5.1".
+
+ -- Teddy Hogeborn <teddy@recompile.se>  Mon, 30 Nov 2020 19:15:43 +0100
+
 mandos (1.8.12-1) unstable; urgency=medium
 
   * New upstream release.
