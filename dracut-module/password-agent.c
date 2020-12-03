@@ -6006,6 +6006,7 @@ void test_send_password_to_socket_EMSGSIZE(__attribute__((unused))
 	g_test_message("Error on send(): %s", strerror(saved_errno));
 	return;
       }
+      break;
     } else if(ssret != (ssize_t)message_size){
       g_test_skip("Skipping EMSGSIZE test");
       g_test_message("Partial send(): %" PRIuMAX " of %" PRIdMAX
