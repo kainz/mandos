@@ -5978,8 +5978,7 @@ void test_send_password_to_socket_EMSGSIZE(__attribute__((unused))
       g_test_skip("Skipping EMSGSIZE test: Will not try 1GiB");
       return;
     }
-    free(message_buffer);
-    message_buffer = malloc(message_size);
+    message_buffer = realloc(message_buffer, message_size);
     if(message_buffer == NULL){
       g_test_skip("Skipping EMSGSIZE test");
       g_test_message("Failed to malloc() %" PRIuMAX " bytes",
