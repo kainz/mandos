@@ -47,8 +47,8 @@
 				   struct stat, fstat(), close(),
 				   setgid(), setuid(), S_ISREG(),
 				   faccessat() pipe2(), fork(),
-				   _exit(), dup2(), fexecve(), read()
-				*/
+				   _exit(), dup2(), fexecve(), read(),
+				   lstat(), symlink() */
 #include <fcntl.h>		/* fcntl(), F_GETFD, F_SETFD,
 				   FD_CLOEXEC, openat(), scandirat(),
 				   pipe2() */
@@ -857,6 +857,15 @@ int main(int argc, char *argv[]){
 	}
       }
       close(plugindir_fd);
+    }
+
+    /* Work around Debian bug #981302
+       <https://bugs.debian.org/981302> */
+    if(lstat("/dev/fd", &st) != 0 and errno == ENOENT){
+      ret = symlink("/proc/self/fd", "/dev/fd");
+      if(ret == -1){
+  	error(0, errno, "Failed to create /dev/fd symlink");
+      }
     }
   }
   

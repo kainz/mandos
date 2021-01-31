@@ -80,7 +80,7 @@
 #include <unistd.h>		/* close(), SEEK_SET, off_t, write(),
 				   getuid(), getgid(), seteuid(),
 				   setgid(), pause(), _exit(),
-				   unlinkat() */
+				   unlinkat(), lstat(), symlink() */
 #include <arpa/inet.h>		/* inet_pton(), htons() */
 #include <iso646.h>		/* not, or, and */
 #include <argp.h>		/* struct argp_option, error_t, struct
@@ -2715,9 +2715,6 @@ int main(int argc, char *argv[]){
   }
   
   {
-    /* Work around Debian bug #633582:
-       <https://bugs.debian.org/633582> */
-    
     /* Re-raise privileges */
     ret = raise_privileges();
     if(ret != 0){
@@ -2726,6 +2723,9 @@ int main(int argc, char *argv[]){
     } else {
       struct stat st;
       
+      /* Work around Debian bug #633582:
+	 <https://bugs.debian.org/633582> */
+
       if(strcmp(seckey, PATHDIR "/" SECKEY) == 0){
 	int seckey_fd = open(seckey, O_RDONLY);
 	if(seckey_fd == -1){
@@ -2790,6 +2790,15 @@ int main(int argc, char *argv[]){
 	}
       }
       
+      /* Work around Debian bug #981302
+	 <https://bugs.debian.org/981302> */
+      if(lstat("/dev/fd", &st) != 0 and errno == ENOENT){
+	ret = symlink("/proc/self/fd", "/dev/fd");
+	if(ret == -1){
+	  perror_plus("Failed to create /dev/fd symlink");
+	}
+      }
+
       /* Lower privileges */
       ret = lower_privileges();
       if(ret != 0){
