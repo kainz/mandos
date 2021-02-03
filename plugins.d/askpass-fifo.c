@@ -23,27 +23,31 @@
  * Contact the authors at <mandos@recompile.se>.
  */
 
-#define _GNU_SOURCE		/* TEMP_FAILURE_RETRY() */
-#include <sys/types.h>		/* uid_t, gid_t, ssize_t */
-#include <sys/stat.h>		/* mkfifo(), S_IRUSR, S_IWUSR */
-#include <iso646.h>		/* and */
-#include <errno.h>		/* errno, EACCES, ENOTDIR, ELOOP,
+#define _GNU_SOURCE		/* vasprintf(),
+				   program_invocation_short_name */
+#include <sys/types.h>		/* uid_t, gid_t, getuid(), getgid(),
+				   setgid(), setuid() */
+#include <unistd.h>		/* uid_t, gid_t, ssize_t, getuid(),
+				   getgid(), setgid(), setuid(),
+				   read(), close(), write(),
+				   STDOUT_FILENO */
+#include <stdarg.h>		/* va_list, va_start(), vfprintf() */
+#include <stdio.h>		/* vasprintf(), fprintf(), stderr,
+				   vfprintf() */
+#include <errno.h>		/* program_invocation_short_name,
+				   errno, EACCES, ENOTDIR, ELOOP,
 				   ENAMETOOLONG, ENOSPC, EROFS,
 				   ENOENT, EEXIST, EFAULT, EMFILE,
 				   ENFILE, ENOMEM, EBADF, EINVAL, EIO,
 				   EISDIR, EFBIG */
+#include <string.h>		/* strerror() */
 #include <error.h>		/* error() */
-#include <stdio.h>		/* fprintf(), vfprintf(),
-				   vasprintf() */
-#include <stdlib.h>		/* EXIT_FAILURE, NULL, size_t, free(),
-				   realloc(), EXIT_SUCCESS */
-#include <fcntl.h>		/* open(), O_RDONLY */
-#include <unistd.h>		/* read(), close(), write(),
-				   STDOUT_FILENO */
-#include <sysexits.h>		/* EX_OSERR, EX_OSFILE,
+#include <stdlib.h>		/* free(), realloc(), EXIT_SUCCESS */
+#include <sys/stat.h>		/* mkfifo(), S_IRUSR, S_IWUSR */
+#include <sysexits.h>		/* EX_OSFILE, EX_OSERR,
 				   EX_UNAVAILABLE, EX_IOERR */
-#include <string.h> 		/* strerror() */
-#include <stdarg.h>		/* va_list, va_start(), ... */
+#include <fcntl.h>		/* open(), O_RDONLY */
+#include <stddef.h>		/* NULL, size_t */
 
 uid_t uid = 65534;
 gid_t gid = 65534;
