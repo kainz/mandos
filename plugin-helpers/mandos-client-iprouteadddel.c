@@ -2,8 +2,8 @@
 /* 
  * iprouteadddel - Add or delete direct route to a local IP address
  * 
- * Copyright © 2015-2018 Teddy Hogeborn
- * Copyright © 2015-2018 Björn Påhlsson
+ * Copyright © 2015-2018, 2021 Teddy Hogeborn
+ * Copyright © 2015-2018, 2021 Björn Påhlsson
  * 
  * This file is part of Mandos.
  * 
@@ -25,49 +25,57 @@
 
 #define _GNU_SOURCE		/* program_invocation_short_name */
 #include <stdbool.h>		/* bool, false, true */
-#include <stdio.h>		/* fprintf(), stderr, FILE, vfprintf */
-#include <errno.h>		/* program_invocation_short_name,
-				   errno, perror(), EINVAL, ENOMEM */
-#include <stdarg.h>		/* va_list, va_start */
-#include <stdlib.h> 		/* EXIT_SUCCESS */
-#include <argp.h>		/* struct argp_option, error_t, struct
-				   argp_state, ARGP_KEY_ARG,
+#include <argp.h>		/* argp_program_version,
+				   argp_program_bug_address,
+				   struct argp_option,
+				   struct argp_state, ARGP_KEY_ARG,
 				   argp_usage(), ARGP_KEY_END,
 				   ARGP_ERR_UNKNOWN, struct argp,
-				   argp_parse() */
-#include <sysexits.h>		/* EX_USAGE, EX_OSERR */
-#include <netinet/ip.h>		/* sa_family_t, AF_INET6, AF_INET */
-#include <inttypes.h>		/* PRIdMAX, intmax_t */
-
+				   argp_parse(), ARGP_IN_ORDER */
+#include <errno.h>		/* errno,
+				   program_invocation_short_name,
+				   error_t, EINVAL, ENOMEM */
+#include <stdio.h>		/* fprintf(), stderr, perror(), FILE,
+				   vfprintf() */
+#include <stdarg.h>		/* va_list, va_start(), vfprintf() */
+#include <stdlib.h>		/* EXIT_SUCCESS */
 #include <netlink/netlink.h>	/* struct nl_addr, nl_addr_parse(),
 				   nl_geterror(),
-				   nl_addr_get_family(),
+				   nl_addr_get_family(), NLM_F_EXCL,
 				   nl_addr_put() */
-#include <netlink/route/route.h> /* struct rtnl_route,
-				    struct rtnl_nexthop,
-				    rtnl_route_alloc(),
-				    rtnl_route_set_family(),
-				    rtnl_route_set_protocol(),
-				    RTPROT_BOOT,
-				    rtnl_route_set_scope(),
-				    RT_SCOPE_LINK,
-				    rtnl_route_set_type(),
-				    RTN_UNICAST,
-				    rtnl_route_set_dst(),
-				    rtnl_route_set_table(),
-				    RT_TABLE_MAIN,
-				    rtnl_route_nh_alloc(),
-				    rtnl_route_nh_set_ifindex(),
-				    rtnl_route_add_nexthop(),
-				    rtnl_route_add(),
-				    rtnl_route_delete(),
-				    rtnl_route_put(),
-				    rtnl_route_nh_free() */
+#include <stddef.h>		/* NULL */
+#include <netlink/route/route.h>/* struct rtnl_route,
+				   struct rtnl_nexthop, NETLINK_ROUTE,
+				   rtnl_route_alloc(),
+				   rtnl_route_set_family(),
+				   rtnl_route_set_protocol(),
+				   RTPROT_BOOT,
+				   rtnl_route_set_scope(),
+				   RT_SCOPE_LINK,
+				   rtnl_route_set_type(), RTN_UNICAST,
+				   rtnl_route_set_dst(),
+				   rtnl_route_set_table(),
+				   RT_TABLE_MAIN,
+				   rtnl_route_nh_alloc(),
+				   rtnl_route_nh_set_ifindex(),
+				   rtnl_route_add_nexthop(),
+				   rtnl_route_add(),
+				   rtnl_route_delete(),
+				   rtnl_route_put(),
+				   rtnl_route_nh_free() */
 #include <netlink/socket.h>	/* struct nl_sock, nl_socket_alloc(),
 				   nl_connect(), nl_socket_free() */
-#include <netlink/route/link.h>	/* rtnl_link_get_kernel(),
+#include <strings.h>		/* strcasecmp() */
+#include <sys/socket.h>		/* AF_UNSPEC, AF_INET6, AF_INET */
+#include <sysexits.h>		/* EX_USAGE, EX_OSERR */
+#include <netlink/route/link.h> /* struct rtnl_link,
+				   rtnl_link_get_kernel(),
 				   rtnl_link_get_ifindex(),
 				   rtnl_link_put() */
+#include <netinet/in.h>		/* sa_family_t */
+#include <inttypes.h>		/* PRIdMAX, intmax_t */
+#include <stdint.h>		/* uint8_t */
+
 
 bool debug = false;
 const char *argp_program_version = "mandos-client-iprouteadddel " VERSION;
@@ -85,7 +93,7 @@ void perror_plus(const char *print_text){
 __attribute__((format (gnu_printf, 2, 3), nonnull))
 int fprintf_plus(FILE *stream, const char *format, ...){
   va_list ap;
-  va_start (ap, format);
+  va_start(ap, format);
   
   fprintf(stream, "Mandos plugin helper %s: ",
 	  program_invocation_short_name);

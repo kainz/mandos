@@ -2,8 +2,8 @@
 /*
  * Mandos plugin runner - Run Mandos plugins
  *
- * Copyright © 2008-2020 Teddy Hogeborn
- * Copyright © 2008-2020 Björn Påhlsson
+ * Copyright © 2008-2021 Teddy Hogeborn
+ * Copyright © 2008-2021 Björn Påhlsson
  * 
  * This file is part of Mandos.
  * 
@@ -23,55 +23,69 @@
  * Contact the authors at <mandos@recompile.se>.
  */
 
-#define _GNU_SOURCE		/* TEMP_FAILURE_RETRY(), getline(),
-				   O_CLOEXEC, pipe2() */
+#define _GNU_SOURCE		/* strchrnul(), TEMP_FAILURE_RETRY(),
+				   getline(), asprintf(), O_CLOEXEC,
+				   scandirat(), pipe2() */
+#include <argp.h>		/* argp_program_version,
+				   argp_program_bug_address,
+				   struct argp_option,
+				   struct argp_state, argp_error(),
+				   ARGP_NO_EXIT, argp_state_help,
+				   ARGP_HELP_STD_HELP,
+				   ARGP_HELP_USAGE, ARGP_HELP_EXIT_OK,
+				   ARGP_KEY_ARG, ARGP_ERR_UNKNOWN,
+				   struct argp, argp_parse(),
+				   ARGP_IN_ORDER, ARGP_NO_HELP */
+#include <stdbool.h>		/* bool, false, true */
+#include <sys/types.h>		/* pid_t, sig_atomic_t, uid_t, gid_t,
+				   getuid(), setgid(), setuid() */
 #include <stddef.h>		/* size_t, NULL */
-#include <stdlib.h>		/* malloc(), reallocarray(), realloc(),
-				   EXIT_SUCCESS, exit() */
-#include <stdbool.h>		/* bool, true, false */
-#include <stdio.h>		/* fileno(), fprintf(),
-				   stderr, STDOUT_FILENO, fclose() */
-#include <sys/types.h>	        /* fstat(), struct stat, waitpid(),
-				   WIFEXITED(), WEXITSTATUS(), wait(),
-				   pid_t, uid_t, gid_t, getuid(),
-				   getgid() */
-#include <sys/select.h>		/* fd_set, select(), FD_ZERO(),
-				   FD_SET(), FD_ISSET(), FD_CLR */
-#include <sys/wait.h>		/* wait(), waitpid(), WIFEXITED(),
-				   WEXITSTATUS(), WTERMSIG() */
-#include <sys/stat.h>		/* struct stat, fstat(), S_ISREG() */
-#include <iso646.h>		/* and, or, not */
-#include <dirent.h>		/* struct dirent, scandirat() */
-#include <unistd.h>		/* fcntl(), F_GETFD, F_SETFD,
-				   FD_CLOEXEC, write(), STDOUT_FILENO,
-				   struct stat, fstat(), close(),
-				   setgid(), setuid(), S_ISREG(),
-				   faccessat() pipe2(), fork(),
-				   _exit(), dup2(), fexecve(), read()
-				*/
+#include <iso646.h>		/* or, and, not */
+#include <string.h>		/* strcmp(), strdup(), strchrnul(),
+				   strncmp(), strlen(), strcpy(),
+				   strsep(), strchr(), strsignal() */
+#include <stdlib.h>		/* malloc(), free(), reallocarray(),
+				   realloc(), EXIT_SUCCESS */
+#include <errno.h>		/* errno, EINTR, ENOMEM, ECHILD,
+				   error_t, EINVAL, EMFILE, ENFILE,
+				   ENOENT, ESRCH */
+#include <stdint.h>		/* SIZE_MAX */
+#define _GNU_SOURCE		/* strchrnul(), TEMP_FAILURE_RETRY(),
+				   getline(), asprintf(), O_CLOEXEC,
+				   scandirat(), pipe2() */
+#include <unistd.h>		/* TEMP_FAILURE_RETRY(), ssize_t,
+				   write(), STDOUT_FILENO, uid_t,
+				   gid_t, getuid(), fchown(), close(),
+				   symlink(), setgid(), setuid(),
+				   faccessat(), X_OK, pipe(), pipe2(),
+				   fork(), _exit(), dup2(), fexecve(),
+				   read(), getpass() */
 #include <fcntl.h>		/* fcntl(), F_GETFD, F_SETFD,
-				   FD_CLOEXEC, openat(), scandirat(),
-				   pipe2() */
-#include <string.h>		/* strsep, strlen(), strsignal(),
-				   strcmp(), strncmp() */
-#include <errno.h>		/* errno */
-#include <argp.h>		/* struct argp_option, struct
-				   argp_state, struct argp,
-				   argp_parse(), ARGP_ERR_UNKNOWN,
-				   ARGP_KEY_END, ARGP_KEY_ARG,
-				   error_t */
-#include <signal.h> 		/* struct sigaction, sigemptyset(),
-				   sigaddset(), sigaction(),
-				   sigprocmask(), SIG_BLOCK, SIGCHLD,
-				   SIG_UNBLOCK, kill(), sig_atomic_t
-				*/
-#include <errno.h>		/* errno, EBADF */
-#include <inttypes.h>		/* intmax_t, PRIdMAX, strtoimax() */
+				   FD_CLOEXEC, open(), O_RDONLY,
+				   O_CLOEXEC, openat() */
+#include <sys/wait.h>		/* waitpid(), WNOHANG, WIFEXITED(),
+				   WEXITSTATUS(), WIFSIGNALED(),
+				   WTERMSIG(), wait() */
+#include <error.h>		/* error() */
+#include <stdio.h>		/* FILE, fprintf(), fopen(),
+				   getline(), fclose(), EOF,
+				   asprintf(), stderr */
+#include <dirent.h>		/* struct dirent, scandirat(),
+				   alphasort() */
+#include <sys/stat.h>		/* struct stat, fstat(), S_ISDIR(),
+				   lstat(), S_ISREG() */
+#include <sys/select.h>		/* fd_set, FD_ZERO(), FD_SETSIZE,
+				   FD_SET(), select(), FD_CLR(),
+				   FD_ISSET() */
+#include <signal.h>		/* struct sigaction, SA_NOCLDSTOP,
+				   sigemptyset(), sigaddset(),
+				   SIGCHLD, sigprocmask(), SIG_BLOCK,
+				   SIG_UNBLOCK, kill(), SIGTERM */
 #include <sysexits.h>		/* EX_OSERR, EX_USAGE, EX_IOERR,
 				   EX_CONFIG, EX_UNAVAILABLE, EX_OK */
-#include <errno.h> 		/* errno */
-#include <error.h>		/* error() */
-#include <fnmatch.h>		/* fnmatch() */
+#include <inttypes.h>		/* intmax_t, strtoimax(), PRIdMAX */
+#include <fnmatch.h>		/* fnmatch(), FNM_FILE_NAME,
+				   FNM_PERIOD, FNM_NOMATCH */
 
 #define BUFFER_SIZE 256
 
@@ -857,6 +871,15 @@ int main(int argc, char *argv[]){
 	}
       }
       close(plugindir_fd);
+    }
+
+    /* Work around Debian bug #981302
+       <https://bugs.debian.org/981302> */
+    if(lstat("/dev/fd", &st) != 0 and errno == ENOENT){
+      ret = symlink("/proc/self/fd", "/dev/fd");
+      if(ret == -1){
+  	error(0, errno, "Failed to create /dev/fd symlink");
+      }
     }
   }
   
