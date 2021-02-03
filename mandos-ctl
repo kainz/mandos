@@ -2439,6 +2439,7 @@ class TestBaseCommands(TestCommand):
         busname = "se.recompile.Mandos"
         client_interface = "se.recompile.Mandos.Client"
         command.Approve().run(self.bus.clients, self.bus)
+        self.assertTrue(self.bus.clients)
         for clientpath in self.bus.clients:
             self.assertIn(("Approve", busname, clientpath,
                            client_interface, (True,)), self.bus.calls)
@@ -2447,16 +2448,22 @@ class TestBaseCommands(TestCommand):
         busname = "se.recompile.Mandos"
         client_interface = "se.recompile.Mandos.Client"
         command.Deny().run(self.bus.clients, self.bus)
+        self.assertTrue(self.bus.clients)
         for clientpath in self.bus.clients:
             self.assertIn(("Approve", busname, clientpath,
                            client_interface, (False,)),
                           self.bus.calls)
 
     def test_Remove(self):
+        busname = "se.recompile.Mandos"
+        server_path = "/"
+        server_interface = "se.recompile.Mandos"
+        orig_clients = self.bus.clients.copy()
         command.Remove().run(self.bus.clients, self.bus)
-        for clientpath in self.bus.clients:
-            self.assertIn(("RemoveClient", dbus_busname,
-                           dbus_server_path, dbus_server_interface,
+        self.assertFalse(self.bus.clients)
+        for clientpath in orig_clients:
+            self.assertIn(("RemoveClient", busname,
+                           server_path, server_interface,
                            (clientpath,)), self.bus.calls)
 
     expected_json = {
@@ -2664,11 +2671,13 @@ class TestPropertySetterCmd(TestCommand):
         else:
             cmd_args = [() for x in range(len(self.values_to_get))]
             values_to_get = self.values_to_get
+        self.assertTrue(values_to_get)
         for value_to_get, cmd_arg in zip(values_to_get, cmd_args):
             for clientpath in self.bus.clients:
                 self.bus.clients[clientpath][self.propname] = (
                     Unique())
             self.command(*cmd_arg).run(self.bus.clients, self.bus)
+            self.assertTrue(self.bus.clients)
             for clientpath in self.bus.clients:
                 value = (self.bus.clients[clientpath]
                          [self.propname])
