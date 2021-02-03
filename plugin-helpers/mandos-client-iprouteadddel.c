@@ -93,7 +93,7 @@ void perror_plus(const char *print_text){
 __attribute__((format (gnu_printf, 2, 3), nonnull))
 int fprintf_plus(FILE *stream, const char *format, ...){
   va_list ap;
-  va_start (ap, format);
+  va_start(ap, format);
   
   fprintf(stream, "Mandos plugin helper %s: ",
 	  program_invocation_short_name);
