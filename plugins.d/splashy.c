@@ -2,8 +2,8 @@
 /*
  * Splashy - Read a password from splashy and output it
  * 
- * Copyright © 2008-2018 Teddy Hogeborn
- * Copyright © 2008-2018 Björn Påhlsson
+ * Copyright © 2008-2018, 2021 Teddy Hogeborn
+ * Copyright © 2008-2018, 2021 Björn Påhlsson
  * 
  * This file is part of Mandos.
  * 
@@ -23,40 +23,45 @@
  * Contact the authors at <mandos@recompile.se>.
  */
 
-#define _GNU_SOURCE		/* TEMP_FAILURE_RETRY(), asprintf() */
-#include <signal.h>		/* sig_atomic_t, struct sigaction,
-				   sigemptyset(), sigaddset(), SIGINT,
-				   SIGHUP, SIGTERM, sigaction,
-				   SIG_IGN, kill(), SIGKILL */
-#include <stddef.h>		/* NULL */
-#include <stdlib.h>		/* getenv() */
-#include <stdio.h>		/* asprintf(), vasprintf(), vprintf(),
-				   fprintf() */
-#include <stdlib.h>		/* EXIT_FAILURE, free(),
-				   EXIT_SUCCESS */
-#include <sys/types.h>		/* pid_t, DIR, struct dirent,
-				   ssize_t */
-#include <dirent.h>		/* opendir(), readdir(), closedir() */
-#include <inttypes.h>		/* intmax_t, strtoimax() */
-#include <sys/stat.h>		/* struct stat, lstat(), S_ISLNK */
-#include <iso646.h>		/* not, or, and */
-#include <unistd.h>		/* readlink(), fork(), execl(),
-				   sleep(), dup2() STDERR_FILENO,
-				   STDOUT_FILENO, _exit(),
-				   pause() */
-#include <string.h>		/* memcmp(), strerror() */
-#include <errno.h>		/* errno, EACCES, ENOTDIR, ELOOP,
+#define _GNU_SOURCE		/* vasprintf(),
+				   program_invocation_short_name,
+				   asprintf(), TEMP_FAILURE_RETRY() */
+#include <sys/types.h>		/* sig_atomic_t, pid_t, setuid(),
+				   geteuid(), setsid() */
+#include <stdarg.h>		/* va_list, va_start(), vfprintf() */
+#include <stdio.h>		/* vasprintf(), fprintf(), stderr,
+				   vfprintf(), asprintf() */
+#include <errno.h>		/* program_invocation_short_name,
+				   errno, EACCES, ENOTDIR, ELOOP,
 				   ENOENT, ENAMETOOLONG, EMFILE,
 				   ENFILE, ENOMEM, ENOEXEC, EINVAL,
 				   E2BIG, EFAULT, EIO, ETXTBSY,
 				   EISDIR, ELIBBAD, EPERM, EINTR,
 				   ECHILD */
+#include <string.h>		/* strerror(), memcmp() */
 #include <error.h>		/* error() */
-#include <sys/wait.h>		/* waitpid(), WIFEXITED(),
-				   WEXITSTATUS() */
+#include <stdlib.h>		/* free(), EXIT_FAILURE, getenv(),
+				   EXIT_SUCCESS, abort() */
+#include <stddef.h>		/* NULL */
+#include <dirent.h>		/* DIR, opendir(), struct dirent,
+				   readdir(), closedir() */
 #include <sysexits.h>		/* EX_OSERR, EX_OSFILE,
 				   EX_UNAVAILABLE */
-#include <stdarg.h>		/* va_list, va_start(), ... */
+#include <inttypes.h>		/* intmax_t, strtoimax() */
+#include <iso646.h>		/* or, not, and */
+#include <unistd.h>		/* ssize_t, readlink(), fork(),
+				   execl(), _exit(),
+				   TEMP_FAILURE_RETRY(), sleep(),
+				   setuid(), geteuid(), setsid(),
+				   chdir(), dup2(), STDERR_FILENO,
+				   STDOUT_FILENO, pause() */
+#include <sys/stat.h>		/* struct stat, lstat(), S_ISLNK() */
+#include <signal.h>		/* struct sigaction, sigemptyset(),
+				   sigaddset(), SIGINT, SIGHUP,
+				   SIGTERM, SIG_IGN, kill(), SIGKILL,
+				   SIG_DFL, raise() */
+#include <sys/wait.h>		/* waitpid(), WIFEXITED(),
+				   WEXITSTATUS() */
 
 sig_atomic_t interrupted_by_signal = 0;
 int signal_received;

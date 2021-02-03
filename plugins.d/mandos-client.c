@@ -9,8 +9,8 @@
  * "browse_callback", and parts of "main".
  * 
  * Everything else is
- * Copyright © 2008-2020 Teddy Hogeborn
- * Copyright © 2008-2020 Björn Påhlsson
+ * Copyright © 2008-2021 Teddy Hogeborn
+ * Copyright © 2008-2021 Björn Påhlsson
  * 
  * This file is part of Mandos.
  * 
@@ -38,69 +38,103 @@
 #define _FILE_OFFSET_BITS 64
 #endif	/* not _FILE_OFFSET_BITS */
 
-#define _GNU_SOURCE		/* TEMP_FAILURE_RETRY(), asprintf() */
-
-#include <stdio.h>		/* fprintf(), stderr, fwrite(),
-				   stdout, ferror() */
-#include <stdint.h> 		/* uint16_t, uint32_t, intptr_t */
-#include <stddef.h>		/* NULL, size_t, ssize_t */
-#include <stdlib.h> 		/* free(), EXIT_SUCCESS, srand(),
-				   strtof(), abort() */
+#define _GNU_SOURCE		/* program_invocation_short_name,
+				   TEMP_FAILURE_RETRY(), O_CLOEXEC,
+				   scandirat(), asprintf() */
 #include <stdbool.h>		/* bool, false, true */
-#include <string.h>		/* strcmp(), strlen(), strerror(),
-				   asprintf(), strncpy(), strsignal()
-				*/
-#include <sys/ioctl.h>		/* ioctl */
-#include <sys/types.h>		/* socket(), inet_pton(), sockaddr,
-				   sockaddr_in6, PF_INET6,
-				   SOCK_STREAM, uid_t, gid_t, open(),
-				   opendir(), DIR */
-#include <sys/stat.h>		/* open(), S_ISREG */
-#include <sys/socket.h>		/* socket(), struct sockaddr_in6,
-				   inet_pton(), connect(),
-				   getnameinfo() */
-#include <fcntl.h>		/* open(), unlinkat(), AT_REMOVEDIR */
-#include <dirent.h>		/* opendir(), struct dirent, readdir()
-				 */
-#include <inttypes.h>		/* PRIu16, PRIdMAX, intmax_t,
-				   strtoimax() */
-#include <errno.h>		/* perror(), errno, EINTR, EINVAL,
-				   EAI_SYSTEM, ENETUNREACH,
+#include <argp.h>		/* argp_program_version,
+				   argp_program_bug_address,
+				   struct argp_option,
+				   struct argp_state, argp_error(),
+				   argp_state_help,
+				   ARGP_HELP_STD_HELP,
+				   ARGP_HELP_EXIT_ERR,
+				   ARGP_HELP_EXIT_OK, ARGP_HELP_USAGE,
+				   argp_err_exit_status,
+				   ARGP_ERR_UNKNOWN, struct argp,
+				   argp_parse(), ARGP_IN_ORDER,
+				   ARGP_NO_HELP */
+#include <stddef.h>		/* NULL, size_t */
+#include <sys/types.h>		/* uid_t, gid_t, sig_atomic_t,
+				   seteuid(), setuid(), pid_t,
+				   setgid(), getuid(), getgid() */
+#include <unistd.h>		/* uid_t, gid_t, TEMP_FAILURE_RETRY(),
+				   seteuid(), setuid(), close(),
+				   ssize_t, read(), fork(), setgid(),
+				   _exit(), dup2(), STDIN_FILENO,
+				   STDERR_FILENO, STDOUT_FILENO,
+				   fexecve(), write(), getuid(),
+				   getgid(), fchown(), symlink(),
+				   sleep(), unlinkat(), pause() */
+#include <netinet/in.h>		/* in_port_t, struct sockaddr_in6,
+				   sa_family_t, struct sockaddr_in,
+				   htons(), IN6_IS_ADDR_LINKLOCAL,
+				   INET_ADDRSTRLEN, INET6_ADDRSTRLEN,
+				   ntohl(), IPPROTO_IP */
+#include <time.h>		/* struct timespec, clock_gettime(),
+				   CLOCK_MONOTONIC, time_t, struct tm,
+				   gmtime_r(), clock_settime(),
+				   CLOCK_REALTIME, nanosleep() */
+#include <errno.h>		/* errno,
+				   program_invocation_short_name,
+				   EINTR, EINVAL, ENETUNREACH,
 				   EHOSTUNREACH, ECONNREFUSED, EPROTO,
-				   EIO, ENOENT, ENXIO, ENOMEM, EISDIR,
-				   ENOTEMPTY,
-				   program_invocation_short_name */
-#include <time.h>		/* nanosleep(), time(), sleep() */
-#include <net/if.h>		/* ioctl, ifreq, SIOCGIFFLAGS, IFF_UP,
-				   SIOCSIFFLAGS, if_indextoname(),
-				   if_nametoindex(), IF_NAMESIZE */
-#include <netinet/in.h>		/* IN6_IS_ADDR_LINKLOCAL,
-				   INET_ADDRSTRLEN, INET6_ADDRSTRLEN
-				*/
-#include <unistd.h>		/* close(), SEEK_SET, off_t, write(),
-				   getuid(), getgid(), seteuid(),
-				   setgid(), pause(), _exit(),
-				   unlinkat() */
-#include <arpa/inet.h>		/* inet_pton(), htons() */
-#include <iso646.h>		/* not, or, and */
-#include <argp.h>		/* struct argp_option, error_t, struct
-				   argp_state, struct argp,
-				   argp_parse(), ARGP_KEY_ARG,
-				   ARGP_KEY_END, ARGP_ERR_UNKNOWN */
-#include <signal.h>		/* sigemptyset(), sigaddset(),
-				   sigaction(), SIGTERM, sig_atomic_t,
-				   raise() */
-#include <sysexits.h>		/* EX_OSERR, EX_USAGE, EX_UNAVAILABLE,
-				   EX_NOHOST, EX_IOERR, EX_PROTOCOL */
-#include <sys/wait.h>		/* waitpid(), WIFEXITED(),
-				   WEXITSTATUS(), WTERMSIG() */
+				   EIO, ENOENT, ENXIO, error_t,
+				   ENOMEM, EISDIR, ENOTEMPTY */
+#include <stdio.h>		/* fprintf(), stderr, perror(), FILE,
+				   vfprintf(), off_t, SEEK_SET,
+				   stdout, fwrite(), ferror(),
+				   fflush(), asprintf() */
+#include <stdarg.h>		/* va_list, va_start(), vfprintf() */
+#include <stdlib.h>		/* realloc(), free(), malloc(),
+				   getenv(), EXIT_FAILURE, setenv(),
+				   EXIT_SUCCESS, strtof(), strtod(),
+				   srand(), mkdtemp(), abort() */
+#include <string.h>		/* strdup(), strcmp(), strlen(),
+				   strerror(), strncpy(), strspn(),
+				   memcpy(), strrchr(), strchr(),
+				   strsignal() */
+#include <fcntl.h>		/* open(), O_RDONLY, O_DIRECTORY,
+				   O_PATH, O_CLOEXEC, openat(),
+				   O_NOFOLLOW, AT_REMOVEDIR */
+#include <iso646.h>		/* or, and, not */
+#include <sys/stat.h>		/* struct stat, fstat(), fstatat(),
+				   S_ISREG(), S_IXUSR, S_IXGRP,
+				   S_IXOTH, lstat() */
+#include <net/if.h>		/* IF_NAMESIZE, if_indextoname(),
+				   if_nametoindex(), SIOCGIFFLAGS,
+				   IFF_LOOPBACK, IFF_POINTOPOINT,
+				   IFF_BROADCAST, IFF_NOARP, IFF_UP,
+				   IFF_RUNNING, SIOCSIFFLAGS */
+#include <sysexits.h>		/* EX_NOPERM, EX_OSERR,
+				   EX_UNAVAILABLE, EX_USAGE */
 #include <grp.h>		/* setgroups() */
-#include <argz.h>		/* argz_add_sep(), argz_next(),
-				   argz_delete(), argz_append(),
-				   argz_stringify(), argz_add(),
-				   argz_count() */
+#include <sys/wait.h>		/* waitpid(), WIFEXITED(),
+				   WEXITSTATUS(), WIFSIGNALED(),
+				   WTERMSIG() */
+#include <signal.h>		/* kill(), SIGTERM, struct sigaction,
+				   SIG_DFL, sigemptyset(),
+				   sigaddset(), SIGINT, SIGHUP,
+				   SIG_IGN, raise() */
+#include <sys/socket.h>		/* struct sockaddr_storage, AF_INET6,
+				   PF_INET6, AF_INET, PF_INET,
+				   socket(), SOCK_STREAM,
+				   SOCK_CLOEXEC, struct sockaddr,
+				   connect(), SOCK_DGRAM */
+#include <argz.h>		/* argz_next(), argz_add_sep(),
+				   argz_delete(), argz_stringify(),
+				   argz_add(), argz_count() */
+#include <inttypes.h>		/* PRIuMAX, uintmax_t, uint32_t,
+				   PRIdMAX, PRIu16, intmax_t,
+				   strtoimax() */
+#include <arpa/inet.h>		/* inet_pton() */
+#include <stdint.h>		/* uint32_t, intptr_t, uint16_t */
 #include <netdb.h>		/* getnameinfo(), NI_NUMERICHOST,
 				   EAI_SYSTEM, gai_strerror() */
+#include <sys/ioctl.h>		/* ioctl() */
+#include <dirent.h>		/* struct dirent, scandirat(),
+				   alphasort(), scandir() */
+#include <limits.h>		/* INT_MAX */
 
 #ifdef __linux__
 #include <sys/klog.h> 		/* klogctl() */
@@ -119,26 +153,22 @@
 
 /* GnuTLS */
 #include <gnutls/gnutls.h>	/* All GnuTLS types, constants and
-				   functions:
-				   gnutls_*
-				   init_gnutls_session(),
-				   GNUTLS_* */
+				   functions: gnutls_*, GNUTLS_* */
 #if GNUTLS_VERSION_NUMBER < 0x030600
 #include <gnutls/openpgp.h>
 			 /* gnutls_certificate_set_openpgp_key_file(),
 			    GNUTLS_OPENPGP_FMT_BASE64 */
 #elif GNUTLS_VERSION_NUMBER >= 0x030606
-#include <gnutls/x509.h>	/* gnutls_pkcs_encrypt_flags_t,
-				 GNUTLS_PKCS_PLAIN,
-				 GNUTLS_PKCS_NULL_PASSWORD */
+#include <gnutls/x509.h>	/* GNUTLS_PKCS_PLAIN,
+				   GNUTLS_PKCS_NULL_PASSWORD */
 #endif
 
 /* GPGME */
 #include <gpgme.h> 		/* All GPGME types, constants and
 				   functions:
-				   gpgme_*
-				   GPGME_PROTOCOL_OpenPGP,
-				   GPG_ERR_NO_* */
+				   gpgme_*, GPG_ERR_NO_*,
+				   GPGME_IMPORT_*
+				   GPGME_PROTOCOL_OpenPGP */
 
 #define BUFFER_SIZE 256
 
@@ -2715,9 +2745,6 @@ int main(int argc, char *argv[]){
   }
   
   {
-    /* Work around Debian bug #633582:
-       <https://bugs.debian.org/633582> */
-    
     /* Re-raise privileges */
     ret = raise_privileges();
     if(ret != 0){
@@ -2726,6 +2753,9 @@ int main(int argc, char *argv[]){
     } else {
       struct stat st;
       
+      /* Work around Debian bug #633582:
+	 <https://bugs.debian.org/633582> */
+
       if(strcmp(seckey, PATHDIR "/" SECKEY) == 0){
 	int seckey_fd = open(seckey, O_RDONLY);
 	if(seckey_fd == -1){
@@ -2790,6 +2820,15 @@ int main(int argc, char *argv[]){
 	}
       }
       
+      /* Work around Debian bug #981302
+	 <https://bugs.debian.org/981302> */
+      if(lstat("/dev/fd", &st) != 0 and errno == ENOENT){
+	ret = symlink("/proc/self/fd", "/dev/fd");
+	if(ret == -1){
+	  perror_plus("Failed to create /dev/fd symlink");
+	}
+      }
+
       /* Lower privileges */
       ret = lower_privileges();
       if(ret != 0){

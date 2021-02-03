@@ -2,8 +2,8 @@
 /*
  * Plymouth - Read a password from Plymouth and output it
  * 
- * Copyright © 2010-2020 Teddy Hogeborn
- * Copyright © 2010-2020 Björn Påhlsson
+ * Copyright © 2010-2021 Teddy Hogeborn
+ * Copyright © 2010-2021 Björn Påhlsson
  * 
  * This file is part of Mandos.
  * 
@@ -23,37 +23,55 @@
  * Contact the authors at <mandos@recompile.se>.
  */
 
-#define _GNU_SOURCE		/* asprintf(), TEMP_FAILURE_RETRY() */
-#include <signal.h>		/* sig_atomic_t, struct sigaction,
-				   sigemptyset(), sigaddset(), SIGINT,
-				   SIGHUP, SIGTERM, sigaction(),
-				   kill(), SIG_IGN */
+#define _GNU_SOURCE		/* program_invocation_short_name,
+				   vasprintf(), asprintf(),
+				   TEMP_FAILURE_RETRY() */
+#include <sys/types.h>		/* sig_atomic_t, pid_t, setuid(),
+				   geteuid(), setsid() */
+#include <argp.h>		/* argp_program_version,
+				   argp_program_bug_address,
+				   struct argp_option,
+				   struct argp_state,
+				   ARGP_ERR_UNKNOWN, struct argp,
+				   argp_parse(), ARGP_IN_ORDER */
+#include <stddef.h>		/* NULL, size_t */
 #include <stdbool.h>		/* bool, false, true */
-#include <fcntl.h>		/* open(), O_RDONLY */
-#include <iso646.h>		/* and, or, not*/
-#include <sys/types.h>		/* size_t, ssize_t, pid_t, struct
-				   dirent, waitpid() */
-#include <sys/wait.h>		/* waitpid() */
-#include <stddef.h>		/* NULL */
-#include <string.h>		/* strchr(), memcmp() */
-#include <stdio.h>		/* asprintf(), perror(), fopen(),
-				   fscanf(), vasprintf(), fprintf(),
-				   vfprintf() */
-#include <unistd.h>		/* close(), readlink(), read(),
-				   fork(), setsid(), chdir(), dup2(),
-				   STDERR_FILENO, execv(), access() */
-#include <stdlib.h>		/* free(), EXIT_FAILURE, realloc(),
-				   EXIT_SUCCESS, malloc(), _exit(),
-				   getenv(), reallocarray() */
-#include <dirent.h>		/* scandir(), alphasort() */
-#include <inttypes.h>		/* intmax_t, strtoumax(), SCNuMAX */
-#include <sys/stat.h>		/* struct stat, lstat() */
-#include <sysexits.h>		/* EX_OSERR, EX_UNAVAILABLE */
+#include <stdio.h>		/* FILE, fprintf(), vfprintf(),
+				   vasprintf(), stderr, asprintf(),
+				   fopen(), fscanf(), fclose(),
+				   sscanf() */
+#include <stdarg.h>		/* va_list, va_start(), vfprintf() */
+#include <errno.h>		/* program_invocation_short_name,
+				   errno, ENOMEM, EINTR, ENOENT,
+				   error_t, EINVAL */
+#include <string.h>		/* strerror(), strdup(), memcmp() */
 #include <error.h>		/* error() */
-#include <errno.h>		/* TEMP_FAILURE_RETRY */
+#include <stdlib.h>		/* free(), getenv(), malloc(),
+				   reallocarray(), realloc(),
+				   EXIT_FAILURE, EXIT_SUCCESS */
+#include <unistd.h>		/* TEMP_FAILURE_RETRY(), setuid(),
+				   geteuid(), setsid(), chdir(),
+				   dup2(), STDERR_FILENO,
+				   STDOUT_FILENO, fork(), _exit(),
+				   execv(), ssize_t, readlink(),
+				   close(), read(), access(), X_OK */
+#include <signal.h>		/* kill(), SIGTERM, struct sigaction,
+				   sigemptyset(), SIGINT, SIGHUP,
+				   sigaddset(), SIG_IGN */
+#include <sys/wait.h>		/* waitpid(), WIFEXITED(),
+				   WEXITSTATUS(), WIFSIGNALED(),
+				   WTERMSIG() */
+#include <iso646.h>		/* not, and, or */
+#include <sysexits.h>		/* EX_OSERR, EX_USAGE,
+				   EX_UNAVAILABLE */
+#include <stdint.h>		/* SIZE_MAX */
+#include <dirent.h>		/* struct dirent, scandir(),
+				   alphasort() */
+#include <inttypes.h>		/* uintmax_t, strtoumax(), SCNuMAX,
+				   PRIuMAX */
+#include <sys/stat.h>		/* struct stat, lstat(), S_ISLNK() */
+#include <fcntl.h>		/* open(), O_RDONLY */
 #include <argz.h>		/* argz_count(), argz_extract() */
-#include <stdarg.h>		/* va_list, va_start(), ... */
-#include <argp.h>
 
 sig_atomic_t interrupted_by_signal = 0;
 const char *argp_program_version = "plymouth " VERSION;

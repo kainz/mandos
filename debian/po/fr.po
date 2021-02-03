@@ -56,8 +56,8 @@ msgstr ""
 #. Type: note
 #. Description
 #: ../mandos.templates:1001
-msgid "mandos-keygen -F/dev/null|grep ^key_id"
-msgstr "mandos-keygen -F/dev/null|grep ^key_id"
+msgid " mandos-keygen -F/dev/null|grep ^key_id"
+msgstr " mandos-keygen -F/dev/null|grep ^key_id"
 
 #. Type: note
 #. Description
