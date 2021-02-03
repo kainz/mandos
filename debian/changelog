@@ -1,3 +1,10 @@
+mandos (1.8.14-1) unstable; urgency=medium
+
+  * New upstream release.  Includes workaround for #981302
+  * debian/po/fr.po: Fix msgid to match template.
+
+ -- Teddy Hogeborn <teddy@recompile.se>  Wed, 03 Feb 2021 09:53:29 +0100
+
 mandos (1.8.13-1) unstable; urgency=medium
 
   * New upstream release.
