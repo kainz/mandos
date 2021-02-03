@@ -23,47 +23,52 @@
  * Contact the authors at <mandos@recompile.se>.
  */
 
-#define _GNU_SOURCE		/* getline(), asprintf() */
-
-#include <termios.h>		/* struct termios, tcsetattr(),
-				   TCSAFLUSH, tcgetattr(), ECHO */
-#include <unistd.h>		/* access(), struct termios,
-				   tcsetattr(), STDIN_FILENO,
-				   TCSAFLUSH, tcgetattr(), ECHO,
-				   readlink() */
-#include <signal.h>		/* sig_atomic_t, raise(), struct
-				   sigaction, sigemptyset(),
-				   sigaction(), sigaddset(), SIGINT,
-				   SIGQUIT, SIGHUP, SIGTERM,
-				   raise() */
-#include <stddef.h>		/* NULL, size_t, ssize_t */
-#include <sys/types.h>		/* ssize_t, struct dirent, pid_t,
-				   ssize_t, open() */
-#include <stdlib.h>		/* EXIT_SUCCESS, EXIT_FAILURE,
-				   getenv(), free() */
-#include <dirent.h>		/* scandir(), alphasort() */
-#include <stdio.h>		/* fprintf(), stderr, getline(),
-				   stdin, feof(), fputc(), vfprintf(),
-				   vasprintf() */
-#include <errno.h>		/* errno, EBADF, ENOTTY, EINVAL,
-				   EFAULT, EFBIG, EIO, ENOSPC, EINTR
-				*/
-#include <error.h>		/* error() */
-#include <iso646.h>		/* or, not */
+#define _GNU_SOURCE		/* vasprintf(),
+				   program_invocation_short_name,
+				   asprintf(), getline() */
+#include <sys/types.h>		/* sig_atomic_t, pid_t */
 #include <stdbool.h>		/* bool, false, true */
-#include <inttypes.h>		/* strtoumax() */
-#include <sys/stat.h>		/* struct stat, lstat(), open() */
-#include <string.h>		/* strlen, rindex, memcmp, strerror()
-				 */
-#include <argp.h>		/* struct argp_option, struct
-				   argp_state, struct argp,
-				   argp_parse(), error_t,
-				   ARGP_KEY_ARG, ARGP_KEY_END,
-				   ARGP_ERR_UNKNOWN */
-#include <sysexits.h>		/* EX_SOFTWARE, EX_OSERR,
-				   EX_UNAVAILABLE, EX_IOERR, EX_OK */
-#include <fcntl.h>		/* open() */
-#include <stdarg.h>		/* va_list, va_start(), ... */
+#include <argp.h>		/* argp_program_version,
+				   argp_program_bug_address,
+				   struct argp_option,
+				   struct argp_state, argp_state_help,
+				   ARGP_HELP_STD_HELP,
+				   ARGP_HELP_EXIT_ERR,
+				   ARGP_HELP_EXIT_OK, ARGP_HELP_USAGE,
+				   argp_err_exit_status,
+				   ARGP_ERR_UNKNOWN, argp_parse(),
+				   ARGP_IN_ORDER, ARGP_NO_HELP */
+#include <stdarg.h>		/* va_list, va_start(), vfprintf() */
+#include <stdio.h>		/* vasprintf(), fprintf(), stderr,
+				   vfprintf(), asprintf(), getline(),
+				   stdin, feof(), clearerr(),
+				   fputc() */
+#include <errno.h>		/* program_invocation_short_name,
+				   errno, ENOENT, error_t, ENOMEM,
+				   EINVAL, EBADF, ENOTTY, EFAULT,
+				   EFBIG, EIO, ENOSPC, EINTR */
+#include <string.h>		/* strerror(), strrchr(), strcmp() */
+#include <error.h>		/* error() */
+#include <stdlib.h>		/* free(), realloc(), EXIT_SUCCESS,
+				   EXIT_FAILURE, getenv() */
+#include <unistd.h>		/* access(), R_OK, ssize_t, close(),
+				   read(), STDIN_FILENO, write(),
+				   STDOUT_FILENO */
+#include <dirent.h>		/* struct dirent, scandir(),
+				   alphasort() */
+#include <inttypes.h>		/* uintmax_t, strtoumax() */
+#include <iso646.h>		/* or, and, not */
+#include <fcntl.h>		/* open(), O_RDONLY */
+#include <stddef.h>		/* NULL, size_t */
+#include <termios.h>		/* struct termios, tcgetattr(),
+				   tcflag_t, ECHO, tcsetattr(),
+				   TCSAFLUSH */
+#include <signal.h>		/* struct sigaction, sigemptyset(),
+				   sigaddset(), SIGINT, SIGHUP,
+				   SIGTERM, SIG_IGN, SIG_DFL,
+				   raise() */
+#include <sysexits.h>		/* EX_OSERR, EX_USAGE, EX_UNAVAILABLE,
+				   EX_IOERR, EX_OSFILE, EX_OK */
 
 volatile sig_atomic_t quit_now = 0;
 int signal_received;

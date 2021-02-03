@@ -23,11 +23,13 @@
  * Contact the authors at <mandos@recompile.se>.
  */
 
-#define _GNU_SOURCE
-#include <inttypes.h>		/* uintmax_t, PRIuMAX, PRIdMAX,
-				   intmax_t, uint32_t, SCNx32,
-				   SCNuMAX, SCNxMAX */
-#include <stddef.h>		/* size_t */
+#define _GNU_SOURCE		/* pipe2(), O_CLOEXEC, setresgid(),
+				   setresuid(), asprintf(), getline(),
+				   basename() */
+#include <inttypes.h>		/* uintmax_t, strtoumax(), PRIuMAX,
+				   PRIdMAX, intmax_t, uint32_t,
+				   SCNx32, SCNuMAX, SCNxMAX */
+#include <stddef.h>		/* size_t, NULL */
 #include <sys/types.h>		/* pid_t, uid_t, gid_t, getuid(),
 				   getpid() */
 #include <stdbool.h>		/* bool, true, false */
@@ -40,10 +42,17 @@
 				   NSIG, sigismember(), SA_ONSTACK,
 				   SIG_DFL, SIG_IGN, SIGINT, SIGQUIT,
 				   SIGHUP, SIGSTOP, SIG_UNBLOCK */
+#include <unistd.h>		/* uid_t, gid_t, close(), pipe2(),
+				   fork(), _exit(), dup2(),
+				   STDOUT_FILENO, setresgid(),
+				   setresuid(), execv(), ssize_t,
+				   read(), dup3(), getuid(), dup(),
+				   STDERR_FILENO, pause(), write(),
+				   rmdir(), unlink(), getpid() */
 #include <stdlib.h>		/* EXIT_SUCCESS, EXIT_FAILURE,
-				   malloc(), free(), strtoumax(),
-				   realloc(), setenv(), calloc(),
-				   mkdtemp(), mkostemp() */
+				   malloc(), free(), realloc(),
+				   setenv(), calloc(), mkdtemp(),
+				   mkostemp() */
 #include <iso646.h>		/* not, or, and, xor */
 #include <error.h>		/* error() */
 #include <sysexits.h>		/* EX_USAGE, EX_OSERR, EX_OSFILE */
@@ -57,7 +66,7 @@
 #include <string.h>		/* strdup(), memcpy(),
 				   explicit_bzero(), memset(),
 				   strcmp(), strlen(), strncpy(),
-				   memcmp(), basename() */
+				   memcmp(), basename(), strerror() */
 #include <argz.h>		/* argz_create(), argz_count(),
 				   argz_extract(), argz_next(),
 				   argz_add() */
@@ -73,14 +82,7 @@
 				   ARGP_ERR_UNKNOWN, ARGP_KEY_ARGS,
 				   struct argp, argp_parse(),
 				   ARGP_NO_EXIT */
-#include <stdint.h>		/* SIZE_MAX */
-#include <unistd.h>		/* uid_t, gid_t, close(), pipe2(),
-				   fork(), _exit(), dup2(),
-				   STDOUT_FILENO, setresgid(),
-				   setresuid(), execv(), ssize_t,
-				   read(), dup3(), getuid(), dup(),
-				   STDERR_FILENO, pause(), write(),
-				   rmdir(), unlink(), getpid() */
+#include <stdint.h>		/* SIZE_MAX, uint32_t */
 #include <sys/mman.h>		/* munlock(), mlock() */
 #include <fcntl.h>		/* O_CLOEXEC, O_NONBLOCK, fcntl(),
 				   F_GETFD, F_GETFL, FD_CLOEXEC,
@@ -110,8 +112,9 @@
 			g_assert_null(), g_assert_false(),
 			g_assert_cmpint(), g_assert_cmpuint(),
 			g_test_skip(), g_assert_cmpstr(),
-			g_test_init(), g_test_add(), g_test_run(),
-			GOptionContext, g_option_context_new(),
+			g_test_message(), g_test_init(), g_test_add(),
+			g_test_run(), GOptionContext,
+			g_option_context_new(),
 			g_option_context_set_help_enabled(), FALSE,
 			g_option_context_set_ignore_unknown_options(),
 			gboolean, GOptionEntry, G_OPTION_ARG_NONE,

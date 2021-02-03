@@ -23,36 +23,42 @@
  * Contact the authors at <mandos@recompile.se>.
  */
 
-#define _GNU_SOURCE		/* asprintf(), TEMP_FAILURE_RETRY() */
-#include <signal.h>		/* sig_atomic_t, struct sigaction,
-				   sigemptyset(), sigaddset(), SIGINT,
-				   SIGHUP, SIGTERM, sigaction(),
-				   SIG_IGN, kill(), SIGKILL */
+#define _GNU_SOURCE		/* vasprintf(),
+				   program_invocation_short_name,
+				   asprintf(), TEMP_FAILURE_RETRY() */
+#include <sys/types.h>		/* sig_atomic_t, pid_t, setuid(),
+				   geteuid(), setsid() */
+#include <stdarg.h>		/* va_list, va_start(), vfprintf() */
+#include <stdio.h>		/* vasprintf(), fprintf(), stderr,
+				   vfprintf(), asprintf() */
+#include <errno.h>		/* program_invocation_short_name,
+				   errno, ENOENT, EINTR */
+#include <string.h>		/* strerror(), strlen(), memcmp() */
+#include <error.h>		/* error() */
+#include <stdlib.h>		/* free(), getenv(), realloc(),
+				   EXIT_FAILURE, EXIT_SUCCESS,
+				   malloc(), abort() */
 #include <stdbool.h>		/* bool, false, true */
 #include <fcntl.h>		/* open(), O_WRONLY, O_RDONLY */
-#include <iso646.h>		/* and, or, not*/
-#include <errno.h>		/* errno, EINTR */
-#include <error.h>
-#include <sys/types.h>		/* size_t, ssize_t, pid_t, DIR, struct
-				   dirent */
-#include <stddef.h>		/* NULL */
-#include <string.h>		/* strlen(), memcmp(), strerror() */
-#include <stdio.h>		/* asprintf(), vasprintf(), vprintf(),
-				   fprintf() */
-#include <unistd.h>		/* close(), write(), readlink(),
-				   read(), STDOUT_FILENO, sleep(),
-				   fork(), setuid(), geteuid(),
-				   setsid(), chdir(), dup2(),
-				   STDERR_FILENO, execv() */
-#include <stdlib.h>		/* free(), EXIT_FAILURE, realloc(),
-				   EXIT_SUCCESS, malloc(), _exit(),
-				   getenv() */
-#include <dirent.h>		/* opendir(), readdir(), closedir() */
+#include <stddef.h>		/* size_t, NULL */
+#include <unistd.h>		/* close(), ssize_t, write(),
+				   readlink(), read(), STDOUT_FILENO,
+				   sleep(), fork(), setuid(),
+				   geteuid(), setsid(), chdir(),
+				   _exit(), dup2(), STDERR_FILENO,
+				   execv(), TEMP_FAILURE_RETRY(),
+				   pause() */
+#include <dirent.h>		/* DIR, opendir(), struct dirent,
+				   readdir(), closedir() */
 #include <inttypes.h>		/* intmax_t, strtoimax() */
-#include <sys/stat.h>		/* struct stat, lstat(), S_ISLNK */
+#include <iso646.h>		/* or, not, and */
+#include <sys/stat.h>		/* struct stat, lstat(), S_ISLNK() */
 #include <sysexits.h>		/* EX_OSERR, EX_UNAVAILABLE */
+#include <signal.h>		/* struct sigaction, sigemptyset(),
+				   sigaddset(), SIGINT, SIGHUP,
+				   SIGTERM, SIG_IGN, kill(), SIGKILL,
+				   SIG_DFL, raise() */
 #include <argz.h>		/* argz_count(), argz_extract() */
-#include <stdarg.h>		/* va_list, va_start(), ... */
 
 sig_atomic_t interrupted_by_signal = 0;
 int signal_received;
