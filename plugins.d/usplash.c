@@ -2,8 +2,8 @@
 /*
  * Usplash - Read a password from usplash and output it
  * 
- * Copyright © 2008-2018 Teddy Hogeborn
- * Copyright © 2008-2018 Björn Påhlsson
+ * Copyright © 2008-2018, 2021 Teddy Hogeborn
+ * Copyright © 2008-2018, 2021 Björn Påhlsson
  * 
  * This file is part of Mandos.
  * 
