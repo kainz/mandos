@@ -2,8 +2,8 @@
 /*
  * Mandos password agent - Simple password agent to run Mandos client
  *
- * Copyright © 2019-2020 Teddy Hogeborn
- * Copyright © 2019-2020 Björn Påhlsson
+ * Copyright © 2019-2021 Teddy Hogeborn
+ * Copyright © 2019-2021 Björn Påhlsson
  * 
  * This file is part of Mandos.
  * 
