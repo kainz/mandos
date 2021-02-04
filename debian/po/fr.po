@@ -124,8 +124,8 @@ msgstr ""
 #. Type: note
 #. description
 #: ../mandos-client.templates:1001
-msgid "${key_id}"
-msgstr "${key_id}"
+msgid " ${key_id}"
+msgstr " ${key_id}"
 
 #. Type: note
 #. description
