@@ -734,7 +734,8 @@ int main(int argc, char *argv[]){
 	custom_argc += 1;
 	{
 #if defined(__GLIBC_PREREQ) and __GLIBC_PREREQ(2, 26)
-	  char **new_argv = reallocarray(custom_argv, (size_t)custom_argc + 1,
+	  char **new_argv = reallocarray(custom_argv,
+					 (size_t)custom_argc + 1,
 					 sizeof(char *));
 #else
 	  char **new_argv = NULL;
