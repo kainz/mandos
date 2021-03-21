@@ -29,7 +29,7 @@ ALL_SANITIZE_OPTIONS:=-fsanitize=leak -fsanitize=undefined \
 
 # For info about _FORTIFY_SOURCE, see feature_test_macros(7)
 # and <https://gcc.gnu.org/ml/gcc-patches/2004-09/msg02055.html>.
-FORTIFY:=-D_FORTIFY_SOURCE=2 -fstack-protector-all -fPIC
+FORTIFY:=-D_FORTIFY_SOURCE=3 -fstack-protector-all -fPIC
 LINK_FORTIFY_LD:=-z relro -z now
 LINK_FORTIFY:=
 
