@@ -661,7 +661,8 @@ class gnutls:
             raise gnutls.CertificateSecurityError(code=result)
         raise gnutls.Error(code=result)
 
-    def _retry_on_error(result, func, arguments):
+    def _retry_on_error(result, func, arguments,
+                        _error_code=_error_code):
         """A function to retry on some errors, suitable
         for the 'errcheck' attribute on ctypes functions"""
         while result < 0:
