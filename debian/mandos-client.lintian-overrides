@@ -1,32 +1,28 @@
 # This directory contains secret client key files.
-#
 mandos-client binary: non-standard-dir-perm etc/keys/mandos/ 0700 != 0755
 
 # The directory /usr/lib/<arch>/mandos/plugins.d contains setuid
-# binaries which are not meant to be run outside an initial RAM disk
+# binaries which are only meant to be run inside an initial RAM disk
 # environment (except for test purposes).  It would be insecure to
 # allow anyone to run them.
-#
 mandos-client binary: non-standard-dir-perm usr/lib/*/mandos/plugins.d/ 0700 != 0755
 # Likewise for helper executables for plugins
 mandos-client binary: non-standard-dir-perm usr/lib/*/mandos/plugin-helpers/ 0700 != 0755
 
 # These binaries must be setuid root, since they need root powers, but
 # are started by plugin-runner(8mandos), which runs all plugins as
-# user/group "_mandos".  These binaries are not run in a running
-# system, but in an initial RAM disk environment.  Here they are
+# user/group "_mandos".  These binaries are never run in a running
+# system, but only in an initial RAM disk environment.  Here they are
 # protected from non-root access by the directory permissions, above.
-#
-mandos-client binary: setuid-binary usr/lib/*/mandos/plugins.d/mandos-client 4755 root/root
-mandos-client binary: setuid-binary usr/lib/*/mandos/plugins.d/askpass-fifo 4755 root/root
-mandos-client binary: setuid-binary usr/lib/*/mandos/plugins.d/splashy 4755 root/root
-mandos-client binary: setuid-binary usr/lib/*/mandos/plugins.d/usplash 4755 root/root
-mandos-client binary: setuid-binary usr/lib/*/mandos/plugins.d/plymouth 4755 root/root
+mandos-client binary: elevated-privileges usr/lib/*/mandos/plugins.d/mandos-client 4755 root/root
+mandos-client binary: elevated-privileges usr/lib/*/mandos/plugins.d/askpass-fifo 4755 root/root
+mandos-client binary: elevated-privileges usr/lib/*/mandos/plugins.d/splashy 4755 root/root
+mandos-client binary: elevated-privileges usr/lib/*/mandos/plugins.d/usplash 4755 root/root
+mandos-client binary: elevated-privileges usr/lib/*/mandos/plugins.d/plymouth 4755 root/root
 
 # The directory /etc/mandos/plugins.d can be used by local system
 # administrators to place plugins in, overriding and complementing
 # /usr/lib/<arch>/mandos/plugins.d, and must be likewise protected.
-#
 mandos-client binary: non-standard-dir-perm etc/mandos/plugins.d/ 0700 != 0755
 # Likewise for plugin-helpers directory
 mandos-client binary: non-standard-dir-perm etc/mandos/plugin-helpers/ 0700 != 0755
