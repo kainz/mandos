@@ -189,16 +189,16 @@ def initlogger(debug, level=logging.WARNING):
         facility=logging.handlers.SysLogHandler.LOG_DAEMON,
         address="/dev/log"))
     syslogger.setFormatter(logging.Formatter
-                           ('Mandos [%(process)d]: %(levelname)s:'
-                            ' %(message)s'))
+                           ("Mandos [%(process)d]: %(levelname)s:"
+                            " %(message)s"))
     logger.addHandler(syslogger)
 
     if debug:
         console = logging.StreamHandler()
-        console.setFormatter(logging.Formatter('%(asctime)s %(name)s'
-                                               ' [%(process)d]:'
-                                               ' %(levelname)s:'
-                                               ' %(message)s'))
+        console.setFormatter(logging.Formatter("%(asctime)s %(name)s"
+                                               " [%(process)d]:"
+                                               " %(levelname)s:"
+                                               " %(message)s"))
         logger.addHandler(console)
     logger.setLevel(level)
 
@@ -224,10 +224,10 @@ class PGPEngine:
         except OSError as e:
             if e.errno != errno.ENOENT:
                 raise
-        self.gnupgargs = ['--batch',
-                          '--homedir', self.tempdir,
-                          '--force-mdc',
-                          '--quiet']
+        self.gnupgargs = ["--batch",
+                          "--homedir", self.tempdir,
+                          "--force-mdc",
+                          "--quiet"]
         # Only GPG version 1 has the --no-use-agent option.
         if self.gpg == b"gpg" or self.gpg.endswith(b"/gpg"):
             self.gnupgargs.append("--no-use-agent")
@@ -272,8 +272,8 @@ class PGPEngine:
                 dir=self.tempdir) as passfile:
             passfile.write(passphrase)
             passfile.flush()
-            proc = subprocess.Popen([self.gpg, '--symmetric',
-                                     '--passphrase-file',
+            proc = subprocess.Popen([self.gpg, "--symmetric",
+                                     "--passphrase-file",
                                      passfile.name]
                                     + self.gnupgargs,
                                     stdin=subprocess.PIPE,
@@ -290,8 +290,8 @@ class PGPEngine:
                 dir=self.tempdir) as passfile:
             passfile.write(passphrase)
             passfile.flush()
-            proc = subprocess.Popen([self.gpg, '--decrypt',
-                                     '--passphrase-file',
+            proc = subprocess.Popen([self.gpg, "--decrypt",
+                                     "--passphrase-file",
                                      passfile.name]
                                     + self.gnupgargs,
                                     stdin=subprocess.PIPE,
@@ -350,8 +350,8 @@ class AvahiService:
     Attributes:
     interface: integer; avahi.IF_UNSPEC or an interface index.
                Used to optionally bind to the specified interface.
-    name: string; Example: 'Mandos'
-    type: string; Example: '_mandos._tcp'.
+    name: string; Example: "Mandos"
+    type: string; Example: "_mandos._tcp".
      See <https://www.iana.org/assignments/service-names-port-numbers>
     port: integer; what port to announce
     TXT: list of strings; TXT record for the service
@@ -435,7 +435,7 @@ class AvahiService:
                 avahi.DBUS_INTERFACE_ENTRY_GROUP)
         self.entry_group_state_changed_match = (
             self.group.connect_to_signal(
-                'StateChanged', self.entry_group_state_changed))
+                "StateChanged", self.entry_group_state_changed))
         logger.debug("Adding Zeroconf service '%s' of type '%s' ...",
                      self.name, self.type)
         self.group.AddService(
@@ -527,7 +527,7 @@ class AvahiServiceToSyslog(AvahiService):
         ret = super(AvahiServiceToSyslog, self).rename(*args,
                                                        **kwargs)
         syslogger.setFormatter(logging.Formatter(
-            'Mandos ({}) [%(process)d]: %(levelname)s: %(message)s'
+            "Mandos ({}) [%(process)d]: %(levelname)s: %(message)s"
             .format(self.name)))
         return ret
 
@@ -574,8 +574,8 @@ class gnutls:
     certificate_type_t = ctypes.c_int
 
     class datum_t(ctypes.Structure):
-        _fields_ = [('data', ctypes.POINTER(ctypes.c_ubyte)),
-                    ('size', ctypes.c_uint)]
+        _fields_ = [("data", ctypes.POINTER(ctypes.c_ubyte)),
+                    ("size", ctypes.c_uint)]
 
     class _openpgp_crt_int(ctypes.Structure):
         _fields_ = []
@@ -676,7 +676,7 @@ class gnutls:
     # Error handling functions
     def _error_code(result):
         """A function to raise exceptions on errors, suitable
-        for the 'restype' attribute on ctypes functions"""
+        for the "restype" attribute on ctypes functions"""
         if result >= gnutls.E_SUCCESS:
             return result
         if result == gnutls.E_NO_CERTIFICATE_FOUND:
@@ -686,7 +686,7 @@ class gnutls:
     def _retry_on_error(result, func, arguments,
                         _error_code=_error_code):
         """A function to retry on some errors, suitable
-        for the 'errcheck' attribute on ctypes functions"""
+        for the "errcheck" attribute on ctypes functions"""
         while result < gnutls.E_SUCCESS:
             if result not in (gnutls.E_INTERRUPTED, gnutls.E_AGAIN):
                 return _error_code(result)
@@ -876,11 +876,11 @@ class Client:
     """A representation of a client host served by this server.
 
     Attributes:
-    approved:   bool(); 'None' if not yet approved/disapproved
+    approved:   bool(); None if not yet approved/disapproved
     approval_delay: datetime.timedelta(); Time to wait for approval
     approval_duration: datetime.timedelta(); Duration of one approval
     checker: multiprocessing.Process(); a running checker process used
-             to see if the client lives. 'None' if no process is
+             to see if the client lives. None if no process is
              running.
     checker_callback_tag: a GLib event source tag, or None
     checker_command: string; External command which is run to check
@@ -1242,7 +1242,7 @@ def dbus_service_property(dbus_interface,
         func._dbus_name = func.__name__
         if func._dbus_name.endswith("_dbus_property"):
             func._dbus_name = func._dbus_name[:-14]
-        func._dbus_get_args_options = {'byte_arrays': byte_arrays}
+        func._dbus_get_args_options = {"byte_arrays": byte_arrays}
         return func
 
     return decorator
@@ -1337,8 +1337,8 @@ class DBusObjectWithAnnotations(dbus.service.Object):
 
     @dbus.service.method(dbus.INTROSPECTABLE_IFACE,
                          out_signature="s",
-                         path_keyword='object_path',
-                         connection_keyword='connection')
+                         path_keyword="object_path",
+                         connection_keyword="connection")
     def Introspect(self, object_path, connection):
         """Overloading of standard D-Bus method.
 
@@ -1497,8 +1497,8 @@ class DBusObjectWithProperties(DBusObjectWithAnnotations):
 
     @dbus.service.method(dbus.INTROSPECTABLE_IFACE,
                          out_signature="s",
-                         path_keyword='object_path',
-                         connection_keyword='connection')
+                         path_keyword="object_path",
+                         connection_keyword="connection")
     def Introspect(self, object_path, connection):
         """Overloading of standard D-Bus method.
 
@@ -1599,8 +1599,8 @@ class DBusObjectWithObjectManager(DBusObjectWithAnnotations):
 
     @dbus.service.method(dbus.INTROSPECTABLE_IFACE,
                          out_signature="s",
-                         path_keyword='object_path',
-                         connection_keyword='connection')
+                         path_keyword="object_path",
+                         connection_keyword="connection")
     def Introspect(self, object_path, connection):
         """Overloading of standard D-Bus method.
 
@@ -2272,29 +2272,29 @@ class ClientDBus(Client, DBusObjectWithProperties):
 class ProxyClient:
     def __init__(self, child_pipe, key_id, fpr, address):
         self._pipe = child_pipe
-        self._pipe.send(('init', key_id, fpr, address))
+        self._pipe.send(("init", key_id, fpr, address))
         if not self._pipe.recv():
             raise KeyError(key_id or fpr)
 
     def __getattribute__(self, name):
-        if name == '_pipe':
+        if name == "_pipe":
             return super(ProxyClient, self).__getattribute__(name)
-        self._pipe.send(('getattr', name))
+        self._pipe.send(("getattr", name))
         data = self._pipe.recv()
-        if data[0] == 'data':
+        if data[0] == "data":
             return data[1]
-        if data[0] == 'function':
+        if data[0] == "function":
 
             def func(*args, **kwargs):
-                self._pipe.send(('funcall', name, args, kwargs))
+                self._pipe.send(("funcall", name, args, kwargs))
                 return self._pipe.recv()[1]
 
             return func
 
     def __setattr__(self, name, value):
-        if name == '_pipe':
+        if name == "_pipe":
             return super(ProxyClient, self).__setattr__(name, value)
-        self._pipe.send(('setattr', name, value))
+        self._pipe.send(("setattr", name, value))
 
 
 class ClientHandler(socketserver.BaseRequestHandler, object):
@@ -2312,7 +2312,7 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
 
             session = gnutls.ClientSession(self.request)
 
-            # priority = ':'.join(("NONE", "+VERS-TLS1.1",
+            # priority = ":".join(("NONE", "+VERS-TLS1.1",
             #                       "+AES-256-CBC", "+SHA1",
             #                       "+COMP-NULL", "+CTYPE-OPENPGP",
             #                       "+DHE-DSS"))
@@ -2590,7 +2590,7 @@ class MultiprocessingMixInWithPipe(MultiprocessingMixIn):
 
 class IPv6_TCPServer(MultiprocessingMixInWithPipe,
                      socketserver.TCPServer):
-    """IPv6-capable TCP server.  Accepts 'None' as address and/or port
+    """IPv6-capable TCP server.  Accepts None as address and/or port
 
     Attributes:
         enabled:        Boolean; whether this server is activated yet
@@ -2748,7 +2748,7 @@ class MandosServer(IPv6_TCPServer):
         request = parent_pipe.recv()
         command = request[0]
 
-        if command == 'init':
+        if command == "init":
             key_id = request[1].decode("ascii")
             fpr = request[2].decode("ascii")
             address = request[3]
@@ -2784,25 +2784,25 @@ class MandosServer(IPv6_TCPServer):
             # remove the old hook in favor of the new above hook on
             # same fileno
             return False
-        if command == 'funcall':
+        if command == "funcall":
             funcname = request[1]
             args = request[2]
             kwargs = request[3]
 
-            parent_pipe.send(('data', getattr(client_object,
+            parent_pipe.send(("data", getattr(client_object,
                                               funcname)(*args,
                                                         **kwargs)))
 
-        if command == 'getattr':
+        if command == "getattr":
             attrname = request[1]
             if isinstance(client_object.__getattribute__(attrname),
                           collections.abc.Callable):
-                parent_pipe.send(('function', ))
+                parent_pipe.send(("function", ))
             else:
                 parent_pipe.send((
-                    'data', client_object.__getattribute__(attrname)))
+                    "data", client_object.__getattribute__(attrname)))
 
-        if command == 'setattr':
+        if command == "setattr":
             attrname = request[1]
             value = request[2]
             setattr(client_object, attrname, value)
@@ -2914,17 +2914,17 @@ def rfc3339_duration_to_delta(duration):
 def string_to_delta(interval):
     """Parse a string and return a datetime.timedelta
 
-    >>> string_to_delta('7d') == datetime.timedelta(7)
+    >>> string_to_delta("7d") == datetime.timedelta(7)
     True
-    >>> string_to_delta('60s') == datetime.timedelta(0, 60)
+    >>> string_to_delta("60s") == datetime.timedelta(0, 60)
     True
-    >>> string_to_delta('60m') == datetime.timedelta(0, 3600)
+    >>> string_to_delta("60m") == datetime.timedelta(0, 3600)
     True
-    >>> string_to_delta('24h') == datetime.timedelta(1)
+    >>> string_to_delta("24h") == datetime.timedelta(1)
     True
-    >>> string_to_delta('1w') == datetime.timedelta(7)
+    >>> string_to_delta("1w") == datetime.timedelta(7)
     True
-    >>> string_to_delta('5m 30s') == datetime.timedelta(0, 330)
+    >>> string_to_delta("5m 30s") == datetime.timedelta(0, 330)
     True
     """
 
@@ -3134,8 +3134,8 @@ def main():
 
     if server_settings["servicename"] != "Mandos":
         syslogger.setFormatter(
-            logging.Formatter('Mandos ({}) [%(process)d]:'
-                              ' %(levelname)s: %(message)s'.format(
+            logging.Formatter("Mandos ({}) [%(process)d]:"
+                              " %(levelname)s: %(message)s".format(
                                   server_settings["servicename"])))
 
     # Parse config file with clients
@@ -3584,9 +3584,9 @@ def main():
 
         try:
             with tempfile.NamedTemporaryFile(
-                    mode='wb',
+                    mode="wb",
                     suffix=".pickle",
-                    prefix='clients-',
+                    prefix="clients-",
                     dir=os.path.dirname(stored_state_path),
                     delete=False) as stored_state:
                 pickle.dump((clients, client_settings), stored_state,
@@ -3679,7 +3679,7 @@ def main():
 
 def should_only_run_tests():
     parser = argparse.ArgumentParser(add_help=False)
-    parser.add_argument("--check", action='store_true')
+    parser.add_argument("--check", action="store_true")
     args, unknown_args = parser.parse_known_args()
     run_tests = args.check
     if run_tests:
@@ -3693,7 +3693,7 @@ def load_tests(loader, tests, none):
     tests.addTests(doctest.DocTestSuite())
     return tests
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     try:
         if should_only_run_tests():
             # Call using ./mandos --check [--verbose]
