@@ -102,7 +102,7 @@ def main():
     clientnames = options.client
 
     if options.debug:
-        log.setLevel(logging.DEBUG)
+        logging.getLogger("").setLevel(logging.DEBUG)
 
     if dbussy is not None and ravel is not None:
         bus = dbussy_adapter.CachingBus(dbussy, ravel)
