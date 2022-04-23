@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY COMMANDNAME "mandos">
-<!ENTITY TIMESTAMP "2019-07-24">
+<!ENTITY TIMESTAMP "2022-04-24">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -136,8 +136,8 @@
     <title>DESCRIPTION</title>
     <para>
       <command>&COMMANDNAME;</command> is a server daemon which
-      handles incoming request for passwords for a pre-defined list of
-      client host computers. For an introduction, see
+      handles incoming requests for passwords for a pre-defined list
+      of client host computers. For an introduction, see
       <citerefentry><refentrytitle>intro</refentrytitle>
       <manvolnum>8mandos</manvolnum></citerefentry>. The Mandos server
       uses Zeroconf to announce itself on the local network, and uses
@@ -739,7 +739,7 @@
 	    <listitem>
 	      <para>
 		The clients use IPv6 link-local addresses, which are
-		immediately usable since a link-local addresses is
+		immediately usable since a link-local address is
 		automatically assigned to a network interfaces when it
 		is brought up.
 	      </para>
