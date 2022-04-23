@@ -296,6 +296,7 @@ plugin-helpers/mandos-client-iprouteadddel: LDLIBS += $(LIBNL3_LIBS)
 
 # Need to add the GLib and pthread libraries
 dracut-module/password-agent: CFLAGS += $(GLIB_CFLAGS)
+# Note: -lpthread is unnecessary with the GNU C library 2.34 or later
 dracut-module/password-agent: LDLIBS += $(GLIB_LIBS) -lpthread
 
 .PHONY: clean
