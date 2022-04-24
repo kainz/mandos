@@ -2858,10 +2858,12 @@ if __name__ == "__main__":
 # 	    default-directory dir)
 #     (erase-buffer)
 #     (compilation-mode))
-#   (let ((inhibit-read-only t))
-#     (= (process-file-shell-command
-# 	  (funcall get-command-line extra)
-# 	  nil "*Test*") 0)))
+#   (let ((process-result
+# 	   (let ((inhibit-read-only t))
+# 	     (process-file-shell-command
+# 	      (funcall get-command-line extra) nil "*Test*"))))
+#     (and (numberp process-result)
+# 	   (= process-result 0))))
 # get-command-line:
 # (lambda (&optional extra)
 #   (let ((quoted-script
