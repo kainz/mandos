@@ -1,5 +1,5 @@
 #!/usr/bin/python3 -bbI
-# -*- after-save-hook: (lambda () (let ((command (if (fboundp 'file-local-name) (file-local-name (buffer-file-name)) (or (file-remote-p (buffer-file-name) 'localname) (buffer-file-name))))) (if (= (progn (if (get-buffer "*Test*") (kill-buffer "*Test*")) (process-file-shell-command (format "%s --check" (shell-quote-argument command)) nil "*Test*")) 0) (let ((w (get-buffer-window "*Test*"))) (if w (delete-window w))) (progn (with-current-buffer "*Test*" (compilation-mode)) (display-buffer "*Test*" '(display-buffer-in-side-window)))))); coding: utf-8 -*-
+# -*- coding: utf-8; lexical-binding: t -*-
 #
 # Mandos Control - Control or query the Mandos server
 #
@@ -23,7 +23,6 @@
 #
 # Contact the authors at <mandos@recompile.se>.
 #
-
 from __future__ import (division, absolute_import, print_function,
                         unicode_literals)
 
@@ -33,15 +32,15 @@ except ImportError:
     pass
 
 import sys
+import unittest
 import argparse
+import logging
+import os
 import locale
 import datetime
 import re
-import os
 import collections
 import json
-import unittest
-import logging
 import io
 import tempfile
 import contextlib
@@ -49,6 +48,7 @@ import contextlib
 if sys.version_info.major == 2:
     __metaclass__ = type
     str = unicode
+    input = raw_input
 
 class gi:
     """Dummy gi module, for the tests"""
@@ -77,7 +77,7 @@ if not sys.warnoptions:
     import warnings
     warnings.simplefilter("default")
 
-log = logging.getLogger(sys.argv[0])
+log = logging.getLogger(os.path.basename(sys.argv[0]))
 logging.basicConfig(level="INFO", # Show info level messages
                     format="%(message)s") # Show basic log messages
 
@@ -2742,9 +2742,12 @@ class TestSetHostCmd(TestPropertySetterCmd):
 class TestSetSecretCmd(TestPropertySetterCmd):
     command = command.SetSecret
     propname = "Secret"
-    values_to_set = [io.BytesIO(b""),
-                     io.BytesIO(b"secret\0xyzzy\nbar")]
-    values_to_get = [f.getvalue() for f in values_to_set]
+    def __init__(self, *args, **kwargs):
+        self.values_to_set = [io.BytesIO(b""),
+                              io.BytesIO(b"secret\0xyzzy\nbar")]
+        self.values_to_get = [f.getvalue() for f in
+                              self.values_to_set]
+        super(TestSetSecretCmd, self).__init__(*args, **kwargs)
 
 
 class TestSetTimeoutCmd(TestPropertySetterCmd):
@@ -2803,15 +2806,16 @@ class TestSetApprovalDurationCmd(TestPropertySetterCmd):
 
 
 
-def should_only_run_tests():
+def parse_test_args():
+    # type: () -> argparse.Namespace
     parser = argparse.ArgumentParser(add_help=False)
-    parser.add_argument("--check", action='store_true')
+    parser.add_argument("--check", action="store_true")
+    parser.add_argument("--prefix", )
     args, unknown_args = parser.parse_known_args()
-    run_tests = args.check
-    if run_tests:
-        # Remove --check argument from sys.argv
+    if args.check:
+        # Remove test options from sys.argv
         sys.argv[1:] = unknown_args
-    return run_tests
+    return args
 
 # Add all tests from doctest strings
 def load_tests(loader, tests, none):
@@ -2820,11 +2824,79 @@ def load_tests(loader, tests, none):
     return tests
 
 if __name__ == "__main__":
+    options = parse_test_args()
     try:
-        if should_only_run_tests():
-            # Call using ./tdd-python-script --check [--verbose]
-            unittest.main()
+        if options.check:
+            extra_test_prefix = options.prefix
+            if extra_test_prefix is not None:
+                if not (unittest.main(argv=[""], exit=False)
+                        .result.wasSuccessful()):
+                    sys.exit(1)
+                class ExtraTestLoader(unittest.TestLoader):
+                    testMethodPrefix = extra_test_prefix
+                # Call using ./scriptname --check [--verbose]
+                unittest.main(argv=[""], testLoader=ExtraTestLoader())
+            else:
+                unittest.main(argv=[""])
         else:
             main()
     finally:
         logging.shutdown()
+
+# Local Variables:
+# run-tests:
+# (lambda (&optional extra)
+#   (if (not (funcall run-tests-in-test-buffer default-directory
+# 	      extra))
+# 	(funcall show-test-buffer-in-test-window)
+#     (funcall remove-test-window)
+#     (if extra (message "Extra tests run successfully!"))))
+# run-tests-in-test-buffer:
+# (lambda (dir &optional extra)
+#   (with-current-buffer (get-buffer-create "*Test*")
+#     (setq buffer-read-only nil
+# 	    default-directory dir)
+#     (erase-buffer)
+#     (compilation-mode))
+#   (let ((inhibit-read-only t))
+#     (= (process-file-shell-command
+# 	  (funcall get-command-line extra)
+# 	  nil "*Test*") 0)))
+# get-command-line:
+# (lambda (&optional extra)
+#   (let ((quoted-script
+# 	   (shell-quote-argument (funcall get-script-name))))
+#     (format
+#      (concat "%s --check" (if extra " --prefix=atest" ""))
+#      quoted-script)))
+# get-script-name:
+# (lambda ()
+#   (if (fboundp 'file-local-name)
+# 	(file-local-name (buffer-file-name))
+#     (or (file-remote-p (buffer-file-name) 'localname)
+# 	  (buffer-file-name))))
+# remove-test-window:
+# (lambda ()
+#   (let ((test-window (get-buffer-window "*Test*")))
+#     (if test-window (delete-window test-window))))
+# show-test-buffer-in-test-window:
+# (lambda ()
+#   (when (not (get-buffer-window-list "*Test*"))
+#     (setq next-error-last-buffer (get-buffer "*Test*"))
+#     (let* ((side (if (>= (window-width) 146) 'right 'bottom))
+# 	     (display-buffer-overriding-action
+# 	      `((display-buffer-in-side-window) (side . ,side)
+# 		(window-height . fit-window-to-buffer)
+# 		(window-width . fit-window-to-buffer))))
+# 	(display-buffer "*Test*"))))
+# eval:
+# (progn
+#   (let* ((run-extra-tests (lambda () (interactive)
+# 			      (funcall run-tests t)))
+# 	   (inner-keymap `(keymap (116 . ,run-extra-tests))) ; t
+# 	   (outer-keymap `(keymap (3 . ,inner-keymap))))     ; C-c
+#     (setq minor-mode-overriding-map-alist
+# 	    (cons `(run-tests . ,outer-keymap)
+# 		  minor-mode-overriding-map-alist)))
+#   (add-hook 'after-save-hook run-tests 90 t))
+# End:
