@@ -146,7 +146,7 @@ if sys.version_info < (3, 2):
 version = "1.8.14"
 stored_state_file = "clients.pickle"
 
-logger = logging.getLogger()
+log = logging.getLogger(os.path.basename(sys.argv[0]))
 logging.captureWarnings(True)   # Show warnings via the logging system
 syslogger = None
 
@@ -191,7 +191,7 @@ def initlogger(debug, level=logging.WARNING):
     syslogger.setFormatter(logging.Formatter
                            ("Mandos [%(process)d]: %(levelname)s:"
                             " %(message)s"))
-    logger.addHandler(syslogger)
+    log.addHandler(syslogger)
 
     if debug:
         console = logging.StreamHandler()
@@ -199,8 +199,8 @@ def initlogger(debug, level=logging.WARNING):
                                                " [%(process)d]:"
                                                " %(levelname)s:"
                                                " %(message)s"))
-        logger.addHandler(console)
-    logger.setLevel(level)
+        log.addHandler(console)
+    log.setLevel(level)
 
 
 class PGPError(Exception):
@@ -394,15 +394,15 @@ class AvahiService:
     def rename(self, remove=True):
         """Derived from the Avahi example code"""
         if self.rename_count >= self.max_renames:
-            logger.critical("No suitable Zeroconf service name found"
-                            " after %i retries, exiting.",
-                            self.rename_count)
+            log.critical("No suitable Zeroconf service name found"
+                         " after %i retries, exiting.",
+                         self.rename_count)
             raise AvahiServiceError("Too many renames")
         self.name = str(
             self.server.GetAlternativeServiceName(self.name))
         self.rename_count += 1
-        logger.info("Changing Zeroconf service name to %r ...",
-                    self.name)
+        log.info("Changing Zeroconf service name to %r ...",
+                 self.name)
         if remove:
             self.remove()
         try:
@@ -410,10 +410,10 @@ class AvahiService:
         except dbus.exceptions.DBusException as error:
             if (error.get_dbus_name()
                 == "org.freedesktop.Avahi.CollisionError"):
-                logger.info("Local Zeroconf service name collision.")
+                log.info("Local Zeroconf service name collision.")
                 return self.rename(remove=False)
             else:
-                logger.critical("D-Bus Exception", exc_info=error)
+                log.critical("D-Bus Exception", exc_info=error)
                 self.cleanup()
                 os._exit(1)
 
@@ -436,8 +436,8 @@ class AvahiService:
         self.entry_group_state_changed_match = (
             self.group.connect_to_signal(
                 "StateChanged", self.entry_group_state_changed))
-        logger.debug("Adding Zeroconf service '%s' of type '%s' ...",
-                     self.name, self.type)
+        log.debug("Adding Zeroconf service '%s' of type '%s' ...",
+                  self.name, self.type)
         self.group.AddService(
             self.interface,
             self.protocol,
@@ -450,16 +450,16 @@ class AvahiService:
 
     def entry_group_state_changed(self, state, error):
         """Derived from the Avahi example code"""
-        logger.debug("Avahi entry group state change: %i", state)
+        log.debug("Avahi entry group state change: %i", state)
 
         if state == avahi.ENTRY_GROUP_ESTABLISHED:
-            logger.debug("Zeroconf service established.")
+            log.debug("Zeroconf service established.")
         elif state == avahi.ENTRY_GROUP_COLLISION:
-            logger.info("Zeroconf service name collision.")
+            log.info("Zeroconf service name collision.")
             self.rename()
         elif state == avahi.ENTRY_GROUP_FAILURE:
-            logger.critical("Avahi: Error in group state changed %s",
-                            str(error))
+            log.critical("Avahi: Error in group state changed %s",
+                         str(error))
             raise AvahiGroupError("State changed: {!s}".format(error))
 
     def cleanup(self):
@@ -475,7 +475,7 @@ class AvahiService:
 
     def server_state_changed(self, state, error=None):
         """Derived from the Avahi example code"""
-        logger.debug("Avahi server state change: %i", state)
+        log.debug("Avahi server state change: %i", state)
         bad_states = {
             avahi.SERVER_INVALID: "Zeroconf server invalid",
             avahi.SERVER_REGISTERING: None,
@@ -485,9 +485,9 @@ class AvahiService:
         if state in bad_states:
             if bad_states[state] is not None:
                 if error is None:
-                    logger.error(bad_states[state])
+                    log.error(bad_states[state])
                 else:
-                    logger.error(bad_states[state] + ": %r", error)
+                    log.error(bad_states[state] + ": %r", error)
             self.cleanup()
         elif state == avahi.SERVER_RUNNING:
             try:
@@ -495,18 +495,17 @@ class AvahiService:
             except dbus.exceptions.DBusException as error:
                 if (error.get_dbus_name()
                     == "org.freedesktop.Avahi.CollisionError"):
-                    logger.info("Local Zeroconf service name"
-                                " collision.")
+                    log.info("Local Zeroconf service name collision.")
                     return self.rename(remove=False)
                 else:
-                    logger.critical("D-Bus Exception", exc_info=error)
+                    log.critical("D-Bus Exception", exc_info=error)
                     self.cleanup()
                     os._exit(1)
         else:
             if error is None:
-                logger.debug("Unknown state: %r", state)
+                log.debug("Unknown state: %r", state)
             else:
-                logger.debug("Unknown state: %r: %r", state, error)
+                log.debug("Unknown state: %r: %r", state, error)
 
     def activate(self):
         """Derived from the Avahi example code"""
@@ -1010,9 +1009,9 @@ class Client:
             self.last_enabled = None
             self.expires = None
 
-        logger.debug("Creating client %r", self.name)
-        logger.debug("  Key ID: %s", self.key_id)
-        logger.debug("  Fingerprint: %s", self.fingerprint)
+        log.debug("Creating client %r", self.name)
+        log.debug("  Key ID: %s", self.key_id)
+        log.debug("  Fingerprint: %s", self.fingerprint)
         self.created = settings.get("created",
                                     datetime.datetime.utcnow())
 
@@ -1057,7 +1056,7 @@ class Client:
         if not getattr(self, "enabled", False):
             return False
         if not quiet:
-            logger.info("Disabling client %s", self.name)
+            log.info("Disabling client %s", self.name)
         if getattr(self, "disable_initiator_tag", None) is not None:
             GLib.source_remove(self.disable_initiator_tag)
             self.disable_initiator_tag = None
@@ -1107,16 +1106,14 @@ class Client:
             self.last_checker_status = returncode
             self.last_checker_signal = None
             if self.last_checker_status == 0:
-                logger.info("Checker for %(name)s succeeded",
-                            vars(self))
+                log.info("Checker for %(name)s succeeded", vars(self))
                 self.checked_ok()
             else:
-                logger.info("Checker for %(name)s failed", vars(self))
+                log.info("Checker for %(name)s failed", vars(self))
         else:
             self.last_checker_status = -1
             self.last_checker_signal = -returncode
-            logger.warning("Checker for %(name)s crashed?",
-                           vars(self))
+            log.warning("Checker for %(name)s crashed?", vars(self))
         return False
 
     def checked_ok(self):
@@ -1156,7 +1153,7 @@ class Client:
         # should be.
 
         if self.checker is not None and not self.checker.is_alive():
-            logger.warning("Checker was not alive; joining")
+            log.warning("Checker was not alive; joining")
             self.checker.join()
             self.checker = None
         # Start a new checker if needed
@@ -1168,13 +1165,11 @@ class Client:
             try:
                 command = self.checker_command % escaped_attrs
             except TypeError as error:
-                logger.error('Could not format string "%s"',
-                             self.checker_command,
-                             exc_info=error)
+                log.error('Could not format string "%s"',
+                          self.checker_command, exc_info=error)
                 return True     # Try again later
             self.current_checker_command = command
-            logger.info("Starting checker %r for %s", command,
-                        self.name)
+            log.info("Starting checker %r for %s", command, self.name)
             # We don't need to redirect stdout and stderr, since
             # in normal mode, that is already done by daemon(),
             # and in debug mode we don't want to.  (Stdin is
@@ -1209,7 +1204,7 @@ class Client:
             self.checker_callback_tag = None
         if getattr(self, "checker", None) is None:
             return
-        logger.debug("Stopping checker for %(name)s", vars(self))
+        log.debug("Stopping checker for %(name)s", vars(self))
         self.checker.terminate()
         self.checker = None
 
@@ -1393,8 +1388,8 @@ class DBusObjectWithAnnotations(dbus.service.Object):
             document.unlink()
         except (AttributeError, xml.dom.DOMException,
                 xml.parsers.expat.ExpatError) as error:
-            logger.error("Failed to override Introspection method",
-                         exc_info=error)
+            log.error("Failed to override Introspection method",
+                      exc_info=error)
         return xmlstring
 
 
@@ -1560,8 +1555,8 @@ class DBusObjectWithProperties(DBusObjectWithAnnotations):
             document.unlink()
         except (AttributeError, xml.dom.DOMException,
                 xml.parsers.expat.ExpatError) as error:
-            logger.error("Failed to override Introspection method",
-                         exc_info=error)
+            log.error("Failed to override Introspection method",
+                      exc_info=error)
         return xmlstring
 
 
@@ -1631,8 +1626,8 @@ class DBusObjectWithObjectManager(DBusObjectWithAnnotations):
             document.unlink()
         except (AttributeError, xml.dom.DOMException,
                 xml.parsers.expat.ExpatError) as error:
-            logger.error("Failed to override Introspection method",
-                         exc_info=error)
+            log.error("Failed to override Introspection method",
+                      exc_info=error)
         return xmlstring
 
 
@@ -2305,10 +2300,9 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
 
     def handle(self):
         with contextlib.closing(self.server.child_pipe) as child_pipe:
-            logger.info("TCP connection from: %s",
-                        str(self.client_address))
-            logger.debug("Pipe FD: %d",
-                         self.server.child_pipe.fileno())
+            log.info("TCP connection from: %s",
+                     str(self.client_address))
+            log.debug("Pipe FD: %d", self.server.child_pipe.fileno())
 
             session = gnutls.ClientSession(self.request)
 
@@ -2326,23 +2320,23 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
             # Start communication using the Mandos protocol
             # Get protocol number
             line = self.request.makefile().readline()
-            logger.debug("Protocol version: %r", line)
+            log.debug("Protocol version: %r", line)
             try:
                 if int(line.strip().split()[0]) > 1:
                     raise RuntimeError(line)
             except (ValueError, IndexError, RuntimeError) as error:
-                logger.error("Unknown protocol version: %s", error)
+                log.error("Unknown protocol version: %s", error)
                 return
 
             # Start GnuTLS connection
             try:
                 session.handshake()
             except gnutls.Error as error:
-                logger.warning("Handshake failed: %s", error)
+                log.warning("Handshake failed: %s", error)
                 # Do not run session.bye() here: the session is not
                 # established.  Just abandon the request.
                 return
-            logger.debug("Handshake succeeded")
+            log.debug("Handshake succeeded")
 
             approval_required = False
             try:
@@ -2352,11 +2346,11 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
                         key_id = self.key_id(
                             self.peer_certificate(session))
                     except (TypeError, gnutls.Error) as error:
-                        logger.warning("Bad certificate: %s", error)
+                        log.warning("Bad certificate: %s", error)
                         return
-                    logger.debug("Key ID: %s",
-                                 key_id.decode("utf-8",
-                                               errors="replace"))
+                    log.debug("Key ID: %s",
+                              key_id.decode("utf-8",
+                                            errors="replace"))
 
                 else:
                     key_id = b""
@@ -2364,9 +2358,9 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
                         fpr = self.fingerprint(
                             self.peer_certificate(session))
                     except (TypeError, gnutls.Error) as error:
-                        logger.warning("Bad certificate: %s", error)
+                        log.warning("Bad certificate: %s", error)
                         return
-                    logger.debug("Fingerprint: %s", fpr)
+                    log.debug("Fingerprint: %s", fpr)
 
                 try:
                     client = ProxyClient(child_pipe, key_id, fpr,
@@ -2381,8 +2375,7 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
 
                 while True:
                     if not client.enabled:
-                        logger.info("Client %s is disabled",
-                                    client.name)
+                        log.info("Client %s is disabled", client.name)
                         if self.server.use_dbus:
                             # Emit D-Bus signal
                             client.Rejected("Disabled")
@@ -2392,16 +2385,16 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
                         # We are approved or approval is disabled
                         break
                     elif client.approved is None:
-                        logger.info("Client %s needs approval",
-                                    client.name)
+                        log.info("Client %s needs approval",
+                                 client.name)
                         if self.server.use_dbus:
                             # Emit D-Bus signal
                             client.NeedApproval(
                                 client.approval_delay.total_seconds()
                                 * 1000, client.approved_by_default)
                     else:
-                        logger.warning("Client %s was not approved",
-                                       client.name)
+                        log.warning("Client %s was not approved",
+                                    client.name)
                         if self.server.use_dbus:
                             # Emit D-Bus signal
                             client.Rejected("Denied")
@@ -2415,9 +2408,9 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
                     time2 = datetime.datetime.now()
                     if (time2 - time) >= delay:
                         if not client.approved_by_default:
-                            logger.warning("Client %s timed out while"
-                                           " waiting for approval",
-                                           client.name)
+                            log.warning("Client %s timed out while"
+                                        " waiting for approval",
+                                        client.name)
                             if self.server.use_dbus:
                                 # Emit D-Bus signal
                                 client.Rejected("Approval timed out")
@@ -2430,11 +2423,10 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
                 try:
                     session.send(client.secret)
                 except gnutls.Error as error:
-                    logger.warning("gnutls send failed",
-                                   exc_info=error)
+                    log.warning("gnutls send failed", exc_info=error)
                     return
 
-                logger.info("Sending secret to %s", client.name)
+                log.info("Sending secret to %s", client.name)
                 # bump the timeout using extended_timeout
                 client.bump_timeout(client.extended_timeout)
                 if self.server.use_dbus:
@@ -2447,8 +2439,7 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
                 try:
                     session.bye()
                 except gnutls.Error as error:
-                    logger.warning("GnuTLS bye failed",
-                                   exc_info=error)
+                    log.warning("GnuTLS bye failed", exc_info=error)
 
     @staticmethod
     def peer_certificate(session):
@@ -2464,8 +2455,8 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
             valid_cert_types = frozenset((gnutls.CRT_OPENPGP,))
         # If not a valid certificate type...
         if cert_type not in valid_cert_types:
-            logger.info("Cert type %r not in %r", cert_type,
-                        valid_cert_types)
+            log.info("Cert type %r not in %r", cert_type,
+                     valid_cert_types)
             # ...return invalid data
             return b""
         list_size = ctypes.c_uint(1)
@@ -2647,7 +2638,7 @@ class IPv6_TCPServer(MultiprocessingMixInWithPipe,
             if SO_BINDTODEVICE is None:
                 # Fall back to a hard-coded value which seems to be
                 # common enough.
-                logger.warning("SO_BINDTODEVICE not found, trying 25")
+                log.warning("SO_BINDTODEVICE not found, trying 25")
                 SO_BINDTODEVICE = 25
             try:
                 self.socket.setsockopt(
@@ -2655,15 +2646,14 @@ class IPv6_TCPServer(MultiprocessingMixInWithPipe,
                     (self.interface + "\0").encode("utf-8"))
             except socket.error as error:
                 if error.errno == errno.EPERM:
-                    logger.error("No permission to bind to"
-                                 " interface %s", self.interface)
+                    log.error("No permission to bind to interface %s",
+                              self.interface)
                 elif error.errno == errno.ENOPROTOOPT:
-                    logger.error("SO_BINDTODEVICE not available;"
-                                 " cannot bind to interface %s",
-                                 self.interface)
+                    log.error("SO_BINDTODEVICE not available; cannot"
+                              " bind to interface %s", self.interface)
                 elif error.errno == errno.ENODEV:
-                    logger.error("Interface %s does not exist,"
-                                 " cannot bind", self.interface)
+                    log.error("Interface %s does not exist, cannot"
+                              " bind", self.interface)
                 else:
                     raise
         # Only bind(2) the socket if we really need to.
@@ -2764,8 +2754,8 @@ class MandosServer(IPv6_TCPServer):
                     client = c
                     break
             else:
-                logger.info("Client not found for key ID: %s, address"
-                            ": %s", key_id or fpr, address)
+                log.info("Client not found for key ID: %s, address:"
+                         " %s", key_id or fpr, address)
                 if self.use_dbus:
                     # Emit D-Bus signal
                     mandos_dbus_service.ClientNotFound(key_id or fpr,
@@ -3165,8 +3155,8 @@ def main():
         try:
             pidfile = codecs.open(pidfilename, "w", encoding="utf-8")
         except IOError as e:
-            logger.error("Could not open file %r", pidfilename,
-                         exc_info=e)
+            log.error("Could not open file %r", pidfilename,
+                      exc_info=e)
 
     for name, group in (("_mandos", "_mandos"),
                         ("mandos", "mandos"),
@@ -3183,12 +3173,10 @@ def main():
     try:
         os.setgid(gid)
         os.setuid(uid)
-        if debug:
-            logger.debug("Did setuid/setgid to {}:{}".format(uid,
-                                                             gid))
+        log.debug("Did setuid/setgid to %s:%s", uid, gid)
     except OSError as error:
-        logger.warning("Failed to setuid/setgid to {}:{}: {}"
-                       .format(uid, gid, os.strerror(error.errno)))
+        log.warning("Failed to setuid/setgid to %s:%s: %s", uid, gid,
+                    os.strerror(error.errno))
         if error.errno != errno.EPERM:
             raise
 
@@ -3201,9 +3189,8 @@ def main():
 
         @gnutls.log_func
         def debug_gnutls(level, string):
-            logger.debug("GnuTLS: %s",
-                         string[:-1].decode("utf-8",
-                                            errors="replace"))
+            log.debug("GnuTLS: %s",
+                      string[:-1].decode("utf-8", errors="replace"))
 
         gnutls.global_set_log_function(debug_gnutls)
 
@@ -3238,7 +3225,7 @@ def main():
                 "se.bsnet.fukt.Mandos", bus,
                 do_not_queue=True)
         except dbus.exceptions.DBusException as e:
-            logger.error("Disabling D-Bus:", exc_info=e)
+            log.error("Disabling D-Bus:", exc_info=e)
             use_dbus = False
             server_settings["use_dbus"] = False
             tcp_server.use_dbus = False
@@ -3329,16 +3316,15 @@ def main():
             os.remove(stored_state_path)
         except IOError as e:
             if e.errno == errno.ENOENT:
-                logger.warning("Could not load persistent state:"
-                               " {}".format(os.strerror(e.errno)))
+                log.warning("Could not load persistent state:"
+                            " %s", os.strerror(e.errno))
             else:
-                logger.critical("Could not load persistent state:",
-                                exc_info=e)
+                log.critical("Could not load persistent state:",
+                             exc_info=e)
                 raise
         except EOFError as e:
-            logger.warning("Could not load persistent state: "
-                           "EOFError:",
-                           exc_info=e)
+            log.warning("Could not load persistent state: EOFError:",
+                        exc_info=e)
 
     with PGPEngine() as pgp:
         for client_name, client in clients_data.items():
@@ -3371,34 +3357,30 @@ def main():
             if client["enabled"]:
                 if datetime.datetime.utcnow() >= client["expires"]:
                     if not client["last_checked_ok"]:
-                        logger.warning(
-                            "disabling client {} - Client never "
-                            "performed a successful checker".format(
-                                client_name))
+                        log.warning("disabling client %s - Client"
+                                    " never performed a successful"
+                                    " checker", client_name)
                         client["enabled"] = False
                     elif client["last_checker_status"] != 0:
-                        logger.warning(
-                            "disabling client {} - Client last"
-                            " checker failed with error code"
-                            " {}".format(
-                                client_name,
-                                client["last_checker_status"]))
+                        log.warning("disabling client %s - Client"
+                                    " last checker failed with error"
+                                    " code %s", client_name,
+                                    client["last_checker_status"])
                         client["enabled"] = False
                     else:
                         client["expires"] = (
                             datetime.datetime.utcnow()
                             + client["timeout"])
-                        logger.debug("Last checker succeeded,"
-                                     " keeping {} enabled".format(
-                                         client_name))
+                        log.debug("Last checker succeeded, keeping %s"
+                                  " enabled", client_name)
             try:
                 client["secret"] = pgp.decrypt(
                     client["encrypted_secret"],
                     client_settings[client_name]["secret"])
             except PGPError:
                 # If decryption fails, we use secret from new settings
-                logger.debug("Failed to decrypt {} old secret".format(
-                    client_name))
+                log.debug("Failed to decrypt %s old secret",
+                          client_name)
                 client["secret"] = (client_settings[client_name]
                                     ["secret"])
 
@@ -3418,7 +3400,7 @@ def main():
             server_settings=server_settings)
 
     if not tcp_server.clients:
-        logger.warning("No clients defined")
+        log.warning("No clients defined")
 
     if not foreground:
         if pidfile is not None:
@@ -3427,8 +3409,8 @@ def main():
                 with pidfile:
                     print(pid, file=pidfile)
             except IOError:
-                logger.error("Could not write to file %r with PID %d",
-                             pidfilename, pid)
+                log.error("Could not write to file %r with PID %d",
+                          pidfilename, pid)
         del pidfile
         del pidfilename
 
@@ -3600,11 +3582,11 @@ def main():
                 except NameError:
                     pass
             if e.errno in (errno.ENOENT, errno.EACCES, errno.EEXIST):
-                logger.warning("Could not save persistent state: {}"
-                               .format(os.strerror(e.errno)))
+                log.warning("Could not save persistent state: %s",
+                            os.strerror(e.errno))
             else:
-                logger.warning("Could not save persistent state:",
-                               exc_info=e)
+                log.warning("Could not save persistent state:",
+                            exc_info=e)
                 raise
 
         # Delete all clients, and settings from config
@@ -3636,12 +3618,11 @@ def main():
     if zeroconf:
         service.port = tcp_server.socket.getsockname()[1]
     if use_ipv6:
-        logger.info("Now listening on address %r, port %d,"
-                    " flowinfo %d, scope_id %d",
-                    *tcp_server.socket.getsockname())
+        log.info("Now listening on address %r, port %d, flowinfo %d,"
+                 " scope_id %d", *tcp_server.socket.getsockname())
     else:                       # IPv4
-        logger.info("Now listening on address %r, port %d",
-                    *tcp_server.socket.getsockname())
+        log.info("Now listening on address %r, port %d",
+                 *tcp_server.socket.getsockname())
 
     # service.interface = tcp_server.socket.getsockname()[3]
 
@@ -3651,7 +3632,7 @@ def main():
             try:
                 service.activate()
             except dbus.exceptions.DBusException as error:
-                logger.critical("D-Bus Exception", exc_info=error)
+                log.critical("D-Bus Exception", exc_info=error)
                 cleanup()
                 sys.exit(1)
             # End of Avahi example code
@@ -3662,17 +3643,17 @@ def main():
             lambda *args, **kwargs: (tcp_server.handle_request
                                      (*args[2:], **kwargs) or True))
 
-        logger.debug("Starting main loop")
+        log.debug("Starting main loop")
         main_loop.run()
     except AvahiError as error:
-        logger.critical("Avahi Error", exc_info=error)
+        log.critical("Avahi Error", exc_info=error)
         cleanup()
         sys.exit(1)
     except KeyboardInterrupt:
         if debug:
             print("", file=sys.stderr)
-        logger.debug("Server received KeyboardInterrupt")
-    logger.debug("Server exiting")
+        log.debug("Server received KeyboardInterrupt")
+    log.debug("Server exiting")
     # Must run before the D-Bus bus name gets deregistered
     cleanup()
 
