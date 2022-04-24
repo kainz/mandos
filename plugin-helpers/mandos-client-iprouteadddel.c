@@ -2,8 +2,8 @@
 /* 
  * iprouteadddel - Add or delete direct route to a local IP address
  * 
- * Copyright © 2015-2018, 2021 Teddy Hogeborn
- * Copyright © 2015-2018, 2021 Björn Påhlsson
+ * Copyright © 2015-2018, 2021-2022 Teddy Hogeborn
+ * Copyright © 2015-2018, 2021-2022 Björn Påhlsson
  * 
  * This file is part of Mandos.
  * 
