@@ -256,7 +256,7 @@ def string_to_delta(interval):
         return rfc3339_duration_to_delta(interval)
     except ValueError as e:
         log.warning("%s - Parsing as pre-1.6.1 interval instead",
-                    ' '.join(e.args))
+                    " ".join(e.args))
     return parse_pre_1_6_1_interval(interval)
 
 
@@ -395,22 +395,22 @@ def parse_pre_1_6_1_interval(interval):
     """Parse an interval string as documented by Mandos before 1.6.1,
     and return a datetime.timedelta
 
-    >>> parse_pre_1_6_1_interval('7d') == datetime.timedelta(days=7)
+    >>> parse_pre_1_6_1_interval("7d") == datetime.timedelta(days=7)
     True
-    >>> parse_pre_1_6_1_interval('60s') == datetime.timedelta(0, 60)
+    >>> parse_pre_1_6_1_interval("60s") == datetime.timedelta(0, 60)
     True
-    >>> parse_pre_1_6_1_interval('60m') == datetime.timedelta(hours=1)
+    >>> parse_pre_1_6_1_interval("60m") == datetime.timedelta(hours=1)
     True
-    >>> parse_pre_1_6_1_interval('24h') == datetime.timedelta(days=1)
+    >>> parse_pre_1_6_1_interval("24h") == datetime.timedelta(days=1)
     True
-    >>> parse_pre_1_6_1_interval('1w') == datetime.timedelta(days=7)
+    >>> parse_pre_1_6_1_interval("1w") == datetime.timedelta(days=7)
     True
-    >>> parse_pre_1_6_1_interval('5m 30s') == datetime.timedelta(0, 330)
+    >>> parse_pre_1_6_1_interval("5m 30s") == datetime.timedelta(0, 330)
     True
-    >>> parse_pre_1_6_1_interval('') == datetime.timedelta(0)
+    >>> parse_pre_1_6_1_interval("") == datetime.timedelta(0)
     True
     >>> # Ignore unknown characters, allow any order and repetitions
-    >>> parse_pre_1_6_1_interval('2dxy7zz11y3m5m') == datetime.timedelta(2, 480, 18000)
+    >>> parse_pre_1_6_1_interval("2dxy7zz11y3m5m") == datetime.timedelta(2, 480, 18000)
     True
 
     """
@@ -876,7 +876,7 @@ override this run() method instead.
                     {key: properties[key]
                      for key in self.all_keywords}
                     for properties in clients.values()}
-            print(json.dumps(data, indent=4, separators=(',', ': ')))
+            print(json.dumps(data, indent=4, separators=(",", ": ")))
 
 
     class PrintTable(Output):
