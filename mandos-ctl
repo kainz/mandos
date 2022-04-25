@@ -1,10 +1,10 @@
 #!/usr/bin/python3 -bbI
-# -*- after-save-hook: (lambda () (let ((command (if (fboundp 'file-local-name) (file-local-name (buffer-file-name)) (or (file-remote-p (buffer-file-name) 'localname) (buffer-file-name))))) (if (= (progn (if (get-buffer "*Test*") (kill-buffer "*Test*")) (process-file-shell-command (format "%s --check" (shell-quote-argument command)) nil "*Test*")) 0) (let ((w (get-buffer-window "*Test*"))) (if w (delete-window w))) (progn (with-current-buffer "*Test*" (compilation-mode)) (display-buffer "*Test*" '(display-buffer-in-side-window)))))); coding: utf-8 -*-
+# -*- coding: utf-8; lexical-binding: t -*-
 #
 # Mandos Control - Control or query the Mandos server
 #
-# Copyright © 2008-2020 Teddy Hogeborn
-# Copyright © 2008-2020 Björn Påhlsson
+# Copyright © 2008-2022 Teddy Hogeborn
+# Copyright © 2008-2022 Björn Påhlsson
 #
 # This file is part of Mandos.
 #
@@ -23,7 +23,6 @@
 #
 # Contact the authors at <mandos@recompile.se>.
 #
-
 from __future__ import (division, absolute_import, print_function,
                         unicode_literals)
 
@@ -33,15 +32,15 @@ except ImportError:
     pass
 
 import sys
+import unittest
 import argparse
+import logging
+import os
 import locale
 import datetime
 import re
-import os
 import collections
 import json
-import unittest
-import logging
 import io
 import tempfile
 import contextlib
@@ -49,6 +48,7 @@ import contextlib
 if sys.version_info.major == 2:
     __metaclass__ = type
     str = unicode
+    input = raw_input
 
 class gi:
     """Dummy gi module, for the tests"""
@@ -77,7 +77,7 @@ if not sys.warnoptions:
     import warnings
     warnings.simplefilter("default")
 
-log = logging.getLogger(sys.argv[0])
+log = logging.getLogger(os.path.basename(sys.argv[0]))
 logging.basicConfig(level="INFO", # Show info level messages
                     format="%(message)s") # Show basic log messages
 
@@ -102,7 +102,7 @@ def main():
     clientnames = options.client
 
     if options.debug:
-        log.setLevel(logging.DEBUG)
+        logging.getLogger("").setLevel(logging.DEBUG)
 
     if dbussy is not None and ravel is not None:
         bus = dbussy_adapter.CachingBus(dbussy, ravel)
@@ -256,7 +256,7 @@ def string_to_delta(interval):
         return rfc3339_duration_to_delta(interval)
     except ValueError as e:
         log.warning("%s - Parsing as pre-1.6.1 interval instead",
-                    ' '.join(e.args))
+                    " ".join(e.args))
     return parse_pre_1_6_1_interval(interval)
 
 
@@ -395,22 +395,22 @@ def parse_pre_1_6_1_interval(interval):
     """Parse an interval string as documented by Mandos before 1.6.1,
     and return a datetime.timedelta
 
-    >>> parse_pre_1_6_1_interval('7d') == datetime.timedelta(days=7)
+    >>> parse_pre_1_6_1_interval("7d") == datetime.timedelta(days=7)
     True
-    >>> parse_pre_1_6_1_interval('60s') == datetime.timedelta(0, 60)
+    >>> parse_pre_1_6_1_interval("60s") == datetime.timedelta(0, 60)
     True
-    >>> parse_pre_1_6_1_interval('60m') == datetime.timedelta(hours=1)
+    >>> parse_pre_1_6_1_interval("60m") == datetime.timedelta(hours=1)
     True
-    >>> parse_pre_1_6_1_interval('24h') == datetime.timedelta(days=1)
+    >>> parse_pre_1_6_1_interval("24h") == datetime.timedelta(days=1)
     True
-    >>> parse_pre_1_6_1_interval('1w') == datetime.timedelta(days=7)
+    >>> parse_pre_1_6_1_interval("1w") == datetime.timedelta(days=7)
     True
-    >>> parse_pre_1_6_1_interval('5m 30s') == datetime.timedelta(0, 330)
+    >>> parse_pre_1_6_1_interval("5m 30s") == datetime.timedelta(0, 330)
     True
-    >>> parse_pre_1_6_1_interval('') == datetime.timedelta(0)
+    >>> parse_pre_1_6_1_interval("") == datetime.timedelta(0)
     True
     >>> # Ignore unknown characters, allow any order and repetitions
-    >>> parse_pre_1_6_1_interval('2dxy7zz11y3m5m') == datetime.timedelta(2, 480, 18000)
+    >>> parse_pre_1_6_1_interval("2dxy7zz11y3m5m") == datetime.timedelta(2, 480, 18000)
     True
 
     """
@@ -876,7 +876,7 @@ override this run() method instead.
                     {key: properties[key]
                      for key in self.all_keywords}
                     for properties in clients.values()}
-            print(json.dumps(data, indent=4, separators=(',', ': ')))
+            print(json.dumps(data, indent=4, separators=(",", ": ")))
 
 
     class PrintTable(Output):
@@ -2439,6 +2439,7 @@ class TestBaseCommands(TestCommand):
         busname = "se.recompile.Mandos"
         client_interface = "se.recompile.Mandos.Client"
         command.Approve().run(self.bus.clients, self.bus)
+        self.assertTrue(self.bus.clients)
         for clientpath in self.bus.clients:
             self.assertIn(("Approve", busname, clientpath,
                            client_interface, (True,)), self.bus.calls)
@@ -2447,16 +2448,22 @@ class TestBaseCommands(TestCommand):
         busname = "se.recompile.Mandos"
         client_interface = "se.recompile.Mandos.Client"
         command.Deny().run(self.bus.clients, self.bus)
+        self.assertTrue(self.bus.clients)
         for clientpath in self.bus.clients:
             self.assertIn(("Approve", busname, clientpath,
                            client_interface, (False,)),
                           self.bus.calls)
 
     def test_Remove(self):
+        busname = "se.recompile.Mandos"
+        server_path = "/"
+        server_interface = "se.recompile.Mandos"
+        orig_clients = self.bus.clients.copy()
         command.Remove().run(self.bus.clients, self.bus)
-        for clientpath in self.bus.clients:
-            self.assertIn(("RemoveClient", dbus_busname,
-                           dbus_server_path, dbus_server_interface,
+        self.assertFalse(self.bus.clients)
+        for clientpath in orig_clients:
+            self.assertIn(("RemoveClient", busname,
+                           server_path, server_interface,
                            (clientpath,)), self.bus.calls)
 
     expected_json = {
@@ -2664,11 +2671,13 @@ class TestPropertySetterCmd(TestCommand):
         else:
             cmd_args = [() for x in range(len(self.values_to_get))]
             values_to_get = self.values_to_get
+        self.assertTrue(values_to_get)
         for value_to_get, cmd_arg in zip(values_to_get, cmd_args):
             for clientpath in self.bus.clients:
                 self.bus.clients[clientpath][self.propname] = (
                     Unique())
             self.command(*cmd_arg).run(self.bus.clients, self.bus)
+            self.assertTrue(self.bus.clients)
             for clientpath in self.bus.clients:
                 value = (self.bus.clients[clientpath]
                          [self.propname])
@@ -2733,9 +2742,12 @@ class TestSetHostCmd(TestPropertySetterCmd):
 class TestSetSecretCmd(TestPropertySetterCmd):
     command = command.SetSecret
     propname = "Secret"
-    values_to_set = [io.BytesIO(b""),
-                     io.BytesIO(b"secret\0xyzzy\nbar")]
-    values_to_get = [f.getvalue() for f in values_to_set]
+    def __init__(self, *args, **kwargs):
+        self.values_to_set = [io.BytesIO(b""),
+                              io.BytesIO(b"secret\0xyzzy\nbar")]
+        self.values_to_get = [f.getvalue() for f in
+                              self.values_to_set]
+        super(TestSetSecretCmd, self).__init__(*args, **kwargs)
 
 
 class TestSetTimeoutCmd(TestPropertySetterCmd):
@@ -2794,15 +2806,16 @@ class TestSetApprovalDurationCmd(TestPropertySetterCmd):
 
 
 
-def should_only_run_tests():
+def parse_test_args():
+    # type: () -> argparse.Namespace
     parser = argparse.ArgumentParser(add_help=False)
-    parser.add_argument("--check", action='store_true')
+    parser.add_argument("--check", action="store_true")
+    parser.add_argument("--prefix", )
     args, unknown_args = parser.parse_known_args()
-    run_tests = args.check
-    if run_tests:
-        # Remove --check argument from sys.argv
+    if args.check:
+        # Remove test options from sys.argv
         sys.argv[1:] = unknown_args
-    return run_tests
+    return args
 
 # Add all tests from doctest strings
 def load_tests(loader, tests, none):
@@ -2811,11 +2824,81 @@ def load_tests(loader, tests, none):
     return tests
 
 if __name__ == "__main__":
+    options = parse_test_args()
     try:
-        if should_only_run_tests():
-            # Call using ./tdd-python-script --check [--verbose]
-            unittest.main()
+        if options.check:
+            extra_test_prefix = options.prefix
+            if extra_test_prefix is not None:
+                if not (unittest.main(argv=[""], exit=False)
+                        .result.wasSuccessful()):
+                    sys.exit(1)
+                class ExtraTestLoader(unittest.TestLoader):
+                    testMethodPrefix = extra_test_prefix
+                # Call using ./scriptname --check [--verbose]
+                unittest.main(argv=[""], testLoader=ExtraTestLoader())
+            else:
+                unittest.main(argv=[""])
         else:
             main()
     finally:
         logging.shutdown()
+
+# Local Variables:
+# run-tests:
+# (lambda (&optional extra)
+#   (if (not (funcall run-tests-in-test-buffer default-directory
+# 	      extra))
+# 	(funcall show-test-buffer-in-test-window)
+#     (funcall remove-test-window)
+#     (if extra (message "Extra tests run successfully!"))))
+# run-tests-in-test-buffer:
+# (lambda (dir &optional extra)
+#   (with-current-buffer (get-buffer-create "*Test*")
+#     (setq buffer-read-only nil
+# 	    default-directory dir)
+#     (erase-buffer)
+#     (compilation-mode))
+#   (let ((process-result
+# 	   (let ((inhibit-read-only t))
+# 	     (process-file-shell-command
+# 	      (funcall get-command-line extra) nil "*Test*"))))
+#     (and (numberp process-result)
+# 	   (= process-result 0))))
+# get-command-line:
+# (lambda (&optional extra)
+#   (let ((quoted-script
+# 	   (shell-quote-argument (funcall get-script-name))))
+#     (format
+#      (concat "%s --check" (if extra " --prefix=atest" ""))
+#      quoted-script)))
+# get-script-name:
+# (lambda ()
+#   (if (fboundp 'file-local-name)
+# 	(file-local-name (buffer-file-name))
+#     (or (file-remote-p (buffer-file-name) 'localname)
+# 	  (buffer-file-name))))
+# remove-test-window:
+# (lambda ()
+#   (let ((test-window (get-buffer-window "*Test*")))
+#     (if test-window (delete-window test-window))))
+# show-test-buffer-in-test-window:
+# (lambda ()
+#   (when (not (get-buffer-window-list "*Test*"))
+#     (setq next-error-last-buffer (get-buffer "*Test*"))
+#     (let* ((side (if (>= (window-width) 146) 'right 'bottom))
+# 	     (display-buffer-overriding-action
+# 	      `((display-buffer-in-side-window) (side . ,side)
+# 		(window-height . fit-window-to-buffer)
+# 		(window-width . fit-window-to-buffer))))
+# 	(display-buffer "*Test*"))))
+# eval:
+# (progn
+#   (let* ((run-extra-tests (lambda () (interactive)
+# 			      (funcall run-tests t)))
+# 	   (inner-keymap `(keymap (116 . ,run-extra-tests))) ; t
+# 	   (outer-keymap `(keymap (3 . ,inner-keymap))))     ; C-c
+#     (setq minor-mode-overriding-map-alist
+# 	    (cons `(run-tests . ,outer-keymap)
+# 		  minor-mode-overriding-map-alist)))
+#   (add-hook 'after-save-hook run-tests 90 t))
+# End:

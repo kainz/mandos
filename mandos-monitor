@@ -23,20 +23,20 @@
 #
 # Contact the authors at <mandos@recompile.se>.
 #
-
 from __future__ import (division, absolute_import, print_function,
                         unicode_literals)
+
 try:
     from future_builtins import *
 except ImportError:
     pass
 
 import sys
+import logging
 import os
 import warnings
 import datetime
 import locale
-import logging
 
 import urwid.curses_display
 import urwid
@@ -49,6 +49,11 @@ import dbus
 if sys.version_info.major == 2:
     __metaclass__ = type
     str = unicode
+    input = raw_input
+
+# Show warnings by default
+if not sys.warnoptions:
+    warnings.simplefilter("default")
 
 log = logging.getLogger(os.path.basename(sys.argv[0]))
 logging.basicConfig(level="NOTSET", # Show all messages

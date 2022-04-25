@@ -1,5 +1,5 @@
 #!/usr/bin/python3 -bI
-# -*- mode: python; after-save-hook: (lambda () (let ((command (if (fboundp 'file-local-name) (file-local-name (buffer-file-name)) (or (file-remote-p (buffer-file-name) 'localname) (buffer-file-name))))) (if (= (progn (if (get-buffer "*Test*") (kill-buffer "*Test*")) (process-file-shell-command (format "%s --check" (shell-quote-argument command)) nil "*Test*")) 0) (let ((w (get-buffer-window "*Test*"))) (if w (delete-window w))) (progn (with-current-buffer "*Test*" (compilation-mode)) (display-buffer "*Test*" '(display-buffer-in-side-window)))))); coding: utf-8 -*-
+# -*- coding: utf-8; lexical-binding: t -*-
 #
 # Mandos server - give out binary blobs to connecting clients.
 #
@@ -11,8 +11,8 @@
 # "AvahiService" class, and some lines in "main".
 #
 # Everything else is
-# Copyright © 2008-2020 Teddy Hogeborn
-# Copyright © 2008-2020 Björn Påhlsson
+# Copyright © 2008-2022 Teddy Hogeborn
+# Copyright © 2008-2022 Björn Påhlsson
 #
 # This file is part of Mandos.
 #
@@ -31,7 +31,6 @@
 #
 # Contact the authors at <mandos@recompile.se>.
 #
-
 from __future__ import (division, absolute_import, print_function,
                         unicode_literals)
 
@@ -40,26 +39,27 @@ try:
 except ImportError:
     pass
 
+import sys
+import unittest
+import argparse
+import logging
+import os
 try:
     import SocketServer as socketserver
 except ImportError:
     import socketserver
 import socket
-import argparse
 import datetime
 import errno
 try:
     import ConfigParser as configparser
 except ImportError:
     import configparser
-import sys
 import re
-import os
 import signal
 import subprocess
 import atexit
 import stat
-import logging
 import logging.handlers
 import pwd
 import contextlib
@@ -77,7 +77,6 @@ import tempfile
 import itertools
 import collections
 import codecs
-import unittest
 import random
 import shlex
 
@@ -94,6 +93,7 @@ import inspect
 if sys.version_info.major == 2:
     __metaclass__ = type
     str = unicode
+    input = raw_input
 
 # Add collections.abc.Callable if it does not exist
 try:
@@ -146,7 +146,7 @@ if sys.version_info < (3, 2):
 version = "1.8.14"
 stored_state_file = "clients.pickle"
 
-logger = logging.getLogger()
+log = logging.getLogger(os.path.basename(sys.argv[0]))
 logging.captureWarnings(True)   # Show warnings via the logging system
 syslogger = None
 
@@ -189,18 +189,18 @@ def initlogger(debug, level=logging.WARNING):
         facility=logging.handlers.SysLogHandler.LOG_DAEMON,
         address="/dev/log"))
     syslogger.setFormatter(logging.Formatter
-                           ('Mandos [%(process)d]: %(levelname)s:'
-                            ' %(message)s'))
-    logger.addHandler(syslogger)
+                           ("Mandos [%(process)d]: %(levelname)s:"
+                            " %(message)s"))
+    log.addHandler(syslogger)
 
     if debug:
         console = logging.StreamHandler()
-        console.setFormatter(logging.Formatter('%(asctime)s %(name)s'
-                                               ' [%(process)d]:'
-                                               ' %(levelname)s:'
-                                               ' %(message)s'))
-        logger.addHandler(console)
-    logger.setLevel(level)
+        console.setFormatter(logging.Formatter("%(asctime)s %(name)s"
+                                               " [%(process)d]:"
+                                               " %(levelname)s:"
+                                               " %(message)s"))
+        log.addHandler(console)
+    log.setLevel(level)
 
 
 class PGPError(Exception):
@@ -224,10 +224,10 @@ class PGPEngine:
         except OSError as e:
             if e.errno != errno.ENOENT:
                 raise
-        self.gnupgargs = ['--batch',
-                          '--homedir', self.tempdir,
-                          '--force-mdc',
-                          '--quiet']
+        self.gnupgargs = ["--batch",
+                          "--homedir", self.tempdir,
+                          "--force-mdc",
+                          "--quiet"]
         # Only GPG version 1 has the --no-use-agent option.
         if self.gpg == b"gpg" or self.gpg.endswith(b"/gpg"):
             self.gnupgargs.append("--no-use-agent")
@@ -272,8 +272,8 @@ class PGPEngine:
                 dir=self.tempdir) as passfile:
             passfile.write(passphrase)
             passfile.flush()
-            proc = subprocess.Popen([self.gpg, '--symmetric',
-                                     '--passphrase-file',
+            proc = subprocess.Popen([self.gpg, "--symmetric",
+                                     "--passphrase-file",
                                      passfile.name]
                                     + self.gnupgargs,
                                     stdin=subprocess.PIPE,
@@ -290,8 +290,8 @@ class PGPEngine:
                 dir=self.tempdir) as passfile:
             passfile.write(passphrase)
             passfile.flush()
-            proc = subprocess.Popen([self.gpg, '--decrypt',
-                                     '--passphrase-file',
+            proc = subprocess.Popen([self.gpg, "--decrypt",
+                                     "--passphrase-file",
                                      passfile.name]
                                     + self.gnupgargs,
                                     stdin=subprocess.PIPE,
@@ -350,8 +350,8 @@ class AvahiService:
     Attributes:
     interface: integer; avahi.IF_UNSPEC or an interface index.
                Used to optionally bind to the specified interface.
-    name: string; Example: 'Mandos'
-    type: string; Example: '_mandos._tcp'.
+    name: string; Example: "Mandos"
+    type: string; Example: "_mandos._tcp".
      See <https://www.iana.org/assignments/service-names-port-numbers>
     port: integer; what port to announce
     TXT: list of strings; TXT record for the service
@@ -394,15 +394,15 @@ class AvahiService:
     def rename(self, remove=True):
         """Derived from the Avahi example code"""
         if self.rename_count >= self.max_renames:
-            logger.critical("No suitable Zeroconf service name found"
-                            " after %i retries, exiting.",
-                            self.rename_count)
+            log.critical("No suitable Zeroconf service name found"
+                         " after %i retries, exiting.",
+                         self.rename_count)
             raise AvahiServiceError("Too many renames")
         self.name = str(
             self.server.GetAlternativeServiceName(self.name))
         self.rename_count += 1
-        logger.info("Changing Zeroconf service name to %r ...",
-                    self.name)
+        log.info("Changing Zeroconf service name to %r ...",
+                 self.name)
         if remove:
             self.remove()
         try:
@@ -410,10 +410,10 @@ class AvahiService:
         except dbus.exceptions.DBusException as error:
             if (error.get_dbus_name()
                 == "org.freedesktop.Avahi.CollisionError"):
-                logger.info("Local Zeroconf service name collision.")
+                log.info("Local Zeroconf service name collision.")
                 return self.rename(remove=False)
             else:
-                logger.critical("D-Bus Exception", exc_info=error)
+                log.critical("D-Bus Exception", exc_info=error)
                 self.cleanup()
                 os._exit(1)
 
@@ -435,9 +435,9 @@ class AvahiService:
                 avahi.DBUS_INTERFACE_ENTRY_GROUP)
         self.entry_group_state_changed_match = (
             self.group.connect_to_signal(
-                'StateChanged', self.entry_group_state_changed))
-        logger.debug("Adding Zeroconf service '%s' of type '%s' ...",
-                     self.name, self.type)
+                "StateChanged", self.entry_group_state_changed))
+        log.debug("Adding Zeroconf service '%s' of type '%s' ...",
+                  self.name, self.type)
         self.group.AddService(
             self.interface,
             self.protocol,
@@ -450,16 +450,16 @@ class AvahiService:
 
     def entry_group_state_changed(self, state, error):
         """Derived from the Avahi example code"""
-        logger.debug("Avahi entry group state change: %i", state)
+        log.debug("Avahi entry group state change: %i", state)
 
         if state == avahi.ENTRY_GROUP_ESTABLISHED:
-            logger.debug("Zeroconf service established.")
+            log.debug("Zeroconf service established.")
         elif state == avahi.ENTRY_GROUP_COLLISION:
-            logger.info("Zeroconf service name collision.")
+            log.info("Zeroconf service name collision.")
             self.rename()
         elif state == avahi.ENTRY_GROUP_FAILURE:
-            logger.critical("Avahi: Error in group state changed %s",
-                            str(error))
+            log.critical("Avahi: Error in group state changed %s",
+                         str(error))
             raise AvahiGroupError("State changed: {!s}".format(error))
 
     def cleanup(self):
@@ -475,7 +475,7 @@ class AvahiService:
 
     def server_state_changed(self, state, error=None):
         """Derived from the Avahi example code"""
-        logger.debug("Avahi server state change: %i", state)
+        log.debug("Avahi server state change: %i", state)
         bad_states = {
             avahi.SERVER_INVALID: "Zeroconf server invalid",
             avahi.SERVER_REGISTERING: None,
@@ -485,9 +485,9 @@ class AvahiService:
         if state in bad_states:
             if bad_states[state] is not None:
                 if error is None:
-                    logger.error(bad_states[state])
+                    log.error(bad_states[state])
                 else:
-                    logger.error(bad_states[state] + ": %r", error)
+                    log.error(bad_states[state] + ": %r", error)
             self.cleanup()
         elif state == avahi.SERVER_RUNNING:
             try:
@@ -495,18 +495,17 @@ class AvahiService:
             except dbus.exceptions.DBusException as error:
                 if (error.get_dbus_name()
                     == "org.freedesktop.Avahi.CollisionError"):
-                    logger.info("Local Zeroconf service name"
-                                " collision.")
+                    log.info("Local Zeroconf service name collision.")
                     return self.rename(remove=False)
                 else:
-                    logger.critical("D-Bus Exception", exc_info=error)
+                    log.critical("D-Bus Exception", exc_info=error)
                     self.cleanup()
                     os._exit(1)
         else:
             if error is None:
-                logger.debug("Unknown state: %r", state)
+                log.debug("Unknown state: %r", state)
             else:
-                logger.debug("Unknown state: %r: %r", state, error)
+                log.debug("Unknown state: %r: %r", state, error)
 
     def activate(self):
         """Derived from the Avahi example code"""
@@ -527,7 +526,7 @@ class AvahiServiceToSyslog(AvahiService):
         ret = super(AvahiServiceToSyslog, self).rename(*args,
                                                        **kwargs)
         syslogger.setFormatter(logging.Formatter(
-            'Mandos ({}) [%(process)d]: %(levelname)s: %(message)s'
+            "Mandos ({}) [%(process)d]: %(levelname)s: %(message)s"
             .format(self.name)))
         return ret
 
@@ -563,9 +562,9 @@ class gnutls:
     OPENPGP_FMT_RAW = 0         # gnutls/openpgp.h
 
     # Types
-    class session_int(ctypes.Structure):
+    class _session_int(ctypes.Structure):
         _fields_ = []
-    session_t = ctypes.POINTER(session_int)
+    session_t = ctypes.POINTER(_session_int)
 
     class certificate_credentials_st(ctypes.Structure):
         _fields_ = []
@@ -574,12 +573,12 @@ class gnutls:
     certificate_type_t = ctypes.c_int
 
     class datum_t(ctypes.Structure):
-        _fields_ = [('data', ctypes.POINTER(ctypes.c_ubyte)),
-                    ('size', ctypes.c_uint)]
+        _fields_ = [("data", ctypes.POINTER(ctypes.c_ubyte)),
+                    ("size", ctypes.c_uint)]
 
-    class openpgp_crt_int(ctypes.Structure):
+    class _openpgp_crt_int(ctypes.Structure):
         _fields_ = []
-    openpgp_crt_t = ctypes.POINTER(openpgp_crt_int)
+    openpgp_crt_t = ctypes.POINTER(_openpgp_crt_int)
     openpgp_crt_fmt_t = ctypes.c_int  # gnutls/openpgp.h
     log_func = ctypes.CFUNCTYPE(None, ctypes.c_int, ctypes.c_char_p)
     credentials_type_t = ctypes.c_int
@@ -594,77 +593,100 @@ class gnutls:
             # gnutls.strerror()
             self.code = code
             if message is None and code is not None:
-                message = gnutls.strerror(code)
+                message = gnutls.strerror(code).decode(
+                    "utf-8", errors="replace")
             return super(gnutls.Error, self).__init__(
                 message, *args)
 
     class CertificateSecurityError(Error):
         pass
 
+    class PointerTo:
+        def __init__(self, cls):
+            self.cls = cls
+
+        def from_param(self, obj):
+            if not isinstance(obj, self.cls):
+                raise TypeError("Not of type {}: {!r}"
+                                .format(self.cls.__name__, obj))
+            return ctypes.byref(obj.from_param(obj))
+
+    class CastToVoidPointer:
+        def __init__(self, cls):
+            self.cls = cls
+
+        def from_param(self, obj):
+            if not isinstance(obj, self.cls):
+                raise TypeError("Not of type {}: {!r}"
+                                .format(self.cls.__name__, obj))
+            return ctypes.cast(obj.from_param(obj), ctypes.c_void_p)
+
+    class With_from_param:
+        @classmethod
+        def from_param(cls, obj):
+            return obj._as_parameter_
+
     # Classes
-    class Credentials:
+    class Credentials(With_from_param):
         def __init__(self):
-            self._c_object = gnutls.certificate_credentials_t()
-            gnutls.certificate_allocate_credentials(
-                ctypes.byref(self._c_object))
+            self._as_parameter_ = gnutls.certificate_credentials_t()
+            gnutls.certificate_allocate_credentials(self)
             self.type = gnutls.CRD_CERTIFICATE
 
         def __del__(self):
-            gnutls.certificate_free_credentials(self._c_object)
+            gnutls.certificate_free_credentials(self)
 
-    class ClientSession:
+    class ClientSession(With_from_param):
         def __init__(self, socket, credentials=None):
-            self._c_object = gnutls.session_t()
+            self._as_parameter_ = gnutls.session_t()
             gnutls_flags = gnutls.CLIENT
             if gnutls.check_version(b"3.5.6"):
                 gnutls_flags |= gnutls.NO_TICKETS
             if gnutls.has_rawpk:
                 gnutls_flags |= gnutls.ENABLE_RAWPK
-            gnutls.init(ctypes.byref(self._c_object), gnutls_flags)
+            gnutls.init(self, gnutls_flags)
             del gnutls_flags
-            gnutls.set_default_priority(self._c_object)
-            gnutls.transport_set_ptr(self._c_object, socket.fileno())
-            gnutls.handshake_set_private_extensions(self._c_object,
-                                                    True)
+            gnutls.set_default_priority(self)
+            gnutls.transport_set_ptr(self, socket.fileno())
+            gnutls.handshake_set_private_extensions(self, True)
             self.socket = socket
             if credentials is None:
                 credentials = gnutls.Credentials()
-            gnutls.credentials_set(self._c_object, credentials.type,
-                                   ctypes.cast(credentials._c_object,
-                                               ctypes.c_void_p))
+            gnutls.credentials_set(self, credentials.type,
+                                   credentials)
             self.credentials = credentials
 
         def __del__(self):
-            gnutls.deinit(self._c_object)
+            gnutls.deinit(self)
 
         def handshake(self):
-            return gnutls.handshake(self._c_object)
+            return gnutls.handshake(self)
 
         def send(self, data):
             data = bytes(data)
             data_len = len(data)
             while data_len > 0:
-                data_len -= gnutls.record_send(self._c_object,
-                                               data[-data_len:],
+                data_len -= gnutls.record_send(self, data[-data_len:],
                                                data_len)
 
         def bye(self):
-            return gnutls.bye(self._c_object, gnutls.SHUT_RDWR)
+            return gnutls.bye(self, gnutls.SHUT_RDWR)
 
     # Error handling functions
     def _error_code(result):
         """A function to raise exceptions on errors, suitable
-        for the 'restype' attribute on ctypes functions"""
-        if result >= 0:
+        for the "restype" attribute on ctypes functions"""
+        if result >= gnutls.E_SUCCESS:
             return result
         if result == gnutls.E_NO_CERTIFICATE_FOUND:
             raise gnutls.CertificateSecurityError(code=result)
         raise gnutls.Error(code=result)
 
-    def _retry_on_error(result, func, arguments):
+    def _retry_on_error(result, func, arguments,
+                        _error_code=_error_code):
         """A function to retry on some errors, suitable
-        for the 'errcheck' attribute on ctypes functions"""
-        while result < 0:
+        for the "errcheck" attribute on ctypes functions"""
+        while result < gnutls.E_SUCCESS:
             if result not in (gnutls.E_INTERRUPTED, gnutls.E_AGAIN):
                 return _error_code(result)
             result = func(*arguments)
@@ -675,20 +697,20 @@ class gnutls:
 
     # Functions
     priority_set_direct = _library.gnutls_priority_set_direct
-    priority_set_direct.argtypes = [session_t, ctypes.c_char_p,
+    priority_set_direct.argtypes = [ClientSession, ctypes.c_char_p,
                                     ctypes.POINTER(ctypes.c_char_p)]
     priority_set_direct.restype = _error_code
 
     init = _library.gnutls_init
-    init.argtypes = [ctypes.POINTER(session_t), ctypes.c_int]
+    init.argtypes = [PointerTo(ClientSession), ctypes.c_int]
     init.restype = _error_code
 
     set_default_priority = _library.gnutls_set_default_priority
-    set_default_priority.argtypes = [session_t]
+    set_default_priority.argtypes = [ClientSession]
     set_default_priority.restype = _error_code
 
     record_send = _library.gnutls_record_send
-    record_send.argtypes = [session_t, ctypes.c_void_p,
+    record_send.argtypes = [ClientSession, ctypes.c_void_p,
                             ctypes.c_size_t]
     record_send.restype = ctypes.c_ssize_t
     record_send.errcheck = _retry_on_error
@@ -696,24 +718,23 @@ class gnutls:
     certificate_allocate_credentials = (
         _library.gnutls_certificate_allocate_credentials)
     certificate_allocate_credentials.argtypes = [
-        ctypes.POINTER(certificate_credentials_t)]
+        PointerTo(Credentials)]
     certificate_allocate_credentials.restype = _error_code
 
     certificate_free_credentials = (
         _library.gnutls_certificate_free_credentials)
-    certificate_free_credentials.argtypes = [
-        certificate_credentials_t]
+    certificate_free_credentials.argtypes = [Credentials]
     certificate_free_credentials.restype = None
 
     handshake_set_private_extensions = (
         _library.gnutls_handshake_set_private_extensions)
-    handshake_set_private_extensions.argtypes = [session_t,
+    handshake_set_private_extensions.argtypes = [ClientSession,
                                                  ctypes.c_int]
     handshake_set_private_extensions.restype = None
 
     credentials_set = _library.gnutls_credentials_set
-    credentials_set.argtypes = [session_t, credentials_type_t,
-                                ctypes.c_void_p]
+    credentials_set.argtypes = [ClientSession, credentials_type_t,
+                                CastToVoidPointer(Credentials)]
     credentials_set.restype = _error_code
 
     strerror = _library.gnutls_strerror
@@ -721,11 +742,11 @@ class gnutls:
     strerror.restype = ctypes.c_char_p
 
     certificate_type_get = _library.gnutls_certificate_type_get
-    certificate_type_get.argtypes = [session_t]
+    certificate_type_get.argtypes = [ClientSession]
     certificate_type_get.restype = _error_code
 
     certificate_get_peers = _library.gnutls_certificate_get_peers
-    certificate_get_peers.argtypes = [session_t,
+    certificate_get_peers.argtypes = [ClientSession,
                                       ctypes.POINTER(ctypes.c_uint)]
     certificate_get_peers.restype = ctypes.POINTER(datum_t)
 
@@ -738,21 +759,21 @@ class gnutls:
     global_set_log_function.restype = None
 
     deinit = _library.gnutls_deinit
-    deinit.argtypes = [session_t]
+    deinit.argtypes = [ClientSession]
     deinit.restype = None
 
     handshake = _library.gnutls_handshake
-    handshake.argtypes = [session_t]
-    handshake.restype = _error_code
+    handshake.argtypes = [ClientSession]
+    handshake.restype = ctypes.c_int
     handshake.errcheck = _retry_on_error
 
     transport_set_ptr = _library.gnutls_transport_set_ptr
-    transport_set_ptr.argtypes = [session_t, transport_ptr_t]
+    transport_set_ptr.argtypes = [ClientSession, transport_ptr_t]
     transport_set_ptr.restype = None
 
     bye = _library.gnutls_bye
-    bye.argtypes = [session_t, close_request_t]
-    bye.restype = _error_code
+    bye.argtypes = [ClientSession, close_request_t]
+    bye.restype = ctypes.c_int
     bye.errcheck = _retry_on_error
 
     check_version = _library.gnutls_check_version
@@ -832,7 +853,7 @@ class gnutls:
 
     if check_version(b"3.6.4"):
         certificate_type_get2 = _library.gnutls_certificate_type_get2
-        certificate_type_get2.argtypes = [session_t, ctypes.c_int]
+        certificate_type_get2.argtypes = [ClientSession, ctypes.c_int]
         certificate_type_get2.restype = _error_code
 
     # Remove non-public functions
@@ -854,11 +875,11 @@ class Client:
     """A representation of a client host served by this server.
 
     Attributes:
-    approved:   bool(); 'None' if not yet approved/disapproved
+    approved:   bool(); None if not yet approved/disapproved
     approval_delay: datetime.timedelta(); Time to wait for approval
     approval_duration: datetime.timedelta(); Duration of one approval
     checker: multiprocessing.Process(); a running checker process used
-             to see if the client lives. 'None' if no process is
+             to see if the client lives. None if no process is
              running.
     checker_callback_tag: a GLib event source tag, or None
     checker_command: string; External command which is run to check
@@ -988,9 +1009,9 @@ class Client:
             self.last_enabled = None
             self.expires = None
 
-        logger.debug("Creating client %r", self.name)
-        logger.debug("  Key ID: %s", self.key_id)
-        logger.debug("  Fingerprint: %s", self.fingerprint)
+        log.debug("Creating client %r", self.name)
+        log.debug("  Key ID: %s", self.key_id)
+        log.debug("  Fingerprint: %s", self.fingerprint)
         self.created = settings.get("created",
                                     datetime.datetime.utcnow())
 
@@ -1035,7 +1056,7 @@ class Client:
         if not getattr(self, "enabled", False):
             return False
         if not quiet:
-            logger.info("Disabling client %s", self.name)
+            log.info("Disabling client %s", self.name)
         if getattr(self, "disable_initiator_tag", None) is not None:
             GLib.source_remove(self.disable_initiator_tag)
             self.disable_initiator_tag = None
@@ -1085,16 +1106,14 @@ class Client:
             self.last_checker_status = returncode
             self.last_checker_signal = None
             if self.last_checker_status == 0:
-                logger.info("Checker for %(name)s succeeded",
-                            vars(self))
+                log.info("Checker for %(name)s succeeded", vars(self))
                 self.checked_ok()
             else:
-                logger.info("Checker for %(name)s failed", vars(self))
+                log.info("Checker for %(name)s failed", vars(self))
         else:
             self.last_checker_status = -1
             self.last_checker_signal = -returncode
-            logger.warning("Checker for %(name)s crashed?",
-                           vars(self))
+            log.warning("Checker for %(name)s crashed?", vars(self))
         return False
 
     def checked_ok(self):
@@ -1134,7 +1153,7 @@ class Client:
         # should be.
 
         if self.checker is not None and not self.checker.is_alive():
-            logger.warning("Checker was not alive; joining")
+            log.warning("Checker was not alive; joining")
             self.checker.join()
             self.checker = None
         # Start a new checker if needed
@@ -1146,13 +1165,11 @@ class Client:
             try:
                 command = self.checker_command % escaped_attrs
             except TypeError as error:
-                logger.error('Could not format string "%s"',
-                             self.checker_command,
-                             exc_info=error)
+                log.error('Could not format string "%s"',
+                          self.checker_command, exc_info=error)
                 return True     # Try again later
             self.current_checker_command = command
-            logger.info("Starting checker %r for %s", command,
-                        self.name)
+            log.info("Starting checker %r for %s", command, self.name)
             # We don't need to redirect stdout and stderr, since
             # in normal mode, that is already done by daemon(),
             # and in debug mode we don't want to.  (Stdin is
@@ -1187,7 +1204,7 @@ class Client:
             self.checker_callback_tag = None
         if getattr(self, "checker", None) is None:
             return
-        logger.debug("Stopping checker for %(name)s", vars(self))
+        log.debug("Stopping checker for %(name)s", vars(self))
         self.checker.terminate()
         self.checker = None
 
@@ -1220,7 +1237,7 @@ def dbus_service_property(dbus_interface,
         func._dbus_name = func.__name__
         if func._dbus_name.endswith("_dbus_property"):
             func._dbus_name = func._dbus_name[:-14]
-        func._dbus_get_args_options = {'byte_arrays': byte_arrays}
+        func._dbus_get_args_options = {"byte_arrays": byte_arrays}
         return func
 
     return decorator
@@ -1315,8 +1332,8 @@ class DBusObjectWithAnnotations(dbus.service.Object):
 
     @dbus.service.method(dbus.INTROSPECTABLE_IFACE,
                          out_signature="s",
-                         path_keyword='object_path',
-                         connection_keyword='connection')
+                         path_keyword="object_path",
+                         connection_keyword="connection")
     def Introspect(self, object_path, connection):
         """Overloading of standard D-Bus method.
 
@@ -1371,8 +1388,8 @@ class DBusObjectWithAnnotations(dbus.service.Object):
             document.unlink()
         except (AttributeError, xml.dom.DOMException,
                 xml.parsers.expat.ExpatError) as error:
-            logger.error("Failed to override Introspection method",
-                         exc_info=error)
+            log.error("Failed to override Introspection method",
+                      exc_info=error)
         return xmlstring
 
 
@@ -1475,8 +1492,8 @@ class DBusObjectWithProperties(DBusObjectWithAnnotations):
 
     @dbus.service.method(dbus.INTROSPECTABLE_IFACE,
                          out_signature="s",
-                         path_keyword='object_path',
-                         connection_keyword='connection')
+                         path_keyword="object_path",
+                         connection_keyword="connection")
     def Introspect(self, object_path, connection):
         """Overloading of standard D-Bus method.
 
@@ -1538,8 +1555,8 @@ class DBusObjectWithProperties(DBusObjectWithAnnotations):
             document.unlink()
         except (AttributeError, xml.dom.DOMException,
                 xml.parsers.expat.ExpatError) as error:
-            logger.error("Failed to override Introspection method",
-                         exc_info=error)
+            log.error("Failed to override Introspection method",
+                      exc_info=error)
         return xmlstring
 
 
@@ -1577,8 +1594,8 @@ class DBusObjectWithObjectManager(DBusObjectWithAnnotations):
 
     @dbus.service.method(dbus.INTROSPECTABLE_IFACE,
                          out_signature="s",
-                         path_keyword='object_path',
-                         connection_keyword='connection')
+                         path_keyword="object_path",
+                         connection_keyword="connection")
     def Introspect(self, object_path, connection):
         """Overloading of standard D-Bus method.
 
@@ -1609,8 +1626,8 @@ class DBusObjectWithObjectManager(DBusObjectWithAnnotations):
             document.unlink()
         except (AttributeError, xml.dom.DOMException,
                 xml.parsers.expat.ExpatError) as error:
-            logger.error("Failed to override Introspection method",
-                         exc_info=error)
+            log.error("Failed to override Introspection method",
+                      exc_info=error)
         return xmlstring
 
 
@@ -2250,29 +2267,29 @@ class ClientDBus(Client, DBusObjectWithProperties):
 class ProxyClient:
     def __init__(self, child_pipe, key_id, fpr, address):
         self._pipe = child_pipe
-        self._pipe.send(('init', key_id, fpr, address))
+        self._pipe.send(("init", key_id, fpr, address))
         if not self._pipe.recv():
             raise KeyError(key_id or fpr)
 
     def __getattribute__(self, name):
-        if name == '_pipe':
+        if name == "_pipe":
             return super(ProxyClient, self).__getattribute__(name)
-        self._pipe.send(('getattr', name))
+        self._pipe.send(("getattr", name))
         data = self._pipe.recv()
-        if data[0] == 'data':
+        if data[0] == "data":
             return data[1]
-        if data[0] == 'function':
+        if data[0] == "function":
 
             def func(*args, **kwargs):
-                self._pipe.send(('funcall', name, args, kwargs))
+                self._pipe.send(("funcall", name, args, kwargs))
                 return self._pipe.recv()[1]
 
             return func
 
     def __setattr__(self, name, value):
-        if name == '_pipe':
+        if name == "_pipe":
             return super(ProxyClient, self).__setattr__(name, value)
-        self._pipe.send(('setattr', name, value))
+        self._pipe.send(("setattr", name, value))
 
 
 class ClientHandler(socketserver.BaseRequestHandler, object):
@@ -2283,14 +2300,13 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
 
     def handle(self):
         with contextlib.closing(self.server.child_pipe) as child_pipe:
-            logger.info("TCP connection from: %s",
-                        str(self.client_address))
-            logger.debug("Pipe FD: %d",
-                         self.server.child_pipe.fileno())
+            log.info("TCP connection from: %s",
+                     str(self.client_address))
+            log.debug("Pipe FD: %d", self.server.child_pipe.fileno())
 
             session = gnutls.ClientSession(self.request)
 
-            # priority = ':'.join(("NONE", "+VERS-TLS1.1",
+            # priority = ":".join(("NONE", "+VERS-TLS1.1",
             #                       "+AES-256-CBC", "+SHA1",
             #                       "+COMP-NULL", "+CTYPE-OPENPGP",
             #                       "+DHE-DSS"))
@@ -2298,30 +2314,29 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
             priority = self.server.gnutls_priority
             if priority is None:
                 priority = "NORMAL"
-            gnutls.priority_set_direct(session._c_object,
-                                       priority.encode("utf-8"),
-                                       None)
+            gnutls.priority_set_direct(session,
+                                       priority.encode("utf-8"), None)
 
             # Start communication using the Mandos protocol
             # Get protocol number
             line = self.request.makefile().readline()
-            logger.debug("Protocol version: %r", line)
+            log.debug("Protocol version: %r", line)
             try:
                 if int(line.strip().split()[0]) > 1:
                     raise RuntimeError(line)
             except (ValueError, IndexError, RuntimeError) as error:
-                logger.error("Unknown protocol version: %s", error)
+                log.error("Unknown protocol version: %s", error)
                 return
 
             # Start GnuTLS connection
             try:
                 session.handshake()
             except gnutls.Error as error:
-                logger.warning("Handshake failed: %s", error)
+                log.warning("Handshake failed: %s", error)
                 # Do not run session.bye() here: the session is not
                 # established.  Just abandon the request.
                 return
-            logger.debug("Handshake succeeded")
+            log.debug("Handshake succeeded")
 
             approval_required = False
             try:
@@ -2331,9 +2346,11 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
                         key_id = self.key_id(
                             self.peer_certificate(session))
                     except (TypeError, gnutls.Error) as error:
-                        logger.warning("Bad certificate: %s", error)
+                        log.warning("Bad certificate: %s", error)
                         return
-                    logger.debug("Key ID: %s", key_id)
+                    log.debug("Key ID: %s",
+                              key_id.decode("utf-8",
+                                            errors="replace"))
 
                 else:
                     key_id = b""
@@ -2341,9 +2358,9 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
                         fpr = self.fingerprint(
                             self.peer_certificate(session))
                     except (TypeError, gnutls.Error) as error:
-                        logger.warning("Bad certificate: %s", error)
+                        log.warning("Bad certificate: %s", error)
                         return
-                    logger.debug("Fingerprint: %s", fpr)
+                    log.debug("Fingerprint: %s", fpr)
 
                 try:
                     client = ProxyClient(child_pipe, key_id, fpr,
@@ -2358,8 +2375,7 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
 
                 while True:
                     if not client.enabled:
-                        logger.info("Client %s is disabled",
-                                    client.name)
+                        log.info("Client %s is disabled", client.name)
                         if self.server.use_dbus:
                             # Emit D-Bus signal
                             client.Rejected("Disabled")
@@ -2369,16 +2385,16 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
                         # We are approved or approval is disabled
                         break
                     elif client.approved is None:
-                        logger.info("Client %s needs approval",
-                                    client.name)
+                        log.info("Client %s needs approval",
+                                 client.name)
                         if self.server.use_dbus:
                             # Emit D-Bus signal
                             client.NeedApproval(
                                 client.approval_delay.total_seconds()
                                 * 1000, client.approved_by_default)
                     else:
-                        logger.warning("Client %s was not approved",
-                                       client.name)
+                        log.warning("Client %s was not approved",
+                                    client.name)
                         if self.server.use_dbus:
                             # Emit D-Bus signal
                             client.Rejected("Denied")
@@ -2392,9 +2408,9 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
                     time2 = datetime.datetime.now()
                     if (time2 - time) >= delay:
                         if not client.approved_by_default:
-                            logger.warning("Client %s timed out while"
-                                           " waiting for approval",
-                                           client.name)
+                            log.warning("Client %s timed out while"
+                                        " waiting for approval",
+                                        client.name)
                             if self.server.use_dbus:
                                 # Emit D-Bus signal
                                 client.Rejected("Approval timed out")
@@ -2407,11 +2423,10 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
                 try:
                     session.send(client.secret)
                 except gnutls.Error as error:
-                    logger.warning("gnutls send failed",
-                                   exc_info=error)
+                    log.warning("gnutls send failed", exc_info=error)
                     return
 
-                logger.info("Sending secret to %s", client.name)
+                log.info("Sending secret to %s", client.name)
                 # bump the timeout using extended_timeout
                 client.bump_timeout(client.extended_timeout)
                 if self.server.use_dbus:
@@ -2424,30 +2439,29 @@ class ClientHandler(socketserver.BaseRequestHandler, object):
                 try:
                     session.bye()
                 except gnutls.Error as error:
-                    logger.warning("GnuTLS bye failed",
-                                   exc_info=error)
+                    log.warning("GnuTLS bye failed", exc_info=error)
 
     @staticmethod
     def peer_certificate(session):
         "Return the peer's certificate as a bytestring"
         try:
-            cert_type = gnutls.certificate_type_get2(session._c_object,
-                                                     gnutls.CTYPE_PEERS)
+            cert_type = gnutls.certificate_type_get2(
+                session, gnutls.CTYPE_PEERS)
         except AttributeError:
-            cert_type = gnutls.certificate_type_get(session._c_object)
+            cert_type = gnutls.certificate_type_get(session)
         if gnutls.has_rawpk:
             valid_cert_types = frozenset((gnutls.CRT_RAWPK,))
         else:
             valid_cert_types = frozenset((gnutls.CRT_OPENPGP,))
         # If not a valid certificate type...
         if cert_type not in valid_cert_types:
-            logger.info("Cert type %r not in %r", cert_type,
-                        valid_cert_types)
+            log.info("Cert type %r not in %r", cert_type,
+                     valid_cert_types)
             # ...return invalid data
             return b""
         list_size = ctypes.c_uint(1)
         cert_list = (gnutls.certificate_get_peers
-                     (session._c_object, ctypes.byref(list_size)))
+                     (session, ctypes.byref(list_size)))
         if not bool(cert_list) and list_size.value != 0:
             raise gnutls.Error("error getting peer certificate")
         if list_size.value == 0:
@@ -2567,7 +2581,7 @@ class MultiprocessingMixInWithPipe(MultiprocessingMixIn):
 
 class IPv6_TCPServer(MultiprocessingMixInWithPipe,
                      socketserver.TCPServer):
-    """IPv6-capable TCP server.  Accepts 'None' as address and/or port
+    """IPv6-capable TCP server.  Accepts None as address and/or port
 
     Attributes:
         enabled:        Boolean; whether this server is activated yet
@@ -2624,7 +2638,7 @@ class IPv6_TCPServer(MultiprocessingMixInWithPipe,
             if SO_BINDTODEVICE is None:
                 # Fall back to a hard-coded value which seems to be
                 # common enough.
-                logger.warning("SO_BINDTODEVICE not found, trying 25")
+                log.warning("SO_BINDTODEVICE not found, trying 25")
                 SO_BINDTODEVICE = 25
             try:
                 self.socket.setsockopt(
@@ -2632,15 +2646,14 @@ class IPv6_TCPServer(MultiprocessingMixInWithPipe,
                     (self.interface + "\0").encode("utf-8"))
             except socket.error as error:
                 if error.errno == errno.EPERM:
-                    logger.error("No permission to bind to"
-                                 " interface %s", self.interface)
+                    log.error("No permission to bind to interface %s",
+                              self.interface)
                 elif error.errno == errno.ENOPROTOOPT:
-                    logger.error("SO_BINDTODEVICE not available;"
-                                 " cannot bind to interface %s",
-                                 self.interface)
+                    log.error("SO_BINDTODEVICE not available; cannot"
+                              " bind to interface %s", self.interface)
                 elif error.errno == errno.ENODEV:
-                    logger.error("Interface %s does not exist,"
-                                 " cannot bind", self.interface)
+                    log.error("Interface %s does not exist, cannot"
+                              " bind", self.interface)
                 else:
                     raise
         # Only bind(2) the socket if we really need to.
@@ -2725,7 +2738,7 @@ class MandosServer(IPv6_TCPServer):
         request = parent_pipe.recv()
         command = request[0]
 
-        if command == 'init':
+        if command == "init":
             key_id = request[1].decode("ascii")
             fpr = request[2].decode("ascii")
             address = request[3]
@@ -2741,8 +2754,8 @@ class MandosServer(IPv6_TCPServer):
                     client = c
                     break
             else:
-                logger.info("Client not found for key ID: %s, address"
-                            ": %s", key_id or fpr, address)
+                log.info("Client not found for key ID: %s, address:"
+                         " %s", key_id or fpr, address)
                 if self.use_dbus:
                     # Emit D-Bus signal
                     mandos_dbus_service.ClientNotFound(key_id or fpr,
@@ -2761,25 +2774,25 @@ class MandosServer(IPv6_TCPServer):
             # remove the old hook in favor of the new above hook on
             # same fileno
             return False
-        if command == 'funcall':
+        if command == "funcall":
             funcname = request[1]
             args = request[2]
             kwargs = request[3]
 
-            parent_pipe.send(('data', getattr(client_object,
+            parent_pipe.send(("data", getattr(client_object,
                                               funcname)(*args,
                                                         **kwargs)))
 
-        if command == 'getattr':
+        if command == "getattr":
             attrname = request[1]
             if isinstance(client_object.__getattribute__(attrname),
                           collections.abc.Callable):
-                parent_pipe.send(('function', ))
+                parent_pipe.send(("function", ))
             else:
                 parent_pipe.send((
-                    'data', client_object.__getattribute__(attrname)))
+                    "data", client_object.__getattribute__(attrname)))
 
-        if command == 'setattr':
+        if command == "setattr":
             attrname = request[1]
             value = request[2]
             setattr(client_object, attrname, value)
@@ -2891,17 +2904,17 @@ def rfc3339_duration_to_delta(duration):
 def string_to_delta(interval):
     """Parse a string and return a datetime.timedelta
 
-    >>> string_to_delta('7d') == datetime.timedelta(7)
+    >>> string_to_delta("7d") == datetime.timedelta(7)
     True
-    >>> string_to_delta('60s') == datetime.timedelta(0, 60)
+    >>> string_to_delta("60s") == datetime.timedelta(0, 60)
     True
-    >>> string_to_delta('60m') == datetime.timedelta(0, 3600)
+    >>> string_to_delta("60m") == datetime.timedelta(0, 3600)
     True
-    >>> string_to_delta('24h') == datetime.timedelta(1)
+    >>> string_to_delta("24h") == datetime.timedelta(1)
     True
-    >>> string_to_delta('1w') == datetime.timedelta(7)
+    >>> string_to_delta("1w") == datetime.timedelta(7)
     True
-    >>> string_to_delta('5m 30s') == datetime.timedelta(0, 330)
+    >>> string_to_delta("5m 30s") == datetime.timedelta(0, 330)
     True
     """
 
@@ -3111,8 +3124,8 @@ def main():
 
     if server_settings["servicename"] != "Mandos":
         syslogger.setFormatter(
-            logging.Formatter('Mandos ({}) [%(process)d]:'
-                              ' %(levelname)s: %(message)s'.format(
+            logging.Formatter("Mandos ({}) [%(process)d]:"
+                              " %(levelname)s: %(message)s".format(
                                   server_settings["servicename"])))
 
     # Parse config file with clients
@@ -3142,8 +3155,8 @@ def main():
         try:
             pidfile = codecs.open(pidfilename, "w", encoding="utf-8")
         except IOError as e:
-            logger.error("Could not open file %r", pidfilename,
-                         exc_info=e)
+            log.error("Could not open file %r", pidfilename,
+                      exc_info=e)
 
     for name, group in (("_mandos", "_mandos"),
                         ("mandos", "mandos"),
@@ -3160,12 +3173,10 @@ def main():
     try:
         os.setgid(gid)
         os.setuid(uid)
-        if debug:
-            logger.debug("Did setuid/setgid to {}:{}".format(uid,
-                                                             gid))
+        log.debug("Did setuid/setgid to %s:%s", uid, gid)
     except OSError as error:
-        logger.warning("Failed to setuid/setgid to {}:{}: {}"
-                       .format(uid, gid, os.strerror(error.errno)))
+        log.warning("Failed to setuid/setgid to %s:%s: %s", uid, gid,
+                    os.strerror(error.errno))
         if error.errno != errno.EPERM:
             raise
 
@@ -3178,7 +3189,8 @@ def main():
 
         @gnutls.log_func
         def debug_gnutls(level, string):
-            logger.debug("GnuTLS: %s", string[:-1])
+            log.debug("GnuTLS: %s",
+                      string[:-1].decode("utf-8", errors="replace"))
 
         gnutls.global_set_log_function(debug_gnutls)
 
@@ -3213,7 +3225,7 @@ def main():
                 "se.bsnet.fukt.Mandos", bus,
                 do_not_queue=True)
         except dbus.exceptions.DBusException as e:
-            logger.error("Disabling D-Bus:", exc_info=e)
+            log.error("Disabling D-Bus:", exc_info=e)
             use_dbus = False
             server_settings["use_dbus"] = False
             tcp_server.use_dbus = False
@@ -3304,16 +3316,15 @@ def main():
             os.remove(stored_state_path)
         except IOError as e:
             if e.errno == errno.ENOENT:
-                logger.warning("Could not load persistent state:"
-                               " {}".format(os.strerror(e.errno)))
+                log.warning("Could not load persistent state:"
+                            " %s", os.strerror(e.errno))
             else:
-                logger.critical("Could not load persistent state:",
-                                exc_info=e)
+                log.critical("Could not load persistent state:",
+                             exc_info=e)
                 raise
         except EOFError as e:
-            logger.warning("Could not load persistent state: "
-                           "EOFError:",
-                           exc_info=e)
+            log.warning("Could not load persistent state: EOFError:",
+                        exc_info=e)
 
     with PGPEngine() as pgp:
         for client_name, client in clients_data.items():
@@ -3346,34 +3357,30 @@ def main():
             if client["enabled"]:
                 if datetime.datetime.utcnow() >= client["expires"]:
                     if not client["last_checked_ok"]:
-                        logger.warning(
-                            "disabling client {} - Client never "
-                            "performed a successful checker".format(
-                                client_name))
+                        log.warning("disabling client %s - Client"
+                                    " never performed a successful"
+                                    " checker", client_name)
                         client["enabled"] = False
                     elif client["last_checker_status"] != 0:
-                        logger.warning(
-                            "disabling client {} - Client last"
-                            " checker failed with error code"
-                            " {}".format(
-                                client_name,
-                                client["last_checker_status"]))
+                        log.warning("disabling client %s - Client"
+                                    " last checker failed with error"
+                                    " code %s", client_name,
+                                    client["last_checker_status"])
                         client["enabled"] = False
                     else:
                         client["expires"] = (
                             datetime.datetime.utcnow()
                             + client["timeout"])
-                        logger.debug("Last checker succeeded,"
-                                     " keeping {} enabled".format(
-                                         client_name))
+                        log.debug("Last checker succeeded, keeping %s"
+                                  " enabled", client_name)
             try:
                 client["secret"] = pgp.decrypt(
                     client["encrypted_secret"],
                     client_settings[client_name]["secret"])
             except PGPError:
                 # If decryption fails, we use secret from new settings
-                logger.debug("Failed to decrypt {} old secret".format(
-                    client_name))
+                log.debug("Failed to decrypt %s old secret",
+                          client_name)
                 client["secret"] = (client_settings[client_name]
                                     ["secret"])
 
@@ -3393,7 +3400,7 @@ def main():
             server_settings=server_settings)
 
     if not tcp_server.clients:
-        logger.warning("No clients defined")
+        log.warning("No clients defined")
 
     if not foreground:
         if pidfile is not None:
@@ -3402,8 +3409,8 @@ def main():
                 with pidfile:
                     print(pid, file=pidfile)
             except IOError:
-                logger.error("Could not write to file %r with PID %d",
-                             pidfilename, pid)
+                log.error("Could not write to file %r with PID %d",
+                          pidfilename, pid)
         del pidfile
         del pidfilename
 
@@ -3559,9 +3566,9 @@ def main():
 
         try:
             with tempfile.NamedTemporaryFile(
-                    mode='wb',
+                    mode="wb",
                     suffix=".pickle",
-                    prefix='clients-',
+                    prefix="clients-",
                     dir=os.path.dirname(stored_state_path),
                     delete=False) as stored_state:
                 pickle.dump((clients, client_settings), stored_state,
@@ -3575,11 +3582,11 @@ def main():
                 except NameError:
                     pass
             if e.errno in (errno.ENOENT, errno.EACCES, errno.EEXIST):
-                logger.warning("Could not save persistent state: {}"
-                               .format(os.strerror(e.errno)))
+                log.warning("Could not save persistent state: %s",
+                            os.strerror(e.errno))
             else:
-                logger.warning("Could not save persistent state:",
-                               exc_info=e)
+                log.warning("Could not save persistent state:",
+                            exc_info=e)
                 raise
 
         # Delete all clients, and settings from config
@@ -3611,12 +3618,11 @@ def main():
     if zeroconf:
         service.port = tcp_server.socket.getsockname()[1]
     if use_ipv6:
-        logger.info("Now listening on address %r, port %d,"
-                    " flowinfo %d, scope_id %d",
-                    *tcp_server.socket.getsockname())
+        log.info("Now listening on address %r, port %d, flowinfo %d,"
+                 " scope_id %d", *tcp_server.socket.getsockname())
     else:                       # IPv4
-        logger.info("Now listening on address %r, port %d",
-                    *tcp_server.socket.getsockname())
+        log.info("Now listening on address %r, port %d",
+                 *tcp_server.socket.getsockname())
 
     # service.interface = tcp_server.socket.getsockname()[3]
 
@@ -3626,7 +3632,7 @@ def main():
             try:
                 service.activate()
             except dbus.exceptions.DBusException as error:
-                logger.critical("D-Bus Exception", exc_info=error)
+                log.critical("D-Bus Exception", exc_info=error)
                 cleanup()
                 sys.exit(1)
             # End of Avahi example code
@@ -3637,30 +3643,31 @@ def main():
             lambda *args, **kwargs: (tcp_server.handle_request
                                      (*args[2:], **kwargs) or True))
 
-        logger.debug("Starting main loop")
+        log.debug("Starting main loop")
         main_loop.run()
     except AvahiError as error:
-        logger.critical("Avahi Error", exc_info=error)
+        log.critical("Avahi Error", exc_info=error)
         cleanup()
         sys.exit(1)
     except KeyboardInterrupt:
         if debug:
             print("", file=sys.stderr)
-        logger.debug("Server received KeyboardInterrupt")
-    logger.debug("Server exiting")
+        log.debug("Server received KeyboardInterrupt")
+    log.debug("Server exiting")
     # Must run before the D-Bus bus name gets deregistered
     cleanup()
 
 
-def should_only_run_tests():
+def parse_test_args():
+    # type: () -> argparse.Namespace
     parser = argparse.ArgumentParser(add_help=False)
-    parser.add_argument("--check", action='store_true')
+    parser.add_argument("--check", action="store_true")
+    parser.add_argument("--prefix", )
     args, unknown_args = parser.parse_known_args()
-    run_tests = args.check
-    if run_tests:
-        # Remove --check argument from sys.argv
+    if args.check:
+        # Remove test options from sys.argv
         sys.argv[1:] = unknown_args
-    return run_tests
+    return args
 
 # Add all tests from doctest strings
 def load_tests(loader, tests, none):
@@ -3668,12 +3675,82 @@ def load_tests(loader, tests, none):
     tests.addTests(doctest.DocTestSuite())
     return tests
 
-if __name__ == '__main__':
+if __name__ == "__main__":
+    options = parse_test_args()
     try:
-        if should_only_run_tests():
-            # Call using ./mandos --check [--verbose]
-            unittest.main()
+        if options.check:
+            extra_test_prefix = options.prefix
+            if extra_test_prefix is not None:
+                if not (unittest.main(argv=[""], exit=False)
+                        .result.wasSuccessful()):
+                    sys.exit(1)
+                class ExtraTestLoader(unittest.TestLoader):
+                    testMethodPrefix = extra_test_prefix
+                # Call using ./scriptname --test [--verbose]
+                unittest.main(argv=[""], testLoader=ExtraTestLoader())
+            else:
+                unittest.main(argv=[""])
         else:
             main()
     finally:
         logging.shutdown()
+
+# Local Variables:
+# run-tests:
+# (lambda (&optional extra)
+#   (if (not (funcall run-tests-in-test-buffer default-directory
+# 	      extra))
+# 	(funcall show-test-buffer-in-test-window)
+#     (funcall remove-test-window)
+#     (if extra (message "Extra tests run successfully!"))))
+# run-tests-in-test-buffer:
+# (lambda (dir &optional extra)
+#   (with-current-buffer (get-buffer-create "*Test*")
+#     (setq buffer-read-only nil
+# 	    default-directory dir)
+#     (erase-buffer)
+#     (compilation-mode))
+#   (let ((process-result
+# 	   (let ((inhibit-read-only t))
+# 	     (process-file-shell-command
+# 	      (funcall get-command-line extra) nil "*Test*"))))
+#     (and (numberp process-result)
+# 	   (= process-result 0))))
+# get-command-line:
+# (lambda (&optional extra)
+#   (let ((quoted-script
+# 	   (shell-quote-argument (funcall get-script-name))))
+#     (format
+#      (concat "%s --check" (if extra " --prefix=atest" ""))
+#      quoted-script)))
+# get-script-name:
+# (lambda ()
+#   (if (fboundp 'file-local-name)
+# 	(file-local-name (buffer-file-name))
+#     (or (file-remote-p (buffer-file-name) 'localname)
+# 	  (buffer-file-name))))
+# remove-test-window:
+# (lambda ()
+#   (let ((test-window (get-buffer-window "*Test*")))
+#     (if test-window (delete-window test-window))))
+# show-test-buffer-in-test-window:
+# (lambda ()
+#   (when (not (get-buffer-window-list "*Test*"))
+#     (setq next-error-last-buffer (get-buffer "*Test*"))
+#     (let* ((side (if (>= (window-width) 146) 'right 'bottom))
+# 	     (display-buffer-overriding-action
+# 	      `((display-buffer-in-side-window) (side . ,side)
+# 		(window-height . fit-window-to-buffer)
+# 		(window-width . fit-window-to-buffer))))
+# 	(display-buffer "*Test*"))))
+# eval:
+# (progn
+#   (let* ((run-extra-tests (lambda () (interactive)
+# 			      (funcall run-tests t)))
+# 	   (inner-keymap `(keymap (116 . ,run-extra-tests))) ; t
+# 	   (outer-keymap `(keymap (3 . ,inner-keymap))))     ; C-c
+#     (setq minor-mode-overriding-map-alist
+# 	    (cons `(run-tests . ,outer-keymap)
+# 		  minor-mode-overriding-map-alist)))
+#   (add-hook 'after-save-hook run-tests 90 t))
+# End:

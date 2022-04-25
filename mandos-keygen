@@ -397,7 +397,7 @@ if [ "$mode" = password ]; then
 		echo "Passphrase mismatch" >&2
 		touch "$RINGDIR"/mismatch
 	    else
-		echo -n "$first"
+		printf "%s" "$first"
 	    fi
 	fi | gpg --quiet --batch --no-tty --no-options --enable-dsa2 \
 	    --homedir "$RINGDIR" --trust-model always --armor \
