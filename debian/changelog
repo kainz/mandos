@@ -1,3 +1,17 @@
+mandos (1.8.15-1) unstable; urgency=medium
+
+  * New upstream release.
+  * debian/po/fr.po: Add missing whitespace to the id and translation
+    for msgid " ${key_id}".
+  * debian/mandos-client.lintian-overrides: Remove all empty commented
+    lines.  Rename "setuid-binary" tag to "elevated-privileges".
+  * debian/control (Standards-Version): Change to "4.6.0".
+  * debian/copyright: Update copyright year to 2022.
+  * debian/po/es.po: Add Spanish translation of the debconf template
+    (Closes: #987595).
+
+ -- Teddy Hogeborn <teddy@recompile.se>  Mon, 25 Apr 2022 20:43:27 +0200
+
 mandos (1.8.14-1) unstable; urgency=medium
 
   * New upstream release.  Includes workaround for #981302
