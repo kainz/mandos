@@ -1,9 +1,9 @@
-/* -*- mode: c; coding: utf-8; after-save-hook: (lambda () (let* ((find-build-directory (lambda (try-directory &optional base-directory) (let ((base-directory (or base-directory try-directory))) (cond ((equal try-directory "/") base-directory) ((file-readable-p (concat (file-name-as-directory try-directory) "Makefile")) try-directory) ((funcall find-build-directory (directory-file-name (file-name-directory try-directory)) base-directory)))))) (build-directory (funcall find-build-directory (buffer-file-name))) (local-build-directory (if (fboundp 'file-local-name) (file-local-name build-directory) (or (file-remote-p build-directory 'localname) build-directory))) (command (file-relative-name (file-name-sans-extension (buffer-file-name)) build-directory))) (pcase (progn (if (get-buffer "*Test*") (kill-buffer "*Test*")) (process-file-shell-command (let ((qbdir (shell-quote-argument local-build-directory)) (qcmd (shell-quote-argument command))) (format "cd %s && CFLAGS=-Werror make --silent %s && %s --test --verbose" qbdir qcmd qcmd)) nil "*Test*")) (0 (let ((w (get-buffer-window "*Test*"))) (if w (delete-window w)))) (_ (with-current-buffer "*Test*" (compilation-mode) (cd-absolute build-directory)) (display-buffer "*Test*" '(display-buffer-in-side-window)))))); -*- */
+/* -*- coding: utf-8; lexical-binding: t -*- */
 /*
  * Mandos password agent - Simple password agent to run Mandos client
  *
- * Copyright © 2019-2021 Teddy Hogeborn
- * Copyright © 2019-2021 Björn Påhlsson
+ * Copyright © 2019-2022 Teddy Hogeborn
+ * Copyright © 2019-2022 Björn Påhlsson
  * 
  * This file is part of Mandos.
  * 
@@ -6005,7 +6005,9 @@ void test_send_password_to_socket_EMSGSIZE(__attribute__((unused))
     if(ssret < 0){
       if(saved_errno != EMSGSIZE) {
 	g_test_skip("Skipping EMSGSIZE test");
-	g_test_message("Error on send(): %s", strerror(saved_errno));
+	g_test_message("Error on send(%" PRIuMAX " bytes): %s",
+		       (uintmax_t)message_size,
+		       strerror(saved_errno));
 	return;
       }
       break;
@@ -8193,3 +8195,69 @@ static bool should_only_run_tests(int *argc_p, char **argv_p[]){
   g_option_context_free(context);
   return should_run_tests != FALSE;
 }
+
+/*
+Local Variables:
+run-tests:
+(lambda ()
+  (if (not (funcall run-tests-in-test-buffer default-directory))
+      (funcall show-test-buffer-in-test-window)
+    (funcall remove-test-window)))
+run-tests-in-test-buffer:
+(lambda (dir)
+  (with-current-buffer (get-buffer-create "*Test*")
+    (setq buffer-read-only nil
+	  default-directory dir)
+    (erase-buffer)
+    (compilation-mode))
+  (let ((process-result
+	 (let ((inhibit-read-only t))
+	   (process-file-shell-command
+	    (funcall get-command-line) nil "*Test*"))))
+    (and (numberp process-result)
+	 (= process-result 0))))
+get-command-line:
+(lambda ()
+  (let*
+      ((build-directory
+	(funcall find-build-directory (buffer-file-name)))
+       (local-build-directory
+	(if (fboundp 'file-local-name)
+	    (file-local-name build-directory)
+	  (or (file-remote-p build-directory 'localname)
+	      build-directory)))
+       (command
+	(file-relative-name (file-name-sans-extension
+			     (buffer-file-name)) build-directory))
+       (qbdir (shell-quote-argument local-build-directory))
+       (qcmd (shell-quote-argument command)))
+    (format (concat "cd %s && CFLAGS=-Werror make --silent %s"
+	     " && %s --test --verbose") qbdir qcmd qcmd)))
+find-build-directory:
+(lambda (try-directory &optional base-directory)
+  (let ((base-directory (or base-directory try-directory)))
+    (cond ((equal try-directory "/") base-directory)
+	  ((file-readable-p
+	    (concat (file-name-as-directory try-directory)
+		    "Makefile")) try-directory)
+	  ((funcall find-build-directory
+		    (directory-file-name (file-name-directory
+					  try-directory))
+		    base-directory)))))
+show-test-buffer-in-test-window:
+(lambda ()
+  (when (not (get-buffer-window-list "*Test*"))
+    (setq next-error-last-buffer (get-buffer "*Test*"))
+    (let* ((side (if (>= (window-width) 146) 'right 'bottom))
+	   (display-buffer-overriding-action
+	    `((display-buffer-in-side-window) (side . ,side)
+	      (window-height . fit-window-to-buffer)
+	      (window-width . fit-window-to-buffer))))
+      (display-buffer "*Test*"))))
+remove-test-window:
+(lambda ()
+  (let ((test-window (get-buffer-window "*Test*")))
+    (if test-window (delete-window test-window))))
+eval: (add-hook 'after-save-hook run-tests 90 t)
+End:
+*/

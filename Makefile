@@ -29,7 +29,7 @@ ALL_SANITIZE_OPTIONS:=-fsanitize=leak -fsanitize=undefined \
 
 # For info about _FORTIFY_SOURCE, see feature_test_macros(7)
 # and <https://gcc.gnu.org/ml/gcc-patches/2004-09/msg02055.html>.
-FORTIFY:=-D_FORTIFY_SOURCE=2 -fstack-protector-all -fPIC
+FORTIFY:=-D_FORTIFY_SOURCE=3 -fstack-protector-all -fPIC
 LINK_FORTIFY_LD:=-z relro -z now
 LINK_FORTIFY:=
 
@@ -296,6 +296,7 @@ plugin-helpers/mandos-client-iprouteadddel: LDLIBS += $(LIBNL3_LIBS)
 
 # Need to add the GLib and pthread libraries
 dracut-module/password-agent: CFLAGS += $(GLIB_CFLAGS)
+# Note: -lpthread is unnecessary with the GNU C library 2.34 or later
 dracut-module/password-agent: LDLIBS += $(GLIB_LIBS) -lpthread
 
 .PHONY: clean
