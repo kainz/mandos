@@ -35,8 +35,8 @@ msgstr ""
 #. Type: note
 #. Description
 #: ../mandos.templates:1001
-msgid "key_id = <HEXSTRING>"
-msgstr "key_id = <CHAÎNE HEXADÉCIMALE>"
+msgid " key_id = <HEXSTRING>"
+msgstr " key_id = <CHAÎNE HEXADÉCIMALE>"
 
 #. Type: note
 #. Description
