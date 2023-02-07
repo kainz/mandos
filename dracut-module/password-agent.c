@@ -1098,7 +1098,15 @@ void read_inotify_event(const task_context task,
   } ievent_buffer;
   struct inotify_event *const ievent = &ievent_buffer.event;
 
+#if defined(__GNUC__) and __GNUC__ >= 7
+#pragma GCC diagnostic push
+  /* ievent is pointing into a struct which is of sufficient size */
+#pragma GCC diagnostic ignored "-Wstringop-overflow"
+#endif
   const ssize_t read_length = read(fd, ievent, ievent_size);
+#if defined(__GNUC__) and __GNUC__ >= 7
+#pragma GCC diagnostic pop
+#endif
   if(read_length == 0){	/* EOF */
     error(0, 0, "Got EOF from inotify fd for directory %s", filename);
     *quit_now = true;
@@ -4182,8 +4190,16 @@ void test_read_inotify_event_IN_CLOSE_WRITE(__attribute__((unused))
   memcpy(ievent->name, dummy_file_name, sizeof(dummy_file_name));
   const size_t ievent_size = (sizeof(struct inotify_event)
 			      + sizeof(dummy_file_name));
+#if defined(__GNUC__) and __GNUC__ >= 11
+#pragma GCC diagnostic push
+  /* ievent is pointing into a struct which is of sufficient size */
+#pragma GCC diagnostic ignored "-Wstringop-overread"
+#endif
   g_assert_cmpint(write(pipefds[1], (char *)ievent, ievent_size),
 		  ==, ievent_size);
+#if defined(__GNUC__) and __GNUC__ >= 11
+#pragma GCC diagnostic pop
+#endif
   g_assert_cmpint(close(pipefds[1]), ==, 0);
 
   bool quit_now = false;
@@ -4277,8 +4293,16 @@ void test_read_inotify_event_IN_MOVED_TO(__attribute__((unused))
   memcpy(ievent->name, dummy_file_name, sizeof(dummy_file_name));
   const size_t ievent_size = (sizeof(struct inotify_event)
 			      + sizeof(dummy_file_name));
+#if defined(__GNUC__) and __GNUC__ >= 11
+#pragma GCC diagnostic push
+  /* ievent is pointing into a struct which is of sufficient size */
+#pragma GCC diagnostic ignored "-Wstringop-overread"
+#endif
   g_assert_cmpint(write(pipefds[1], (char *)ievent, ievent_size),
 		  ==, ievent_size);
+#if defined(__GNUC__) and __GNUC__ >= 11
+#pragma GCC diagnostic pop
+#endif
   g_assert_cmpint(close(pipefds[1]), ==, 0);
 
   bool quit_now = false;
@@ -4374,8 +4398,16 @@ void test_read_inotify_event_IN_MOVED_FROM(__attribute__((unused))
   memcpy(ievent->name, dummy_file_name, sizeof(dummy_file_name));
   const size_t ievent_size = (sizeof(struct inotify_event)
 			      + sizeof(dummy_file_name));
+#if defined(__GNUC__) and __GNUC__ >= 11
+#pragma GCC diagnostic push
+  /* ievent is pointing into a struct which is of sufficient size */
+#pragma GCC diagnostic ignored "-Wstringop-overread"
+#endif
   g_assert_cmpint(write(pipefds[1], (char *)ievent, ievent_size),
 		  ==, ievent_size);
+#if defined(__GNUC__) and __GNUC__ >= 11
+#pragma GCC diagnostic pop
+#endif
   g_assert_cmpint(close(pipefds[1]), ==, 0);
 
   bool quit_now = false;
@@ -4459,8 +4491,16 @@ static void test_read_inotify_event_IN_DELETE(__attribute__((unused))
   memcpy(ievent->name, dummy_file_name, sizeof(dummy_file_name));
   const size_t ievent_size = (sizeof(struct inotify_event)
 			      + sizeof(dummy_file_name));
+#if defined(__GNUC__) and __GNUC__ >= 11
+#pragma GCC diagnostic push
+  /* ievent is pointing into a struct which is of sufficient size */
+#pragma GCC diagnostic ignored "-Wstringop-overread"
+#endif
   g_assert_cmpint(write(pipefds[1], (char *)ievent, ievent_size),
 		  ==, ievent_size);
+#if defined(__GNUC__) and __GNUC__ >= 11
+#pragma GCC diagnostic pop
+#endif
   g_assert_cmpint(close(pipefds[1]), ==, 0);
 
   bool quit_now = false;
@@ -4543,8 +4583,16 @@ test_read_inotify_event_IN_CLOSE_WRITE_badname(__attribute__((unused))
   memcpy(ievent->name, dummy_file_name, sizeof(dummy_file_name));
   const size_t ievent_size = (sizeof(struct inotify_event)
 			      + sizeof(dummy_file_name));
+#if defined(__GNUC__) and __GNUC__ >= 11
+#pragma GCC diagnostic push
+  /* ievent is pointing into a struct which is of sufficient size */
+#pragma GCC diagnostic ignored "-Wstringop-overread"
+#endif
   g_assert_cmpint(write(pipefds[1], (char *)ievent, ievent_size),
 		  ==, ievent_size);
+#if defined(__GNUC__) and __GNUC__ >= 11
+#pragma GCC diagnostic pop
+#endif
   g_assert_cmpint(close(pipefds[1]), ==, 0);
 
   bool quit_now = false;
@@ -4619,8 +4667,16 @@ test_read_inotify_event_IN_MOVED_TO_badname(__attribute__((unused))
   memcpy(ievent->name, dummy_file_name, sizeof(dummy_file_name));
   const size_t ievent_size = (sizeof(struct inotify_event)
 			      + sizeof(dummy_file_name));
+#if defined(__GNUC__) and __GNUC__ >= 11
+#pragma GCC diagnostic push
+  /* ievent is pointing into a struct which is of sufficient size */
+#pragma GCC diagnostic ignored "-Wstringop-overread"
+#endif
   g_assert_cmpint(write(pipefds[1], (char *)ievent, ievent_size),
 		  ==, ievent_size);
+#if defined(__GNUC__) and __GNUC__ >= 11
+#pragma GCC diagnostic pop
+#endif
   g_assert_cmpint(close(pipefds[1]), ==, 0);
 
   bool quit_now = false;
@@ -4698,8 +4754,16 @@ test_read_inotify_event_IN_MOVED_FROM_badname(__attribute__((unused))
   memcpy(ievent->name, dummy_file_name, sizeof(dummy_file_name));
   const size_t ievent_size = (sizeof(struct inotify_event)
 			      + sizeof(dummy_file_name));
+#if defined(__GNUC__) and __GNUC__ >= 11
+#pragma GCC diagnostic push
+  /* ievent is pointing into a struct which is of sufficient size */
+#pragma GCC diagnostic ignored "-Wstringop-overread"
+#endif
   g_assert_cmpint(write(pipefds[1], (char *)ievent, ievent_size),
 		  ==, ievent_size);
+#if defined(__GNUC__) and __GNUC__ >= 11
+#pragma GCC diagnostic pop
+#endif
   g_assert_cmpint(close(pipefds[1]), ==, 0);
 
   bool quit_now = false;
