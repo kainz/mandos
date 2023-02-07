@@ -1045,7 +1045,6 @@ class Client:
         if getattr(self, "enabled", False):
             # Already enabled
             return
-        self.expires = datetime.datetime.utcnow() + self.timeout
         self.enabled = True
         self.last_enabled = datetime.datetime.utcnow()
         self.init_checker()
@@ -1074,22 +1073,35 @@ class Client:
     def __del__(self):
         self.disable()
 
-    def init_checker(self):
-        # Schedule a new checker to be started an 'interval' from now,
-        # and every interval from then on.
+    def init_checker(self, randomize_start=False):
+        # Schedule a new checker to be started a randomly selected
+        # time (a fraction of 'interval') from now.  This spreads out
+        # the startup of checkers over time when the server is
+        # started.
         if self.checker_initiator_tag is not None:
             GLib.source_remove(self.checker_initiator_tag)
+        interval_milliseconds = int(self.interval.total_seconds()
+                                    * 1000)
+        if randomize_start:
+            delay_milliseconds = random.randrange(
+                interval_milliseconds + 1)
+        else:
+            delay_milliseconds = interval_milliseconds
         self.checker_initiator_tag = GLib.timeout_add(
-            random.randrange(int(self.interval.total_seconds() * 1000
-                                 + 1)),
-            self.start_checker)
-        # Schedule a disable() when 'timeout' has passed
+            delay_milliseconds, self.start_checker, randomize_start)
+        delay = datetime.timedelta(0, 0, 0, delay_milliseconds)
+        # A checker might take up to an 'interval' of time, so we can
+        # expire at the soonest one interval after a checker was
+        # started.  Since the initial checker is delayed, the expire
+        # time might have to be extended.
+        now = datetime.datetime.utcnow()
+        self.expires = now + delay + self.interval
+        # Schedule a disable() at expire time
         if self.disable_initiator_tag is not None:
             GLib.source_remove(self.disable_initiator_tag)
         self.disable_initiator_tag = GLib.timeout_add(
-            int(self.timeout.total_seconds() * 1000), self.disable)
-        # Also start a new checker *right now*.
-        self.start_checker()
+            int((self.expires - now).total_seconds() * 1000),
+            self.disable)
 
     def checker_callback(self, source, condition, connection,
                          command):
@@ -1138,7 +1150,7 @@ class Client:
     def need_approval(self):
         self.last_approval_request = datetime.datetime.utcnow()
 
-    def start_checker(self):
+    def start_checker(self, start_was_randomized=False):
         """Start a new checker subprocess if one is not running.
 
         If a checker already exists, leave it running and do
@@ -1194,6 +1206,17 @@ class Client:
                 GLib.IOChannel.unix_new(pipe[0].fileno()),
                 GLib.PRIORITY_DEFAULT, GLib.IO_IN,
                 self.checker_callback, pipe[0], command)
+        if start_was_randomized:
+            # We were started after a random delay; Schedule a new
+            # checker to be started an 'interval' from now, and every
+            # interval from then on.
+            now = datetime.datetime.utcnow()
+            self.checker_initiator_tag = GLib.timeout_add(
+                int(self.interval.total_seconds() * 1000),
+                self.start_checker)
+            self.expires = max(self.expires, now + self.interval)
+            # Don't start a new checker again after same random delay
+            return False
         # Re-run this periodically if run by GLib.timeout_add
         return True
 
@@ -3609,7 +3632,7 @@ def main():
             mandos_dbus_service.client_added_signal(client)
         # Need to initiate checking of clients
         if client.enabled:
-            client.init_checker()
+            client.init_checker(randomize_start=True)
 
     tcp_server.enable()
     tcp_server.server_activate()

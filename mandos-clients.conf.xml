@@ -228,13 +228,16 @@
 	><replaceable>HEXSTRING</replaceable></option></term>
 	<listitem>
 	  <para>
-	    This option is <emphasis>required</emphasis>.
+	    This option is <emphasis>required</emphasis> if the
+	    <option>key_id</option> is not set, and
+	    <emphasis>optional</emphasis> otherwise.
 	  </para>
 	  <para>
-	    This option sets the OpenPGP fingerprint that identifies
-	    the public key that clients authenticate themselves with
-	    through TLS.  The string needs to be in hexadecimal form,
-	    but spaces or upper/lower case are not significant.
+	    This option sets the OpenPGP fingerprint that (before
+	    GnuTLS 3.6.0) identified the public key that clients
+	    authenticate themselves with through TLS.  The string
+	    needs to be in hexadecimal form, but spaces or upper/lower
+	    case are not significant.
 	  </para>
 	</listitem>
       </varlistentry>
@@ -244,13 +247,16 @@
 	><replaceable>HEXSTRING</replaceable></option></term>
 	<listitem>
 	  <para>
-	    This option is <emphasis>optional</emphasis>.
+	    This option is <emphasis>required</emphasis> if the
+	    <option>fingerprint</option> is not set, and
+	    <emphasis>optional</emphasis> otherwise.
 	  </para>
 	  <para>
-	    This option sets the certificate key ID that identifies
-	    the public key that clients authenticate themselves with
-	    through TLS.  The string needs to be in hexadecimal form,
-	    but spaces or upper/lower case are not significant.
+	    This option sets the certificate key ID that (with GnuTLS
+	    3.6.6 or later) identifies the public key that clients
+	    authenticate themselves with through TLS.  The string
+	    needs to be in hexadecimal form, but spaces or upper/lower
+	    case are not significant.
 	  </para>
 	</listitem>
       </varlistentry>
