@@ -11,7 +11,7 @@ Build-Depends: debhelper (>= 10), docbook-xml, docbook-xsl,
 	xsltproc, pkg-config, libnl-route-3-dev, systemd
 Build-Depends-Indep: python3 (>= 3), python3-dbus, python3-gi,
 	po-debconf
-Standards-Version: 4.6.0
+Standards-Version: 4.6.2
 Vcs-Bzr: https://ftp.recompile.se/pub/mandos/trunk
 Vcs-Browser: https://bzr.recompile.se/loggerhead/mandos/trunk/files
 Homepage: https://www.recompile.se/mandos
