@@ -96,8 +96,10 @@ GNUTLS_CFLAGS:=$(shell $(PKG_CONFIG) --cflags-only-I gnutls)
 GNUTLS_LIBS:=$(shell $(PKG_CONFIG) --libs gnutls)
 AVAHI_CFLAGS:=$(shell $(PKG_CONFIG) --cflags-only-I avahi-core)
 AVAHI_LIBS:=$(shell $(PKG_CONFIG) --libs avahi-core)
-GPGME_CFLAGS:=$(shell gpgme-config --cflags; getconf LFS_CFLAGS)
-GPGME_LIBS:=$(shell gpgme-config --libs; getconf LFS_LIBS; \
+GPGME_CFLAGS:=$(shell $(PKG_CONFIG) --cflags-only-I gpgme 2>/dev/null \
+	|| gpgme-config --cflags; getconf LFS_CFLAGS)
+GPGME_LIBS:=$(shell $(PKG_CONFIG) --libs gpgme 2>/dev/null \
+	|| gpgme-config --libs; getconf LFS_LIBS; \
 	getconf LFS_LDFLAGS)
 LIBNL3_CFLAGS:=$(shell $(PKG_CONFIG) --cflags-only-I libnl-route-3.0)
 LIBNL3_LIBS:=$(shell $(PKG_CONFIG) --libs libnl-route-3.0)
