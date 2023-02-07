@@ -2661,7 +2661,7 @@ void test_start_mandos_client_helper_directory(test_fixture *fixture,
   bool password_is_read = false;
   const char helper_directory[] = "/nonexistent";
   const char *const argv[] = { "/bin/sh", "-c",
-    "echo -n ${MANDOSPLUGINHELPERDIR}", NULL };
+    "printf %s \"${MANDOSPLUGINHELPERDIR}\"", NULL };
 
   const bool success = start_mandos_client(queue, epoll_fd,
 					   &mandos_client_exited,
