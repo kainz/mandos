@@ -1,6 +1,10 @@
 This NEWS file records noteworthy changes, very tersely.
 See the manual for detailed information.
 
+Version 1.8.16 (2023-02-08)
+* Server
+** Bug fix: Start client checkers after a random delay
+
 Version 1.8.15 (2022-04-25)
 * Server
 ** Bug fix: When running "mandos-keygen --password" to read a password
