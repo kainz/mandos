@@ -1,3 +1,18 @@
+mandos (1.8.16-1) unstable; urgency=medium
+
+  * New upstream release.
+  * debian/rules (override_dh_fixperms-arch): Make sure dh_fixperms also
+    is applied to the directory
+    /usr/share/doc/mandos-client/examples/network-hooks.d (but still not
+    to the files therein).
+  * debian/po/pt_BR.po: Add Brazilian Portuguese translation of the
+    debconf template (Closes: #1026400).
+  * debian/po/fr.po: Add missing whitespace to the id and translation
+    for msgid " key_id = <HEXSTRING>".
+  * debian/control (Standards-Version): Change to "4.6.2".
+
+ -- Teddy Hogeborn <teddy@recompile.se>  Wed, 08 Feb 2023 00:58:24 +0100
+
 mandos (1.8.15-1) unstable; urgency=medium
 
   * New upstream release.
