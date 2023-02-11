@@ -29,7 +29,8 @@ ALL_SANITIZE_OPTIONS:=-fsanitize=leak -fsanitize=undefined \
 
 # For info about _FORTIFY_SOURCE, see feature_test_macros(7)
 # and <https://gcc.gnu.org/ml/gcc-patches/2004-09/msg02055.html>.
-FORTIFY:=-D_FORTIFY_SOURCE=3 -fstack-protector-all -fPIC
+FORTIFY:=-fstack-protector-all -fPIC
+CPPFLAGS+=-D_FORTIFY_SOURCE=3
 LINK_FORTIFY_LD:=-z relro -z now
 LINK_FORTIFY:=
 
@@ -41,7 +42,7 @@ endif
 #COVERAGE=--coverage
 OPTIMIZE:=-Os -fno-strict-aliasing
 LANGUAGE:=-std=gnu11
-FEATURES:=-D_FILE_OFFSET_BITS=64
+CPPFLAGS+=-D_FILE_OFFSET_BITS=64
 htmldir:=man
 version:=1.8.16
 SED:=sed
@@ -108,7 +109,7 @@ GLIB_LIBS:=$(shell $(PKG_CONFIG) --libs glib-2.0)
 
 # Do not change these two
 CFLAGS+=$(WARN) $(DEBUG) $(FORTIFY) $(COVERAGE) $(OPTIMIZE) \
-	$(LANGUAGE) $(FEATURES) -DVERSION='"$(version)"'
+	$(LANGUAGE) -DVERSION='"$(version)"'
 LDFLAGS+=-Xlinker --as-needed $(COVERAGE) $(LINK_FORTIFY) $(strip \
 	) $(foreach flag,$(LINK_FORTIFY_LD),-Xlinker $(flag))
 
