@@ -64,6 +64,7 @@ LINUXVERSION:=$(shell uname --kernel-release)
 # DRACUTMODULE:=$(DESTDIR)/usr/lib/dracut/modules.d/90mandos
 # STATEDIR:=$(DESTDIR)/var/lib/mandos
 # LIBDIR:=$(PREFIX)/lib
+# DBUSPOLICYDIR:=$(DESTDIR)/etc/dbus-1/system.d
 ##
 
 ## These settings are for a package-type install
@@ -84,6 +85,7 @@ LIBDIR:=$(shell \
 			break; \
 		fi; \
 	done)
+DBUSPOLICYDIR:=$(DESTDIR)/usr/share/dbus-1/system.d
 ##
 
 SYSTEMD:=$(DESTDIR)$(shell $(PKG_CONFIG) systemd \
@@ -421,7 +423,7 @@ install-server: doc
 	install --mode=u=rw --target-directory=$(CONFDIR) \
 		clients.conf
 	install --mode=u=rw,go=r dbus-mandos.conf \
-		$(DESTDIR)/etc/dbus-1/system.d/mandos.conf
+		$(DBUSPOLICYDIR)/mandos.conf
 	install --mode=u=rwx,go=rx init.d-mandos \
 		$(DESTDIR)/etc/init.d/mandos
 	if [ "$(SYSTEMD)" != "$(DESTDIR)" -a -d "$(SYSTEMD)" ]; then \
