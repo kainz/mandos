@@ -961,8 +961,14 @@ class Client:
             # key_id() and fingerprint() functions
             client["key_id"] = (section.get("key_id", "").upper()
                                 .replace(" ", ""))
-            client["fingerprint"] = (section["fingerprint"].upper()
+            client["fingerprint"] = (section.get("fingerprint",
+                                                 "").upper()
                                      .replace(" ", ""))
+            if not (client["key_id"] or client["fingerprint"]):
+                log.error("Skipping client %s without key_id or"
+                          " fingerprint", client_name)
+                del settings[client_name]
+                continue
             if "secret" in section:
                 client["secret"] = codecs.decode(section["secret"]
                                                  .encode("utf-8"),
