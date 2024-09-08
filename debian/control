@@ -22,8 +22,7 @@ Architecture: all
 Depends: ${misc:Depends}, python3 (>= 3), libgnutls30 (>= 3.3.0),
 	libgnutls30 (>= 3.6.6) | libgnutls30 (<< 3.6.0),
 	python3-dbus, python3-gi, avahi-daemon, adduser,
-	python3-urwid, gnupg2 | gnupg,
-	systemd-sysv | lsb-base (>= 3.0-6),
+	python3-urwid, gnupg, systemd-sysv | lsb-base (>= 3.0-6),
 	debconf (>= 1.5.5) | debconf-2.0
 Recommends: ssh-client | fping
 Suggests: libc6-dev | libc-dev, c-compiler
