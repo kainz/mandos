@@ -37,7 +37,19 @@ update_initramfs()
 	    # Dracut preserves old permissions of initramfs image
 	    # files, so we adjust permissions before creating new
 	    # initramfs image containing secret keys.
-	    chmod go-r /boot/initrd.img-"$kversion"
+	    if [ -e /boot/initrd.img-"$kversion" ]; then
+		chmod go-r /boot/initrd.img-"$kversion"
+	    else
+		# An initrd image has not yet been created for this
+		# kernel, possibly because this new kernel is about to
+		# be, but has not yet been, installed.  In this case,
+		# we create an empty file with the right permissions
+		# so that Dracut will preserve those permissions when
+		# it creates the real, new initrd image for this
+		# kernel.
+		install --mode=u=rw /dev/null \
+			/boot/initrd.img-"$kversion"
+	    fi
 	    if [ "$kversion" != "*" ]; then
 		/etc/kernel/postinst.d/dracut "$kversion"
 	    fi
