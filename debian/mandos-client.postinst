@@ -23,7 +23,7 @@ set -e
 update_initramfs()
 {
     if command -v update-initramfs >/dev/null; then
-	update-initramfs -k all -u
+	update-initramfs -k all -u 1>&2
     elif command -v dracut >/dev/null; then
 	dracut_version="`dpkg-query --showformat='${Version}' --show dracut`"
 	if dpkg --compare-versions "$dracut_version" lt 043-1 \
@@ -51,7 +51,7 @@ update_initramfs()
 			/boot/initrd.img-"$kversion"
 	    fi
 	    if [ "$kversion" != "*" ]; then
-		/etc/kernel/postinst.d/dracut "$kversion"
+		/etc/kernel/postinst.d/dracut "$kversion" 1>&2
 	    fi
 	done
     fi
@@ -70,8 +70,8 @@ add_mandos_user(){
     if dpkg --compare-versions "$2" lt "1.0.3-1"; then
 	case "`getent passwd mandos`" in
 	    *:Mandos\ password\ system,,,:/nonexistent:/bin/false)
-		usermod --login _mandos mandos
-		groupmod --new-name _mandos mandos
+		usermod --login _mandos mandos 1>&2
+		groupmod --new-name _mandos mandos 1>&2
 		return
 		;;
 	esac
@@ -80,7 +80,7 @@ add_mandos_user(){
     if ! getent passwd _mandos >/dev/null; then
 	adduser --system --force-badname --quiet --home /nonexistent \
 	    --no-create-home --group --disabled-password \
-	    --gecos "Mandos password system" _mandos
+	    --gecos "Mandos password system" _mandos 1>&2
     fi
 }
 
@@ -90,8 +90,8 @@ create_keys(){
     # mandos-keygen
     if ! [ -r /etc/keys/mandos/pubkey.txt \
 	      -a -r /etc/keys/mandos/seckey.txt ]; then
-	mandos-keygen
-	gpg-connect-agent KILLAGENT /bye || :
+	mandos-keygen 1>&2
+	gpg-connect-agent KILLAGENT /bye 1>&2 || :
 	return 0
     fi
 
@@ -102,7 +102,7 @@ create_keys(){
 	if ! certtool --password='' \
 	     --load-privkey=/etc/keys/mandos/tls-privkey.pem \
 	     --outfile=/dev/null --pubkey-info --no-text \
-	     2>/dev/null; then
+	      1>&2 2>/dev/null; then
 	    shred --remove -- /etc/keys/mandos/tls-privkey.pem \
 		  2>/dev/null || :
 	    rm --force -- /etc/keys/mandos/tls-pubkey.pem
@@ -121,7 +121,8 @@ create_keys(){
 
     if certtool --generate-privkey --password='' \
 		--outfile "$TLS_PRIVKEYTMP" --sec-param ultra \
-		--key-type=ed25519 --pkcs8 --no-text 2>/dev/null; then
+		--key-type=ed25519 --pkcs8 --no-text 1>&2 \
+		2>/dev/null; then
 
 	local umask=$(umask)
 	umask 077
@@ -132,10 +133,11 @@ create_keys(){
 	if ! certtool --password='' \
 	     --load-privkey=/etc/keys/mandos/tls-privkey.pem \
 	     --outfile=/etc/keys/mandos/tls-pubkey.pem --pubkey-info \
-	     --no-text 2>/dev/null; then
+	     --no-text 1>&2 2>/dev/null; then
 	    # Otherwise try OpenSSL
 	    if ! openssl pkey -in /etc/keys/mandos/tls-privkey.pem \
-		 -out /etc/keys/mandos/tls-pubkey.pem -pubout; then
+		 -out /etc/keys/mandos/tls-pubkey.pem -pubout \
+		 1>&2; then
 		rm --force /etc/keys/mandos/tls-pubkey.pem
 		# None of the commands succeded; give up
 		umask $umask
@@ -167,12 +169,12 @@ create_dh_params(){
     DHFILE="`mktemp -t mandos-client-dh-parameters.XXXXXXXXXX.pem`"
     # First try certtool from GnuTLS
     if ! certtool --generate-dh-params --sec-param high \
-	 --outfile "$DHFILE"; then
+	 --outfile "$DHFILE" 1>&2; then
 	# Otherwise try OpenSSL
 	if ! openssl genpkey -genparam -algorithm DH -out "$DHFILE" \
-	     -pkeyopt dh_paramgen_prime_len:3072; then
+	     -pkeyopt dh_paramgen_prime_len:3072 1>&2; then
 	    # None of the commands succeded; give up
-	    rm -- "$DHFILE"
+	    rm --force -- "$DHFILE"
 	    return 1
 	fi
     fi
@@ -181,7 +183,7 @@ create_dh_params(){
     sed --in-place --expression='1i-----BEGIN DH PARAMETERS-----' \
 	    "$DHFILE"
     cp --archive "$DHFILE" /etc/keys/mandos/dhparams.pem
-    rm -- "$DHFILE"
+    rm --force -- "$DHFILE"
 }
 
 case "$1" in

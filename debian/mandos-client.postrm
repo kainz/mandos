@@ -32,13 +32,13 @@ set -e
 update_initramfs()
 {
     if command -v update-initramfs >/dev/null; then
-	update-initramfs -k all -u
+	update-initramfs -k all -u 1>&2
     elif command -v dracut >/dev/null; then
 	# Logic taken from dracut.postinst
 	for kernel in /boot/vmlinu[xz]-*; do
 	    kversion="${kernel#/boot/vmlinu[xz]-}"
 	    if [ "$kversion" != "*" ]; then
-		/etc/kernel/postinst.d/dracut "$kversion"
+		/etc/kernel/postinst.d/dracut "$kversion" 1>&2
 	    fi
 	done
     fi
