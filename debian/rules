@@ -9,8 +9,15 @@ ifneq (,$(filter parallel=%,$(DEB_BUILD_OPTIONS)))
     MAKEFLAGS += -j$(NUMJOBS)
 endif
 
+PKG_CONFIG?=pkg-config
+
 %:
 	dh $@
+
+override_dh_installdirs-indep:
+	dh_installdirs
+	dh_installdirs $(patsubst /%,%,$(shell $(PKG_CONFIG) \
+		systemd --variable=systemdsystemunitdir))
 
 override_dh_auto_build-arch:
 	LC_ALL=en_US.utf8 dh_auto_build -- all doc
