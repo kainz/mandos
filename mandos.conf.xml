@@ -3,7 +3,7 @@
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY CONFNAME "mandos.conf">
 <!ENTITY CONFPATH "<filename>/etc/mandos/mandos.conf</filename>">
-<!ENTITY TIMESTAMP "2019-06-20">
+<!ENTITY TIMESTAMP "2023-04-30">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -69,7 +69,7 @@
   <refsect1 id="description">
     <title>DESCRIPTION</title>
     <para>
-      The file &CONFPATH; is a simple configuration file for
+      The file &CONFPATH; is a configuration file for
       <citerefentry><refentrytitle>mandos</refentrytitle>
       <manvolnum>8</manvolnum></citerefentry>, and is read by it at
       startup.  The configuration file starts with <quote><literal
