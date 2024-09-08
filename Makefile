@@ -615,9 +615,11 @@ purge-server: uninstall-server
 		$(DESTDIR)/etc/dbus-1/system.d/mandos.conf
 		$(DESTDIR)/etc/default/mandos \
 		$(DESTDIR)/etc/init.d/mandos \
-		$(SYSTEMD)/mandos.service \
 		$(DESTDIR)/run/mandos.pid \
 		$(DESTDIR)/var/run/mandos.pid
+	if [ "$(SYSTEMD)" != "$(DESTDIR)" -a -d "$(SYSTEMD)" ]; then \
+		-rm --force -- $(SYSTEMD)/mandos.service; \
+	fi
 	-rmdir $(CONFDIR)
 
 .PHONY: purge-client
