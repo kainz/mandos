@@ -9,7 +9,7 @@ Build-Depends: debhelper (>= 10), docbook-xml, docbook-xsl,
 	libglib2.0-dev (>=2.40), libgnutls28-dev (>= 3.3.0),
 	libgnutls28-dev (>= 3.6.6) | libgnutls28-dev (<< 3.6.0),
 	xsltproc, pkg-config, libnl-route-3-dev,
-	systemd-dev | systemd (< 256~rc2-1)
+	systemd-dev | systemd (<< 256~rc2-1)
 Build-Depends-Indep: python3 (>= 3), python3-dbus, python3-gi,
 	po-debconf
 Standards-Version: 4.6.2
