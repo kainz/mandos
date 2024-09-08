@@ -4,6 +4,7 @@
 ** python-nemu
 
 * mandos-applet
+** [[https://www.freedesktop.org/software/polkit/docs/latest/polkit-apps.html][Writing polkit applications]]
 
 * mandos-client
 ** TODO A ~--server~ option which only adds to the server list.
