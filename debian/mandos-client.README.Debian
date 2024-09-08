@@ -100,12 +100,16 @@ packaging which are not also in the manual.
   "mandos=connect:<IP_ADDRESS>:<PORT_NUMBER>" on the kernel command
   line.
   
-  For very advanced users, it is possible to specify simply
-  "mandos=connect" on the kernel command line to make the system only
-  set up the network (using the data in the "ip=" option) and not pass
-  any extra "--connect" options to mandos-client at boot.  For this to
-  work, "--options-for=mandos-client:--connect=<ADDRESS>:<PORT>" needs
-  to be manually added to the file "/etc/mandos/plugin-runner.conf".
+  For very advanced users, it is possible to specify "mandos=connect"
+  on the kernel command line to make the system only set up the
+  network (using the data in the "ip=" option) and not pass any extra
+  "--connect" options to mandos-client at boot.  For this to work,
+  "--options-for=mandos-client:--connect=<ADDRESS>:<PORT>" needs to be
+  manually added to the file "/etc/mandos/plugin-runner.conf" or, if
+  dracut is used with systemd, the "--connect=<ADDRESS>:<PORT>"
+  options needs to be added to an environment variable in an override
+  file for the "ask-password-mandos" service, as detailed in the file
+  "/usr/lib/dracut/modules.d/90mandos/ask-password-mandos.service".
 
 * Diffie-Hellman Parameters
 
