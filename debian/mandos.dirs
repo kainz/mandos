@@ -4,6 +4,4 @@ etc/init.d
 etc/default
 usr/sbin
 var/lib/mandos
-usr/lib/tmpfiles.d
-usr/lib/sysusers.d
 usr/share/dbus-1/system.d

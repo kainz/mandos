@@ -17,7 +17,16 @@ PKG_CONFIG?=pkg-config
 override_dh_installdirs-indep:
 	dh_installdirs
 	dh_installdirs $(patsubst /%,%,$(shell $(PKG_CONFIG) \
-		systemd --variable=systemdsystemunitdir))
+		systemd --variable=systemdsystemunitdir)) \
+		$(patsubst /%,%,$(shell $(PKG_CONFIG) \
+		systemd --variable=tmpfilesdir)) \
+		$(patsubst /%,%,$(shell $(PKG_CONFIG) \
+		systemd --variable=sysusersdir))
+
+override_dh_installdirs-arch:
+	dh_installdirs
+	dh_installdirs $(patsubst /%,%,$(shell $(PKG_CONFIG) \
+		systemd --variable=sysusersdir))
 
 override_dh_auto_build-arch:
 	LC_ALL=en_US.utf8 dh_auto_build -- all doc
