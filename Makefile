@@ -375,11 +375,9 @@ run-server: confdir/mandos.conf confdir/clients.conf statedir
 
 # Used by run-server
 confdir/mandos.conf: mandos.conf
-	install --directory confdir
-	install --mode=u=rw,go=r $^ $@
+	install -D --mode=u=rw,go=r $^ $@
 confdir/clients.conf: clients.conf keydir/seckey.txt keydir/tls-pubkey.pem
-	install --directory confdir
-	install --mode=u=rw $< $@
+	install -D --mode=u=rw $< $@
 # Add a client password
 	./mandos-keygen --dir keydir --password --no-ssh >> $@
 statedir:
@@ -390,50 +388,51 @@ install: install-server install-client-nokey
 
 .PHONY: install-html
 install-html: html
-	install --directory $(htmldir)
-	install --mode=u=rw,go=r --target-directory=$(htmldir) \
+	install -D --mode=u=rw,go=r --target-directory=$(htmldir) \
 		$(htmldocs)
 
 .PHONY: install-server
 install-server: doc
-	install --directory $(CONFDIR)
 	if install --directory --mode=u=rwx --owner=$(USER) \
 		--group=$(GROUP) $(STATEDIR); then \
 		:; \
 	elif install --directory --mode=u=rwx $(STATEDIR); then \
 		chown -- $(USER):$(GROUP) $(STATEDIR) || :; \
 	fi
-	if [ "$(TMPFILES)" != "$(DESTDIR)" \
-			-a -d "$(TMPFILES)" ]; then \
-		install --mode=u=rw,go=r tmpfiles.d-mandos.conf \
+	if [ "$(TMPFILES)" != "$(DESTDIR)" ]; then \
+		install -D --mode=u=rw,go=r tmpfiles.d-mandos.conf \
 			$(TMPFILES)/mandos.conf; \
 	fi
-	if [ "$(SYSUSERS)" != "$(DESTDIR)" \
-			-a -d "$(SYSUSERS)" ]; then \
-		install --mode=u=rw,go=r sysusers.d-mandos.conf \
+	if [ "$(SYSUSERS)" != "$(DESTDIR)" ]; then \
+		install -D --mode=u=rw,go=r sysusers.d-mandos.conf \
 			$(SYSUSERS)/mandos.conf; \
 	fi
-	install --mode=u=rwx,go=rx mandos $(PREFIX)/sbin/mandos
+	install --directory $(PREFIX)/sbin
+	install --mode=u=rwx,go=rx --target-directory=$(PREFIX)/sbin \
+		mandos
 	install --mode=u=rwx,go=rx --target-directory=$(PREFIX)/sbin \
 		mandos-ctl
 	install --mode=u=rwx,go=rx --target-directory=$(PREFIX)/sbin \
 		mandos-monitor
+	install --directory $(CONFDIR)
 	install --mode=u=rw,go=r --target-directory=$(CONFDIR) \
 		mandos.conf
 	install --mode=u=rw --target-directory=$(CONFDIR) \
 		clients.conf
-	install --mode=u=rw,go=r dbus-mandos.conf \
+	install -D --mode=u=rw,go=r dbus-mandos.conf \
 		$(DBUSPOLICYDIR)/mandos.conf
-	install --mode=u=rwx,go=rx init.d-mandos \
+	install -D --mode=u=rwx,go=rx init.d-mandos \
 		$(DESTDIR)/etc/init.d/mandos
-	if [ "$(SYSTEMD)" != "$(DESTDIR)" -a -d "$(SYSTEMD)" ]; then \
-		install --mode=u=rw,go=r mandos.service $(SYSTEMD); \
+	if [ "$(SYSTEMD)" != "$(DESTDIR)" ]; then \
+		install -D --mode=u=rw,go=r mandos.service \
+			$(SYSTEMD); \
 	fi
-	install --mode=u=rw,go=r default-mandos \
+	install -D --mode=u=rw,go=r default-mandos \
 		$(DESTDIR)/etc/default/mandos
 	if [ -z $(DESTDIR) ]; then \
 		update-rc.d mandos defaults 25 15;\
 	fi
+	install --directory $(MANDIR)/man8 $(MANDIR)/man5
 	gzip --best --to-stdout mandos.8 \
 		> $(MANDIR)/man8/mandos.8.gz
 	gzip --best --to-stdout mandos-monitor.8 \
@@ -449,27 +448,26 @@ install-server: doc
 
 .PHONY: install-client-nokey
 install-client-nokey: all doc
-	install --directory $(LIBDIR)/mandos $(CONFDIR)
 	install --directory --mode=u=rwx $(KEYDIR) \
 		$(LIBDIR)/mandos/plugins.d \
 		$(LIBDIR)/mandos/plugin-helpers
-	if [ "$(SYSUSERS)" != "$(DESTDIR)" \
-			-a -d "$(SYSUSERS)" ]; then \
-		install --mode=u=rw,go=r sysusers.d-mandos.conf \
+	if [ "$(SYSUSERS)" != "$(DESTDIR)" ]; then \
+		install -D --mode=u=rw,go=r sysusers.d-mandos.conf \
 			$(SYSUSERS)/mandos-client.conf; \
 	fi
 	if [ "$(CONFDIR)" != "$(LIBDIR)/mandos" ]; then \
-		install --mode=u=rwx \
-			--directory "$(CONFDIR)/plugins.d" \
+		install --directory \
+			--mode=u=rwx "$(CONFDIR)/plugins.d" \
 			"$(CONFDIR)/plugin-helpers"; \
 	fi
-	install --mode=u=rwx,go=rx --directory \
+	install --directory --mode=u=rwx,go=rx \
 		"$(CONFDIR)/network-hooks.d"
 	install --mode=u=rwx,go=rx \
 		--target-directory=$(LIBDIR)/mandos plugin-runner
 	install --mode=u=rwx,go=rx \
 		--target-directory=$(LIBDIR)/mandos \
 		mandos-to-cryptroot-unlock
+	install --directory $(PREFIX)/sbin
 	install --mode=u=rwx,go=rx --target-directory=$(PREFIX)/sbin \
 		mandos-keygen
 	install --mode=u=rwx,go=rx \
@@ -493,18 +491,18 @@ install-client-nokey: all doc
 	install --mode=u=rwx,go=rx \
 		--target-directory=$(LIBDIR)/mandos/plugin-helpers \
 		plugin-helpers/mandos-client-iprouteadddel
-	install initramfs-tools-hook \
+	install -D initramfs-tools-hook \
 		$(INITRAMFSTOOLS)/hooks/mandos
-	install --mode=u=rw,go=r initramfs-tools-conf \
+	install -D --mode=u=rw,go=r initramfs-tools-conf \
 		$(INITRAMFSTOOLS)/conf.d/mandos-conf
-	install --mode=u=rw,go=r initramfs-tools-conf-hook \
+	install -D --mode=u=rw,go=r initramfs-tools-conf-hook \
 		$(INITRAMFSTOOLS)/conf-hooks.d/zz-mandos
-	install initramfs-tools-script \
+	install -D initramfs-tools-script \
 		$(INITRAMFSTOOLS)/scripts/init-premount/mandos
-	install initramfs-tools-script-stop \
+	install -D initramfs-tools-script-stop \
 		$(INITRAMFSTOOLS)/scripts/local-premount/mandos
-	install --directory $(DRACUTMODULE)
-	install --mode=u=rw,go=r --target-directory=$(DRACUTMODULE) \
+	install -D --mode=u=rw,go=r \
+		--target-directory=$(DRACUTMODULE) \
 		dracut-module/ask-password-mandos.path \
 		dracut-module/ask-password-mandos.service
 	install --mode=u=rwxs,go=rx \
@@ -513,6 +511,7 @@ install-client-nokey: all doc
 		dracut-module/cmdline-mandos.sh \
 		dracut-module/password-agent
 	install --mode=u=rw,go=r plugin-runner.conf $(CONFDIR)
+	install --directory $(MANDIR)/man8
 	gzip --best --to-stdout mandos-keygen.8 \
 		> $(MANDIR)/man8/mandos-keygen.8.gz
 	gzip --best --to-stdout plugin-runner.8mandos \
