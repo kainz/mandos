@@ -1,3 +1,20 @@
+mandos (1.8.16-1.2) unstable; urgency=medium
+
+  * Non-maintainer upload.
+  * Install mandos.service again. (Closes: #1069689)
+
+ -- Helmut Grohne <helmut@subdivi.de>  Mon, 22 Apr 2024 21:13:43 +0200
+
+mandos (1.8.16-1.1) unstable; urgency=medium
+
+  * Non-maintainer upload.
+  * Depend only on gnupg instead of transitional gnupg2 (Closes: #1055402).
+  * Build-Depend on systemd-dev instead of systemd (Closes: #1060546).
+  * Build-Depend on pkgconf instead of pkg-config.
+  * (Build-)Depend on current libgnutls.
+
+ -- Bastian Germann <bage@debian.org>  Fri, 19 Apr 2024 13:08:30 +0200
+
 mandos (1.8.16-1) unstable; urgency=medium
 
   * New upstream release.
