@@ -289,6 +289,13 @@ mandos.lsm: Makefile
 		--expression='s/\(mandos_\)[0-9.]\+\(\.orig\.tar\.gz\)/\1$(version)\2/' \
 		$@)
 
+# Uses nested functions
+plugin-runner: LDFLAGS += -Xlinker --no-warn-execstack
+dracut-module/password-agent: LDFLAGS += -Xlinker --no-warn-execstack
+plugins.d/password-prompt: LDFLAGS += -Xlinker --no-warn-execstack
+plugins.d/mandos-client: LDFLAGS += -Xlinker --no-warn-execstack
+plugins.d/plymouth: LDFLAGS += -Xlinker --no-warn-execstack
+
 # Need to add the GnuTLS, Avahi and GPGME libraries
 plugins.d/mandos-client: CFLAGS += $(GNUTLS_CFLAGS) $(strip \
 	) $(AVAHI_CFLAGS) $(GPGME_CFLAGS)
