@@ -289,12 +289,15 @@ mandos.lsm: Makefile
 		--expression='s/\(mandos_\)[0-9.]\+\(\.orig\.tar\.gz\)/\1$(version)\2/' \
 		$@)
 
-# Uses nested functions
+# Does the linker support the --no-warn-execstack option?
+ifeq ($(shell echo 'int main(){}'|$(CC) --language=c /dev/stdin -o /dev/null -Xlinker --no-warn-execstack && echo yes),yes)
+# These programs use nested functions, which uses an executable stack
 plugin-runner: LDFLAGS += -Xlinker --no-warn-execstack
 dracut-module/password-agent: LDFLAGS += -Xlinker --no-warn-execstack
 plugins.d/password-prompt: LDFLAGS += -Xlinker --no-warn-execstack
 plugins.d/mandos-client: LDFLAGS += -Xlinker --no-warn-execstack
 plugins.d/plymouth: LDFLAGS += -Xlinker --no-warn-execstack
+endif
 
 # Need to add the GnuTLS, Avahi and GPGME libraries
 plugins.d/mandos-client: CFLAGS += $(GNUTLS_CFLAGS) $(strip \
