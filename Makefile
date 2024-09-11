@@ -290,7 +290,7 @@ mandos.lsm: Makefile
 		$@)
 
 # Does the linker support the --no-warn-execstack option?
-ifeq ($(shell echo 'int main(){}'|$(CC) --language=c /dev/stdin -o /dev/null -Xlinker --no-warn-execstack && echo yes),yes)
+ifeq ($(shell echo 'int main(){}'|$(CC) --language=c /dev/stdin -o /dev/null -Xlinker --no-warn-execstack >/dev/null 2>&1 && echo yes),yes)
 # These programs use nested functions, which uses an executable stack
 plugin-runner: LDFLAGS += -Xlinker --no-warn-execstack
 dracut-module/password-agent: LDFLAGS += -Xlinker --no-warn-execstack
