@@ -1,6 +1,24 @@
 This NEWS file records noteworthy changes, very tersely.
 See the manual for detailed information.
 
+Version 1.8.17 (2024-09-12)
+* Improve documentation slightly, especially how to add extra options
+  to mandos-client when using dracut with systemd.
+* Make life easier for distribution packagers by making sure that
+  "make install" creates all required directories.
+* Server
+** When seeing clients.conf entries lacking both fingerprint and
+   key_id, show a warning and ignore them instead of crashing,
+* Client
+** Suppress most spurious compiler warnings.
+** Use 64-bit time.
+** In initramfs-tools-hook, be aware of new name of GPGME library,
+   libgpgme11t64.
+** In password-agent(8mandos), look for a Plymouth process in
+   alphabetical order, not in reverse alphabetical order.  This is
+   technically a user-visible change, but should never matter in
+   practice.
+
 Version 1.8.16 (2023-02-08)
 * Server
 ** Bug fix: Start client checkers after a random delay
