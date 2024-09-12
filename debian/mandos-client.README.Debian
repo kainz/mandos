@@ -75,7 +75,7 @@ packaging which are not also in the manual.
   
   Any plugins found in "/etc/mandos/plugins.d" will override and add
   to the normal Mandos plugins.  When adding or changing plugins, do
-  not forget to update the initital RAM disk image:
+  not forget to update the initial RAM disk image:
   
 	(For initramfs-tools:)
 	update-initramfs -k all -u
@@ -100,20 +100,24 @@ packaging which are not also in the manual.
   "mandos=connect:<IP_ADDRESS>:<PORT_NUMBER>" on the kernel command
   line.
   
-  For very advanced users, it is possible to specify simply
-  "mandos=connect" on the kernel command line to make the system only
-  set up the network (using the data in the "ip=" option) and not pass
-  any extra "--connect" options to mandos-client at boot.  For this to
-  work, "--options-for=mandos-client:--connect=<ADDRESS>:<PORT>" needs
-  to be manually added to the file "/etc/mandos/plugin-runner.conf".
+  For very advanced users, it is possible to specify "mandos=connect"
+  on the kernel command line to make the system only set up the
+  network (using the data in the "ip=" option) and not pass any extra
+  "--connect" options to mandos-client at boot.  For this to work,
+  "--options-for=mandos-client:--connect=<ADDRESS>:<PORT>" needs to be
+  manually added to the file "/etc/mandos/plugin-runner.conf" or, if
+  dracut is used with systemd, the "--connect=<ADDRESS>:<PORT>"
+  options needs to be added to an environment variable in an override
+  file for the "ask-password-mandos" service, as detailed in the file
+  "/usr/lib/dracut/modules.d/90mandos/ask-password-mandos.service".
 
 * Diffie-Hellman Parameters
 
   On installation, a file with Diffie-Hellman parameters,
   /etc/keys/mandos/dhparams.pem, will be generated and automatically
-  installed into the initital RAM disk image and also used by the
+  installed into the initial RAM disk image and also used by the
   Mandos Client on boot.  If different parameters are needed for
   policy or other reasons, simply replace the existing dhparams.pem
-  file and update the initital RAM disk image.
+  file and update the initial RAM disk image.
 
- -- Teddy Hogeborn <teddy@recompile.se>, Mon, 15 Jul 2019 16:47:02 +0200
+ -- Teddy Hogeborn <teddy@recompile.se>, Sun,  8 Sep 2024 02:09:20 +0200

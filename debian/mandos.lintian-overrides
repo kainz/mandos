@@ -1,7 +1,7 @@
 # This config file will normally have encrypted secret client keys in
 # it, so it must be kept unreadable for non-root users.
 #
-mandos binary: non-standard-file-perm etc/mandos/clients.conf 0600 != 0644
+mandos binary: non-standard-file-perm 0600 != 0644 [etc/mandos/clients.conf]
 
 # The debconf templates is only used for displaying information
 # detected in the postinst, not for saving answers to questions, so we

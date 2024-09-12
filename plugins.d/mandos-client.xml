@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY COMMANDNAME "mandos-client">
-<!ENTITY TIMESTAMP "2019-07-24">
+<!ENTITY TIMESTAMP "2023-10-21">
 <!ENTITY % common SYSTEM "../common.ent">
 %common;
 ]>
@@ -196,13 +196,9 @@
     </para>
     <para>
       This program is not meant to be run directly; it is really meant
-      to run as a plugin of the <application>Mandos</application>
-      <citerefentry><refentrytitle>plugin-runner</refentrytitle>
-      <manvolnum>8mandos</manvolnum></citerefentry>, which runs in the
-      initial <acronym>RAM</acronym> disk environment because it is
-      specified as a <quote>keyscript</quote> in the <citerefentry>
-      <refentrytitle>crypttab</refentrytitle><manvolnum>5</manvolnum>
-      </citerefentry> file.
+      to be run by other programs in the initial
+      <acronym>RAM</acronym> disk environment; see <xref
+      linkend="overview"/>.
     </para>
   </refsect1>
   
@@ -220,12 +216,10 @@
     <title>OPTIONS</title>
     <para>
       This program is commonly not invoked from the command line; it
-      is normally started by the <application>Mandos</application>
-      plugin runner, see <citerefentry><refentrytitle
-      >plugin-runner</refentrytitle><manvolnum>8mandos</manvolnum>
-      </citerefentry>.  Any command line options this program accepts
-      are therefore normally provided by the plugin runner, and not
-      directly.
+      is normally started by another program as described in <xref
+      linkend="description"/>.  Any command line options this program
+      accepts are therefore normally provided by the invoking program,
+      and not directly.
     </para>
     
     <variablelist>
@@ -482,24 +476,38 @@
     <title>OVERVIEW</title>
     <xi:include href="../overview.xml"/>
     <para>
-      This program is the client part.  It is a plugin started by
-      <citerefentry><refentrytitle>plugin-runner</refentrytitle>
-      <manvolnum>8mandos</manvolnum></citerefentry> which will run in
-      an initial <acronym>RAM</acronym> disk environment.
+      This program is the client part.  It is run automatically in an
+      initial <acronym>RAM</acronym> disk environment.
+    </para>
+    <para>
+      In an initial <acronym>RAM</acronym> disk environment using
+      <citerefentry><refentrytitle>systemd</refentrytitle>
+      <manvolnum>1</manvolnum></citerefentry>, this program is started
+      by the <application>Mandos</application> <citerefentry>
+      <refentrytitle>password-agent</refentrytitle>
+      <manvolnum>8mandos</manvolnum></citerefentry>, which in turn is
+      started automatically by the <citerefentry>
+      <refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum>
+      </citerefentry> <quote>Password Agent</quote> system.
+    </para>
+    <para>
+      In the case of a non-<citerefentry>
+      <refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum>
+      </citerefentry> environment, this program is started as a plugin
+      of the <application>Mandos</application> <citerefentry>
+      <refentrytitle>plugin-runner</refentrytitle>
+      <manvolnum>8mandos</manvolnum></citerefentry>, which runs in the
+      initial <acronym>RAM</acronym> disk environment because it is
+      specified as a <quote>keyscript</quote> in the <citerefentry>
+      <refentrytitle>crypttab</refentrytitle><manvolnum>5</manvolnum>
+      </citerefentry> file.
     </para>
     <para>
       This program could, theoretically, be used as a keyscript in
       <filename>/etc/crypttab</filename>, but it would then be
       impossible to enter a password for the encrypted root disk at
       the console, since this program does not read from the console
-      at all.  This is why a separate plugin runner (<citerefentry>
-      <refentrytitle>plugin-runner</refentrytitle>
-      <manvolnum>8mandos</manvolnum></citerefentry>) is used to run
-      both this program and others in in parallel,
-      <emphasis>one</emphasis> of which (<citerefentry>
-      <refentrytitle>password-prompt</refentrytitle>
-      <manvolnum>8mandos</manvolnum></citerefentry>) will prompt for
-      passwords on the system console.
+      at all.
     </para>
   </refsect1>
   
@@ -762,9 +770,8 @@
     <title>EXAMPLE</title>
     <para>
       Note that normally, command line options will not be given
-      directly, but via options for the Mandos <citerefentry
-      ><refentrytitle>plugin-runner</refentrytitle>
-      <manvolnum>8mandos</manvolnum></citerefentry>.
+      directly, but passed on via the program responsible for starting
+      this program; see <xref linkend="overview"/>.
     </para>
     <informalexample>
       <para>
@@ -872,7 +879,7 @@
       <manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>mandos</refentrytitle>
       <manvolnum>8</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>password-prompt</refentrytitle>
+      <citerefentry><refentrytitle>password-agent</refentrytitle>
       <manvolnum>8mandos</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>plugin-runner</refentrytitle>
       <manvolnum>8mandos</manvolnum></citerefentry>

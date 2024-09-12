@@ -1488,7 +1488,15 @@ void send_password_to_socket(const task_context task,
     if(send_buffer == NULL){
       error(0, errno, "Failed to allocate send_buffer");
     } else {
+#if defined(__GNUC__) and __GNUC__ >= 5
+#pragma GCC diagnostic push
+  /* mlock() does not access the memory */
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
       if(mlock(send_buffer, send_buffer_length) != 0){
+#if defined(__GNUC__) and __GNUC__ >= 5
+#pragma GCC diagnostic pop
+#endif
 	/* Warn but do not treat as fatal error */
 	if(errno != EPERM and errno != ENOMEM){
 	  error(0, errno, "Failed to lock memory for password"
@@ -4847,8 +4855,16 @@ void test_read_inotify_event_IN_DELETE_badname(__attribute__((unused))
   memcpy(ievent->name, dummy_file_name, sizeof(dummy_file_name));
   const size_t ievent_size = (sizeof(struct inotify_event)
 			      + sizeof(dummy_file_name));
+#if defined(__GNUC__) and __GNUC__ >= 11
+#pragma GCC diagnostic push
+  /* ievent is pointing into a struct which is of sufficient size */
+#pragma GCC diagnostic ignored "-Wstringop-overread"
+#endif
   g_assert_cmpint(write(pipefds[1], (char *)ievent, ievent_size),
 		  ==, ievent_size);
+#if defined(__GNUC__) and __GNUC__ >= 11
+#pragma GCC diagnostic pop
+#endif
   g_assert_cmpint(close(pipefds[1]), ==, 0);
 
   bool quit_now = false;
