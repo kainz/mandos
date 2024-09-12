@@ -44,7 +44,7 @@ OPTIMIZE:=-Os -fno-strict-aliasing
 LANGUAGE:=-std=gnu11
 CPPFLAGS+=-D_FILE_OFFSET_BITS=64 -D_TIME_BITS=64
 htmldir:=man
-version:=1.8.16
+version:=1.8.17
 SED:=sed
 PKG_CONFIG?=pkg-config
 

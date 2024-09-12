@@ -1,3 +1,61 @@
+mandos (1.8.17-1) unstable; urgency=medium
+
+  * New upstream release.
+  * debian/control (Package: mandos/Depends): Fix "mandos: Depends on
+    transition package gnupg2" by removing "gnupg2 |".  (Closes: #1055402)
+  * debian/control (Source: mandos/Build-Depends): Fix "Please switch
+    Build-Depends to systemd-dev" by preferring systemd-dev to older
+    systemd (Closes: #1060546)
+  * Fix "reportbug: mandos-client does not include gpg-agent in initramfs"
+    by first trying the new library name, libgpgme11t64 (Closes: #1077927)
+  * Fix "mandos-client postrm purge can mysteriously fail" by making sure
+    that the maintainer scripts do not output anything to standard output
+    (Closes: #1079588)
+  * debian/mandos-client.postinst (update_initramfs): Add "1>&2" to
+    invocations of update-initramfs and /etc/kernel/postinst.d/dracut.
+    (add_mandos_user): Add "1>&2" to invocations of usermod, groupmod, and
+    adduser.
+    (create_keys): Add "1>&2" to invocations of mandos-keygen,
+    gpg-connect-agent, certtool, and openssl.
+    (create_dh_params): Add "1>&2" to invocations of certtool and openssl.
+    Add "--force" option to "rm".
+  * debian/mandos-client.postrm (update_initramfs): Add "1>&2" to
+    invocations of update-initramfs and /etc/kernel/postinst.d/dracut.
+  * Fix "mandos lost mandos.service systemd unit" by getting the correct
+    directory names from pkg-config (Closes: #1069689)
+  * debian/mandos-client.dirs (usr/lib/sysusers.d): Removed.
+  * debian/mandos.dirs (lib/systemd/system, usr/lib/tmpfiles.d,
+    usr/lib/sysusers.d): Removed.
+  * debian/rules (PKG_CONFIG): New; copied from Makefile.
+  * (override_dh_installdirs-indep): New; run dh_installdirs twice:  first
+    normally, and again for the systemd unit file directory and the
+    directories for the "tmpfilesdir" and "sysusersdir" variables from
+    pkg-config.
+    (override_dh_installdirs-arch): New; create directory for the
+    "sysusersdir" variable from pkg-config.
+  * debian/mandos.dirs: Change D-Bus policy directory
+    "/etc/dbus-1/session.d" to "/usr/share/dbus-1/session.d".
+  * debian/mandos.maintscript: New; remove the old D-Bus policy file.
+  * debian/mandos-client.README.Debian: Fix spelling.
+  * debian/mandos-client.README.Debian: Remove unnecessary word "simply".
+    Also add instructions on how to add the --connect= options to
+    mandos-client when using dracut.
+  * debian/mandos-client.postrm: Also shred(1) tls-privkkey.pem, just like
+    with seckey.txt.
+  * debian/mandos-client.postinst (update_initramfs): When using dracut,
+    but the initramfs image file does not yet exist (due to the kernel
+    package not having been configured), create a new empty file with the
+    correct permissions, so that dracut will use the correct permissions
+    when creating the initramfs image file.
+  * debian/control (Package: mandos/Depends): Add "libgnutls30t64" as an
+    alternative to libgnutls30.
+  * debian/mandos-client.lintian-overrides: Change to new lintian "pointed
+    hints" syntax.
+  * debian/mandos.lintian-overrides: - '' -
+  * debian/control (Standards-Version): Change to "4.7.0".
+
+ -- Teddy Hogeborn <teddy@recompile.se>  Thu, 12 Sep 2024 18:59:04 +0200
+
 mandos (1.8.16-1.2) unstable; urgency=medium
 
   * Non-maintainer upload.
