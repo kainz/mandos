@@ -29,7 +29,8 @@ ALL_SANITIZE_OPTIONS:=-fsanitize=leak -fsanitize=undefined \
 
 # For info about _FORTIFY_SOURCE, see feature_test_macros(7)
 # and <https://gcc.gnu.org/ml/gcc-patches/2004-09/msg02055.html>.
-FORTIFY:=-D_FORTIFY_SOURCE=3 -fstack-protector-all -fPIC
+FORTIFY:=-fstack-protector-all -fPIC
+CPPFLAGS+=-D_FORTIFY_SOURCE=3
 LINK_FORTIFY_LD:=-z relro -z now
 LINK_FORTIFY:=
 
@@ -41,7 +42,7 @@ endif
 #COVERAGE=--coverage
 OPTIMIZE:=-Os -fno-strict-aliasing
 LANGUAGE:=-std=gnu11
-FEATURES:=-D_FILE_OFFSET_BITS=64
+CPPFLAGS+=-D_FILE_OFFSET_BITS=64 -D_TIME_BITS=64
 htmldir:=man
 version:=1.8.16
 SED:=sed
@@ -63,6 +64,7 @@ LINUXVERSION:=$(shell uname --kernel-release)
 # DRACUTMODULE:=$(DESTDIR)/usr/lib/dracut/modules.d/90mandos
 # STATEDIR:=$(DESTDIR)/var/lib/mandos
 # LIBDIR:=$(PREFIX)/lib
+# DBUSPOLICYDIR:=$(DESTDIR)/etc/dbus-1/system.d
 ##
 
 ## These settings are for a package-type install
@@ -83,6 +85,7 @@ LIBDIR:=$(shell \
 			break; \
 		fi; \
 	done)
+DBUSPOLICYDIR:=$(DESTDIR)/usr/share/dbus-1/system.d
 ##
 
 SYSTEMD:=$(DESTDIR)$(shell $(PKG_CONFIG) systemd \
@@ -108,7 +111,7 @@ GLIB_LIBS:=$(shell $(PKG_CONFIG) --libs glib-2.0)
 
 # Do not change these two
 CFLAGS+=$(WARN) $(DEBUG) $(FORTIFY) $(COVERAGE) $(OPTIMIZE) \
-	$(LANGUAGE) $(FEATURES) -DVERSION='"$(version)"'
+	$(LANGUAGE) -DVERSION='"$(version)"'
 LDFLAGS+=-Xlinker --as-needed $(COVERAGE) $(LINK_FORTIFY) $(strip \
 	) $(foreach flag,$(LINK_FORTIFY_LD),-Xlinker $(flag))
 
@@ -286,6 +289,16 @@ mandos.lsm: Makefile
 		--expression='s/\(mandos_\)[0-9.]\+\(\.orig\.tar\.gz\)/\1$(version)\2/' \
 		$@)
 
+# Does the linker support the --no-warn-execstack option?
+ifeq ($(shell echo 'int main(){}'|$(CC) --language=c /dev/stdin -o /dev/null -Xlinker --no-warn-execstack >/dev/null 2>&1 && echo yes),yes)
+# These programs use nested functions, which uses an executable stack
+plugin-runner: LDFLAGS += -Xlinker --no-warn-execstack
+dracut-module/password-agent: LDFLAGS += -Xlinker --no-warn-execstack
+plugins.d/password-prompt: LDFLAGS += -Xlinker --no-warn-execstack
+plugins.d/mandos-client: LDFLAGS += -Xlinker --no-warn-execstack
+plugins.d/plymouth: LDFLAGS += -Xlinker --no-warn-execstack
+endif
+
 # Need to add the GnuTLS, Avahi and GPGME libraries
 plugins.d/mandos-client: CFLAGS += $(GNUTLS_CFLAGS) $(strip \
 	) $(AVAHI_CFLAGS) $(GPGME_CFLAGS)
@@ -372,11 +385,9 @@ run-server: confdir/mandos.conf confdir/clients.conf statedir
 
 # Used by run-server
 confdir/mandos.conf: mandos.conf
-	install --directory confdir
-	install --mode=u=rw,go=r $^ $@
+	install -D --mode=u=rw,go=r $^ $@
 confdir/clients.conf: clients.conf keydir/seckey.txt keydir/tls-pubkey.pem
-	install --directory confdir
-	install --mode=u=rw $< $@
+	install -D --mode=u=rw $< $@
 # Add a client password
 	./mandos-keygen --dir keydir --password --no-ssh >> $@
 statedir:
@@ -387,50 +398,51 @@ install: install-server install-client-nokey
 
 .PHONY: install-html
 install-html: html
-	install --directory $(htmldir)
-	install --mode=u=rw,go=r --target-directory=$(htmldir) \
+	install -D --mode=u=rw,go=r --target-directory=$(htmldir) \
 		$(htmldocs)
 
 .PHONY: install-server
 install-server: doc
-	install --directory $(CONFDIR)
 	if install --directory --mode=u=rwx --owner=$(USER) \
 		--group=$(GROUP) $(STATEDIR); then \
 		:; \
 	elif install --directory --mode=u=rwx $(STATEDIR); then \
 		chown -- $(USER):$(GROUP) $(STATEDIR) || :; \
 	fi
-	if [ "$(TMPFILES)" != "$(DESTDIR)" \
-			-a -d "$(TMPFILES)" ]; then \
-		install --mode=u=rw,go=r tmpfiles.d-mandos.conf \
+	if [ "$(TMPFILES)" != "$(DESTDIR)" ]; then \
+		install -D --mode=u=rw,go=r tmpfiles.d-mandos.conf \
 			$(TMPFILES)/mandos.conf; \
 	fi
-	if [ "$(SYSUSERS)" != "$(DESTDIR)" \
-			-a -d "$(SYSUSERS)" ]; then \
-		install --mode=u=rw,go=r sysusers.d-mandos.conf \
+	if [ "$(SYSUSERS)" != "$(DESTDIR)" ]; then \
+		install -D --mode=u=rw,go=r sysusers.d-mandos.conf \
 			$(SYSUSERS)/mandos.conf; \
 	fi
-	install --mode=u=rwx,go=rx mandos $(PREFIX)/sbin/mandos
+	install --directory $(PREFIX)/sbin
+	install --mode=u=rwx,go=rx --target-directory=$(PREFIX)/sbin \
+		mandos
 	install --mode=u=rwx,go=rx --target-directory=$(PREFIX)/sbin \
 		mandos-ctl
 	install --mode=u=rwx,go=rx --target-directory=$(PREFIX)/sbin \
 		mandos-monitor
+	install --directory $(CONFDIR)
 	install --mode=u=rw,go=r --target-directory=$(CONFDIR) \
 		mandos.conf
 	install --mode=u=rw --target-directory=$(CONFDIR) \
 		clients.conf
-	install --mode=u=rw,go=r dbus-mandos.conf \
-		$(DESTDIR)/etc/dbus-1/system.d/mandos.conf
-	install --mode=u=rwx,go=rx init.d-mandos \
+	install -D --mode=u=rw,go=r dbus-mandos.conf \
+		$(DBUSPOLICYDIR)/mandos.conf
+	install -D --mode=u=rwx,go=rx init.d-mandos \
 		$(DESTDIR)/etc/init.d/mandos
-	if [ "$(SYSTEMD)" != "$(DESTDIR)" -a -d "$(SYSTEMD)" ]; then \
-		install --mode=u=rw,go=r mandos.service $(SYSTEMD); \
+	if [ "$(SYSTEMD)" != "$(DESTDIR)" ]; then \
+		install -D --mode=u=rw,go=r mandos.service \
+			$(SYSTEMD); \
 	fi
-	install --mode=u=rw,go=r default-mandos \
+	install -D --mode=u=rw,go=r default-mandos \
 		$(DESTDIR)/etc/default/mandos
 	if [ -z $(DESTDIR) ]; then \
 		update-rc.d mandos defaults 25 15;\
 	fi
+	install --directory $(MANDIR)/man8 $(MANDIR)/man5
 	gzip --best --to-stdout mandos.8 \
 		> $(MANDIR)/man8/mandos.8.gz
 	gzip --best --to-stdout mandos-monitor.8 \
@@ -446,27 +458,26 @@ install-server: doc
 
 .PHONY: install-client-nokey
 install-client-nokey: all doc
-	install --directory $(LIBDIR)/mandos $(CONFDIR)
 	install --directory --mode=u=rwx $(KEYDIR) \
 		$(LIBDIR)/mandos/plugins.d \
 		$(LIBDIR)/mandos/plugin-helpers
-	if [ "$(SYSUSERS)" != "$(DESTDIR)" \
-			-a -d "$(SYSUSERS)" ]; then \
-		install --mode=u=rw,go=r sysusers.d-mandos.conf \
+	if [ "$(SYSUSERS)" != "$(DESTDIR)" ]; then \
+		install -D --mode=u=rw,go=r sysusers.d-mandos.conf \
 			$(SYSUSERS)/mandos-client.conf; \
 	fi
 	if [ "$(CONFDIR)" != "$(LIBDIR)/mandos" ]; then \
-		install --mode=u=rwx \
-			--directory "$(CONFDIR)/plugins.d" \
+		install --directory \
+			--mode=u=rwx "$(CONFDIR)/plugins.d" \
 			"$(CONFDIR)/plugin-helpers"; \
 	fi
-	install --mode=u=rwx,go=rx --directory \
+	install --directory --mode=u=rwx,go=rx \
 		"$(CONFDIR)/network-hooks.d"
 	install --mode=u=rwx,go=rx \
 		--target-directory=$(LIBDIR)/mandos plugin-runner
 	install --mode=u=rwx,go=rx \
 		--target-directory=$(LIBDIR)/mandos \
 		mandos-to-cryptroot-unlock
+	install --directory $(PREFIX)/sbin
 	install --mode=u=rwx,go=rx --target-directory=$(PREFIX)/sbin \
 		mandos-keygen
 	install --mode=u=rwx,go=rx \
@@ -490,18 +501,18 @@ install-client-nokey: all doc
 	install --mode=u=rwx,go=rx \
 		--target-directory=$(LIBDIR)/mandos/plugin-helpers \
 		plugin-helpers/mandos-client-iprouteadddel
-	install initramfs-tools-hook \
+	install -D initramfs-tools-hook \
 		$(INITRAMFSTOOLS)/hooks/mandos
-	install --mode=u=rw,go=r initramfs-tools-conf \
+	install -D --mode=u=rw,go=r initramfs-tools-conf \
 		$(INITRAMFSTOOLS)/conf.d/mandos-conf
-	install --mode=u=rw,go=r initramfs-tools-conf-hook \
+	install -D --mode=u=rw,go=r initramfs-tools-conf-hook \
 		$(INITRAMFSTOOLS)/conf-hooks.d/zz-mandos
-	install initramfs-tools-script \
+	install -D initramfs-tools-script \
 		$(INITRAMFSTOOLS)/scripts/init-premount/mandos
-	install initramfs-tools-script-stop \
+	install -D initramfs-tools-script-stop \
 		$(INITRAMFSTOOLS)/scripts/local-premount/mandos
-	install --directory $(DRACUTMODULE)
-	install --mode=u=rw,go=r --target-directory=$(DRACUTMODULE) \
+	install -D --mode=u=rw,go=r \
+		--target-directory=$(DRACUTMODULE) \
 		dracut-module/ask-password-mandos.path \
 		dracut-module/ask-password-mandos.service
 	install --mode=u=rwxs,go=rx \
@@ -510,6 +521,7 @@ install-client-nokey: all doc
 		dracut-module/cmdline-mandos.sh \
 		dracut-module/password-agent
 	install --mode=u=rw,go=r plugin-runner.conf $(CONFDIR)
+	install --directory $(MANDIR)/man8
 	gzip --best --to-stdout mandos-keygen.8 \
 		> $(MANDIR)/man8/mandos-keygen.8.gz
 	gzip --best --to-stdout plugin-runner.8mandos \
@@ -612,9 +624,11 @@ purge-server: uninstall-server
 		$(DESTDIR)/etc/dbus-1/system.d/mandos.conf
 		$(DESTDIR)/etc/default/mandos \
 		$(DESTDIR)/etc/init.d/mandos \
-		$(SYSTEMD)/mandos.service \
 		$(DESTDIR)/run/mandos.pid \
 		$(DESTDIR)/var/run/mandos.pid
+	if [ "$(SYSTEMD)" != "$(DESTDIR)" -a -d "$(SYSTEMD)" ]; then \
+		-rm --force -- $(SYSTEMD)/mandos.service; \
+	fi
 	-rmdir $(CONFDIR)
 
 .PHONY: purge-client

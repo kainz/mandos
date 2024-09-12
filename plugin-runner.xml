@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 	"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY COMMANDNAME "plugin-runner">
-<!ENTITY TIMESTAMP "2019-07-26">
+<!ENTITY TIMESTAMP "2023-04-30">
 <!ENTITY % common SYSTEM "common.ent">
 %common;
 ]>
@@ -423,9 +423,9 @@
     <title>PLUGINS</title>
     <para>
       This program will get a password by running a number of
-      <firstterm>plugins</firstterm>, which are simply executable
-      programs in a directory in the initial <acronym>RAM</acronym>
-      disk environment.  The default directory is
+      <firstterm>plugins</firstterm>, which are executable programs in
+      a directory in the initial <acronym>RAM</acronym> disk
+      environment.  The default directory is
       <filename>/lib/mandos/plugins.d</filename>, but this can be
       changed with the <option>--plugin-dir</option> option.  The
       plugins are started in parallel, and the first plugin to output
@@ -437,9 +437,9 @@
     <refsect2 id="writing_plugins">
       <title>WRITING PLUGINS</title>
       <para>
-	A plugin is simply a program which prints a password to its
-	standard output and then exits with a successful (zero) exit
-	status.  If the exit status is not zero, any output on
+	A plugin is an executable program which prints a password to
+	its standard output and then exits with a successful (zero)
+	exit status.  If the exit status is not zero, any output on
 	standard output will be ignored by the plugin runner.  Any
 	output on its standard error channel will simply be passed to
 	the standard error of the plugin runner, usually the system

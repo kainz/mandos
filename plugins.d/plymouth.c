@@ -372,7 +372,8 @@ pid_t get_pid(void){
       error_plus(0, errno, "scandir");
     }
     if(ret > 0){
-      for(int i = ret-1; i >= 0; i--){
+      const int num_entries = ret;
+      for(int i = 0; i < num_entries; i++){
 	if(proc_id == 0){
 	  ret = sscanf(direntries[i]->d_name, "%" SCNuMAX, &proc_id);
 	  if(ret < 0){

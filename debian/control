@@ -8,10 +8,11 @@ Build-Depends: debhelper (>= 10), docbook-xml, docbook-xsl,
 	libavahi-core-dev, libgpgme-dev | libgpgme11-dev,
 	libglib2.0-dev (>=2.40), libgnutls28-dev (>= 3.3.0),
 	libgnutls28-dev (>= 3.6.6) | libgnutls28-dev (<< 3.6.0),
-	xsltproc, pkg-config, libnl-route-3-dev, systemd
+	xsltproc, pkg-config, libnl-route-3-dev,
+	systemd-dev | systemd (<< 256~rc2-1)
 Build-Depends-Indep: python3 (>= 3), python3-dbus, python3-gi,
 	po-debconf
-Standards-Version: 4.6.2
+Standards-Version: 4.7.0
 Vcs-Bzr: https://ftp.recompile.se/pub/mandos/trunk
 Vcs-Browser: https://bzr.recompile.se/loggerhead/mandos/trunk/files
 Homepage: https://www.recompile.se/mandos
@@ -19,11 +20,11 @@ Rules-Requires-Root: binary-targets
 
 Package: mandos
 Architecture: all
-Depends: ${misc:Depends}, python3 (>= 3), libgnutls30 (>= 3.3.0),
-	libgnutls30 (>= 3.6.6) | libgnutls30 (<< 3.6.0),
+Depends: ${misc:Depends}, python3 (>= 3),
+	libgnutls30t64 | libgnutls30 (>= 3.3.0),
+	libgnutls30t64 | libgnutls30 (>= 3.6.6) | libgnutls30 (<< 3.6.0),
 	python3-dbus, python3-gi, avahi-daemon, adduser,
-	python3-urwid, gnupg2 | gnupg,
-	systemd-sysv | lsb-base (>= 3.0-6),
+	python3-urwid, gnupg, systemd-sysv | lsb-base (>= 3.0-6),
 	debconf (>= 1.5.5) | debconf-2.0
 Recommends: ssh-client | fping
 Suggests: libc6-dev | libc-dev, c-compiler
