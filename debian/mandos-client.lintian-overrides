@@ -20,6 +20,29 @@ mandos-client binary: elevated-privileges 4755 root/root [usr/lib/*/mandos/plugi
 mandos-client binary: elevated-privileges 4755 root/root [usr/lib/*/mandos/plugins.d/usplash]
 mandos-client binary: elevated-privileges 4755 root/root [usr/lib/*/mandos/plugins.d/plymouth]
 
+# These binaries are never executed in a running system, or from this
+# directory.  These files exist only to be copied from here into the
+# initial RAM disk image.
+mandos-client binary: executable-in-usr-lib [usr/lib/*/mandos/mandos-to-cryptroot-unlock]
+mandos-client binary: executable-in-usr-lib [usr/lib/*/mandos/plugin-helpers/mandos-client-iprouteadddel]
+mandos-client binary: executable-in-usr-lib [usr/lib/*/mandos/plugin-runner]
+mandos-client binary: executable-in-usr-lib [usr/lib/*/mandos/plugins.d/askpass-fifo]
+mandos-client binary: executable-in-usr-lib [usr/lib/*/mandos/plugins.d/mandos-client]
+mandos-client binary: executable-in-usr-lib [usr/lib/*/mandos/plugins.d/password-prompt]
+mandos-client binary: executable-in-usr-lib [usr/lib/*/mandos/plugins.d/plymouth]
+mandos-client binary: executable-in-usr-lib [usr/lib/*/mandos/plugins.d/splashy]
+mandos-client binary: executable-in-usr-lib [usr/lib/*/mandos/plugins.d/usplash]
+
+# This is the official directory for Dracut plugins, which are all
+# executable shell script files.
+mandos-client binary: executable-in-usr-lib [usr/lib/dracut/modules.d/90mandos/module-setup.sh]
+# These files are never executed in a running system, or from this
+# directory. These files exist only to be copied from here into the
+# initial RAM disk image by the dracut/90mandos/module-setup.sh
+# script.
+mandos-client binary: executable-in-usr-lib [usr/lib/dracut/modules.d/90mandos/cmdline-mandos.sh]
+mandos-client binary: executable-in-usr-lib [usr/lib/dracut/modules.d/90mandos/password-agent]
+
 # The directory /etc/mandos/plugins.d can be used by local system
 # administrators to place plugins in, overriding and complementing
 # /usr/lib/<arch>/mandos/plugins.d, and must be likewise protected.
