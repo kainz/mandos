@@ -3243,7 +3243,8 @@ def main():
     # From the Avahi example code
     DBusGMainLoop(set_as_default=True)
     main_loop = GLib.MainLoop()
-    bus = dbus.SystemBus()
+    if use_dbus or zeroconf:
+        bus = dbus.SystemBus()
     # End of Avahi example code
     if use_dbus:
         try:
