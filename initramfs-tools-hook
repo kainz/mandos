@@ -180,7 +180,7 @@ done
 
 # GPGME needs GnuPG
 gpg=/usr/bin/gpg
-libgpgme11_version="`dpkg-query --showformat='${Version}\n' --show libgpgme11t64 libgpgme11 2>/dev/null | head --lines=1`"
+libgpgme11_version="`dpkg-query --showformat='${Version}\n' --show libgpgme11t64 libgpgme11 2>/dev/null | sed --quiet --expression='/./{p;q}'`"
 if dpkg --compare-versions "$libgpgme11_version" ge 1.5.0-0.1; then
     if [ -e /usr/bin/gpgconf ]; then
 	if [ ! -e "${DESTDIR}/usr/bin/gpgconf" ]; then
