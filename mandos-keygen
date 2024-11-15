@@ -331,19 +331,22 @@ if [ "$mode" = password ]; then
     esac
 
     if [ $SSH -eq 1 ]; then
-	for ssh_keytype in ecdsa-sha2-nistp256 ed25519 rsa; do
-	    set +e
-	    ssh_fingerprint="`ssh-keyscan -t $ssh_keytype localhost 2>/dev/null`"
-	    err=$?
-	    set -e
-	    if [ $err -ne 0 ]; then
-		ssh_fingerprint=""
-		continue
-	    fi
-	    if [ -n "$ssh_fingerprint" ]; then
-		ssh_fingerprint="${ssh_fingerprint#localhost }"
-		break
-	    fi
+	# The -q option is new in OpenSSH 9.8
+	for ssh_keyscan_quiet in "-q " ""; do
+	    for ssh_keytype in ecdsa-sha2-nistp256 ed25519 rsa; do
+		set +e
+		ssh_fingerprint="`ssh-keyscan ${ssh_keyscan_quiet}-t $ssh_keytype localhost 2>/dev/null`"
+		err=$?
+		set -e
+		if [ $err -ne 0 ]; then
+		    ssh_fingerprint=""
+		    continue
+		fi
+		if [ -n "$ssh_fingerprint" ]; then
+		    ssh_fingerprint="${ssh_fingerprint#localhost }"
+		    break 2
+		fi
+	    done
 	done
     fi
 
@@ -434,7 +437,7 @@ if [ "$mode" = password ]; then
 	    }
 	}' < "$SECFILE"
     if [ -n "$ssh_fingerprint" ]; then
-	echo 'checker = ssh-keyscan -t '"$ssh_keytype"' %%(host)s 2>/dev/null | grep --fixed-strings --line-regexp --quiet --regexp=%%(host)s" %(ssh_fingerprint)s"'
+	echo 'checker = ssh-keyscan '"$ssh_keyscan_quiet"'-t '"$ssh_keytype"' %%(host)s 2>/dev/null | grep --fixed-strings --line-regexp --quiet --regexp=%%(host)s" %(ssh_fingerprint)s"'
 	echo "ssh_fingerprint = ${ssh_fingerprint}"
     fi
 fi
