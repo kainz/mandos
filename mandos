@@ -110,6 +110,19 @@ try:
 except AttributeError:
     shlex.quote = re.escape
 
+# Add os.set_inheritable if it does not exist
+try:
+    os.set_inheritable
+except AttributeError:
+    def set_inheritable(fd, inheritable):
+        flags = fcntl.fcntl(fd, fcntl.F_GETFD)
+        if inheritable and ((flags & fcntl.FD_CLOEXEC) != 0):
+            fcntl.fcntl(fd, fcntl.F_SETFL, flags & ~fcntl.FD_CLOEXEC)
+        elif (not inheritable) and ((flags & fcntl.FD_CLOEXEC) == 0):
+            fcntl.fcntl(fd, fcntl.F_SETFL, flags | fcntl.FD_CLOEXEC)
+    os.set_inheritable = set_inheritable
+    del set_inheritable
+
 # Show warnings by default
 if not sys.warnoptions:
     import warnings
@@ -3099,6 +3112,7 @@ def main():
         while 0 <= server_settings["socket"] <= 2:
             server_settings["socket"] = os.dup(server_settings
                                                ["socket"])
+        os.set_inheritable(server_settings["socket"], False)
     del server_config
 
     # Override the settings from the config file with command line
