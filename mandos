@@ -3096,7 +3096,7 @@ def main():
         # Later, stdin will, and stdout and stderr might, be dup'ed
         # over with an opened os.devnull.  But we don't want this to
         # happen with a supplied network socket.
-        if 0 <= server_settings["socket"] <= 2:
+        while 0 <= server_settings["socket"] <= 2:
             server_settings["socket"] = os.dup(server_settings
                                                ["socket"])
     del server_config
