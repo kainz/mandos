@@ -64,6 +64,7 @@ logging.captureWarnings(True)   # Show warnings via the logging system
 locale.setlocale(locale.LC_ALL, "")
 
 logging.getLogger("dbus.proxies").setLevel(logging.CRITICAL)
+logging.getLogger("urwid").setLevel(logging.INFO)
 
 # Some useful constants
 domain = "se.recompile"
