@@ -128,9 +128,11 @@ class MandosClientPropertyCache:
         self.property_changed_match.remove()
 
 
-class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
+class MandosClientWidget(MandosClientPropertyCache, urwid.Widget):
     """A Mandos Client which is visible on the screen.
     """
+
+    _sizing = frozenset(["flow"])
 
     def __init__(self, server_proxy_object=None, update_hook=None,
                  delete_hook=None, **kwargs):
@@ -226,13 +228,13 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
 
     def selectable(self):
         """Make this a "selectable" widget.
-        This overrides the method from urwid.FlowWidget."""
+        This overrides the method from urwid.Widget."""
         return True
 
     def rows(self, maxcolrow, focus=False):
         """How many rows this widget will occupy might depend on
         whether we have focus or not.
-        This overrides the method from urwid.FlowWidget"""
+        This overrides the method from urwid.Widget"""
         return self.current_widget(focus).rows(maxcolrow, focus=focus)
 
     def current_widget(self, focus=False):
@@ -330,13 +332,13 @@ class MandosClientWidget(urwid.FlowWidget, MandosClientPropertyCache):
 
     def render(self, maxcolrow, focus=False):
         """Render differently if we have focus.
-        This overrides the method from urwid.FlowWidget"""
+        This overrides the method from urwid.Widget"""
         return self.current_widget(focus).render(maxcolrow,
                                                  focus=focus)
 
     def keypress(self, maxcolrow, key):
         """Handle keys.
-        This overrides the method from urwid.FlowWidget"""
+        This overrides the method from urwid.Widget"""
         if key == "+":
             self.proxy.Set(client_interface, "Enabled",
                            dbus.Boolean(True), ignore_reply=True,
