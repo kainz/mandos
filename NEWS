@@ -1,6 +1,17 @@
 This NEWS file records noteworthy changes, very tersely.
 See the manual for detailed information.
 
+Version 1.8.18 (2024-11-24)
+* Client
+** Detect GPGME version correctly when building initramfs.
+* Server
+** Only connect D-Bus when necessary.
+** If a network socket is externally configured, avoid closing it, and
+   also make it non-inheritable.
+** mandos-keygen: Support ssh-keyscan from OpenSSH 9.8 or later.
+** mandos-monitor: Avoid debug messages and deprecation warnings from
+   Urwid.
+
 Version 1.8.17 (2024-09-12)
 * Improve documentation slightly, especially how to add extra options
   to mandos-client when using dracut with systemd.
