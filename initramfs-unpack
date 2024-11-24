@@ -65,6 +65,9 @@ for imgfile in "$@"; do
 	elif { $catimg 2>/dev/null | lzop --test >/dev/null 2>&1;
 	       [ ${PIPESTATUS[-1]} -eq 0 ]; }; then
 	    decomp="lzop --stdout --decompress"
+	elif { $catimg 2>/dev/null | zstd --test >/dev/null 2>&1;
+	       [ ${PIPESTATUS[-1]} -eq 0 ]; }; then
+	    decomp="zstdcat --stdout --decompress"
 	else
 	    skip=$((${skip}+1))
 	    echo "Could not determine compression of ${imgfile}; trying to skip ${skip} bytes" >&2

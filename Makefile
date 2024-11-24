@@ -57,6 +57,7 @@ LINUXVERSION:=$(shell uname --kernel-release)
 
 ## Use these settings for a traditional /usr/local install
 # PREFIX:=$(DESTDIR)/usr/local
+# BINDIR:=$(PREFIX)/sbin
 # CONFDIR:=$(DESTDIR)/etc/mandos
 # KEYDIR:=$(DESTDIR)/etc/mandos/keys
 # MANDIR:=$(PREFIX)/man
@@ -69,6 +70,7 @@ LINUXVERSION:=$(shell uname --kernel-release)
 
 ## These settings are for a package-type install
 PREFIX:=$(DESTDIR)/usr
+BINDIR:=$(PREFIX)/sbin
 CONFDIR:=$(DESTDIR)/etc/mandos
 KEYDIR:=$(DESTDIR)/etc/keys/mandos
 MANDIR:=$(PREFIX)/share/man
@@ -417,12 +419,11 @@ install-server: doc
 		install -D --mode=u=rw,go=r sysusers.d-mandos.conf \
 			$(SYSUSERS)/mandos.conf; \
 	fi
-	install --directory $(PREFIX)/sbin
-	install --mode=u=rwx,go=rx --target-directory=$(PREFIX)/sbin \
-		mandos
-	install --mode=u=rwx,go=rx --target-directory=$(PREFIX)/sbin \
+	install --directory $(BINDIR)
+	install --mode=u=rwx,go=rx --target-directory=$(BINDIR) mandos
+	install --mode=u=rwx,go=rx --target-directory=$(BINDIR) \
 		mandos-ctl
-	install --mode=u=rwx,go=rx --target-directory=$(PREFIX)/sbin \
+	install --mode=u=rwx,go=rx --target-directory=$(BINDIR) \
 		mandos-monitor
 	install --directory $(CONFDIR)
 	install --mode=u=rw,go=r --target-directory=$(CONFDIR) \
@@ -477,8 +478,8 @@ install-client-nokey: all doc
 	install --mode=u=rwx,go=rx \
 		--target-directory=$(LIBDIR)/mandos \
 		mandos-to-cryptroot-unlock
-	install --directory $(PREFIX)/sbin
-	install --mode=u=rwx,go=rx --target-directory=$(PREFIX)/sbin \
+	install --directory $(BINDIR)
+	install --mode=u=rwx,go=rx --target-directory=$(BINDIR) \
 		mandos-keygen
 	install --mode=u=rwx,go=rx \
 		--target-directory=$(LIBDIR)/mandos/plugins.d \
@@ -544,7 +545,7 @@ install-client-nokey: all doc
 .PHONY: install-client
 install-client: install-client-nokey
 # Post-installation stuff
-	-$(PREFIX)/sbin/mandos-keygen --dir "$(KEYDIR)"
+	-$(BINDIR)/mandos-keygen --dir "$(KEYDIR)"
 	if command -v update-initramfs >/dev/null; then \
 	    update-initramfs -k all -u; \
 	elif command -v dracut >/dev/null; then \
@@ -562,9 +563,9 @@ uninstall: uninstall-server uninstall-client
 
 .PHONY: uninstall-server
 uninstall-server:
-	-rm --force $(PREFIX)/sbin/mandos \
-		$(PREFIX)/sbin/mandos-ctl \
-		$(PREFIX)/sbin/mandos-monitor \
+	-rm --force $(BINDIR)/mandos \
+		$(BINDIR)/mandos-ctl \
+		$(BINDIR)/mandos-monitor \
 		$(MANDIR)/man8/mandos.8.gz \
 		$(MANDIR)/man8/mandos-monitor.8.gz \
 		$(MANDIR)/man8/mandos-ctl.8.gz \
@@ -579,7 +580,7 @@ uninstall-client:
 # to use it.
 	! grep --regexp='^ *[^ #].*keyscript=[^,=]*/mandos/' \
 		$(DESTDIR)/etc/crypttab
-	-rm --force $(PREFIX)/sbin/mandos-keygen \
+	-rm --force $(BINDIR)/mandos-keygen \
 		$(LIBDIR)/mandos/plugin-runner \
 		$(LIBDIR)/mandos/plugins.d/password-prompt \
 		$(LIBDIR)/mandos/plugins.d/mandos-client \
