@@ -437,6 +437,10 @@ if [ "$mode" = password ]; then
 	    }
 	}' < "$SECFILE"
     if [ -n "$ssh_fingerprint" ]; then
+	if [ -n "$ssh_keyscan_quiet" ]; then
+	    echo "# Note: if the Mandos server has OpenSSH older than 9.8, the ${ssh_keyscan_quiet}"
+	    echo "# option *must* be removed from the 'checker' setting below"
+	fi
 	echo 'checker = ssh-keyscan '"$ssh_keyscan_quiet"'-t '"$ssh_keytype"' %%(host)s 2>/dev/null | grep --fixed-strings --line-regexp --quiet --regexp=%%(host)s" %(ssh_fingerprint)s"'
 	echo "ssh_fingerprint = ${ssh_fingerprint}"
     fi
