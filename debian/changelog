@@ -1,3 +1,21 @@
+mandos (1.8.18-1) unstable; urgency=medium
+
+  * New upstream release.
+  * debian/control (Source: mandos/Build-Depends): Fix lintian warning
+    "build-depends-on-obsolete-package" by changing "pkg-config" to
+    "pkgconf | pkg-config".
+  * debian/mandos-client.lintian-overrides: Override experimental tag
+    "executable-in-usr-lib" about files which are not actually executed
+    from this location, and only exist to be copied to the initial RAM
+    disk image.  Also the Dracut module-setup.sh file, which merely
+    follows the pattern of all other Dracut module-setup.sh files from
+    other Dracut modules.
+  * debian/control (Package: mandos/Suggests): Add "python3 (>= 3.3)" and
+    "python (<= 2.6)" as alternatives to "libc6-dev | libc-dev" and
+    "c-compiler".  This avoids suggesting a C compiler unnecessarily.
+
+ -- Teddy Hogeborn <teddy@recompile.se>  Sun, 24 Nov 2024 16:14:16 +0100
+
 mandos (1.8.17-1) unstable; urgency=medium
 
   * New upstream release.

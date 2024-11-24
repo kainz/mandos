@@ -70,7 +70,7 @@ logging.getLogger("urwid").setLevel(logging.INFO)
 domain = "se.recompile"
 server_interface = domain + ".Mandos"
 client_interface = domain + ".Mandos.Client"
-version = "1.8.17"
+version = "1.8.18"
 
 try:
     dbus.OBJECT_MANAGER_IFACE
